@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Sun, Moon, Bell, User } from "lucide-react";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/components/ThemeProvider";
 
 export function Topbar() {
   const { theme, setTheme } = useTheme();
