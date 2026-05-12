@@ -32,8 +32,8 @@ export class IntakeService {
   }
 
   static async updateIntake(id, data) {
-    // Partial validation for updates
-    return IntakeRepository.update(id, data);
+    const validated = intakeSchema.partial().parse(data);
+    return IntakeRepository.update(id, validated);
   }
 
   static async createIntakeWithAdvance(intakeData, advanceAmount, advanceNotes) {

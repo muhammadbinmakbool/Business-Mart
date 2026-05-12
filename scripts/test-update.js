@@ -1,41 +1,40 @@
+const { IntakeService } = require("../src/modules/intake/services/IntakeService");
 const { PrismaClient } = require("@prisma/client");
 
+// Note: Using the Service instead of direct Prisma to test the coercion logic
 async function main() {
   const prisma = new PrismaClient();
   
   try {
-    console.log("--- Testing Intake Update Persistence ---");
+    console.log("--- Testing Intake Service Update Coercion ---");
     
-    // 1. Get the last intake
-    const intake = await prisma.intakeTransaction.findFirst({
-      orderBy: { id: "desc" }
-    });
+    const lastIntake = await prisma.intakeTransaction.findFirst({ orderBy: { id: "desc" } });
+    if (!lastIntake) throw new Error("No intake found.");
 
-    if (!intake) {
-      throw new Error("No intake found. Run test-intake.js first.");
-    }
+    console.log(`Original Intake: ${lastIntake.intakeNumber}, PartyId: ${lastIntake.partyId} (Type: ${typeof lastIntake.partyId})`);
 
-    console.log(`Original Intake: ${intake.intakeNumber}, Weight: ${intake.grossWeight}`);
+    // Mimic formData strings
+    const mockData = {
+      partyId: lastIntake.partyId.toString(),
+      productId: lastIntake.productId.toString(),
+      grossWeight: "3500.50",
+      notes: "Updated via service coercion test"
+    };
 
-    // 2. Update Intake
-    const updated = await prisma.intakeTransaction.update({
-      where: { id: intake.id },
-      data: {
-        grossWeight: 3000,
-        notes: "Updated via test script"
-      }
-    });
+    console.log("Updating with strings...");
+    const updated = await IntakeService.updateIntake(lastIntake.id, mockData);
 
-    console.log(`Updated Intake: ${updated.intakeNumber}, Weight: ${updated.grossWeight}`);
+    console.log(`Updated Intake: ${updated.intakeNumber}, PartyId: ${updated.partyId} (Type: ${typeof updated.partyId})`);
+    console.log(`New Weight: ${updated.grossWeight} (Type: ${typeof updated.grossWeight})`);
 
-    if (updated.grossWeight.toString() === "3000.00") {
-      console.log("\n--- Step 3 Update Check SUCCESS ---");
+    if (typeof updated.partyId === 'number' && updated.grossWeight.toString() === "3500.5") {
+       console.log("\n--- Service Coercion Check SUCCESS ---");
     } else {
-      console.error("\n--- Verification FAILED: Weight mismatch ---");
+       console.error("\n--- Verification FAILED ---");
     }
 
   } catch (error) {
-    console.error("\n--- Step 3 Update Check FAILED ---");
+    console.error("\n--- Service Coercion Check FAILED ---");
     console.error(error);
   } finally {
     await prisma.$disconnect();

@@ -93,7 +93,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
               </div>
               <div className="bg-primary/5 p-4 rounded-lg space-y-1">
                 <span className="text-[10px] font-bold uppercase text-primary">Gross Weight</span>
-                <div className="text-2xl font-bold text-primary">{Number(intake.grossWeight).toLocaleString()} <span className="text-sm font-normal italic">{intake.product.unitType}</span></div>
+                <div className="text-2xl font-bold text-primary">{Number(intake.grossWeight).toLocaleString()} <span className="text-sm font-normal italic">KG</span></div>
               </div>
             </div>
 
