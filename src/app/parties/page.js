@@ -52,10 +52,10 @@ export default async function PartiesPage() {
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-lg">{party.name}</h3>
                     <span className={cn(
-                      "text-[10px] uppercase font-bold px-1.5 py-0.5 rounded",
-                      party.partyType === "SUPPLIER" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" :
-                      party.partyType === "BUYER" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" :
-                      "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                      "text-[10px] uppercase font-bold px-2 py-0.5 rounded-full shadow-sm border",
+                      party.partyType === "SUPPLIER" ? "bg-blue-600 text-white border-blue-700" :
+                      party.partyType === "BUYER" ? "bg-emerald-600 text-white border-emerald-700" :
+                      "bg-violet-600 text-white border-violet-700"
                     )}>
                       {party.partyType}
                     </span>

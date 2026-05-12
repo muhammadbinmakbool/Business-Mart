@@ -13,12 +13,11 @@ export async function createProductAction(formData) {
 
   try {
     await ProductService.createProduct(data);
+    revalidatePath("/products");
+    return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to create product" };
   }
-
-  revalidatePath("/products");
-  redirect("/products");
 }
 
 export async function updateProductAction(id, formData) {
@@ -30,12 +29,11 @@ export async function updateProductAction(id, formData) {
 
   try {
     await ProductService.updateProduct(id, data);
+    revalidatePath("/products");
+    return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to update product" };
   }
-
-  revalidatePath("/products");
-  redirect("/products");
 }
 
 export async function toggleProductStatusAction(id, isActive) {

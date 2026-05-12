@@ -16,12 +16,11 @@ export async function createPartyAction(formData) {
 
   try {
     await PartyService.createParty(data);
+    revalidatePath("/parties");
+    return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to create party" };
   }
-
-  revalidatePath("/parties");
-  redirect("/parties");
 }
 
 export async function updatePartyAction(id, formData) {
@@ -36,12 +35,11 @@ export async function updatePartyAction(id, formData) {
 
   try {
     await PartyService.updateParty(id, data);
+    revalidatePath("/parties");
+    return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to update party" };
   }
-
-  revalidatePath("/parties");
-  redirect("/parties");
 }
 
 export async function togglePartyStatusAction(id, isActive) {
