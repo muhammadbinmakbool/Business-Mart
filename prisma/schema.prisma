@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -21,22 +19,53 @@ model User {
 }
 
 model Party {
-  id          Int      @id @default(autoincrement())
-  name        String
-  phoneNumber String
-  address     String?
-  notes       String?
-  partyType   String   // SUPPLIER, BUYER, BOTH
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  phoneNumber        String
+  address            String?
+  notes              String?
+  partyType          String              // SUPPLIER, BUYER, BOTH
+  isActive           Boolean             @default(true)
+  intakeTransactions IntakeTransaction[]
+  intakeAdvances     IntakeAdvance[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 }
 
 model Product {
-  id        Int      @id @default(autoincrement())
-  name      String
-  unitType  String   // BAG, KG, MAUND, PIECE
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  unitType           String              // BAG, KG, MAUND, PIECE
+  isActive           Boolean             @default(true)
+  intakeTransactions IntakeTransaction[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model IntakeTransaction {
+  id           Int             @id @default(autoincrement())
+  intakeNumber String          @unique // Format: INT-XXXXXX
+  entryDate    DateTime        @default(now())
+  partyId      Int
+  party        Party           @relation(fields: [partyId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  productId    Int
+  product      Product         @relation(fields: [productId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  bagCount     Int?
+  grossWeight  Decimal         @db.Decimal(18, 2)
+  notes        String?
+  status       String          @default("PENDING") // PENDING, COMPLETED, CANCELLED
+  advances     IntakeAdvance[]
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model IntakeAdvance {
+  id                  Int                @id @default(autoincrement())
+  intakeTransactionId Int?
+  intakeTransaction   IntakeTransaction? @relation(fields: [intakeTransactionId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  partyId             Int
+  party               Party              @relation(fields: [partyId], references: [id], onUpdate: NoAction, onDelete: NoAction)
+  amount              Decimal            @db.Decimal(18, 2)
+  notes               String?
+  createdAt           DateTime           @default(now())
 }

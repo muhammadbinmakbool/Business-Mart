@@ -1,0 +1,153 @@
+import React from "react";
+import Link from "next/link";
+import { ChevronLeft, Calendar, FileText, User, Package, Weight, Coins, CheckCircle, XCircle, Clock, Edit2 } from "lucide-react";
+import { IntakeService } from "@/modules/intake/services/IntakeService";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import StatusUpdateButtons from "./StatusUpdateButtons";
+
+export default async function IntakeDetailsPage({ params: paramsPromise }) {
+  const params = await paramsPromise;
+  const intake = await IntakeService.getIntake(params.id);
+
+  if (!intake) {
+    return <div className="p-8 text-center">Intake transaction not found.</div>;
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/intake"
+            className="rounded-full p-2 hover:bg-accent transition-colors"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Intake {intake.intakeNumber}</h1>
+            <p className="text-sm text-muted-foreground">Detailed arrival record and payments.</p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/intake/${intake.id}/edit`}
+            className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent transition-colors"
+          >
+            <Edit2 className="h-4 w-4" />
+            Edit
+          </Link>
+          <div className={cn(
+            "px-3 py-1 rounded-full text-xs font-bold uppercase border",
+            intake.status === "PENDING" ? "bg-amber-100 text-amber-700 border-amber-200" :
+            intake.status === "COMPLETED" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+            "bg-rose-100 text-rose-700 border-rose-200"
+          )}>
+            {intake.status}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 space-y-6">
+          {/* Main Info */}
+          <div className="rounded-xl border bg-card p-6 shadow-sm space-y-6">
+            <div className="grid gap-6 sm:grid-cols-2">
+              <div className="space-y-1">
+                <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Supplier</span>
+                <div className="flex items-center gap-2 font-medium">
+                  <User className="h-4 w-4 text-primary" />
+                  {intake.party.name}
+                </div>
+                <div className="text-xs text-muted-foreground ml-6">{intake.party.phoneNumber}</div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Product</span>
+                <div className="flex items-center gap-2 font-medium">
+                  <Package className="h-4 w-4 text-primary" />
+                  {intake.product.name}
+                </div>
+                <div className="text-xs text-muted-foreground ml-6">Unit: {intake.product.unitType}</div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Arrival Date</span>
+                <div className="flex items-center gap-2 font-medium">
+                  <Calendar className="h-4 w-4 text-primary" />
+                  {format(new Date(intake.entryDate), "PPPP")}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">System Timestamp</span>
+                <div className="flex items-center gap-2 font-medium text-muted-foreground text-sm">
+                  <Clock className="h-4 w-4" />
+                  {format(new Date(intake.createdAt), "dd MMM yyyy, hh:mm a")}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 pt-4 border-t">
+              <div className="bg-muted/30 p-4 rounded-lg space-y-1">
+                <span className="text-[10px] font-bold uppercase text-muted-foreground">Quantity</span>
+                <div className="text-2xl font-bold">{intake.bagCount || 0} <span className="text-sm font-normal text-muted-foreground italic">Bags</span></div>
+              </div>
+              <div className="bg-primary/5 p-4 rounded-lg space-y-1">
+                <span className="text-[10px] font-bold uppercase text-primary">Gross Weight</span>
+                <div className="text-2xl font-bold text-primary">{Number(intake.grossWeight).toLocaleString()} <span className="text-sm font-normal italic">{intake.product.unitType}</span></div>
+              </div>
+            </div>
+
+            {intake.notes && (
+              <div className="space-y-2 pt-4 border-t">
+                <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Notes</span>
+                <p className="text-sm bg-muted/20 p-3 rounded-md italic">"{intake.notes}"</p>
+              </div>
+            )}
+          </div>
+
+          {/* Advances Section */}
+          <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Coins className="h-5 w-5 text-amber-500" />
+              Advance Payments
+            </h2>
+            
+            {intake.advances.length === 0 ? (
+              <p className="text-sm text-muted-foreground italic">No advance payments recorded for this intake.</p>
+            ) : (
+              <div className="space-y-3">
+                {intake.advances.map(advance => (
+                  <div key={advance.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/10">
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold">Rs. {Number(advance.amount).toLocaleString()}</div>
+                      <div className="text-xs text-muted-foreground">{advance.notes}</div>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground text-right">
+                      {format(new Date(advance.createdAt), "dd MMM, hh:mm a")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Sidebar Actions */}
+        <div className="space-y-6">
+          <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Status Lifecycle</h2>
+            <StatusUpdateButtons intakeId={intake.id} currentStatus={intake.status} />
+          </div>
+
+          <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
+            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Print / Share</h2>
+            <button className="w-full flex items-center justify-center gap-2 py-2 text-sm border rounded-lg hover:bg-accent transition-colors">
+              <FileText className="h-4 w-4" />
+              Download Receipt
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -19,10 +19,10 @@ const menuItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Parties", href: "/parties", icon: Users },
   { name: "Products", href: "/products", icon: Package },
-  { name: "Transactions", href: "/transactions", icon: ArrowRightLeft },
+  { name: "Goods Intake", href: "/intake", icon: ArrowRightLeft },
+  { name: "Supplier Advances", href: "/advances", icon: ShieldCheck }, // Using ShieldCheck for now, can change icon later
   { name: "Ledger", href: "/ledger", icon: BookOpen },
   { name: "Rates", href: "/rates", icon: TrendingUp },
-  { name: "Auth", href: "/auth", icon: ShieldCheck },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

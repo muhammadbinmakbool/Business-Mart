@@ -10,3 +10,9 @@ export const UNIT_TYPES = {
   MAUND: "MAUND",
   PIECE: "PIECE",
 };
+
+export const INTAKE_STATUS = {
+  PENDING: "PENDING",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+};

@@ -9,29 +9,43 @@ Each module in `src/modules/` follows a consistent pattern:
 - `services/`: Contains business logic and orchestrates data flow.
 - `repositories/`: Handles direct database access via Prisma.
 - `validations/`: Contains Zod schemas for data validation.
-- `types/`: Domain-specific type definitions (if needed).
 
-### Naming Conventions
-- **Services**: `[Domain]Service.js` (e.g., `PartyService.js`)
-- **Repositories**: `[Domain]Repository.js` (e.g., `PartyRepository.js`)
-- **Actions**: `[action][Domain]Action` (e.g., `createPartyAction`)
+## Transaction Philosophy
 
-## Core Principles
+### 1. Immutability
+Transactions are historical facts. Once a Goods Intake or Advance Payment is recorded, it should not be silently modified. Any adjustments should be handled through status changes (e.g., CANCELLED) or separate adjustment entries.
 
-### 1. Transaction-Centric Design
-All business events (sales, purchases, payments) are treated as immutable transactions. 
-- **Derived Balances**: Never store current balances or stock levels in Master Data models (Party, Product). Always calculate them by aggregating transactions.
-- **Traceability**: Historical data should never be silently mutated.
+### 2. Derived Balances
+**Balances are NEVER stored.**
+Current supplier balances and product stock levels must be derived by aggregating transactions.
+- `Supplier Balance = (Sum of Purchases) - (Sum of Payments/Advances)`
+- `Stock = (Sum of Intakes) - (Sum of Sales)`
 
-### 2. Soft-Disable over Deletion
-Master Data (Parties, Products) should use the `isActive` flag for soft-disabling instead of hard deletion to maintain referential integrity with historical transactions.
+## Module: Goods Intake (Step 3)
 
-### 3. Lightweight Services
-Keep services focused on business logic. Avoid over-engineering with complex base classes or generic abstractions unless clearly beneficial.
+### Workflow
+1. **Intake Creation**: Supplier arrives with goods. We record the `entryDate`, `partyId`, `productId`, `bagCount`, and `grossWeight`.
+2. **Sequential Numbering**: The system automatically generates an `intakeNumber` (e.g., `INT-000001`) based on the database ID to ensure human-readable traceability.
+3. **Status Lifecycle**:
+   - `PENDING`: Goods arrived but not yet settled or processed.
+   - `COMPLETED`: Transaction finalized.
+   - `CANCELLED`: Entry error or returned goods.
+
+### Inline Advances
+For operational efficiency, the Intake form allows recording an immediate `IntakeAdvance` payment. This creates two separate but linked records:
+- An `IntakeTransaction`
+- An `IntakeAdvance` linked via `intakeTransactionId`
+
+## Database Reference (MSSQL)
+
+### Referential Integrity
+Due to MSSQL constraints on multiple cascade paths, relations in `IntakeTransaction` and `IntakeAdvance` use `onUpdate: NoAction` and `onDelete: NoAction`.
+- Deleting a Party or Product with existing transactions is restricted to prevent data orphans.
 
 ## Tech Stack
 - **Framework**: Next.js (App Router)
 - **Database**: MSSQL via Prisma ORM
 - **Validation**: Zod
 - **Styling**: Tailwind CSS 4
+- **Notifications**: Sonner
 - **Icons**: Lucide React
