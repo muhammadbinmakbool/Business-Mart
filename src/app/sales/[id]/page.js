@@ -9,13 +9,15 @@ import {
   Package, 
   Scale, 
   Banknote,
-  MoreVertical,
   Printer,
-  Download
+  Download,
+  Edit2,
+  History
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
+import RevertStatusButton from "./RevertStatusButton";
 import DeleteButton from "@/components/DeleteButton";
 import { deleteSaleAction, updateSaleStatusAction } from "@/modules/sales/controllers/saleActions";
 
@@ -55,12 +57,22 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
               )}>
                 {sale.status}
               </span>
+              {sale.status !== "PENDING" && (
+                <RevertStatusButton id={sale.id} />
+              )}
             </div>
             <p className="text-sm text-muted-foreground">Buyer invoice and transaction breakdown.</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href={`/sales/${sale.id}/edit`}
+            className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent transition-colors"
+          >
+            <Edit2 className="h-4 w-4" />
+            Edit
+          </Link>
           <button className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent transition-colors">
             <Printer className="h-4 w-4" />
             Print
@@ -244,6 +256,26 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
                 <p className="text-sm italic text-muted-foreground leading-relaxed">
                    "{sale.notes}"
                 </p>
+             </div>
+           {/* Activity Log */}
+           {sale.changeLog && sale.changeLog.length > 0 && (
+             <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-4">
+                <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground border-b pb-3 flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Activity History
+                </h3>
+                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin">
+                   {sale.changeLog.slice().reverse().map((log, i) => (
+                     <div key={i} className="relative pl-4 border-l-2 border-muted pb-1">
+                        <div className="absolute -left-[5px] top-1 h-2 w-2 rounded-full bg-muted" />
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase">
+                           {format(new Date(log.timestamp), "MMM dd, HH:mm")}
+                        </div>
+                        <div className="text-xs font-bold">{log.action}</div>
+                        <div className="text-[10px] text-muted-foreground leading-tight">{log.summary}</div>
+                     </div>
+                   ))}
+                </div>
              </div>
            )}
         </div>

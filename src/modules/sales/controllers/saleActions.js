@@ -24,6 +24,18 @@ export async function deleteSaleAction(id) {
   }
 }
 
+export async function updateSaleAction(id, data) {
+  try {
+    await SaleService.updateSale(id, data);
+    revalidatePath("/sales");
+    revalidatePath(`/sales/${id}`);
+    return { success: true };
+  } catch (error) {
+    console.error("Sale update error:", error);
+    return { error: error.message || "Failed to update sale invoice" };
+  }
+}
+
 export async function updateSaleStatusAction(id, status) {
   try {
     await SaleService.updateStatus(id, status);

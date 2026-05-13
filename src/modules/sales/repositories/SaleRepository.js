@@ -44,6 +44,31 @@ export class SaleRepository {
     });
   }
 
+  static async update(id, data) {
+    const { items, adjustments, ...saleData } = data;
+    const saleId = parseInt(id);
+
+    return prisma.$transaction(async (tx) => {
+      // 1. Delete existing items and adjustments
+      await tx.saleItem.deleteMany({ where: { saleId } });
+      await tx.transactionAdjustment.deleteMany({ where: { saleId } });
+
+      // 2. Update the main transaction and create new related records
+      return tx.saleTransaction.update({
+        where: { id: saleId },
+        data: {
+          ...saleData,
+          items: {
+            create: items
+          },
+          adjustments: {
+            create: adjustments
+          }
+        }
+      });
+    });
+  }
+
   static async delete(id) {
     // Delete linked items and adjustments first (manual cascade for MSSQL)
     await prisma.saleItem.deleteMany({ where: { saleId: parseInt(id) } });
@@ -54,10 +79,10 @@ export class SaleRepository {
     });
   }
 
-  static async updateStatus(id, status) {
+  static async updateStatus(id, status, changeLog) {
     return prisma.saleTransaction.update({
       where: { id: parseInt(id) },
-      data: { status }
+      data: { status, changeLog }
     });
   }
 

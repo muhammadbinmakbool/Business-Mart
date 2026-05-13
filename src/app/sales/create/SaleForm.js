@@ -1,23 +1,32 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Plus, Trash2, Calculator, ReceiptText, Loader2, PlusCircle, X } from "lucide-react";
-import { createSaleAction } from "@/modules/sales/controllers/saleActions";
+import { Plus, Trash2, Calculator, ReceiptText, Loader2, PlusCircle, X, Save, AlertCircle } from "lucide-react";
+import { createSaleAction, updateSaleAction } from "@/modules/sales/controllers/saleActions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { round, calculateAdjustment } from "@/lib/financial";
 
-export default function SaleForm({ buyers, products }) {
+export default function SaleForm({ buyers, products, initialData = null }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Form State
-  const [partyId, setPartyId] = useState("");
-  const [entryDate, setEntryDate] = useState(new Date().toISOString().split("T")[0]);
-  const [notes, setNotes] = useState("");
-  const [items, setItems] = useState([{ productId: "", weight: "", rate: "", amount: 0 }]);
-  const [adjustments, setAdjustments] = useState([]);
+  const [partyId, setPartyId] = useState(initialData?.partyId?.toString() || "");
+  const [entryDate, setEntryDate] = useState(
+    initialData?.entryDate 
+      ? new Date(initialData.entryDate).toISOString().split("T")[0] 
+      : new Date().toISOString().split("T")[0]
+  );
+  const [notes, setNotes] = useState(initialData?.notes || "");
+  const [items, setItems] = useState(
+    initialData?.items?.map(item => ({
+      ...item,
+      productId: item.productId.toString()
+    })) || [{ productId: "", weight: "", rate: "", amount: 0 }]
+  );
+  const [adjustments, setAdjustments] = useState(initialData?.adjustments || []);
   
   // UI State
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
@@ -110,34 +119,40 @@ export default function SaleForm({ buyers, products }) {
 
     setIsSubmitting(true);
     try {
-      const result = await createSaleAction({
+      const data = {
         partyId,
         entryDate,
         notes,
         items,
         adjustments
-      });
+      };
+
+      let result;
+      if (initialData) {
+        result = await updateSaleAction(initialData.id, data);
+      } else {
+        result = await createSaleAction(data);
+      }
 
       if (result.error) {
         toast.error(result.error);
       } else {
-        toast.success("Sale invoice created successfully");
+        toast.success(initialData ? "Invoice updated successfully" : "Sale invoice created successfully");
         
-        if (e.nativeEvent.submitter?.name === "saveAndAnother") {
+        if (e.nativeEvent.submitter?.name === "saveAndAnother" && !initialData) {
           // Reset form for next entry
           setPartyId("");
           setItems([{ productId: "", weight: "", rate: "", amount: 0 }]);
           setAdjustments([]);
           setNotes("");
           toast.info("Form reset for next entry");
-          // Focus back on party selector
           document.querySelector('select')?.focus();
         } else {
-          router.push("/sales");
+          router.push(`/sales/${initialData?.id || result.id || ""}`);
         }
       }
     } catch (error) {
-      toast.error("Failed to create sale");
+      toast.error(initialData ? "Failed to update invoice" : "Failed to create sale");
     } finally {
       setIsSubmitting(false);
     }
@@ -145,8 +160,26 @@ export default function SaleForm({ buyers, products }) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
+      {initialData && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 text-amber-800 animate-in fade-in slide-in-from-top-2 duration-300">
+          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <p className="font-bold">Operational Warning</p>
+            <p>You are modifying a previously finalized invoice (<span className="font-mono font-bold uppercase">{initialData.saleNumber}</span>). All totals will be recalculated from source items and adjustments upon saving.</p>
+          </div>
+        </div>
+      )}
+
       {/* 1. Header Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-6 border-b">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pb-6 border-b">
+        {initialData && (
+           <div className="space-y-2">
+            <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Invoice #</label>
+            <div className="bg-muted px-4 py-3 rounded-lg font-mono font-bold text-muted-foreground border border-dashed cursor-not-allowed">
+              {initialData.saleNumber}
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
           <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Buyer (Party)</label>
           <select
@@ -382,21 +415,23 @@ export default function SaleForm({ buyers, products }) {
                 <Loader2 className="h-6 w-6 animate-spin" />
               ) : (
                 <>
-                  <ReceiptText className="h-6 w-6" />
-                  GENERATE & CLOSE
+                  {initialData ? <Save className="h-6 w-6" /> : <ReceiptText className="h-6 w-6" />}
+                  {initialData ? "UPDATE INVOICE" : "GENERATE & CLOSE"}
                 </>
               )}
             </button>
 
-            <button
-              type="submit"
-              name="saveAndAnother"
-              disabled={isSubmitting}
-              className="w-full bg-background border-2 border-primary/20 text-primary py-3 rounded-xl font-bold text-sm hover:bg-primary/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              <PlusCircle className="h-4 w-4" />
-              SAVE & ADD ANOTHER
-            </button>
+            {!initialData && (
+              <button
+                type="submit"
+                name="saveAndAnother"
+                disabled={isSubmitting}
+                className="w-full bg-background border-2 border-primary/20 text-primary py-3 rounded-xl font-bold text-sm hover:bg-primary/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <PlusCircle className="h-4 w-4" />
+                SAVE & ADD ANOTHER
+              </button>
+            )}
 
             <p className="text-[10px] text-center text-muted-foreground mt-4 font-bold uppercase tracking-widest">
               Review all items and charges before saving

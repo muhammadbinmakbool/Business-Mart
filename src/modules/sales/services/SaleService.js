@@ -5,19 +5,67 @@ import { calculateAdjustment, round, roundWeight, roundRate } from "@/lib/financ
 export class SaleService {
   static async listSales() {
     const sales = await SaleRepository.getAll();
-    return sales.map(this.serializeSale);
+    return sales.filter(s => !s.isDeleted).map(this.serializeSale);
   }
 
   static async getSale(id) {
     const sale = await SaleRepository.getById(id);
-    if (!sale) return null;
+    if (!sale || sale.isDeleted) return null;
     return this.serializeSale(sale);
   }
 
   static async createSale(data) {
     const validated = saleSchema.parse(data);
+    const saleData = this.calculateSaleTotals(validated);
     
-    // 1. Calculate Item Amounts & Total Weight/Base Amount
+    const log = [{
+      timestamp: new Date().toISOString(),
+      action: "CREATED",
+      summary: "Invoice generated"
+    }];
+
+    return SaleRepository.create({ 
+      ...saleData, 
+      status: "PENDING",
+      changeLog: JSON.stringify(log)
+    });
+  }
+
+  static async updateSale(id, data) {
+    const validated = saleSchema.parse(data);
+    const saleData = this.calculateSaleTotals(validated);
+    
+    const currentSale = await SaleRepository.getById(id);
+    if (!currentSale) throw new Error("Sale not found");
+
+    // 1. Create Snapshot of previous state
+    const previousState = {
+      baseAmount: Number(currentSale.baseAmount),
+      totalAdjustments: Number(currentSale.totalAdjustments),
+      finalAmount: Number(currentSale.finalAmount),
+      itemCount: currentSale.items.length,
+      adjustmentCount: currentSale.adjustments.length,
+      updatedAt: currentSale.updatedAt
+    };
+
+    // 2. Generate Change Log Entry
+    const newLogEntry = {
+      timestamp: new Date().toISOString(),
+      action: "UPDATED",
+      summary: `Invoice modified. Prev Total: Rs. ${previousState.finalAmount}`
+    };
+
+    const existingLog = currentSale.changeLog ? JSON.parse(currentSale.changeLog) : [];
+    const updatedLog = [...existingLog, newLogEntry];
+
+    return SaleRepository.update(id, { 
+      ...saleData,
+      previousState: JSON.stringify(previousState),
+      changeLog: JSON.stringify(updatedLog)
+    });
+  }
+
+  static calculateSaleTotals(validated) {
     let totalWeight = 0;
     let baseAmount = 0;
     
@@ -34,7 +82,6 @@ export class SaleService {
       };
     });
 
-    // 2. Calculate Adjustments
     let totalAdjustments = 0;
     const adjustments = validated.adjustments.map(adj => {
       const calculatedAmount = calculateAdjustment(adj.method, adj.value, { 
@@ -54,29 +101,35 @@ export class SaleService {
       };
     });
 
-    // 3. Final Total
     const finalAmount = round(baseAmount + totalAdjustments);
 
-    const saleData = {
+    return {
       ...validated,
       items,
       adjustments,
       totalWeight: roundWeight(totalWeight),
       baseAmount: round(baseAmount),
       totalAdjustments: round(totalAdjustments),
-      finalAmount: round(finalAmount),
-      status: "PENDING"
+      finalAmount: round(finalAmount)
     };
-
-    return SaleRepository.create(saleData);
   }
 
   static async deleteSale(id) {
+    // Soft delete support (can switch to hard delete if preferred, but schema supports flag now)
     return SaleRepository.delete(id);
   }
 
   static async updateStatus(id, status) {
-    return SaleRepository.updateStatus(id, status);
+    const currentSale = await SaleRepository.getById(id);
+    const existingLog = currentSale?.changeLog ? JSON.parse(currentSale.changeLog) : [];
+    
+    const updatedLog = [...existingLog, {
+      timestamp: new Date().toISOString(),
+      action: "STATUS_CHANGE",
+      summary: `Status changed to ${status}`
+    }];
+
+    return SaleRepository.updateStatus(id, status, JSON.stringify(updatedLog));
   }
 
   /**
@@ -99,7 +152,9 @@ export class SaleService {
         ...adj,
         value: Number(adj.value),
         calculatedAmount: Number(adj.calculatedAmount)
-      }))
+      })),
+      changeLog: sale.changeLog ? JSON.parse(sale.changeLog) : [],
+      previousState: sale.previousState ? JSON.parse(sale.previousState) : null
     };
   }
 }

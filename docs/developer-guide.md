@@ -28,6 +28,14 @@ Business Mart acts as a bridge between **Suppliers** and **Buyers**. This create
 
 Financial logic must support these separate perspectives while sharing a common `Base Product Amount` primitive.
 
+### 4. Safety & Traceability (The Operational Safety Layer)
+To balance flexibility with correctness, the system implements:
+- **Change Tracking**: Every modification (Items, Adjustments, Status) is logged in a `changeLog` JSON field.
+- **State Snapshots**: Before an invoice is updated, a `previousState` snapshot (Totals, Counts) is stored to preserve historical context and aid debugging.
+- **Status Locking**: `COMPLETED` invoices are locked. Reverting to `PENDING` is required to "unlock" the edit workflow.
+- **Financial Boundary**: ONLY `financial.js` is permitted to implement math formulas. All totals are derived from source items/adjustments on every save.
+- **Immutable Identifiers**: Primary identifiers like `saleNumber` must never be modified once generated.
+
 ## Module: Goods Intake (Step 3)
 
 ### Workflow
