@@ -32,4 +32,14 @@ export class PartyRepository {
       data: { isActive },
     });
   }
+  
+  static async delete(id) {
+    // Delete related transactional data for practical cleanup
+    await prisma.intakeAdvance.deleteMany({ where: { partyId: parseInt(id) } });
+    await prisma.intakeTransaction.deleteMany({ where: { partyId: parseInt(id) } });
+    
+    return prisma.party.delete({
+      where: { id: parseInt(id) },
+    });
+  }
 }

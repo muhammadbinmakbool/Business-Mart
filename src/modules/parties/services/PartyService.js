@@ -23,4 +23,7 @@ export class PartyService {
   static async togglePartyStatus(id, isActive) {
     return await PartyRepository.toggleStatus(id, isActive);
   }
+  static async deleteParty(id) {
+    return await PartyRepository.delete(id);
+  }
 }

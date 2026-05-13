@@ -32,4 +32,14 @@ export class ProductRepository {
       data: { isActive },
     });
   }
+
+  static async delete(id) {
+    // Delete related transactional data for practical cleanup
+    // Note: IntakeAdvance is linked to Party/Intake, not directly to Product, but IntakeTransaction is.
+    await prisma.intakeTransaction.deleteMany({ where: { productId: parseInt(id) } });
+    
+    return prisma.product.delete({
+      where: { id: parseInt(id) },
+    });
+  }
 }

@@ -10,7 +10,7 @@ export class IntakeRepository {
           select: { advances: true }
         }
       },
-      orderBy: { entryDate: "desc" },
+      orderBy: { id: "desc" },
     });
   }
 
@@ -39,6 +39,17 @@ export class IntakeRepository {
     return prisma.intakeTransaction.update({
       where: { id: parseInt(id) },
       data
+    });
+  }
+
+  static async delete(id) {
+    // Delete linked advances first
+    await prisma.intakeAdvance.deleteMany({
+      where: { intakeTransactionId: parseInt(id) }
+    });
+    
+    return prisma.intakeTransaction.delete({
+      where: { id: parseInt(id) }
     });
   }
 

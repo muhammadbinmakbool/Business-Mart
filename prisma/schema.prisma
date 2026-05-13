@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -24,48 +21,48 @@ model Party {
   phoneNumber        String
   address            String?
   notes              String?
-  partyType          String              // SUPPLIER, BUYER, BOTH
+  partyType          String
   isActive           Boolean             @default(true)
-  intakeTransactions IntakeTransaction[]
-  intakeAdvances     IntakeAdvance[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+  intakeAdvances     IntakeAdvance[]
+  intakeTransactions IntakeTransaction[]
 }
 
 model Product {
   id                 Int                 @id @default(autoincrement())
   name               String
-  unitType           String              // BAG, KG, MAUND, PIECE
+  unitType           String
   isActive           Boolean             @default(true)
-  intakeTransactions IntakeTransaction[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
+  intakeTransactions IntakeTransaction[]
 }
 
 model IntakeTransaction {
   id           Int             @id @default(autoincrement())
-  intakeNumber String          @unique // Format: INT-XXXXXX
+  intakeNumber String          @unique
   entryDate    DateTime        @default(now())
   partyId      Int
-  party        Party           @relation(fields: [partyId], references: [id], onUpdate: NoAction, onDelete: NoAction)
   productId    Int
-  product      Product         @relation(fields: [productId], references: [id], onUpdate: NoAction, onDelete: NoAction)
   bagCount     Int?
   grossWeight  Decimal         @db.Decimal(18, 2)
   notes        String?
-  status       String          @default("PENDING") // PENDING, COMPLETED, CANCELLED
-  advances     IntakeAdvance[]
+  status       String          @default("PENDING")
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
+  advances     IntakeAdvance[]
+  party        Party           @relation(fields: [partyId], references: [id], onUpdate: NoAction)
+  product      Product         @relation(fields: [productId], references: [id], onUpdate: NoAction)
 }
 
 model IntakeAdvance {
   id                  Int                @id @default(autoincrement())
   intakeTransactionId Int?
-  intakeTransaction   IntakeTransaction? @relation(fields: [intakeTransactionId], references: [id], onUpdate: NoAction, onDelete: NoAction)
   partyId             Int
-  party               Party              @relation(fields: [partyId], references: [id], onUpdate: NoAction, onDelete: NoAction)
   amount              Decimal            @db.Decimal(18, 2)
   notes               String?
   createdAt           DateTime           @default(now())
+  intakeTransaction   IntakeTransaction? @relation(fields: [intakeTransactionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  party               Party              @relation(fields: [partyId], references: [id], onUpdate: NoAction)
 }

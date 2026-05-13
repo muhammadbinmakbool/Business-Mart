@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Plus, Search, Edit2, Phone, MapPin } from "lucide-react";
 import { PartyService } from "@/modules/parties/services/PartyService";
 import { cn } from "@/lib/utils";
+import DeleteButton from "@/components/DeleteButton";
+import { deletePartyAction } from "@/modules/parties/controllers/partyActions";
 
 export default async function PartiesPage() {
   const parties = await PartyService.listParties();
@@ -73,12 +75,20 @@ export default async function PartiesPage() {
                     )}
                   </div>
                 </div>
-                <Link
-                  href={`/parties/${party.id}/edit`}
-                  className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Link>
+                <div className="flex items-center">
+                  <Link
+                    href={`/parties/${party.id}/edit`}
+                    className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Link>
+                  <DeleteButton 
+                    id={party.id} 
+                    deleteAction={deletePartyAction} 
+                    label="Party" 
+                    variant="icon" 
+                  />
+                </div>
               </div>
               
               {!party.isActive && (

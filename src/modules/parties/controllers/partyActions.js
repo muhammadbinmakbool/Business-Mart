@@ -50,3 +50,12 @@ export async function togglePartyStatusAction(id, isActive) {
     return { error: "Failed to toggle status" };
   }
 }
+export async function deletePartyAction(id) {
+  try {
+    await PartyService.deleteParty(id);
+    revalidatePath("/parties");
+    return { success: true };
+  } catch (error) {
+    return { error: error.message || "Failed to delete party" };
+  }
+}

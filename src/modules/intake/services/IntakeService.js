@@ -50,4 +50,8 @@ export class IntakeService {
     
     return intake;
   }
+
+  static async deleteIntake(id) {
+    return IntakeRepository.delete(id);
+  }
 }

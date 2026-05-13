@@ -23,4 +23,7 @@ export class ProductService {
   static async toggleProductStatus(id, isActive) {
     return await ProductRepository.toggleStatus(id, isActive);
   }
+  static async deleteProduct(id) {
+    return await ProductRepository.delete(id);
+  }
 }

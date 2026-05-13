@@ -44,3 +44,12 @@ export async function toggleProductStatusAction(id, isActive) {
     return { error: "Failed to toggle status" };
   }
 }
+export async function deleteProductAction(id) {
+  try {
+    await ProductService.deleteProduct(id);
+    revalidatePath("/products");
+    return { success: true };
+  } catch (error) {
+    return { error: error.message || "Failed to delete product" };
+  }
+}

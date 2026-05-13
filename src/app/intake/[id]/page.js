@@ -5,6 +5,8 @@ import { IntakeService } from "@/modules/intake/services/IntakeService";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
+import DeleteButton from "@/components/DeleteButton";
+import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
 
 export default async function IntakeDetailsPage({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -38,6 +40,13 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
             <Edit2 className="h-4 w-4" />
             Edit
           </Link>
+          <DeleteButton 
+            id={intake.id} 
+            deleteAction={deleteIntakeAction} 
+            redirectPath="/intake" 
+            label="Intake" 
+            buttonText="Delete"
+          />
           <div className={cn(
             "px-3 py-1 rounded-full text-xs font-bold uppercase border",
             intake.status === "PENDING" ? "bg-amber-100 text-amber-700 border-amber-200" :

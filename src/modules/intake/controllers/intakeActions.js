@@ -62,3 +62,12 @@ export async function updateIntakeAction(id, formData) {
     return { error: error.message || "Failed to update intake transaction" };
   }
 }
+export async function deleteIntakeAction(id) {
+  try {
+    await IntakeService.deleteIntake(id);
+    revalidatePath("/intake");
+    return { success: true };
+  } catch (error) {
+    return { error: error.message || "Failed to delete intake transaction" };
+  }
+}

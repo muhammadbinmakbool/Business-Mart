@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Plus, Search, Edit2, Package } from "lucide-react";
 import { ProductService } from "@/modules/products/services/ProductService";
 import { cn } from "@/lib/utils";
+import DeleteButton from "@/components/DeleteButton";
+import { deleteProductAction } from "@/modules/products/controllers/productActions";
 
 export default async function ProductsPage() {
   const products = await ProductService.listProducts();
@@ -51,12 +53,20 @@ export default async function ProductsPage() {
                 <div className="p-2 bg-primary/10 rounded-lg">
                   <Package className="h-5 w-5 text-primary" />
                 </div>
-                <Link
-                  href={`/products/${product.id}/edit`}
-                  className="rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-                >
-                  <Edit2 className="h-3.5 w-3.5" />
-                </Link>
+                <div className="flex items-center">
+                  <Link
+                    href={`/products/${product.id}/edit`}
+                    className="rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                  >
+                    <Edit2 className="h-3.5 w-3.5" />
+                  </Link>
+                  <DeleteButton 
+                    id={product.id} 
+                    deleteAction={deleteProductAction} 
+                    label="Product" 
+                    variant="icon" 
+                  />
+                </div>
               </div>
               <h3 className="font-semibold text-base mb-1">{product.name}</h3>
               <div className="flex items-center justify-between">
