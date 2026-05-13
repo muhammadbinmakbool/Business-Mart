@@ -7,11 +7,14 @@ import {
   LayoutDashboard, 
   Users, 
   Package, 
-  ArrowRightLeft, 
+  ShoppingCart,
+  Coins,
+  ReceiptText,
   BookOpen, 
   TrendingUp, 
   Settings,
-  ShieldCheck
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,8 +22,9 @@ const menuItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Parties", href: "/parties", icon: Users },
   { name: "Products", href: "/products", icon: Package },
-  { name: "Goods Intake", href: "/intake", icon: ArrowRightLeft },
-  { name: "Supplier Advances", href: "/advances", icon: ShieldCheck }, // Using ShieldCheck for now, can change icon later
+  { name: "Goods Intake", href: "/intake", icon: ShoppingCart },
+  { name: "Supplier Advances", href: "/advances", icon: Coins },
+  { name: "Sales / Billing", href: "/sales", icon: ReceiptText },
   { name: "Ledger", href: "/ledger", icon: BookOpen },
   { name: "Rates", href: "/rates", icon: TrendingUp },
   { name: "Settings", href: "/settings", icon: Settings },

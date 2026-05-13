@@ -21,6 +21,13 @@ Current supplier balances and product stock levels must be derived by aggregatin
 - `Supplier Balance = (Sum of Purchases) - (Sum of Payments/Advances)`
 - `Stock = (Sum of Intakes) - (Sum of Sales)`
 
+### 3. Financial Perspectives (The Middle-Entity Pattern)
+Business Mart acts as a bridge between **Suppliers** and **Buyers**. This creates two distinct financial flows for every physical transaction:
+- **Buyer Flow (Receivable)**: `Base Product Amount + Additions (Commission, Labour, etc.) = Final Invoice Total`.
+- **Supplier Flow (Payable)**: `Base Product Amount - Deductions (Kaat/Weight Deduction, Brokerage, Advances) = Final Settlement Total`.
+
+Financial logic must support these separate perspectives while sharing a common `Base Product Amount` primitive.
+
 ## Module: Goods Intake (Step 3)
 
 ### Workflow

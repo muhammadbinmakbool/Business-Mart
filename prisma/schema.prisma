@@ -27,6 +27,7 @@ model Party {
   updatedAt          DateTime            @updatedAt
   intakeAdvances     IntakeAdvance[]
   intakeTransactions IntakeTransaction[]
+  saleTransactions   SaleTransaction[]
 }
 
 model Product {
@@ -37,6 +38,7 @@ model Product {
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   intakeTransactions IntakeTransaction[]
+  saleItems          SaleItem[]
 }
 
 model IntakeTransaction {
@@ -65,4 +67,44 @@ model IntakeAdvance {
   createdAt           DateTime           @default(now())
   intakeTransaction   IntakeTransaction? @relation(fields: [intakeTransactionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   party               Party              @relation(fields: [partyId], references: [id], onUpdate: NoAction)
+}
+
+model SaleTransaction {
+  id           Int                     @id @default(autoincrement())
+  saleNumber   String                  @unique
+  entryDate    DateTime                @default(now())
+  partyId      Int
+  totalWeight  Decimal                 @db.Decimal(18, 2)
+  baseAmount   Decimal                 @db.Decimal(18, 2)
+  totalAdjustments Decimal             @db.Decimal(18, 2)
+  finalAmount  Decimal                 @db.Decimal(18, 2)
+  status       String                  @default("PENDING")
+  notes        String?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  party        Party                   @relation(fields: [partyId], references: [id], onUpdate: NoAction)
+  items        SaleItem[]
+  adjustments  TransactionAdjustment[]
+}
+
+model SaleItem {
+  id          Int             @id @default(autoincrement())
+  saleId      Int
+  productId   Int
+  weight      Decimal         @db.Decimal(18, 2)
+  rate        Decimal         @db.Decimal(18, 2)
+  amount      Decimal         @db.Decimal(18, 2)
+  sale        SaleTransaction @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product     Product         @relation(fields: [productId], references: [id], onUpdate: NoAction)
+}
+
+model TransactionAdjustment {
+  id               Int             @id @default(autoincrement())
+  saleId           Int
+  adjustmentType   String          // Commission, Labour, Rent, Kaat, etc.
+  method           String          // FIXED, PERCENTAGE, PER_WEIGHT
+  value            Decimal         @db.Decimal(18, 2)
+  calculatedAmount Decimal         @db.Decimal(18, 2)
+  direction        String          @default("ADD") // ADD or SUBTRACT
+  sale             SaleTransaction @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
