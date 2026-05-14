@@ -6,6 +6,10 @@ export class ProductService {
     return await ProductRepository.getAll();
   }
 
+  static async listProductsWithStock() {
+    return await ProductRepository.getAllWithStock();
+  }
+
   static async getProduct(id) {
     return await ProductRepository.getById(id);
   }

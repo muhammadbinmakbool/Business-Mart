@@ -9,14 +9,14 @@ import DeleteButton from "@/components/DeleteButton";
 import { deleteProductAction } from "@/modules/products/controllers/productActions";
 
 export default async function ProductsPage() {
-  const products = await ProductService.listProducts();
+  const products = await ProductService.listProductsWithStock();
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Products</h1>
-          <p className="text-muted-foreground">Manage your product catalog and unit types.</p>
+          <h1 className="text-3xl font-bold tracking-tight">Inventory / Products</h1>
+          <p className="text-muted-foreground">Derived real-time stock based on Intakes and Sales.</p>
         </div>
         <Link
           href="/products/create"
@@ -30,54 +30,81 @@ export default async function ProductsPage() {
       <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
         <Search className="h-4 w-4 text-muted-foreground" />
         <input
-          placeholder="Search products..."
+          placeholder="Search inventory..."
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-        {products.length === 0 ? (
-          <div className="col-span-full py-12 text-center border rounded-xl border-dashed">
-            <p className="text-muted-foreground">No products found. Add your first product.</p>
-          </div>
-        ) : (
-          products.map((product) => (
-            <div
-              key={product.id}
-              className={cn(
-                "group relative rounded-xl border bg-card p-4 shadow-sm transition-all hover:shadow-md",
-                !product.isActive && "opacity-60"
-              )}
-            >
-              <div className="flex items-center justify-between mb-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Package className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex items-center">
-                  <Link
-                    href={`/products/${product.id}/edit`}
-                    className="rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="border-b bg-muted/50 text-[11px] uppercase tracking-wider font-bold text-muted-foreground">
+                <th className="px-6 py-4">Product Name</th>
+                <th className="px-6 py-4 text-center">Unit</th>
+                <th className="px-6 py-4 text-right">Available Quantity</th>
+                <th className="px-6 py-4 text-center">Status</th>
+                <th className="px-6 py-4 text-center">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {products.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground italic">
+                    No products found in catalog.
+                  </td>
+                </tr>
+              ) : (
+                products.map((product) => (
+                  <tr 
+                    key={product.id} 
+                    className={cn(
+                      "hover:bg-muted/30 transition-colors group",
+                      !product.isActive && "opacity-50"
+                    )}
                   >
-                    <Edit2 className="h-3.5 w-3.5" />
-                  </Link>
-                  <DeleteButton 
-                    id={product.id} 
-                    deleteAction={deleteProductAction} 
-                    label="Product" 
-                    variant="icon" 
-                  />
-                </div>
-              </div>
-              <h3 className="font-semibold text-base mb-1">{product.name}</h3>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Unit: {product.unitType}</span>
-                {!product.isActive && (
-                  <span className="text-[10px] font-bold text-destructive uppercase">Disabled</span>
-                )}
-              </div>
-            </div>
-          ))
-        )}
+                    <td className="px-6 py-4 font-bold text-base flex items-center gap-3">
+                       <div className="p-2 bg-primary/10 rounded-lg">
+                          <Package className="h-4 w-4 text-primary" />
+                       </div>
+                       {product.name}
+                    </td>
+                    <td className="px-6 py-4 text-center text-muted-foreground">
+                      {product.unitType}
+                    </td>
+                    <td className="px-6 py-4 text-right font-mono text-lg font-black text-primary">
+                      {product.availableStock.toLocaleString()} <span className="text-[10px] text-muted-foreground font-normal uppercase">{product.unitType}</span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={cn(
+                        "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
+                        product.isActive ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-rose-100 text-rose-700 border-rose-200"
+                      )}>
+                        {product.isActive ? "Active" : "Disabled"}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Link
+                          href={`/products/${product.id}/edit`}
+                          className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Link>
+                        <DeleteButton 
+                          id={product.id} 
+                          deleteAction={deleteProductAction} 
+                          label="Product" 
+                          variant="icon" 
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

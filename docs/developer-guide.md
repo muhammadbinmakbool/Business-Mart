@@ -1,21 +1,26 @@
 # Business Mart Developer Guide
 
-## Core Principle: Clean POS Model
-The system enforces a strict separation between **Physical Stock (Operational)** and **Financial/Reporting (Derived)** layers.
+## Core Principle: Sales-Centric POS Architecture
+The system is built as a Sales-Centric POS where **Operational Events** drive the state, and **Financial Logic** remains a separate, derived layer.
 
-### 1. Sale as Stock-Out Event
-A `SaleTransaction` is defined strictly as an operational **Stock-Out** event.
-- It records **what** left (Product), **how much** (Weight), **when** (Entry Date), and **at what rate** (Operational Price).
-- It MUST NOT be coupled with inventory batches, supplier identities, or quality classifications at the database level.
+### 1. Sales as the Operational Event
+A `SaleTransaction` is the primary "Stock-Out" event. 
+- It is the source of truth for all outgoing inventory.
+- It MUST NOT trigger side-effects in the financial settlement or ledger layers.
 
-### 2. Inventory Derivation Rule
-Inventory balances are NEVER stored. They are derived in real-time using the following formula:
-- **Available Stock** = `SUM(Intake Gross Weight) - SUM(Sale Item Weight)`
-- Only transactions with non-cancelled statuses are included in this derivation.
+### 2. Intakes as the Supply Event
+An `IntakeTransaction` is the primary "Stock-In" event.
+- It records batch availability but does not couple with sales execution.
 
-### 3. Layer Separation
-- **Inventory Layer**: Strictly quantity-based (Product + Quantity). Pure operational source of truth.
-- **Financial/Reporting Layer**: (Future) Handles supplier settlements, buyer groupings, and profitability analysis by joining transaction events with business rules. This layer must not write back to or pollute the Inventory Layer.
+### 3. Inventory as a Derived Quantity View
+Product stock is never stored persistently. It is a **Derived View** calculated in real-time.
+- **Rule**: `Total Quantity = Sum(Intakes) - Sum(Sales)`
+- This ensures the inventory system remains simple, scalable, and general-purpose POS compatible.
+
+### 4. Separation: Operational vs. Financial
+- **Operational Layer**: (Sales, Intakes, Inventory) - Quantity and Event-driven.
+- **Financial/Reporting Layer**: (Invoices, Settlements, Ledger) - Derived from joining operational events.
+- **Traceability**: An optional metadata link between a Sale and an Intake (Soft Link Only).
 
 ## Architecture Overview
 Business Mart follows a **Modular Monolith** architecture. Code is organized by business domain (feature-based modules) rather than technical layers.

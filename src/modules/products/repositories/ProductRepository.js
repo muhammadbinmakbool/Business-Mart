@@ -7,6 +7,35 @@ export class ProductRepository {
     });
   }
 
+  static async getAllWithStock() {
+    const products = await prisma.product.findMany({
+      include: {
+        intakeTransactions: {
+          select: { grossWeight: true },
+          where: { status: { not: "CANCELLED" } }
+        },
+        saleItems: {
+          select: { weight: true },
+          where: { sale: { isDeleted: false, status: { not: "CANCELLED" } } }
+        }
+      },
+      orderBy: { name: "asc" }
+    });
+
+    return products.map(p => {
+      const totalIn = p.intakeTransactions.reduce((sum, i) => sum + Number(i.grossWeight), 0);
+      const totalOut = p.saleItems.reduce((sum, s) => sum + Number(s.weight), 0);
+      
+      // Clean up relations for the frontend
+      const { intakeTransactions, saleItems, ...rest } = p;
+      
+      return {
+        ...rest,
+        availableStock: totalIn - totalOut
+      };
+    });
+  }
+
   static async getById(id) {
     return prisma.product.findUnique({
       where: { id: parseInt(id) },
