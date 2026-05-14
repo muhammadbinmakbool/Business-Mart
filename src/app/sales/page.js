@@ -74,7 +74,10 @@ export default async function SalesPage() {
                       {sale.items.length > 1 ? (
                         <span className="italic">Multiple</span>
                       ) : (
-                        `Rs. ${Number(sale.items[0]?.rate || 0).toLocaleString()}`
+                        <>
+                          Rs. {Number(sale.items[0]?.rate || 0).toLocaleString()}
+                          <span className="text-[9px] opacity-60 ml-1 uppercase">/ {sale.items[0]?.rateUnit === "MAUND" ? "MND" : "KG"}</span>
+                        </>
                       )}
                     </td>
                     <td className="px-4 py-3.5 text-right font-bold text-base">

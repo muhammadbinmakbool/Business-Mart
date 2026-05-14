@@ -102,6 +102,7 @@ model SaleItem {
   productId   Int
   weight      Decimal         @db.Decimal(18, 2)
   rate        Decimal         @db.Decimal(18, 2)
+  rateUnit    String          @default("KG") // KG or MAUND
   amount      Decimal         @db.Decimal(18, 2)
   sale        SaleTransaction @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   product     Product         @relation(fields: [productId], references: [id], onUpdate: NoAction)

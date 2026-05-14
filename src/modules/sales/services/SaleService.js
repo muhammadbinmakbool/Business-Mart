@@ -51,7 +51,10 @@ export class SaleService {
 
     // 3. Compute totals (Operational math)
     const totalWeight = items.reduce((sum, item) => sum + Number(item.weight), 0);
-    const baseAmount = items.reduce((sum, item) => sum + (Number(item.weight) * Number(item.rate)), 0);
+    const baseAmount = items.reduce((sum, item) => {
+      const normalizedRate = item.rateUnit === "MAUND" ? (Number(item.rate || 0) / 40) : Number(item.rate || 0);
+      return sum + (Number(item.weight) * normalizedRate);
+    }, 0);
     
     // Simple adjustment calc for now
     const totalAdjustments = adjustments.reduce((sum, adj) => {
@@ -78,7 +81,8 @@ export class SaleService {
         productId: parseInt(item.productId),
         weight: item.weight,
         rate: item.rate,
-        amount: Number(item.weight) * Number(item.rate)
+        rateUnit: item.rateUnit || "KG",
+        amount: item.amount
       })),
       adjustments
     );
@@ -103,7 +107,10 @@ export class SaleService {
 
     // 2. Compute totals
     const totalWeight = items.reduce((sum, item) => sum + Number(item.weight), 0);
-    const baseAmount = items.reduce((sum, item) => sum + (Number(item.weight) * Number(item.rate)), 0);
+    const baseAmount = items.reduce((sum, item) => {
+      const normalizedRate = item.rateUnit === "MAUND" ? (Number(item.rate || 0) / 40) : Number(item.rate || 0);
+      return sum + (Number(item.weight) * normalizedRate);
+    }, 0);
     const totalAdjustments = adjustments.reduce((sum, adj) => {
       const amt = Number(adj.calculatedAmount);
       return adj.direction === "ADD" ? sum + amt : sum - amt;
@@ -131,7 +138,8 @@ export class SaleService {
               productId: parseInt(item.productId),
               weight: item.weight,
               rate: item.rate,
-              amount: Number(item.weight) * Number(item.rate)
+              rateUnit: item.rateUnit || "KG",
+              amount: item.amount
             }))
           },
           adjustments: {

@@ -118,7 +118,9 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
                       <td className="px-6 py-4 text-right font-mono text-xs">
                         {item.weight.toLocaleString()} <span className="text-[10px] opacity-60">KG</span>
                       </td>
-                      <td className="px-6 py-4 text-right font-mono text-xs">Rs. {item.rate.toLocaleString()}</td>
+                      <td className="px-6 py-4 text-right font-mono text-xs">
+                        Rs. {item.rate.toLocaleString()} / <span className="text-[10px] opacity-60 uppercase">{item.rateUnit === "MAUND" ? "MND" : "KG"}</span>
+                      </td>
                       <td className="px-6 py-4 text-right font-bold">Rs. {item.amount.toLocaleString()}</td>
                     </tr>
                   ))}

@@ -23,8 +23,9 @@ export default function SaleForm({ buyers, products, initialData = null }) {
   const [items, setItems] = useState(
     initialData?.items?.map(item => ({
       ...item,
-      productId: item.productId.toString()
-    })) || [{ productId: "", weight: "", rate: "", amount: 0 }]
+      productId: item.productId.toString(),
+      rateUnit: item.rateUnit || "KG"
+    })) || [{ productId: "", weight: "", rate: "", rateUnit: "KG", amount: 0 }]
   );
   const [adjustments, setAdjustments] = useState(initialData?.adjustments || []);
   
@@ -46,7 +47,8 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     let baseAmount = 0;
 
     const updatedItems = items.map(item => {
-      const amount = round(Number(item.weight || 0) * Number(item.rate || 0));
+      const normalizedRate = item.rateUnit === "MAUND" ? (Number(item.rate || 0) / 40) : Number(item.rate || 0);
+      const amount = round(Number(item.weight || 0) * normalizedRate);
       totalWeight += Number(item.weight || 0);
       baseAmount += amount;
       return { ...item, amount };
@@ -75,7 +77,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
   }, [updateTotals]);
 
   // Handlers
-  const addItem = () => setItems([...items, { productId: "", weight: "", rate: "", amount: 0 }]);
+  const addItem = () => setItems([...items, { productId: "", weight: "", rate: "", rateUnit: "KG", amount: 0 }]);
   const removeItem = (index) => {
     if (items.length > 1) {
       const newItems = items.filter((_, i) => i !== index);
@@ -88,10 +90,12 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     newItems[index][field] = value;
     
     // Auto-calculate amount for visual feedback
-    if (field === "weight" || field === "rate") {
+    if (field === "weight" || field === "rate" || field === "rateUnit") {
       const w = Number(field === "weight" ? value : newItems[index].weight || 0);
       const r = Number(field === "rate" ? value : newItems[index].rate || 0);
-      newItems[index].amount = round(w * r);
+      const unit = field === "rateUnit" ? value : newItems[index].rateUnit || "KG";
+      const normalizedRate = unit === "MAUND" ? (r / 40) : r;
+      newItems[index].amount = round(w * normalizedRate);
     }
     
     setItems(newItems);
@@ -142,7 +146,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
         if (e.nativeEvent.submitter?.name === "saveAndAnother" && !initialData) {
           // Reset form for next entry
           setPartyId("");
-          setItems([{ productId: "", weight: "", rate: "", amount: 0 }]);
+          setItems([{ productId: "", weight: "", rate: "", rateUnit: "KG", amount: 0 }]);
           setAdjustments([]);
           setNotes("");
           toast.info("Form reset for next entry");
@@ -265,15 +269,25 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                     />
                   </td>
                   <td className="px-2 py-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={item.rate}
-                      onChange={(e) => updateItem(index, "rate", e.target.value)}
-                      className="w-full bg-transparent border-none text-right font-mono px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
-                      required
-                    />
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={item.rate}
+                        onChange={(e) => updateItem(index, "rate", e.target.value)}
+                        className="w-full bg-transparent border-none text-right font-mono px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
+                        required
+                      />
+                      <select
+                        value={item.rateUnit}
+                        onChange={(e) => updateItem(index, "rateUnit", e.target.value)}
+                        className="bg-muted text-[10px] font-bold uppercase rounded px-1.5 py-1 border-none outline-none focus:ring-1 focus:ring-primary/50"
+                      >
+                        <option value="KG">KG</option>
+                        <option value="MAUND">MND</option>
+                      </select>
+                    </div>
                   </td>
                   <td className="px-4 py-2 text-right font-bold tabular-nums">
                     {item.amount.toLocaleString()}
