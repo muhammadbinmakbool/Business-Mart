@@ -17,9 +17,12 @@ export class AdvanceRepository {
     });
   }
 
-  static async getByPartyId(partyId) {
+  static async getUnlinkedByPartyId(partyId) {
     return prisma.intakeAdvance.findMany({
-      where: { partyId: parseInt(partyId) },
+      where: {
+        partyId: parseInt(partyId),
+        supplierInvoiceId: null
+      },
       include: {
         intakeTransaction: true
       },

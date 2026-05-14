@@ -28,6 +28,7 @@ model Party {
   intakeAdvances     IntakeAdvance[]
   intakeTransactions IntakeTransaction[]
   saleTransactions   SaleTransaction[]
+  supplierInvoices   SupplierInvoice[]
 }
 
 model Product {
@@ -49,11 +50,13 @@ model IntakeTransaction {
   productId    Int
   bagCount     Int?
   grossWeight  Decimal         @db.Decimal(18, 2)
+  rate         Decimal         @db.Decimal(18, 2)
   notes        String?
   status       String          @default("PENDING")
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   advances     IntakeAdvance[]
+  invoiceItems SupplierInvoiceItem[]
   party        Party           @relation(fields: [partyId], references: [id], onUpdate: NoAction)
   product      Product         @relation(fields: [productId], references: [id], onUpdate: NoAction)
 }
@@ -64,9 +67,12 @@ model IntakeAdvance {
   partyId             Int
   amount              Decimal            @db.Decimal(18, 2)
   notes               String?
+  supplierInvoiceId   Int?
   createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
   intakeTransaction   IntakeTransaction? @relation(fields: [intakeTransactionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   party               Party              @relation(fields: [partyId], references: [id], onUpdate: NoAction)
+  supplierInvoice     SupplierInvoice?   @relation(fields: [supplierInvoiceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 model SaleTransaction {
@@ -110,4 +116,35 @@ model TransactionAdjustment {
   calculatedAmount Decimal         @db.Decimal(18, 2)
   direction        String          @default("ADD") // ADD or SUBTRACT
   sale             SaleTransaction @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model SupplierInvoice {
+  id                 Int                  @id @default(autoincrement())
+  invoiceNumber      String               @unique // SUP-XXXXXX
+  partyId            Int
+  entryDate          DateTime             @default(now())
+  totalGrossValue    Decimal              @db.Decimal(18, 2)
+  totalDeductions    Decimal              @db.Decimal(18, 2)
+  totalAdvances      Decimal              @db.Decimal(18, 2)
+  finalPayableAmount Decimal              @db.Decimal(18, 2)
+  status             String               @default("PENDING") // PENDING | COMPLETED | SUPERSEDED
+  isOutdated         Boolean              @default(false)
+  version            Int                  @default(1)
+  lastCalculatedAt   DateTime             @default(now())
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  party              Party                @relation(fields: [partyId], references: [id], onUpdate: NoAction)
+  items              SupplierInvoiceItem[]
+  advances           IntakeAdvance[]
+}
+
+model SupplierInvoiceItem {
+  id                  Int               @id @default(autoincrement())
+  supplierInvoiceId   Int
+  intakeTransactionId Int
+  weight              Decimal           @db.Decimal(18, 2) // SNAPSHOT
+  rate                Decimal           @db.Decimal(18, 2) // SNAPSHOT
+  amount              Decimal           @db.Decimal(18, 2) // SNAPSHOT
+  invoice             SupplierInvoice   @relation(fields: [supplierInvoiceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  intake              IntakeTransaction @relation(fields: [intakeTransactionId], references: [id], onUpdate: NoAction)
 }

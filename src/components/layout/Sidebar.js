@@ -24,6 +24,7 @@ const menuItems = [
   { name: "Products", href: "/products", icon: Package },
   { name: "Goods Intake", href: "/intake", icon: ShoppingCart },
   { name: "Supplier Advances", href: "/advances", icon: Coins },
+  { name: "Supplier Settlements", href: "/supplier-invoices", icon: ReceiptText },
   { name: "Sales / Billing", href: "/sales", icon: ReceiptText },
   { name: "Ledger", href: "/ledger", icon: BookOpen },
   { name: "Rates", href: "/rates", icon: TrendingUp },

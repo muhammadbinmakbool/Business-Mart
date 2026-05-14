@@ -51,6 +51,15 @@ export class IntakeService {
     return intake;
   }
 
+  static async listUninvoicedIntakes(partyId) {
+    const intakes = await IntakeRepository.getUninvoicedByPartyId(partyId);
+    return intakes.map(intake => ({
+      ...intake,
+      grossWeight: Number(intake.grossWeight),
+      rate: Number(intake.rate)
+    }));
+  }
+
   static async deleteIntake(id) {
     return IntakeRepository.delete(id);
   }

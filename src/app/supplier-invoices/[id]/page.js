@@ -1,0 +1,175 @@
+import React from "react";
+import Link from "next/link";
+import { ChevronLeft, History, CheckCircle2, AlertCircle, RefreshCcw, Printer } from "lucide-react";
+import { getSupplierInvoiceAction, updateInvoiceStatusAction, regenerateSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import StatusUpdater from "./StatusUpdater";
+import RegenerateButton from "./RegenerateButton";
+
+export default async function SupplierInvoiceDetailPage({ params }) {
+  const { id } = await params;
+  const result = await getSupplierInvoiceAction(id);
+  
+  if (!result.success) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <AlertCircle className="h-12 w-12 text-rose-500 mb-4" />
+        <h2 className="text-2xl font-bold">Error</h2>
+        <p className="text-muted-foreground">{result.error}</p>
+        <Link href="/supplier-invoices" className="mt-6 text-primary hover:underline">Back to list</Link>
+      </div>
+    );
+  }
+
+  const invoice = result.data;
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6 pb-20">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Link
+            href="/supplier-invoices"
+            className="rounded-full p-2 hover:bg-accent transition-colors"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold tracking-tight">Settlement Invoice</h1>
+              <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-[10px] font-bold">V{invoice.version}</span>
+            </div>
+            <p className="text-sm text-muted-foreground font-mono">{invoice.invoiceNumber}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:bg-muted transition-colors font-medium text-sm">
+            <Printer className="h-4 w-4" /> Print
+          </button>
+          {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
+            <RegenerateButton invoiceId={invoice.id} />
+          )}
+        </div>
+      </div>
+
+      {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-bold text-amber-900">This invoice is outdated</div>
+            <div className="text-sm text-amber-700">Underlying intakes or advances have been modified. Consider regenerating a new version for accurate settlement.</div>
+          </div>
+        </div>
+      )}
+
+      {invoice.status === "SUPERSEDED" && (
+        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start gap-3 text-slate-600">
+          <History className="h-5 w-5 mt-0.5" />
+          <div className="flex-1">
+            <div className="font-bold">Superseded Version</div>
+            <div className="text-sm">This is an older version of the settlement. A newer version exists.</div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 space-y-6">
+          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+            <div className="p-4 border-b bg-muted/30 font-bold uppercase text-[10px] tracking-wider text-muted-foreground">Invoiced Items</div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-muted/10">
+                  <tr>
+                    <th className="px-4 py-2 font-semibold">Product</th>
+                    <th className="px-4 py-2 font-semibold text-right">Weight</th>
+                    <th className="px-4 py-2 font-semibold text-right">Rate</th>
+                    <th className="px-4 py-2 font-semibold text-right">Gross</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoice.items.map(item => (
+                    <tr key={item.id} className="border-t">
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{item.intake.product.name}</div>
+                        <div className="text-[10px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
+                      </td>
+                      <td className="px-4 py-3 text-right">{Number(item.weight)} KG</td>
+                      <td className="px-4 py-3 text-right">Rs. {Number(item.rate)}</td>
+                      <td className="px-4 py-3 text-right font-bold">Rs. {Number(item.amount).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+            <div className="p-4 border-b bg-muted/30 font-bold uppercase text-[10px] tracking-wider text-muted-foreground">Advances Adjusted</div>
+            <div className="p-4">
+              {invoice.advances.length === 0 ? (
+                <div className="text-sm text-muted-foreground italic">No advances adjusted in this invoice.</div>
+              ) : (
+                <div className="space-y-3">
+                  {invoice.advances.map(adv => (
+                    <div key={adv.id} className="flex justify-between items-center text-sm p-3 rounded-lg bg-muted/20">
+                      <div>
+                        <div className="font-medium">Advance Payment</div>
+                        <div className="text-xs text-muted-foreground">{adv.notes}</div>
+                      </div>
+                      <div className="font-bold text-rose-600">- Rs. {Number(adv.amount).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="rounded-xl border bg-card p-6 shadow-sm space-y-6">
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold uppercase text-muted-foreground tracking-widest">Supplier</h3>
+              <div className="text-xl font-black">{invoice.party.name}</div>
+              <div className="text-sm text-muted-foreground">{invoice.party.phoneNumber}</div>
+            </div>
+
+            <div className="pt-4 border-t space-y-4">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Gross Value</span>
+                <span className="font-bold">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Deductions</span>
+                <span className="font-bold text-rose-600">- Rs. {Number(invoice.totalDeductions).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Advances</span>
+                <span className="font-bold text-rose-600">- Rs. {Number(invoice.totalAdvances).toLocaleString()}</span>
+              </div>
+              <div className="pt-4 border-t flex justify-between items-center">
+                <span className="font-black text-primary uppercase">Net Payable</span>
+                <span className="text-2xl font-black text-primary">Rs. {Number(invoice.finalPayableAmount).toLocaleString()}</span>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t">
+              <StatusUpdater id={invoice.id} currentStatus={invoice.status} disabled={invoice.status === "SUPERSEDED"} />
+            </div>
+          </div>
+          
+          <div className="rounded-xl border bg-muted/20 p-4 text-xs space-y-2 text-muted-foreground">
+             <div className="flex justify-between">
+               <span>Created At</span>
+               <span>{format(new Date(invoice.createdAt), "dd MMM yyyy HH:mm")}</span>
+             </div>
+             <div className="flex justify-between">
+               <span>Snapshot Version</span>
+               <span className="font-mono">V{invoice.version}</span>
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

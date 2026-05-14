@@ -53,6 +53,17 @@ export class IntakeRepository {
     });
   }
 
+  static async getUninvoicedByPartyId(partyId) {
+    return prisma.intakeTransaction.findMany({
+      where: {
+        partyId: parseInt(partyId),
+        invoiceItems: { none: { invoice: { status: { not: "SUPERSEDED" } } } },
+        status: { not: "CANCELLED" }
+      },
+      include: { product: true }
+    });
+  }
+
   static async getNextIntakeNumber() {
     const lastEntry = await prisma.intakeTransaction.findFirst({
       orderBy: { id: "desc" }

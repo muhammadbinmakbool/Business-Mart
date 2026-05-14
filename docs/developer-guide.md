@@ -64,3 +64,27 @@ Due to MSSQL constraints on multiple cascade paths, relations in `IntakeTransact
 - **Styling**: Tailwind CSS 4
 - **Notifications**: Sonner
 - **Icons**: Lucide React
+
+## Module: Supplier Settlement (Step 4.5)
+
+### Snapshot & Versioning Philosophy
+Supplier Settlements use a **Derived Financial Document** pattern. Unlike Intakes or Advances which are **Event Records** (capturing a point-in-time physical or financial event), a Supplier Invoice is a calculated snapshot of multiple events.
+
+1. **Frozen Snapshots**: Once a `SupplierInvoice` is generated, its items (`SupplierInvoiceItem`) store the `weight`, `rate`, and `amount` as frozen values. They do not auto-update if the source `IntakeTransaction` is modified.
+2. **Immutability**: Settlement documents are immutable. To correct an error after the source data has changed, a new version must be generated.
+3. **Regeneration Workflow**: 
+   - If underlying data changes, the invoice is marked `isOutdated = true`.
+   - Clicking "Regenerate" marks the current invoice as `SUPERSEDED`.
+   - A NEW `SupplierInvoice` record is created with an incremented `version` number and fresh snapshots of the current data.
+4. **Lifecycle**:
+   - `PENDING`: Initial state, editable/regeneratable.
+   - `COMPLETED`: Finalized settlement, locked from further changes.
+   - `SUPERSEDED`: Replaced by a newer version, kept for audit history.
+
+### Financial Logic
+All math for settlement (Gross Value, Kaat, Brokerage, Net Payable) is centralized in `src/lib/financial.js`. This ensures that the derived document always reflects the system's current financial rules.
+
+### Future Architectural Notes
+- **Advance Linking**: Current advance linking is simplified for Phase 1 (direct link to invoice). Future versions may replace this with a bridge/junction model to support partial advance consumption across multiple invoices.
+- **Naming Normalization**: To align with business domains, `SaleTransaction` may eventually be renamed to `BuyerInvoice` to match the `SupplierInvoice` pattern.
+- **Ledger Dependency**: Future Ledger and Accounting modules will depend ONLY on derived documents (Invoices), not the individual event records.
