@@ -31,6 +31,8 @@ export default function SaleForm({ buyers, products, initialData = null }) {
   
   // UI State
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [isNewBuyer, setIsNewBuyer] = useState(false);
+  const [newBuyerData, setNewBuyerData] = useState({ name: "", phoneNumber: "", address: "", notes: "" });
   const [currentAdjustment, setCurrentAdjustment] = useState({ 
     adjustmentType: "Commission", 
     method: "PERCENTAGE", 
@@ -128,7 +130,8 @@ export default function SaleForm({ buyers, products, initialData = null }) {
         entryDate,
         notes,
         items,
-        adjustments
+        adjustments,
+        newPartyData: isNewBuyer ? { ...newBuyerData, partyType: "BUYER" } : null
       };
 
       let result;
@@ -189,11 +192,16 @@ export default function SaleForm({ buyers, products, initialData = null }) {
           <select
             autoFocus
             value={partyId}
-            onChange={(e) => setPartyId(e.target.value)}
-            className="w-full bg-background border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+            onChange={(e) => {
+              setPartyId(e.target.value);
+              setIsNewBuyer(e.target.value === "new");
+            }}
+            className="w-full bg-background border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
             required
           >
             <option value="">Select Buyer...</option>
+            <option value="new" className="font-bold text-primary">➕ Add New Buyer</option>
+            <hr />
             {buyers.map((buyer) => (
               <option key={buyer.id} value={buyer.id}>
                 {buyer.name} {buyer.phoneNumber ? `(${buyer.phoneNumber})` : ""}
@@ -201,6 +209,47 @@ export default function SaleForm({ buyers, products, initialData = null }) {
             ))}
           </select>
         </div>
+
+        {/* Conditional New Buyer Fields */}
+        {isNewBuyer && (
+          <div className="md:col-span-3 bg-primary/5 border border-primary/20 rounded-xl p-6 space-y-6 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-primary">New Buyer Master Data</h3>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Buyer Name</label>
+                <input
+                  required={isNewBuyer}
+                  value={newBuyerData.name}
+                  onChange={(e) => setNewBuyerData({ ...newBuyerData, name: e.target.value })}
+                  placeholder="e.g. Salim & Co"
+                  className="w-full bg-background border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Phone Number</label>
+                <input
+                  required={isNewBuyer}
+                  value={newBuyerData.phoneNumber}
+                  onChange={(e) => setNewBuyerData({ ...newBuyerData, phoneNumber: e.target.value })}
+                  placeholder="e.g. 03450000000"
+                  className="w-full bg-background border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="space-y-2 lg:col-span-2">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Address (Optional)</label>
+                <input
+                  value={newBuyerData.address}
+                  onChange={(e) => setNewBuyerData({ ...newBuyerData, address: e.target.value })}
+                  placeholder="Street, City, Market, etc."
+                  className="w-full bg-background border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </div>
+          </div>
+        )}
         <div className="space-y-2">
           <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Entry Date</label>
           <input

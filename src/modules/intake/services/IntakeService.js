@@ -1,6 +1,7 @@
 import { IntakeRepository } from "../repositories/IntakeRepository";
 import { AdvanceRepository } from "../repositories/AdvanceRepository";
 import { intakeSchema } from "../validations/intakeSchema";
+import { PartyService } from "../../parties/services/PartyService";
 
 export class IntakeService {
   static async listIntakes() {
@@ -27,7 +28,14 @@ export class IntakeService {
   }
 
   static async createIntake(data) {
-    const validated = intakeSchema.parse(data);
+    let { partyId, newPartyData, ...intakeData } = data;
+
+    if (partyId === "new" && newPartyData) {
+      const newParty = await PartyService.createParty(newPartyData);
+      partyId = newParty.id;
+    }
+
+    const validated = intakeSchema.parse({ ...intakeData, partyId });
     return IntakeRepository.create(validated);
   }
 

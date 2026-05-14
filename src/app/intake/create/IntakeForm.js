@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -10,6 +10,7 @@ export default function IntakeForm({ suppliers, products }) {
   const router = useRouter();
   const formRef = useRef(null);
   const supplierRef = useRef(null);
+  const [isNewSupplier, setIsNewSupplier] = useState(false);
 
   async function handleSubmit(formData, shouldRedirect) {
     const result = await createIntakeAction(formData);
@@ -45,14 +46,58 @@ export default function IntakeForm({ suppliers, products }) {
             name="partyId"
             required
             autoFocus
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            onChange={(e) => setIsNewSupplier(e.target.value === "new")}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
           >
             <option value="">Select a supplier...</option>
+            <option value="new" className="font-bold text-primary">➕ Add New Supplier</option>
+            <hr />
             {suppliers.map(s => (
               <option key={s.id} value={s.id}>{s.name} ({s.phoneNumber})</option>
             ))}
           </select>
         </div>
+
+        {/* Conditional New Supplier Fields */}
+        {isNewSupplier && (
+          <div className="md:col-span-2 bg-primary/5 border border-primary/20 rounded-lg p-6 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-primary">New Supplier Details</h3>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="newName" className="text-xs font-bold uppercase text-muted-foreground">Supplier Name</label>
+                <input
+                  id="newName"
+                  name="newName"
+                  required={isNewSupplier}
+                  placeholder="e.g. Haji Ahmad"
+                  className="w-full rounded-md border border-primary/20 bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="newPhone" className="text-xs font-bold uppercase text-muted-foreground">Phone Number</label>
+                <input
+                  id="newPhone"
+                  name="newPhone"
+                  required={isNewSupplier}
+                  placeholder="e.g. 03001234567"
+                  className="w-full rounded-md border border-primary/20 bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label htmlFor="newAddress" className="text-xs font-bold uppercase text-muted-foreground">Address (Optional)</label>
+                <input
+                  id="newAddress"
+                  name="newAddress"
+                  placeholder="Street, City, etc."
+                  className="w-full rounded-md border border-primary/20 bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 2. Product */}
         <div className="space-y-2">

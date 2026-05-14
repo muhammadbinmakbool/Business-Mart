@@ -1,5 +1,6 @@
 import { SaleRepository } from "../repositories/SaleRepository";
 import { prisma } from "@/lib/prisma";
+import { PartyService } from "../../parties/services/PartyService";
 
 export class SaleService {
   /**
@@ -36,7 +37,12 @@ export class SaleService {
   }
 
   static async recordSale(data) {
-    const { partyId, items, adjustments = [], entryDate, notes } = data;
+    let { partyId, items, adjustments = [], entryDate, notes, newPartyData } = data;
+
+    if (partyId === "new" && newPartyData) {
+      const newParty = await PartyService.createParty(newPartyData);
+      partyId = newParty.id;
+    }
 
     // 1. Validate stock for each item
     for (const item of items) {

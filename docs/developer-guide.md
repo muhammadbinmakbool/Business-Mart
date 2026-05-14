@@ -66,3 +66,14 @@ To balance flexibility with correctness, the system implements:
 - **Styling**: Tailwind CSS 4
 - **Notifications**: Sonner
 - **Icons**: Lucide React
+
+## POS Master Data Rules
+
+### 1. Inline Conditional Master Data Creation
+To ensure high-speed POS operations, the system allows creating **Parties (Suppliers/Buyers)** inline within the transaction forms (Intake/Sale).
+- **UX Rule**: Triggered only via the "➕ Add New" option in the master data dropdown.
+- **Form Rule**: Use contextual field expansion within the same form. **No modals or navigation changes allowed.**
+- **Atomic Flow**: The backend must handle the creation sequence atomically:
+  1. `IF (newPartyData) THEN createParty()`
+  2. `Use returned partyId → create Transaction`
+- **Idempotency**: Prevent duplicate master data creation via server-side validation (e.g., check for existing name/phone).

@@ -11,6 +11,12 @@ export async function createIntakeAction(formData) {
     bagCount: formData.get("bagCount") || null,
     grossWeight: formData.get("grossWeight"),
     notes: formData.get("notes") || "",
+    newPartyData: formData.get("partyId") === "new" ? {
+      name: formData.get("newName"),
+      phoneNumber: formData.get("newPhone"),
+      address: formData.get("newAddress"),
+      partyType: "SUPPLIER"
+    } : null
   };
 
   const advanceAmount = formData.get("advanceAmount");
