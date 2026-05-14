@@ -3,24 +3,25 @@
 ## Core Principle: Sales-Centric POS Architecture
 The system is built as a Sales-Centric POS where **Operational Events** drive the state, and **Financial Logic** remains a separate, derived layer.
 
-### 1. Sales as the Operational Event
-A `SaleTransaction` is the primary "Stock-Out" event. 
-- It is the source of truth for all outgoing inventory.
-- It MUST NOT trigger side-effects in the financial settlement or ledger layers.
+### 1. Operational vs. Derived Layers
+- **Operational Layer (Source of Truth)**: Comprises `IntakeTransaction`, `SaleTransaction`, and `SaleItem`. These record the raw physical and business events.
+- **Derived Layer (Reporting/Financial)**: Comprises `Inventory`, `Buyer/Supplier Invoices`, and `Ledgers`. These are calculated from operational events.
 
-### 2. Intakes as the Supply Event
-An `IntakeTransaction` is the primary "Stock-In" event.
-- It records batch availability but does not couple with sales execution.
+### 2. Snapshot Storage Philosophy
+While inventory quantity is derived, **Financial Totals** (e.g., `baseAmount`, `finalAmount`) are stored as **Immutable Snapshots** in transactional records.
+- **Why?**: For audit history, historical consistency, printing accuracy, and performance reconciliation.
+- **Rule**: Storing calculated totals is VALID; storing computed balances (like stock quantity) is NOT.
 
-### 3. Inventory as a Derived Quantity View
-Product stock is never stored persistently. It is a **Derived View** calculated in real-time.
-- **Rule**: `Total Quantity = Sum(Intakes) - Sum(Sales)`
-- This ensures the inventory system remains simple, scalable, and general-purpose POS compatible.
+### 3. Inventory Derivation Rule
+Inventory balances are NEVER stored. They are derived in real-time or via optimized aggregations:
+- **Available Stock** = `SUM(Intake Gross Weight) - SUM(Sale Item Weight)`
+- Only non-cancelled/non-deleted transactions are counted.
 
-### 4. Separation: Operational vs. Financial
-- **Operational Layer**: (Sales, Intakes, Inventory) - Quantity and Event-driven.
-- **Financial/Reporting Layer**: (Invoices, Settlements, Ledger) - Derived from joining operational events.
-- **Traceability**: An optional metadata link between a Sale and an Intake (Soft Link Only).
+### 4. Optional Traceability (The Soft Link)
+The system supports optional batch-level traceability for specialized markets (e.g., Grain Markets).
+- `SaleItem` may optionally link to an `IntakeTransaction`.
+- This linkage must NOT be mandatory. The system must function correctly as a general POS without it.
+- **Future Growth**: This link enables advanced profitability analysis and supplier-specific stock tracking in the Derived Layer.
 
 ## Architecture Overview
 Business Mart follows a **Modular Monolith** architecture. Code is organized by business domain (feature-based modules) rather than technical layers.
