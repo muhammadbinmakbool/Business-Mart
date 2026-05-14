@@ -31,7 +31,7 @@ export class ProductRepository {
       
       return {
         ...rest,
-        availableStock: totalIn - totalOut
+        availableStock: Math.max(0, totalIn - totalOut)
       };
     });
   }

@@ -27,12 +27,20 @@ export class SaleRepository {
     });
   }
 
-  static async create(data, items, adjustments = []) {
+  static async create(saleData, items, adjustments = []) {
+    const { partyId, ...rest } = saleData;
     return prisma.saleTransaction.create({
       data: {
-        ...data,
+        ...rest,
+        party: { connect: { id: parseInt(partyId) } },
         items: {
-          create: items
+          create: items.map(item => {
+            const { productId, ...itemRest } = item;
+            return {
+              ...itemRest,
+              product: { connect: { id: parseInt(productId) } }
+            };
+          })
         },
         adjustments: {
           create: adjustments

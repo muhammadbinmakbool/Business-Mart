@@ -73,7 +73,8 @@ export default async function ProductsPage() {
                       {product.unitType}
                     </td>
                     <td className="px-6 py-4 text-right font-mono text-lg font-black text-primary">
-                      {product.availableStock.toLocaleString()} <span className="text-[10px] text-muted-foreground font-normal uppercase">{product.unitType}</span>
+                      {(product.unitType === "MAUND" ? (product.availableStock / 40) : product.availableStock).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} 
+                      <span className="text-[10px] text-muted-foreground font-normal uppercase ml-1">{product.unitType}</span>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className={cn(

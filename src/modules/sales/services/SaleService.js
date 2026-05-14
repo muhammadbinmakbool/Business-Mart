@@ -126,7 +126,7 @@ export class SaleService {
       return tx.saleTransaction.update({
         where: { id: parseInt(id) },
         data: {
-          partyId: parseInt(partyId),
+          party: { connect: { id: parseInt(partyId) } },
           entryDate: entryDate ? new Date(entryDate) : new Date(),
           totalWeight,
           baseAmount,
@@ -135,7 +135,7 @@ export class SaleService {
           notes,
           items: {
             create: items.map(item => ({
-              productId: parseInt(item.productId),
+              product: { connect: { id: parseInt(item.productId) } },
               weight: item.weight,
               rate: item.rate,
               rateUnit: item.rateUnit || "KG",

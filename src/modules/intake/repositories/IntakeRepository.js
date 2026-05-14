@@ -26,11 +26,16 @@ export class IntakeRepository {
   }
 
   static async create(data) {
+    const { partyId, productId, ...rest } = data;
     const nextNumber = await this.getNextIntakeNumber();
+    
     return prisma.intakeTransaction.create({
       data: {
-        ...data,
-        intakeNumber: nextNumber
+        ...rest,
+        rate: data.rate ?? null,
+        intakeNumber: nextNumber,
+        party: { connect: { id: parseInt(partyId) } },
+        product: { connect: { id: parseInt(productId) } }
       }
     });
   }

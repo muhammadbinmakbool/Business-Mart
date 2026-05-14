@@ -50,7 +50,7 @@ model IntakeTransaction {
   productId    Int
   bagCount     Int?
   grossWeight  Decimal         @db.Decimal(18, 2)
-  rate         Decimal         @db.Decimal(18, 2)
+  rate         Decimal?        @db.Decimal(18, 2)
   notes        String?
   status       String          @default("PENDING")
   createdAt    DateTime        @default(now())
