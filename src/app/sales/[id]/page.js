@@ -257,6 +257,8 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
                    "{sale.notes}"
                 </p>
              </div>
+           )}
+
            {/* Activity Log */}
            {sale.changeLog && sale.changeLog.length > 0 && (
              <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-4">

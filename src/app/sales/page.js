@@ -43,6 +43,7 @@ export default async function SalesPage() {
                 <th className="px-4 py-4">Date</th>
                 <th className="px-4 py-4">Buyer</th>
                 <th className="px-4 py-4 text-right">Weight</th>
+                <th className="px-4 py-4 text-right">Rate (Rs.)</th>
                 <th className="px-4 py-4 text-right">Final Amount</th>
                 <th className="px-4 py-4 text-center">Status</th>
                 <th className="px-4 py-4 text-center">Actions</th>
@@ -68,6 +69,13 @@ export default async function SalesPage() {
                     <td className="px-4 py-3.5 font-semibold text-foreground">{sale.party.name}</td>
                     <td className="px-4 py-3.5 text-right font-mono text-xs">
                       {sale.totalWeight.toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">KG</span>
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-mono text-xs text-muted-foreground">
+                      {sale.items.length > 1 ? (
+                        <span className="italic">Multiple</span>
+                      ) : (
+                        `Rs. ${Number(sale.items[0]?.rate || 0).toLocaleString()}`
+                      )}
                     </td>
                     <td className="px-4 py-3.5 text-right font-bold text-base">
                       Rs. {sale.finalAmount.toLocaleString()}

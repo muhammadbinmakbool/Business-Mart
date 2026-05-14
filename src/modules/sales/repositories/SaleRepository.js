@@ -5,11 +5,12 @@ export class SaleRepository {
     return prisma.saleTransaction.findMany({
       include: {
         party: true,
-        _count: {
-          select: { items: true }
+        items: {
+          include: { product: true }
         }
       },
-      orderBy: { id: "desc" },
+      where: { isDeleted: false },
+      orderBy: { createdAt: "desc" }
     });
   }
 
@@ -26,63 +27,21 @@ export class SaleRepository {
     });
   }
 
-  static async create(data) {
-    const { items, adjustments, ...saleData } = data;
-    const nextNumber = await this.getNextSaleNumber();
-
+  static async create(data, items, adjustments = []) {
     return prisma.saleTransaction.create({
       data: {
-        ...saleData,
-        saleNumber: nextNumber,
+        ...data,
         items: {
           create: items
         },
         adjustments: {
           create: adjustments
         }
+      },
+      include: {
+        items: true,
+        adjustments: true
       }
-    });
-  }
-
-  static async update(id, data) {
-    const { items, adjustments, ...saleData } = data;
-    const saleId = parseInt(id);
-
-    return prisma.$transaction(async (tx) => {
-      // 1. Delete existing items and adjustments
-      await tx.saleItem.deleteMany({ where: { saleId } });
-      await tx.transactionAdjustment.deleteMany({ where: { saleId } });
-
-      // 2. Update the main transaction and create new related records
-      return tx.saleTransaction.update({
-        where: { id: saleId },
-        data: {
-          ...saleData,
-          items: {
-            create: items
-          },
-          adjustments: {
-            create: adjustments
-          }
-        }
-      });
-    });
-  }
-
-  static async delete(id) {
-    // Delete linked items and adjustments first (manual cascade for MSSQL)
-    await prisma.saleItem.deleteMany({ where: { saleId: parseInt(id) } });
-    await prisma.transactionAdjustment.deleteMany({ where: { saleId: parseInt(id) } });
-    
-    return prisma.saleTransaction.delete({
-      where: { id: parseInt(id) }
-    });
-  }
-
-  static async updateStatus(id, status, changeLog) {
-    return prisma.saleTransaction.update({
-      where: { id: parseInt(id) },
-      data: { status, changeLog }
     });
   }
 
@@ -90,8 +49,15 @@ export class SaleRepository {
     const lastEntry = await prisma.saleTransaction.findFirst({
       orderBy: { id: "desc" }
     });
+    
+    const nextId = (lastEntry?.id || 0) + 1;
+    return `SALE-${nextId.toString().padStart(6, "0")}`;
+  }
 
-    const nextId = lastEntry ? lastEntry.id + 1 : 1;
-    return `SAL-${nextId.toString().padStart(6, "0")}`;
+  static async softDelete(id) {
+    return prisma.saleTransaction.update({
+      where: { id: parseInt(id) },
+      data: { isDeleted: true }
+    });
   }
 }
