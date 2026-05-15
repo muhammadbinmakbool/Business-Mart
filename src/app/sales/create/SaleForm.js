@@ -196,14 +196,14 @@ export default function SaleForm({ buyers, products, initialData = null }) {
               setPartyId(e.target.value);
               setIsNewBuyer(e.target.value === "new");
             }}
-            className="w-full bg-background border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+            className="w-full bg-background text-foreground border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
             required
           >
-            <option value="">Select Buyer...</option>
-            <option value="new" className="font-bold text-primary">➕ Add New Buyer</option>
+            <option value="" className="bg-background text-foreground">Select Buyer...</option>
+            <option value="new" className="font-bold text-primary bg-background">➕ Add New Buyer</option>
             <hr />
             {buyers.map((buyer) => (
-              <option key={buyer.id} value={buyer.id}>
+              <option key={buyer.id} value={buyer.id} className="bg-background text-foreground">
                 {buyer.name} {buyer.phoneNumber ? `(${buyer.phoneNumber})` : ""}
               </option>
             ))}
@@ -307,12 +307,14 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                     <select
                       value={item.productId}
                       onChange={(e) => updateItem(index, "productId", e.target.value)}
-                      className="w-full bg-transparent border-none rounded-lg px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
+                      className="w-full bg-background text-foreground border-none rounded-lg px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
                       required
                     >
-                      <option value="">Select Product...</option>
+                      <option value="" className="bg-background text-foreground">Select Product...</option>
                       {products.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                        <option key={p.id} value={p.id} className="bg-background text-foreground">
+                          {p.name}
+                        </option>
                       ))}
                     </select>
                   </td>
@@ -341,10 +343,10 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                       <select
                         value={item.rateUnit}
                         onChange={(e) => updateItem(index, "rateUnit", e.target.value)}
-                        className="bg-muted text-[10px] font-bold uppercase rounded px-1.5 py-1 border-none outline-none focus:ring-1 focus:ring-primary/50"
+                        className="bg-muted text-foreground text-[10px] font-bold uppercase rounded px-1.5 py-1 border-none outline-none focus:ring-1 focus:ring-primary/50"
                       >
-                        <option value="KG">KG</option>
-                        <option value="MAUND">MND</option>
+                        <option value="KG" className="bg-background text-foreground">KG</option>
+                        <option value="MAUND" className="bg-background text-foreground">MND</option>
                       </select>
                     </div>
                   </td>

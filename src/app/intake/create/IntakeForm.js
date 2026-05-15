@@ -47,13 +47,15 @@ export default function IntakeForm({ suppliers, products }) {
             required
             autoFocus
             onChange={(e) => setIsNewSupplier(e.target.value === "new")}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+            className="w-full rounded-md border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
           >
-            <option value="">Select a supplier...</option>
-            <option value="new" className="font-bold text-primary">➕ Add New Supplier</option>
+            <option value="" className="bg-background text-foreground">Select a supplier...</option>
+            <option value="new" className="font-bold text-primary bg-background">➕ Add New Supplier</option>
             <hr />
             {suppliers.map(s => (
-              <option key={s.id} value={s.id}>{s.name} ({s.phoneNumber})</option>
+              <option key={s.id} value={s.id} className="bg-background text-foreground">
+                {s.name} ({s.phoneNumber})
+              </option>
             ))}
           </select>
         </div>
@@ -116,11 +118,11 @@ export default function IntakeForm({ suppliers, products }) {
             id="productId"
             name="productId"
             required
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full rounded-md border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
           >
-            <option value="">Select a product...</option>
+            <option value="" className="bg-background text-foreground">Select a product...</option>
             {products.map(p => (
-              <option key={p.id} value={p.id}>{p.name} ({p.unitType})</option>
+              <option key={p.id} value={p.id} className="bg-background text-foreground">{p.name} ({p.unitType})</option>
             ))}
           </select>
         </div>
