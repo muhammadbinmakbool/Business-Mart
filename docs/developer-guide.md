@@ -73,7 +73,14 @@ To balance flexibility with correctness, the system implements:
 To ensure high-speed POS operations, the system allows creating **Parties (Suppliers/Buyers)** inline within the transaction forms (Intake/Sale).
 - **UX Rule**: Triggered only via the "➕ Add New" option in the master data dropdown.
 - **Form Rule**: Use contextual field expansion within the same form. **No modals or navigation changes allowed.**
-- **Atomic Flow**: The backend must handle the creation sequence atomically:
+- **Atomic Flow**: The backend handles the creation sequence atomically:
   1. `IF (newPartyData) THEN createParty()`
   2. `Use returned partyId → create Transaction`
-- **Idempotency**: Prevent duplicate master data creation via server-side validation (e.g., check for existing name/phone).
+- **Supported Fields**: Name, Phone, Address, and Notes.
+- **Persistence**: Both Create and Update flows must support this atomic creation to ensure data entry flexibility.
+
+## Developer Workflow
+1. **Always update this guide** when making architectural decisions.
+2. Maintain strict separation between Operational and Derived layers.
+3. Use the `Service -> Repository` pattern for all business logic.
+4. Ensure all financial calculations are performed in `financial.js`.

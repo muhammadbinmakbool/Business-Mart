@@ -1,6 +1,7 @@
 import { SaleRepository } from "../repositories/SaleRepository";
 import { prisma } from "@/lib/prisma";
 import { PartyService } from "../../parties/services/PartyService";
+import { calculateFinalTotal, calculateAdjustment, round } from "@/lib/financial";
 
 export class SaleService {
   /**
@@ -55,20 +56,21 @@ export class SaleService {
     // 2. Generate sale number
     const saleNumber = await SaleRepository.getNextSaleNumber();
 
-    // 3. Compute totals (Operational math)
+    // 3. Compute totals using shared financial logic
     const totalWeight = items.reduce((sum, item) => sum + Number(item.weight), 0);
     const baseAmount = items.reduce((sum, item) => {
       const normalizedRate = item.rateUnit === "MAUND" ? (Number(item.rate || 0) / 40) : Number(item.rate || 0);
       return sum + (Number(item.weight) * normalizedRate);
     }, 0);
     
-    // Simple adjustment calc for now
-    const totalAdjustments = adjustments.reduce((sum, adj) => {
-      const amt = Number(adj.calculatedAmount);
-      return adj.direction === "ADD" ? sum + amt : sum - amt;
-    }, 0);
+    const { totalAdjustments, finalAmount } = calculateFinalTotal(baseAmount, adjustments, totalWeight);
 
-    const finalAmount = baseAmount + totalAdjustments;
+    // Process adjustments for persistence
+    const processedAdjustments = adjustments.map(adj => ({
+      ...adj,
+      calculatedAmount: calculateAdjustment(adj.method, adj.value, { baseAmount, totalWeight })
+    }));
+
 
     // 4. Create record
     return SaleRepository.create(
@@ -90,12 +92,17 @@ export class SaleService {
         rateUnit: item.rateUnit || "KG",
         amount: item.amount
       })),
-      adjustments
+      processedAdjustments
     );
   }
 
   static async updateSale(id, data) {
-    const { partyId, items, adjustments = [], entryDate, notes } = data;
+    let { partyId, items, adjustments = [], entryDate, notes, newPartyData } = data;
+
+    if (partyId === "new" && newPartyData) {
+      const newParty = await PartyService.createParty(newPartyData);
+      partyId = newParty.id;
+    }
     const oldSale = await SaleRepository.getById(id);
     if (!oldSale) throw new Error("Sale not found");
 
@@ -111,17 +118,21 @@ export class SaleService {
       }
     }
 
-    // 2. Compute totals
+    // 2. Compute totals using shared financial logic
     const totalWeight = items.reduce((sum, item) => sum + Number(item.weight), 0);
     const baseAmount = items.reduce((sum, item) => {
       const normalizedRate = item.rateUnit === "MAUND" ? (Number(item.rate || 0) / 40) : Number(item.rate || 0);
       return sum + (Number(item.weight) * normalizedRate);
     }, 0);
-    const totalAdjustments = adjustments.reduce((sum, adj) => {
-      const amt = Number(adj.calculatedAmount);
-      return adj.direction === "ADD" ? sum + amt : sum - amt;
-    }, 0);
-    const finalAmount = baseAmount + totalAdjustments;
+
+    const { totalAdjustments, finalAmount } = calculateFinalTotal(baseAmount, adjustments, totalWeight);
+
+    // Process adjustments for persistence
+    const processedAdjustments = adjustments.map(adj => ({
+      ...adj,
+      calculatedAmount: calculateAdjustment(adj.method, adj.value, { baseAmount, totalWeight })
+    }));
+
 
     // 3. Update record (Prisma transaction)
     return prisma.$transaction(async (tx) => {
@@ -149,7 +160,7 @@ export class SaleService {
             }))
           },
           adjustments: {
-            create: adjustments
+            create: processedAdjustments
           }
         },
         include: { items: true, adjustments: true }

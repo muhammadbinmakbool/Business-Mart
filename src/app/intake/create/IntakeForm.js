@@ -95,6 +95,16 @@ export default function IntakeForm({ suppliers, products }) {
                   className="w-full rounded-md border border-primary/20 bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
+              <div className="space-y-2 md:col-span-2">
+                <label htmlFor="newPartyNotes" className="text-xs font-bold uppercase text-muted-foreground">Supplier Notes (Optional)</label>
+                <textarea
+                  id="newPartyNotes"
+                  name="newPartyNotes"
+                  rows={2}
+                  placeholder="Special instructions about this supplier..."
+                  className="w-full rounded-md border border-primary/20 bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
+                />
+              </div>
             </div>
           </div>
         )}

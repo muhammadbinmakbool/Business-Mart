@@ -15,6 +15,7 @@ export async function createIntakeAction(formData) {
       name: formData.get("newName"),
       phoneNumber: formData.get("newPhone"),
       address: formData.get("newAddress"),
+      notes: formData.get("newPartyNotes"),
       partyType: "SUPPLIER"
     } : null
   };

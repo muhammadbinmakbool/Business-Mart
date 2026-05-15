@@ -247,6 +247,16 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                   className="w-full bg-background border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
+              <div className="space-y-2 md:col-span-2 lg:col-span-4">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Buyer Notes (Optional)</label>
+                <textarea
+                  value={newBuyerData.notes}
+                  onChange={(e) => setNewBuyerData({ ...newBuyerData, notes: e.target.value })}
+                  rows={2}
+                  placeholder="Special instructions for this buyer..."
+                  className="w-full bg-background border rounded-lg px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
             </div>
           </div>
         )}
