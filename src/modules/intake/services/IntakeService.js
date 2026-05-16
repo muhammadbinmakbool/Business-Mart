@@ -8,7 +8,8 @@ export class IntakeService {
     const intakes = await IntakeRepository.getAll();
     return intakes.map(intake => ({
       ...intake,
-      grossWeight: Number(intake.grossWeight)
+      grossWeight: Number(intake.grossWeight),
+      rate: intake.rate ? Number(intake.rate) : null
     }));
   }
 
@@ -20,6 +21,7 @@ export class IntakeService {
     return {
       ...intake,
       grossWeight: Number(intake.grossWeight),
+      rate: intake.rate ? Number(intake.rate) : null,
       advances: intake.advances?.map(a => ({
         ...a,
         amount: Number(a.amount)

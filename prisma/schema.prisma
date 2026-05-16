@@ -29,6 +29,9 @@ model Party {
   intakeTransactions IntakeTransaction[]
   saleTransactions   SaleTransaction[]
   supplierInvoices   SupplierInvoice[]
+  supplierTracks     SalesTrack[]        @relation("SupplierTrack")
+  buyerTracks        SalesTrack[]        @relation("BuyerTrack")
+
 }
 
 model Product {
@@ -40,6 +43,8 @@ model Product {
   updatedAt          DateTime            @updatedAt
   intakeTransactions IntakeTransaction[]
   saleItems          SaleItem[]
+  salesTracks        SalesTrack[]
+
 }
 
 model IntakeTransaction {
@@ -57,7 +62,9 @@ model IntakeTransaction {
   updatedAt    DateTime              @updatedAt
   advances     IntakeAdvance[]
   invoiceItems SupplierInvoiceItem[]
-  saleItems    SaleItem[]
+  salesTracks  SalesTrack[]
+
+
   party        Party                 @relation(fields: [partyId], references: [id], onUpdate: NoAction)
   product      Product               @relation(fields: [productId], references: [id], onUpdate: NoAction)
 }
@@ -95,6 +102,8 @@ model SaleTransaction {
   party            Party                   @relation(fields: [partyId], references: [id], onUpdate: NoAction)
   items            SaleItem[]
   adjustments      TransactionAdjustment[]
+  salesTracks      SalesTrack[]
+
 }
 
 model SaleItem {
@@ -105,11 +114,42 @@ model SaleItem {
   rate                Decimal            @db.Decimal(18, 2)
   rateUnit            String             @default("KG") // KG or MAUND
   amount              Decimal            @db.Decimal(18, 2)
-  intakeTransactionId Int?
   sale                SaleTransaction    @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   product             Product            @relation(fields: [productId], references: [id], onUpdate: NoAction)
-  intake              IntakeTransaction? @relation(fields: [intakeTransactionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  salesTracks         SalesTrack[]
 }
+
+model SalesTrack {
+  id                  Int       @id @default(autoincrement())
+
+  saleTransactionId   Int?
+  saleItemId          Int?
+  intakeTransactionId Int?
+
+  supplierPartyId     Int?
+  buyerPartyId        Int?
+  productId           Int?
+
+  quantity            Decimal   @db.Decimal(18, 2)
+
+  buyingRate          Decimal?  @db.Decimal(18, 2)
+  sellingRate         Decimal?  @db.Decimal(18, 2)
+
+  notes               String?
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  saleTransaction     SaleTransaction?   @relation(fields: [saleTransactionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  saleItem            SaleItem?          @relation(fields: [saleItemId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  intakeTransaction   IntakeTransaction? @relation(fields: [intakeTransactionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  supplier            Party?             @relation("SupplierTrack", fields: [supplierPartyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  buyer               Party?             @relation("BuyerTrack", fields: [buyerPartyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product             Product?           @relation(fields: [productId], references: [id], onUpdate: NoAction)
+}
+
+
+
 
 model TransactionAdjustment {
   id               Int             @id @default(autoincrement())
