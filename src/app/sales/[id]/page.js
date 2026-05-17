@@ -114,14 +114,14 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
                 <tbody className="divide-y">
                   {sale.items.map((item) => (
                     <tr key={item.id}>
-                      <td className="px-6 py-4 font-semibold">{item.product.name}</td>
-                      <td className="px-6 py-4 text-right font-mono text-xs">
-                        {item.weight.toLocaleString()} <span className="text-[10px] opacity-60">KG</span>
-                      </td>
-                      <td className="px-6 py-4 text-right font-mono text-xs">
-                        Rs. {item.rate.toLocaleString()} / <span className="text-[10px] opacity-60 uppercase">{item.rateUnit === "MAUND" ? "MND" : "KG"}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right font-bold">Rs. {item.amount.toLocaleString()}</td>
+                       <td className="px-6 py-4 font-semibold">{item.product.name}</td>
+                       <td className="px-6 py-4 text-right font-mono text-xs">
+                         {item.weight.toLocaleString()} <span className="text-[10px] opacity-60 uppercase">{item.unit === "MAUND" ? "MND" : item.unit}</span>
+                       </td>
+                       <td className="px-6 py-4 text-right font-mono text-xs">
+                         Rs. {item.rate.toLocaleString()} / <span className="text-[10px] opacity-60 uppercase">{item.rateUnit === "MAUND" ? "MND" : item.rateUnit}</span>
+                       </td>
+                       <td className="px-6 py-4 text-right font-bold">Rs. {item.amount.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>

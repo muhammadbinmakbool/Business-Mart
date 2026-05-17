@@ -25,8 +25,9 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     initialData?.items?.map(item => ({
       ...item,
       productId: item.productId.toString(),
-      unit: item.unit || "KG"
-    })) || [{ productId: "", weight: "", rate: "", unit: "KG", amount: 0 }]
+      unit: item.unit || "KG",
+      rateUnit: item.rateUnit || "KG"
+    })) || [{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]
   );
   const [adjustments, setAdjustments] = useState(initialData?.adjustments || []);
   
@@ -52,7 +53,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
       if (!product) return { normalizedWeight: 0, normalizedRate: 0 };
 
       try {
-        const normalizedRate = normalizeRate(item.rate || 0, item.unit || "KG", product);
+        const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product);
         const normalizedWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
         return { normalizedWeight, normalizedRate };
       } catch (e) {
@@ -70,7 +71,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
   }, [updateTotals]);
 
   // Handlers
-  const addItem = () => setItems([...items, { productId: "", weight: "", rate: "", unit: "KG", amount: 0 }]);
+  const addItem = () => setItems([...items, { productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]);
   const removeItem = (index) => {
     if (items.length > 1) {
       const newItems = items.filter((_, i) => i !== index);
@@ -82,11 +83,12 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     const newItems = [...items];
     newItems[index][field] = value;
 
-    // Reset unit if product changes
+    // Reset unit and rateUnit if product changes
     if (field === "productId") {
         const product = products.find(p => p.id === parseInt(value));
         if (product) {
             newItems[index].unit = product.primaryUnit || "KG";
+            newItems[index].rateUnit = product.primaryUnit || "KG";
         }
     }
     
@@ -120,7 +122,21 @@ export default function SaleForm({ buyers, products, initialData = null }) {
         partyId,
         entryDate,
         notes,
-        items,
+        items: items.map(item => {
+          const product = products.find(p => p.id === parseInt(item.productId));
+          const normalizedRate = product ? normalizeRate(item.rate || 0, item.rateUnit || "KG", product) : 0;
+          const normalizedWeight = product ? normalizeQuantity(item.weight || 0, item.unit || "KG", product) : 0;
+          const amount = round(normalizedWeight * normalizedRate);
+          return {
+            productId: parseInt(item.productId),
+            weight: parseFloat(item.weight),
+            unit: item.unit || "KG",
+            rate: parseFloat(item.rate),
+            rateUnit: item.rateUnit || "KG",
+            normalizedWeight,
+            amount
+          };
+        }),
         adjustments,
         newPartyData: isNewBuyer ? { ...newBuyerData, partyType: "BUYER" } : null
       };
@@ -140,7 +156,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
         if (e.nativeEvent.submitter?.name === "saveAndAnother" && !initialData) {
           // Reset form for next entry
           setPartyId("");
-          setItems([{ productId: "", weight: "", rate: "", rateUnit: "KG", amount: 0 }]);
+          setItems([{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]);
           setAdjustments([]);
           setNotes("");
           toast.info("Form reset for next entry");
@@ -314,24 +330,13 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                       </select>
                     </td>
                     <td className="px-2 py-2">
-                      <input
-                        type="number"
-                        step="0.01"
-                        placeholder="0.00"
-                        value={item.weight}
-                        onChange={(e) => updateItem(index, "weight", e.target.value)}
-                        className="w-full bg-transparent border-none text-right font-mono px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
-                        required
-                      />
-                    </td>
-                    <td className="px-2 py-2">
                       <div className="flex items-center gap-1">
                         <input
                           type="number"
                           step="0.01"
                           placeholder="0.00"
-                          value={item.rate}
-                          onChange={(e) => updateItem(index, "rate", e.target.value)}
+                          value={item.weight}
+                          onChange={(e) => updateItem(index, "weight", e.target.value)}
                           className="w-full bg-transparent border-none text-right font-mono px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
                           required
                         />
@@ -347,12 +352,35 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                         </select>
                       </div>
                     </td>
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={item.rate}
+                          onChange={(e) => updateItem(index, "rate", e.target.value)}
+                          className="w-full bg-transparent border-none text-right font-mono px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
+                          required
+                        />
+                        <select
+                          value={item.rateUnit}
+                          onChange={(e) => updateItem(index, "rateUnit", e.target.value)}
+                          className="bg-muted text-foreground text-[10px] font-bold uppercase rounded px-1.5 py-1 border-none outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-20"
+                          disabled={!item.productId}
+                        >
+                          {compatibleUnits.map(u => (
+                            <option key={u.id} value={u.id} className="bg-background text-foreground">/{u.id}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </td>
                     <td className="px-4 py-2 text-right font-bold tabular-nums">
                       {(() => {
                         const product = products.find(p => p.id === parseInt(item.productId));
                         if (!product) return "0";
                         try {
-                           const normalizedRate = normalizeRate(item.rate || 0, item.unit || "KG", product);
+                           const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product);
                            const normalizedWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
                            return round(normalizedWeight * normalizedRate).toLocaleString();
                         } catch (e) {
