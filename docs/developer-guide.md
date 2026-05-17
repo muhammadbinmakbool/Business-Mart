@@ -123,10 +123,28 @@ The architecture is now strictly locked into a **4-Layer Responsibility Model**.
 - **Rules**: Calculates line item amounts, adjustment values, and final invoice totals.
 - **Constraints**: Operates **ONLY on normalized base-unit values**. It is agnostic to local units (Maunds, Bags, etc.). It must NOT perform unit conversion.
 
-### Layer 4: Derived Inventory
-**Responsibility**: Real-time Reporting.
-- **Rules**: Stock level is always a derived value: `SUM(Intake normalized) - SUM(Sales normalized)`.
-- **Constraints**: Never store calculated stock. Never rely on local unit values for inventory math.
+### Layer 4: Snapshot Inventory (Optimized Performance)
+**Responsibility**: Instant stock visibility and real-time inventory snapshot reporting.
+- **Rules**: Active stock is read instantly and directly from the `Product.quantity` field.
+- **Constraints**: 
+  1. **Base Unit Storage**: `Product.quantity` **MUST ALWAYS** store stock normalized strictly in the category's physical base unit (e.g. `KG` for Weight, `ML` for Liquids, `PIECE` for Quantities).
+  2. **Transaction Hook Rule**: Any intake or sale mutation (create, update, delete) must atomically modify `Product.quantity` inside the same database transaction.
+  3. **No Drift**: Transactional ledger history (`IntakeTransaction` and `SaleItem` records) remains the immutable source of truth. The snapshot field is an operational optimization.
+
+---
+
+## Snapshot Inventory Philosophy & Invariants
+
+### 1. Product.quantity Responsibility
+The `Product.quantity` field serves as a cache of the current operational stock level. It is completely isolated from the presentation unit conversions and must only interact with base units.
+
+### 2. Prevent Negative Inventory Rule
+`Product.quantity` must never drop below `0.00`. Under concurrency or single transaction operations:
+- A sale transaction that attempts to subtract more weight than `Product.quantity` currently holds **MUST BE BLOCKED** and throw an `INSUFFICIENT_STOCK` exception.
+- Restoring stock (reverting/cancelling a sale) increments the stock, which is always safe. Reverting/cancelling/deleting an intake decrements stock, and therefore must check that decrementing does not push the snapshot quantity below `0.00`.
+
+### 3. Batched Performance Invariant
+To prevent lock contention, transaction delays, or double-querying in the DB, multiple snapshot updates (e.g. in sales involving multiple items) must be executed in parallel using `Promise.all` after fetching involved products and performing validation checks in memory using an explicit `productMap`.
 
 ---
 
@@ -144,3 +162,4 @@ The architecture is now strictly locked into a **4-Layer Responsibility Model**.
 3. Use the `Service -> Repository` pattern for all business logic.
 4. Ensure all financial calculations are performed in `financial.js`.
 5. **NEVER hardcode conversion factors** (e.g., `40` for Maund) outside of `units.js`.
+

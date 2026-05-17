@@ -9,29 +9,13 @@ export class ProductRepository {
 
   static async getAllWithStock() {
     const products = await prisma.product.findMany({
-      include: {
-        intakeTransactions: {
-          select: { normalizedWeight: true },
-          where: { status: { not: "CANCELLED" } }
-        },
-        saleItems: {
-          select: { normalizedWeight: true },
-          where: { sale: { isDeleted: false, status: { not: "CANCELLED" } } }
-        }
-      },
       orderBy: { name: "asc" }
     });
 
     return products.map(p => {
-      const totalIn = p.intakeTransactions.reduce((sum, i) => sum + Number(i.normalizedWeight), 0);
-      const totalOut = p.saleItems.reduce((sum, s) => sum + Number(s.normalizedWeight), 0);
-      
-      // Clean up relations for the frontend
-      const { intakeTransactions, saleItems, ...rest } = p;
-      
       return {
-        ...rest,
-        availableStock: Math.max(0, totalIn - totalOut)
+        ...p,
+        availableStock: Number(p.quantity)
       };
     });
   }
