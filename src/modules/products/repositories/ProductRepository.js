@@ -1,10 +1,20 @@
 import { prisma } from "@/lib/prisma";
 
 export class ProductRepository {
+  static serializeProduct(p) {
+    if (!p) return null;
+    return {
+      ...p,
+      quantity: p.quantity ? Number(p.quantity) : 0,
+      unitConversion: p.unitConversion ? Number(p.unitConversion) : null
+    };
+  }
+
   static async getAll() {
-    return prisma.product.findMany({
+    const products = await prisma.product.findMany({
       orderBy: { name: "asc" },
     });
+    return products.map(p => this.serializeProduct(p));
   }
 
   static async getAllWithStock() {
@@ -13,47 +23,50 @@ export class ProductRepository {
     });
 
     return products.map(p => {
+      const serialized = this.serializeProduct(p);
       return {
-        ...p,
-        availableStock: Number(p.quantity)
+        ...serialized,
+        availableStock: serialized.quantity
       };
     });
   }
 
-
   static async getById(id) {
-    return prisma.product.findUnique({
+    const product = await prisma.product.findUnique({
       where: { id: parseInt(id) },
     });
+    return this.serializeProduct(product);
   }
 
   static async create(data) {
-    return prisma.product.create({
+    const p = await prisma.product.create({
       data,
     });
+    return this.serializeProduct(p);
   }
 
   static async update(id, data) {
-    return prisma.product.update({
+    const p = await prisma.product.update({
       where: { id: parseInt(id) },
       data,
     });
+    return this.serializeProduct(p);
   }
 
   static async toggleStatus(id, isActive) {
-    return prisma.product.update({
+    const p = await prisma.product.update({
       where: { id: parseInt(id) },
       data: { isActive },
     });
+    return this.serializeProduct(p);
   }
 
   static async delete(id) {
-    // Delete related transactional data for practical cleanup
-    // Note: IntakeAdvance is linked to Party/Intake, not directly to Product, but IntakeTransaction is.
     await prisma.intakeTransaction.deleteMany({ where: { productId: parseInt(id) } });
     
-    return prisma.product.delete({
+    const p = await prisma.product.delete({
       where: { id: parseInt(id) },
     });
+    return this.serializeProduct(p);
   }
 }

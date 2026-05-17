@@ -125,7 +125,11 @@ The architecture is now strictly locked into a **4-Layer Responsibility Model**.
 
 ### Layer 4: Snapshot Inventory (Optimized Performance)
 **Responsibility**: Instant stock visibility and real-time inventory snapshot reporting.
-- **Rules**: Active stock is read instantly and directly from the `Product.quantity` field.
+- **Rules**: 
+  1. **Inventory is Snapshot-Based**: Active stock is read instantly and directly from the `Product.quantity` field at $O(1)$ runtime complexity.
+  2. **Product.quantity is the Single Source of Truth**: This field is the sole reference for all runtime stock displays, listing views, and transactional available stock validations.
+  3. **Intake/Sale are Mutation Events Only**: Physical intake entries and sale items act solely as mutation events that trigger delta adjustments on the snapshot.
+  4. **All Derived Calculations are Removed**: No runtime joins, aggregates, or sum-reductions of transaction tables are permitted for inventory reporting.
 - **Constraints**: 
   1. **Base Unit Storage**: `Product.quantity` **MUST ALWAYS** store stock normalized strictly in the category's physical base unit (e.g. `KG` for Weight, `ML` for Liquids, `PIECE` for Quantities).
   2. **Transaction Hook Rule**: Any intake or sale mutation (create, update, delete) must atomically modify `Product.quantity` inside the same database transaction.
@@ -136,7 +140,7 @@ The architecture is now strictly locked into a **4-Layer Responsibility Model**.
 ## Snapshot Inventory Philosophy & Invariants
 
 ### 1. Product.quantity Responsibility
-The `Product.quantity` field serves as a cache of the current operational stock level. It is completely isolated from the presentation unit conversions and must only interact with base units.
+The `Product.quantity` field serves as the absolute source of truth of the current operational stock level. It is completely isolated from the presentation unit conversions and must only interact with base units.
 
 ### 2. Prevent Negative Inventory Rule
 `Product.quantity` must never drop below `0.00`. Under concurrency or single transaction operations:
