@@ -6,7 +6,8 @@ import { createSaleAction, updateSaleAction } from "@/modules/sales/controllers/
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { round, calculateAdjustment } from "@/lib/financial";
+import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/financial";
+import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate } from "@/lib/units";
 
 export default function SaleForm({ buyers, products, initialData = null }) {
   const router = useRouter();
@@ -24,8 +25,8 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     initialData?.items?.map(item => ({
       ...item,
       productId: item.productId.toString(),
-      rateUnit: item.rateUnit || "KG"
-    })) || [{ productId: "", weight: "", rate: "", rateUnit: "KG", amount: 0 }]
+      unit: item.unit || "KG"
+    })) || [{ productId: "", weight: "", rate: "", unit: "KG", amount: 0 }]
   );
   const [adjustments, setAdjustments] = useState(initialData?.adjustments || []);
   
@@ -45,41 +46,31 @@ export default function SaleForm({ buyers, products, initialData = null }) {
 
   // Calculation Logic
   const updateTotals = useCallback(() => {
-    let totalWeight = 0;
-    let baseAmount = 0;
+    // Prepare items for the calculation engine by normalizing them
+    const processedItems = items.map(item => {
+      const product = products.find(p => p.id === parseInt(item.productId));
+      if (!product) return { normalizedWeight: 0, normalizedRate: 0 };
 
-    const updatedItems = items.map(item => {
-      const normalizedRate = item.rateUnit === "MAUND" ? (Number(item.rate || 0) / 40) : Number(item.rate || 0);
-      const amount = round(Number(item.weight || 0) * normalizedRate);
-      totalWeight += Number(item.weight || 0);
-      baseAmount += amount;
-      return { ...item, amount };
-    });
-
-    let totalAdjustments = 0;
-    adjustments.forEach(adj => {
-      const calcAmt = calculateAdjustment(adj.method, adj.value, { baseAmount, totalWeight });
-      if (adj.direction === "SUBTRACT") {
-        totalAdjustments -= calcAmt;
-      } else {
-        totalAdjustments += calcAmt;
+      try {
+        const normalizedRate = normalizeRate(item.rate || 0, item.unit || "KG", product);
+        const normalizedWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
+        return { normalizedWeight, normalizedRate };
+      } catch (e) {
+        return { normalizedWeight: 0, normalizedRate: 0 };
       }
     });
 
-    setTotals({
-      baseAmount: round(baseAmount),
-      totalWeight: round(totalWeight),
-      totalAdjustments: round(totalAdjustments),
-      finalAmount: round(baseAmount + totalAdjustments)
-    });
-  }, [items, adjustments]);
+    // Delegate ALL math to the centralized financial engine
+    const result = calculateTransactionTotals(processedItems, adjustments);
+    setTotals(result);
+  }, [items, adjustments, products]);
 
   useEffect(() => {
     updateTotals();
   }, [updateTotals]);
 
   // Handlers
-  const addItem = () => setItems([...items, { productId: "", weight: "", rate: "", rateUnit: "KG", amount: 0 }]);
+  const addItem = () => setItems([...items, { productId: "", weight: "", rate: "", unit: "KG", amount: 0 }]);
   const removeItem = (index) => {
     if (items.length > 1) {
       const newItems = items.filter((_, i) => i !== index);
@@ -90,14 +81,13 @@ export default function SaleForm({ buyers, products, initialData = null }) {
   const updateItem = (index, field, value) => {
     const newItems = [...items];
     newItems[index][field] = value;
-    
-    // Auto-calculate amount for visual feedback
-    if (field === "weight" || field === "rate" || field === "rateUnit") {
-      const w = Number(field === "weight" ? value : newItems[index].weight || 0);
-      const r = Number(field === "rate" ? value : newItems[index].rate || 0);
-      const unit = field === "rateUnit" ? value : newItems[index].rateUnit || "KG";
-      const normalizedRate = unit === "MAUND" ? (r / 40) : r;
-      newItems[index].amount = round(w * normalizedRate);
+
+    // Reset unit if product changes
+    if (field === "productId") {
+        const product = products.find(p => p.id === parseInt(value));
+        if (product) {
+            newItems[index].unit = product.primaryUnit || "KG";
+        }
     }
     
     setItems(newItems);
@@ -113,6 +103,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
   const removeAdjustment = (index) => {
     setAdjustments(adjustments.filter((_, i) => i !== index));
   };
+
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -294,78 +285,96 @@ export default function SaleForm({ buyers, products, initialData = null }) {
             <thead>
               <tr className="bg-muted/50 text-[10px] uppercase font-bold text-muted-foreground tracking-widest border-b">
                 <th className="px-4 py-3 w-[40%]">Product</th>
-                <th className="px-4 py-3 text-right">Weight (KG)</th>
+                <th className="px-4 py-3 text-right">Quantity / Weight</th>
                 <th className="px-4 py-3 text-right">Rate</th>
                 <th className="px-4 py-3 text-right">Amount</th>
                 <th className="px-4 py-3 text-center"></th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {items.map((item, index) => (
-                <tr key={index} className="group">
-                  <td className="px-2 py-2">
-                    <select
-                      value={item.productId}
-                      onChange={(e) => updateItem(index, "productId", e.target.value)}
-                      className="w-full bg-background text-foreground border-none rounded-lg px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
-                      required
-                    >
-                      <option value="" className="bg-background text-foreground">Select Product...</option>
-                      {products.map((p) => (
-                        <option key={p.id} value={p.id} className="bg-background text-foreground">
-                          {p.name}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-2 py-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="0.00"
-                      value={item.weight}
-                      onChange={(e) => updateItem(index, "weight", e.target.value)}
-                      className="w-full bg-transparent border-none text-right font-mono px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
-                      required
-                    />
-                  </td>
-                  <td className="px-2 py-2">
-                    <div className="flex items-center gap-1">
+              {items.map((item, index) => {
+                const product = products.find(p => p.id === parseInt(item.productId));
+                const compatibleUnits = product ? getUnitsByCategory(product.category) : [];
+
+                return (
+                  <tr key={index} className="group">
+                    <td className="px-2 py-2">
+                      <select
+                        value={item.productId}
+                        onChange={(e) => updateItem(index, "productId", e.target.value)}
+                        className="w-full bg-background text-foreground border-none rounded-lg px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none font-medium"
+                        required
+                      >
+                        <option value="" className="bg-background text-foreground">Select Product...</option>
+                        {products.map((p) => (
+                          <option key={p.id} value={p.id} className="bg-background text-foreground">
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-2 py-2">
                       <input
                         type="number"
                         step="0.01"
                         placeholder="0.00"
-                        value={item.rate}
-                        onChange={(e) => updateItem(index, "rate", e.target.value)}
+                        value={item.weight}
+                        onChange={(e) => updateItem(index, "weight", e.target.value)}
                         className="w-full bg-transparent border-none text-right font-mono px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
                         required
                       />
-                      <select
-                        value={item.rateUnit}
-                        onChange={(e) => updateItem(index, "rateUnit", e.target.value)}
-                        className="bg-muted text-foreground text-[10px] font-bold uppercase rounded px-1.5 py-1 border-none outline-none focus:ring-1 focus:ring-primary/50"
+                    </td>
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          placeholder="0.00"
+                          value={item.rate}
+                          onChange={(e) => updateItem(index, "rate", e.target.value)}
+                          className="w-full bg-transparent border-none text-right font-mono px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
+                          required
+                        />
+                        <select
+                          value={item.unit}
+                          onChange={(e) => updateItem(index, "unit", e.target.value)}
+                          className="bg-muted text-foreground text-[10px] font-bold uppercase rounded px-1.5 py-1 border-none outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-20"
+                          disabled={!item.productId}
+                        >
+                          {compatibleUnits.map(u => (
+                            <option key={u.id} value={u.id} className="bg-background text-foreground">{u.id}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 text-right font-bold tabular-nums">
+                      {(() => {
+                        const product = products.find(p => p.id === parseInt(item.productId));
+                        if (!product) return "0";
+                        try {
+                           const normalizedRate = normalizeRate(item.rate || 0, item.unit || "KG", product);
+                           const normalizedWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
+                           return round(normalizedWeight * normalizedRate).toLocaleString();
+                        } catch (e) {
+                           return "0";
+                        }
+                      })()}
+                    </td>
+                    <td className="px-2 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => removeItem(index)}
+                        disabled={items.length === 1}
+                        className="p-2 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-20"
                       >
-                        <option value="KG" className="bg-background text-foreground">KG</option>
-                        <option value="MAUND" className="bg-background text-foreground">MND</option>
-                      </select>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 text-right font-bold tabular-nums">
-                    {item.amount.toLocaleString()}
-                  </td>
-                  <td className="px-2 py-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => removeItem(index)}
-                      disabled={items.length === 1}
-                      className="p-2 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-20"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
+
           </table>
         </div>
       </div>

@@ -1,7 +1,10 @@
 import { SaleRepository } from "../repositories/SaleRepository";
 import { prisma } from "@/lib/prisma";
 import { PartyService } from "../../parties/services/PartyService";
-import { calculateFinalTotal, calculateAdjustment, round } from "@/lib/financial";
+import { calculateFinalTotal, calculateAdjustment, round, calculateTransactionTotals } from "@/lib/financial";
+import { UnitService } from "../../products/services/UnitService";
+import { ProductService } from "../../products/services/ProductService";
+
 
 export class SaleService {
   /**
@@ -15,22 +18,23 @@ export class SaleService {
           productId: parseInt(productId),
           status: { not: "CANCELLED" }
         },
-        _sum: { grossWeight: true }
+        _sum: { normalizedWeight: true }
       }),
       prisma.saleItem.aggregate({
         where: { 
           productId: parseInt(productId),
           sale: { isDeleted: false, status: { not: "CANCELLED" } }
         },
-        _sum: { weight: true }
+        _sum: { normalizedWeight: true }
       })
     ]);
 
-    const totalIn = Number(intakeResult._sum.grossWeight || 0);
-    const totalOut = Number(saleResult._sum.weight || 0);
+    const totalIn = Number(intakeResult._sum.normalizedWeight || 0);
+    const totalOut = Number(saleResult._sum.normalizedWeight || 0);
 
     return totalIn - totalOut;
   }
+
 
   static async listSales() {
     const sales = await SaleRepository.getAll();
@@ -45,25 +49,38 @@ export class SaleService {
       partyId = newParty.id;
     }
 
-    // 1. Validate stock for each item
+    // 1. Validate units and stock for each item
+    const processedItems = [];
     for (const item of items) {
+      const product = await ProductService.getProduct(item.productId);
+      if (!product) throw new Error(`Product ${item.productId} not found`);
+
+      // 1. Validate units and stock changes
+      const validation = UnitService.validateCompatibility(item.unit || "KG", product);
+      if (!validation.valid) throw new Error(validation.error);
+
+      // 2. Normalize values
+      const normalizedQty = UnitService.getNormalizedQuantity(item.weight, item.unit || "KG", product);
+      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.unit || "KG", product);
+
+      // 3. Stock Check
       const available = await this.getAvailableStock(item.productId);
-      if (available < Number(item.weight)) {
-        throw new Error(`Insufficient stock for product. Available: ${available} KG`);
+      if (available < normalizedQty) {
+        throw new Error(`Insufficient stock for ${product.name}. Available: ${available} ${UnitService.getBaseUnit(product.category)}`);
       }
+
+      processedItems.push({
+        ...item,
+        normalizedWeight: normalizedQty,
+        normalizedRate
+      });
     }
 
     // 2. Generate sale number
     const saleNumber = await SaleRepository.getNextSaleNumber();
 
-    // 3. Compute totals using shared financial logic
-    const totalWeight = items.reduce((sum, item) => sum + Number(item.weight), 0);
-    const baseAmount = items.reduce((sum, item) => {
-      const normalizedRate = item.rateUnit === "MAUND" ? (Number(item.rate || 0) / 40) : Number(item.rate || 0);
-      return sum + (Number(item.weight) * normalizedRate);
-    }, 0);
-    
-    const { totalAdjustments, finalAmount } = calculateFinalTotal(baseAmount, adjustments, totalWeight);
+    // 3. Compute totals using centralized financial engine
+    const { baseAmount, totalAdjustments, finalAmount, totalWeight } = calculateTransactionTotals(processedItems, adjustments);
 
     // Process adjustments for persistence
     const processedAdjustments = adjustments.map(adj => ({
@@ -85,15 +102,18 @@ export class SaleService {
         status: "PENDING",
         notes
       },
-      items.map(item => ({
+      processedItems.map(item => ({
         productId: parseInt(item.productId),
         weight: item.weight,
+        unit: item.unit || "KG",
+        normalizedWeight: item.normalizedWeight,
         rate: item.rate,
-        rateUnit: item.rateUnit || "KG",
+        rateUnit: item.unit || "KG",
         amount: item.amount
       })),
       processedAdjustments
     );
+
   }
 
   static async updateSale(id, data) {
@@ -106,26 +126,39 @@ export class SaleService {
     const oldSale = await SaleRepository.getById(id);
     if (!oldSale) throw new Error("Sale not found");
 
-    // 1. Validate stock changes
+    // 1. Validate units and stock changes
+    const processedItems = [];
     for (const item of items) {
+      const product = await ProductService.getProduct(item.productId);
+      if (!product) throw new Error(`Product ${item.productId} not found`);
+
+      // 1. Validate units and stock changes
+      const validation = UnitService.validateCompatibility(item.unit || "KG", product);
+      if (!validation.valid) throw new Error(validation.error);
+
+      // 2. Normalize values
+      const normalizedQty = UnitService.getNormalizedQuantity(item.weight, item.unit || "KG", product);
+      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.unit || "KG", product);
+      
+      // 3. Stock Check (Replacement Logic)
       const oldItem = oldSale.items.find(oi => oi.productId === parseInt(item.productId));
-      const oldWeight = oldItem ? Number(oldItem.weight) : 0;
+      const oldNormalizedWeight = oldItem ? Number(oldItem.normalizedWeight) : 0;
       const currentAvailable = await this.getAvailableStock(item.productId);
       
       // Effective available is current + what we are replacing
-      if ((currentAvailable + oldWeight) < Number(item.weight)) {
-        throw new Error(`Insufficient stock for product. Available: ${currentAvailable + oldWeight} KG`);
+      if ((currentAvailable + oldNormalizedWeight) < normalizedQty) {
+        throw new Error(`Insufficient stock for ${product.name}. Available: ${currentAvailable + oldNormalizedWeight} ${UnitService.getBaseUnit(product.category)}`);
       }
+
+      processedItems.push({
+        ...item,
+        normalizedWeight: normalizedQty,
+        normalizedRate
+      });
     }
 
-    // 2. Compute totals using shared financial logic
-    const totalWeight = items.reduce((sum, item) => sum + Number(item.weight), 0);
-    const baseAmount = items.reduce((sum, item) => {
-      const normalizedRate = item.rateUnit === "MAUND" ? (Number(item.rate || 0) / 40) : Number(item.rate || 0);
-      return sum + (Number(item.weight) * normalizedRate);
-    }, 0);
-
-    const { totalAdjustments, finalAmount } = calculateFinalTotal(baseAmount, adjustments, totalWeight);
+    // 2. Compute totals using centralized financial engine
+    const { baseAmount, totalAdjustments, finalAmount, totalWeight } = calculateTransactionTotals(processedItems, adjustments);
 
     // Process adjustments for persistence
     const processedAdjustments = adjustments.map(adj => ({
@@ -133,10 +166,8 @@ export class SaleService {
       calculatedAmount: calculateAdjustment(adj.method, adj.value, { baseAmount, totalWeight })
     }));
 
-
     // 3. Update record (Prisma transaction)
     return prisma.$transaction(async (tx) => {
-      // Delete old items and adjustments
       await tx.saleItem.deleteMany({ where: { saleId: parseInt(id) } });
       await tx.transactionAdjustment.deleteMany({ where: { saleId: parseInt(id) } });
 
@@ -151,11 +182,13 @@ export class SaleService {
           finalAmount,
           notes,
           items: {
-            create: items.map(item => ({
+            create: processedItems.map(item => ({
               product: { connect: { id: parseInt(item.productId) } },
               weight: item.weight,
+              unit: item.unit || "KG",
+              normalizedWeight: item.normalizedWeight,
               rate: item.rate,
-              rateUnit: item.rateUnit || "KG",
+              rateUnit: item.unit || "KG",
               amount: item.amount
             }))
           },
@@ -167,6 +200,7 @@ export class SaleService {
       });
     });
   }
+
 
   static async updateStatus(id, status) {
     return prisma.saleTransaction.update({

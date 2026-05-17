@@ -61,9 +61,35 @@ export function calculateFinalTotal(baseAmount, adjustments = [], totalWeight = 
 }
 
 /**
+ * ARCHITECTURAL LOCK: Single Source of Truth for Transaction Calculations.
+ * Both UI and Backend must use this logic.
+ * @param {Array} items - Array of { normalizedWeight, normalizedRate }
+ * @param {Array} adjustments - Array of adjustments
+ */
+export function calculateTransactionTotals(items = [], adjustments = []) {
+  // 1. Calculate Base Amount using strictly normalized values
+  let baseAmount = 0;
+  let totalWeight = 0;
+
+  items.forEach(item => {
+    const itemWeight = Number(item.normalizedWeight || 0);
+    const itemRate = Number(item.normalizedRate || 0);
+    
+    baseAmount += round(itemWeight * itemRate);
+    totalWeight += itemWeight;
+  });
+
+  // 2. Apply Adjustments
+  const result = calculateFinalTotal(baseAmount, adjustments, totalWeight);
+
+  return {
+    ...result,
+    totalWeight: round(totalWeight)
+  };
+}
+
+/**
  * Calculates deductions and totals for a supplier settlement.
- * @param {Array} intakes - Array of intake records with grossWeight, bagCount, rate
- * @param {Object} config - Deductions configuration { kaat: { method, value }, brokerage: { method, value } }
  */
 export function calculateSupplierDeductions(intakes, config = {}) {
   let totalGrossValue = 0;
@@ -98,16 +124,10 @@ export function calculateSupplierDeductions(intakes, config = {}) {
   };
 }
 
-/**
- * Standard rounding for Weights (often 2 decimals in this system)
- */
 export function roundWeight(weight) {
   return round(weight, 2);
 }
 
-/**
- * Standard rounding for Rates/Prices
- */
 export function roundRate(rate) {
   return round(rate, 2);
 }

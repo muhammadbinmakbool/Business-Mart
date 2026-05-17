@@ -37,15 +37,17 @@ model Party {
 model Product {
   id                 Int                 @id @default(autoincrement())
   name               String
-  unitType           String
+  category           String              @default("WEIGHT") // WEIGHT, LIQUID, QUANTITY
+  primaryUnit        String              @default("KG")
+  unitConversion     Decimal?            @db.Decimal(18, 4) // e.g. 1 BAG = 100 KG
   isActive           Boolean             @default(true)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   intakeTransactions IntakeTransaction[]
   saleItems          SaleItem[]
   salesTracks        SalesTrack[]
-
 }
+
 
 model IntakeTransaction {
   id           Int                   @id @default(autoincrement())
@@ -54,12 +56,15 @@ model IntakeTransaction {
   partyId      Int
   productId    Int
   bagCount     Int?
-  grossWeight  Decimal               @db.Decimal(18, 2)
-  rate         Decimal?              @db.Decimal(18, 2)
-  notes        String?
-  status       String                @default("PENDING")
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
+  grossWeight      Decimal               @db.Decimal(18, 2)
+  unit             String                @default("KG")
+  normalizedWeight Decimal               @default(0) @db.Decimal(18, 2)
+  rate             Decimal?              @db.Decimal(18, 2)
+  notes            String?
+  status           String                @default("PENDING")
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
   advances     IntakeAdvance[]
   invoiceItems SupplierInvoiceItem[]
   salesTracks  SalesTrack[]
@@ -111,9 +116,12 @@ model SaleItem {
   saleId              Int
   productId           Int
   weight              Decimal            @db.Decimal(18, 2)
+  unit                String             @default("KG")
+  normalizedWeight    Decimal            @default(0) @db.Decimal(18, 2)
   rate                Decimal            @db.Decimal(18, 2)
-  rateUnit            String             @default("KG") // KG or MAUND
+  rateUnit            String             @default("KG") // DEPRECATED: use unit
   amount              Decimal            @db.Decimal(18, 2)
+
   sale                SaleTransaction    @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   product             Product            @relation(fields: [productId], references: [id], onUpdate: NoAction)
   salesTracks         SalesTrack[]

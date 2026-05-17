@@ -79,8 +79,68 @@ To ensure high-speed POS operations, the system allows creating **Parties (Suppl
 - **Supported Fields**: Name, Phone, Address, and Notes.
 - **Persistence**: Both Create and Update flows must support this atomic creation to ensure data entry flexibility.
 
+## Unit System Architecture (3-Layer Model)
+
+Business Mart uses a strict, centralized unit system to ensure mathematical consistency across physical and financial layers.
+
+### 1. Registry Layer (`src/lib/units.js`)
+The absolute source of truth for measurement math.
+- **Base Unit Rule**: Every category (WEIGHT, LIQUID, QUANTITY) has exactly one base unit (KG, ML, PIECE).
+- **Registry**: Defines standard units (MAUND, LITER) with fixed factors and special units (BAG, BOX) marked as `productSpecific`.
+- **Normalization**: Logic to convert any unit/quantity/rate into its base unit equivalent.
+
+### 2. Service Layer (`src/modules/products/services/UnitService.js`)
+The backend-safe proxy for measurement logic.
+- **Responsibility**: Orchestrates validation and normalization for server-side business logic.
+- **Boundaries**: Services like `SaleService` must ONLY use `UnitService` for math, never implementing their own conversion logic.
+
+### 3. Consumption Layer (Sales / Intake)
+Transactional modules that rely on the Unit System.
+- **Flow**: User Input → Unit Validation → Conversion to Base Unit → Persistence/Inventory Update.
+- **Hard Fail Policy**: If a `productSpecific` unit (e.g., BAG) is used without a defined conversion factor in the Product settings, the system **MUST reject the transaction**. No fallback assumptions or defaults are permitted.
+
+### Rule: Inventory Core Purity
+The Inventory derived view operates **ONLY in base units**. It is agnostic to how goods were sold or purchased. Conversion is handled entirely at the point of entry (Operational Layer) and normalized before storage.
+
+---
+
+## Unit System Architectural Lock (FINAL STABILITY)
+
+The architecture is now strictly locked into a **4-Layer Responsibility Model**. Any deviation from these boundaries is an Architectural Bug.
+
+### Layer 1: Unit Registry (`units.js`)
+**Responsibility**: Measurement Physics & Normalization.
+- **Rules**: ONLY source of truth for conversion factors and base-unit normalization logic.
+- **Constraints**: No business logic, no financial math, no state.
+
+### Layer 2: Orchestration Layer (Services)
+**Responsibility**: Workflow & Data Integrity.
+- **Rules**: Coordinates between Units, Financials, and Repositories. Performs validations (Compatibility/Stock).
+- **Constraints**: **NO RAW MATH**. Services must never implement conversion factors or calculation formulas. They must delegate to Layer 1 or Layer 3.
+
+### Layer 3: Financial Engine (`financial.js`)
+**Responsibility**: Business Totals & Adjustments.
+- **Rules**: Calculates line item amounts, adjustment values, and final invoice totals.
+- **Constraints**: Operates **ONLY on normalized base-unit values**. It is agnostic to local units (Maunds, Bags, etc.). It must NOT perform unit conversion.
+
+### Layer 4: Derived Inventory
+**Responsibility**: Real-time Reporting.
+- **Rules**: Stock level is always a derived value: `SUM(Intake normalized) - SUM(Sales normalized)`.
+- **Constraints**: Never store calculated stock. Never rely on local unit values for inventory math.
+
+---
+
+## Developer Principles
+1. **Single Source of Truth**: Measurement logic exists only in `units.js`. Business math exists only in `financial.js`.
+2. **No Duplicate Math**: Never implement conversion factors (e.g., `* 40`) outside the Registry.
+3. **Operational Purity**: All data must be normalized at the Operational Layer (Intake/Sale) before persistence.
+4. **Dumb UI**: The UI collects raw input and displays derived totals using shared helpers, but contains no calculation logic of its own.
+
+---
+
 ## Developer Workflow
 1. **Always update this guide** when making architectural decisions.
 2. Maintain strict separation between Operational and Derived layers.
 3. Use the `Service -> Repository` pattern for all business logic.
 4. Ensure all financial calculations are performed in `financial.js`.
+5. **NEVER hardcode conversion factors** (e.g., `40` for Maund) outside of `units.js`.

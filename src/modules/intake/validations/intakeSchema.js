@@ -6,7 +6,9 @@ export const intakeSchema = z.object({
   entryDate: z.string().or(z.date()).transform((val) => new Date(val)),
   bagCount: z.coerce.number().optional().nullable(),
   grossWeight: z.coerce.number().min(0.01, "Weight must be greater than 0"),
+  unit: z.string().default("KG"),
   rate: z.coerce.number().optional().nullable(),
+
   notes: z.string().optional().nullable(),
   status: z.string().default("PENDING"),
 });

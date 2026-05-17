@@ -1,16 +1,22 @@
 "use client";
 
 import React, { useRef, useState } from "react";
+
 import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getUnitsByCategory } from "@/lib/units";
 
 export default function IntakeForm({ suppliers, products }) {
   const router = useRouter();
   const formRef = useRef(null);
   const supplierRef = useRef(null);
   const [isNewSupplier, setIsNewSupplier] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState("");
+
+  const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
+  const compatibleUnits = selectedProduct ? getUnitsByCategory(selectedProduct.category) : [];
 
   async function handleSubmit(formData, shouldRedirect) {
     const result = await createIntakeAction(formData);
@@ -26,6 +32,7 @@ export default function IntakeForm({ suppliers, products }) {
       router.push("/intake");
     } else {
       formRef.current?.reset();
+      setSelectedProductId("");
       supplierRef.current?.focus();
     }
   }
@@ -60,7 +67,7 @@ export default function IntakeForm({ suppliers, products }) {
           </select>
         </div>
 
-        {/* Conditional New Supplier Fields */}
+        {/* ... (New Supplier Fields remain unchanged) ... */}
         {isNewSupplier && (
           <div className="md:col-span-2 bg-primary/5 border border-primary/20 rounded-lg p-6 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="flex items-center gap-2 mb-2">
@@ -118,16 +125,49 @@ export default function IntakeForm({ suppliers, products }) {
             id="productId"
             name="productId"
             required
+            value={selectedProductId}
+            onChange={(e) => setSelectedProductId(e.target.value)}
             className="w-full rounded-md border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
           >
             <option value="" className="bg-background text-foreground">Select a product...</option>
             {products.map(p => (
-              <option key={p.id} value={p.id} className="bg-background text-foreground">{p.name} ({p.unitType})</option>
+              <option key={p.id} value={p.id} className="bg-background text-foreground">{p.name}</option>
             ))}
           </select>
         </div>
 
-        {/* 3. Bag Count */}
+        {/* 3. Unit Selection */}
+        <div className="space-y-2">
+          <label htmlFor="unit" className="text-sm font-medium">Measurement Unit</label>
+          <select
+            id="unit"
+            name="unit"
+            required
+            disabled={!selectedProductId}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+          >
+            {compatibleUnits.map(u => (
+              <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
+            ))}
+            {!selectedProductId && <option value="">Select a product first...</option>}
+          </select>
+        </div>
+
+        {/* 4. Weight */}
+        <div className="space-y-2">
+          <label htmlFor="grossWeight" className="text-sm font-medium">Quantity / Weight</label>
+          <input
+            id="grossWeight"
+            name="grossWeight"
+            type="number"
+            step="0.01"
+            required
+            placeholder="0.00"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+
+        {/* 5. Bag Count */}
         <div className="space-y-2">
           <label htmlFor="bagCount" className="text-sm font-medium">Bag Count (Optional)</label>
           <input
@@ -137,22 +177,6 @@ export default function IntakeForm({ suppliers, products }) {
             placeholder="e.g. 50"
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
-        </div>
-
-        {/* 4. Weight */}
-        <div className="space-y-2">
-          <label htmlFor="grossWeight" className="text-sm font-medium">Gross Weight</label>
-          <div className="relative">
-            <input
-              id="grossWeight"
-              name="grossWeight"
-              type="number"
-              step="0.01"
-              required
-              placeholder="0.00"
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
         </div>
 
         <div className="space-y-2">
@@ -168,7 +192,7 @@ export default function IntakeForm({ suppliers, products }) {
         </div>
       </div>
 
-      {/* 5. Notes */}
+      {/* ... (Rest of the form remains unchanged) ... */}
       <div className="space-y-2">
         <label htmlFor="notes" className="text-sm font-medium">Notes (Optional)</label>
         <textarea
@@ -180,7 +204,6 @@ export default function IntakeForm({ suppliers, products }) {
         />
       </div>
 
-      {/* 6. Advance Payment */}
       <div className="bg-muted/30 rounded-lg p-4 space-y-4 border">
         <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Advance Payment (Optional)</h3>
         <div className="grid gap-4 md:grid-cols-2">
@@ -233,3 +256,4 @@ export default function IntakeForm({ suppliers, products }) {
     </form>
   );
 }
+

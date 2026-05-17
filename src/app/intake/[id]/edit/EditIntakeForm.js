@@ -1,13 +1,18 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { updateIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getUnitsByCategory } from "@/lib/units";
 
 export default function EditIntakeForm({ intake, suppliers, products }) {
   const router = useRouter();
+  const [selectedProductId, setSelectedProductId] = useState(intake.productId.toString());
+  
+  const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
+  const compatibleUnits = selectedProduct ? getUnitsByCategory(selectedProduct.category) : [];
 
   async function handleSubmit(formData) {
     const result = await updateIntakeAction(intake.id, formData);
@@ -29,10 +34,10 @@ export default function EditIntakeForm({ intake, suppliers, products }) {
             name="partyId"
             required
             defaultValue={intake.partyId}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
           >
             {suppliers.map(s => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>{s.name} ({s.phoneNumber})</option>
             ))}
           </select>
         </div>
@@ -43,8 +48,9 @@ export default function EditIntakeForm({ intake, suppliers, products }) {
             id="productId"
             name="productId"
             required
-            defaultValue={intake.productId}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            value={selectedProductId}
+            onChange={(e) => setSelectedProductId(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
           >
             {products.map(p => (
               <option key={p.id} value={p.id}>{p.name}</option>
@@ -53,18 +59,22 @@ export default function EditIntakeForm({ intake, suppliers, products }) {
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="bagCount" className="text-sm font-medium">Bag Count</label>
-          <input
-            id="bagCount"
-            name="bagCount"
-            type="number"
-            defaultValue={intake.bagCount || ""}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+          <label htmlFor="unit" className="text-sm font-medium">Measurement Unit</label>
+          <select
+            id="unit"
+            name="unit"
+            required
+            defaultValue={intake.unit}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+          >
+            {compatibleUnits.map(u => (
+              <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
+            ))}
+          </select>
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="grossWeight" className="text-sm font-medium">Gross Weight</label>
+          <label htmlFor="grossWeight" className="text-sm font-medium">Quantity / Weight</label>
           <input
             id="grossWeight"
             name="grossWeight"
@@ -72,6 +82,17 @@ export default function EditIntakeForm({ intake, suppliers, products }) {
             step="0.01"
             required
             defaultValue={Number(intake.grossWeight)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="bagCount" className="text-sm font-medium">Bag Count (Optional)</label>
+          <input
+            id="bagCount"
+            name="bagCount"
+            type="number"
+            defaultValue={intake.bagCount || ""}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
@@ -105,7 +126,7 @@ export default function EditIntakeForm({ intake, suppliers, products }) {
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="notes" className="text-sm font-medium">Notes</label>
+        <label htmlFor="notes" className="text-sm font-medium">Notes (Optional)</label>
         <textarea
           id="notes"
           name="notes"
@@ -132,3 +153,4 @@ export default function EditIntakeForm({ intake, suppliers, products }) {
     </form>
   );
 }
+

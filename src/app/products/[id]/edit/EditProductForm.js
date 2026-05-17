@@ -1,14 +1,17 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { updateProductAction } from "@/modules/products/controllers/productActions";
-import { UNIT_TYPES } from "@/lib/constants";
+import { UNIT_CATEGORIES, UNITS, getUnitsByCategory, isProductSpecific, BASE_UNITS } from "@/lib/units";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Info } from "lucide-react";
 
 export default function EditProductForm({ product }) {
   const router = useRouter();
+  const [category, setCategory] = useState(product.category || UNIT_CATEGORIES.WEIGHT);
+  const [primaryUnit, setPrimaryUnit] = useState(product.primaryUnit || "KG");
 
   async function handleSubmit(formData) {
     const result = await updateProductAction(product.id, formData);
@@ -20,8 +23,12 @@ export default function EditProductForm({ product }) {
     }
   }
 
+  const compatibleUnits = getUnitsByCategory(category);
+  const showConversion = isProductSpecific(primaryUnit);
+  const baseUnit = BASE_UNITS[category];
+
   return (
-    <form action={handleSubmit} className="space-y-4">
+    <form action={handleSubmit} className="space-y-6">
       <div className="space-y-2">
         <label htmlFor="name" className="text-sm font-medium">Product Name</label>
         <input
@@ -33,21 +40,69 @@ export default function EditProductForm({ product }) {
         />
       </div>
 
-      <div className="space-y-2">
-        <label htmlFor="unitType" className="text-sm font-medium">Standard Unit</label>
-        <select
-          id="unitType"
-          name="unitType"
-          required
-          defaultValue={product.unitType}
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          <option value={UNIT_TYPES.BAG}>Bag</option>
-          <option value={UNIT_TYPES.KG}>KG</option>
-          <option value={UNIT_TYPES.MAUND}>Maund</option>
-          <option value={UNIT_TYPES.PIECE}>Piece</option>
-        </select>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label htmlFor="category" className="text-sm font-medium">Category</label>
+          <select
+            id="category"
+            name="category"
+            value={category}
+            onChange={(e) => {
+                const newCat = e.target.value;
+                setCategory(newCat);
+                setPrimaryUnit(BASE_UNITS[newCat]);
+            }}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {Object.values(UNIT_CATEGORIES).map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="primaryUnit" className="text-sm font-medium">Primary Unit</label>
+          <select
+            id="primaryUnit"
+            name="primaryUnit"
+            value={primaryUnit}
+            onChange={(e) => setPrimaryUnit(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {compatibleUnits.map(u => (
+                <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {showConversion && (
+        <div className="space-y-4 p-4 rounded-lg bg-muted/50 border animate-in fade-in slide-in-from-top-1">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+            <div className="space-y-2 flex-1">
+              <label htmlFor="unitConversion" className="text-sm font-bold">Unit Conversion</label>
+              <p className="text-xs text-muted-foreground">
+                Define how many <strong>{baseUnit}</strong> are in one <strong>{primaryUnit}</strong>.
+              </p>
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium whitespace-nowrap">1 {primaryUnit} =</span>
+                <input
+                    id="unitConversion"
+                    name="unitConversion"
+                    type="number"
+                    step="0.0001"
+                    required
+                    defaultValue={product.unitConversion ? Number(product.unitConversion) : ""}
+                    placeholder="e.g. 50, 100"
+                    className="w-32 rounded-md border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                <span className="text-sm font-bold">{baseUnit}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4 pt-4 border-t">
         <div className="flex items-center gap-2">
@@ -80,3 +135,4 @@ export default function EditProductForm({ product }) {
     </form>
   );
 }
+

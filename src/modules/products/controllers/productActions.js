@@ -7,7 +7,9 @@ import { redirect } from "next/navigation";
 export async function createProductAction(formData) {
   const data = {
     name: formData.get("name"),
-    unitType: formData.get("unitType"),
+    category: formData.get("category"),
+    primaryUnit: formData.get("primaryUnit"),
+    unitConversion: formData.get("unitConversion") ? formData.get("unitConversion") : null,
     isActive: true,
   };
 
@@ -23,9 +25,12 @@ export async function createProductAction(formData) {
 export async function updateProductAction(id, formData) {
   const data = {
     name: formData.get("name"),
-    unitType: formData.get("unitType"),
+    category: formData.get("category"),
+    primaryUnit: formData.get("primaryUnit"),
+    unitConversion: formData.get("unitConversion") ? formData.get("unitConversion") : null,
     isActive: formData.get("isActive") === "true",
   };
+
 
   try {
     await ProductService.updateProduct(id, data);

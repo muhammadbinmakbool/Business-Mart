@@ -11,11 +11,11 @@ export class ProductRepository {
     const products = await prisma.product.findMany({
       include: {
         intakeTransactions: {
-          select: { grossWeight: true },
+          select: { normalizedWeight: true },
           where: { status: { not: "CANCELLED" } }
         },
         saleItems: {
-          select: { weight: true },
+          select: { normalizedWeight: true },
           where: { sale: { isDeleted: false, status: { not: "CANCELLED" } } }
         }
       },
@@ -23,8 +23,8 @@ export class ProductRepository {
     });
 
     return products.map(p => {
-      const totalIn = p.intakeTransactions.reduce((sum, i) => sum + Number(i.grossWeight), 0);
-      const totalOut = p.saleItems.reduce((sum, s) => sum + Number(s.weight), 0);
+      const totalIn = p.intakeTransactions.reduce((sum, i) => sum + Number(i.normalizedWeight), 0);
+      const totalOut = p.saleItems.reduce((sum, s) => sum + Number(s.normalizedWeight), 0);
       
       // Clean up relations for the frontend
       const { intakeTransactions, saleItems, ...rest } = p;
@@ -35,6 +35,7 @@ export class ProductRepository {
       };
     });
   }
+
 
   static async getById(id) {
     return prisma.product.findUnique({

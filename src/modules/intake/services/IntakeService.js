@@ -2,6 +2,9 @@ import { IntakeRepository } from "../repositories/IntakeRepository";
 import { AdvanceRepository } from "../repositories/AdvanceRepository";
 import { intakeSchema } from "../validations/intakeSchema";
 import { PartyService } from "../../parties/services/PartyService";
+import { UnitService } from "../../products/services/UnitService";
+import { ProductService } from "../../products/services/ProductService";
+
 
 export class IntakeService {
   static async listIntakes() {
@@ -38,13 +41,37 @@ export class IntakeService {
     }
 
     const validated = intakeSchema.parse({ ...intakeData, partyId });
-    return IntakeRepository.create(validated);
+    
+    // Normalize weight
+    const product = await ProductService.getProduct(validated.productId);
+    if (!product) throw new Error("Product not found");
+    
+    const normalizedWeight = UnitService.getNormalizedQuantity(validated.grossWeight, validated.unit || "KG", product);
+    
+    return IntakeRepository.create({
+      ...validated,
+      normalizedWeight
+    });
   }
 
   static async updateIntake(id, data) {
     const validated = intakeSchema.partial().parse(data);
+    
+    // If weight or unit changed, re-normalize
+    if (validated.grossWeight || validated.unit || validated.productId) {
+        const currentIntake = await IntakeRepository.getById(id);
+        const productId = validated.productId || currentIntake.productId;
+        const product = await ProductService.getProduct(productId);
+        
+        const weight = validated.grossWeight || Number(currentIntake.grossWeight);
+        const unit = validated.unit || currentIntake.unit;
+        
+        validated.normalizedWeight = UnitService.getNormalizedQuantity(weight, unit, product);
+    }
+    
     return IntakeRepository.update(id, validated);
   }
+
 
   static async createIntakeWithAdvance(intakeData, advanceAmount, advanceNotes) {
     const intake = await this.createIntake(intakeData);
