@@ -12,6 +12,9 @@ export class IntakeService {
     return intakes.map(intake => ({
       ...intake,
       grossWeight: Number(intake.grossWeight),
+      netQuantity: intake.netQuantity ? Number(intake.netQuantity) : null,
+      Bardana: intake.Bardana ? Number(intake.Bardana) : null,
+      Khot: intake.Khot ? Number(intake.Khot) : null,
       normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
       product: intake.product ? {
@@ -30,6 +33,9 @@ export class IntakeService {
     return {
       ...intake,
       grossWeight: Number(intake.grossWeight),
+      netQuantity: intake.netQuantity ? Number(intake.netQuantity) : null,
+      Bardana: intake.Bardana ? Number(intake.Bardana) : null,
+      Khot: intake.Khot ? Number(intake.Khot) : null,
       normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
       product: intake.product ? {
@@ -72,6 +78,9 @@ export class IntakeService {
       const intake = await tx.intakeTransaction.create({
         data: {
           grossWeight: validated.grossWeight,
+          netQuantity: validated.netQuantity ?? null,
+          Bardana: validated.Bardana ?? null,
+          Khot: validated.Khot ?? null,
           unit: validated.unit || "KG",
           normalizedWeight,
           rate: validated.rate ?? null,
@@ -220,6 +229,9 @@ export class IntakeService {
     return intakes.map(intake => ({
       ...intake,
       grossWeight: Number(intake.grossWeight),
+      netQuantity: intake.netQuantity ? Number(intake.netQuantity) : null,
+      Bardana: intake.Bardana ? Number(intake.Bardana) : null,
+      Khot: intake.Khot ? Number(intake.Khot) : null,
       normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
       product: intake.product ? {

@@ -58,6 +58,9 @@ model IntakeTransaction {
   productId    Int
   bagCount     Int?
   grossWeight      Decimal               @db.Decimal(18, 2)
+  netQuantity      Decimal?              @db.Decimal(18, 2)
+  Bardana          Decimal?              @db.Decimal(18, 2)
+  Khot             Decimal?              @db.Decimal(18, 2)
   unit             String                @default("KG")
   normalizedWeight Decimal               @default(0) @db.Decimal(18, 2)
   rate             Decimal?              @db.Decimal(18, 2)
