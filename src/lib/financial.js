@@ -96,15 +96,17 @@ export function calculateSupplierDeductions(intakes, config = {}) {
   let totalDeductions = 0;
 
   intakes.forEach(intake => {
-    const gross = Number(intake.grossWeight) * Number(intake.rate);
+    const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+    const gross = billingWeight * Number(intake.rate);
     totalGrossValue += gross;
 
     const context = { 
       baseAmount: gross, 
-      totalWeight: intake.grossWeight, 
+      totalWeight: billingWeight, 
       bagCount: intake.bagCount || 0,
       rate: intake.rate
     };
+
 
     // Kaat
     if (config.kaat) {

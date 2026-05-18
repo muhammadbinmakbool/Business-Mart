@@ -137,3 +137,56 @@ export function convertFromBase(baseValue, targetUnitId, product) {
     const factor = getConversionFactor(targetUnitId, product);
     return factor > 0 ? (Number(baseValue) / factor) : Number(baseValue);
 }
+
+/**
+ * Calculates Net Weight, Bardana weight, and Khot weight from gross weight.
+ * Orders of operations:
+ * 1. Convert grossWeight to KG.
+ * 2. Calculate Bardana: (bardanaGramPerBag * bagCount) / 1000 (in KG).
+ * 3. Deduct Bardana from grossWeight to get weightAfterBardana.
+ * 4. Convert weightAfterBardana to khotRateUnit (KG or MAUND) and calculate Khot in KG: (khotRate * appliedWeight) / 1000.
+ * 5. Deduct Khot from weightAfterBardana to get netWeight (in KG).
+ * 6. Convert netWeight back to the original unit.
+ */
+export function calculateIntakeNetWeight({
+  grossWeight,
+  unit,
+  bagCount = 0,
+  bardanaGramPerBag = 0,
+  khotRate = 0,
+  khotRateUnit = "KG"
+}) {
+  const gWeight = Number(grossWeight) || 0;
+  const bCount = Number(bagCount) || 0;
+  const bGram = Number(bardanaGramPerBag) || 0;
+  const kRate = Number(khotRate) || 0;
+
+  // 1. Gross weight in KG
+  const grossWeightKg = unit === "MAUND" ? gWeight * 40 : gWeight;
+
+  // 2. Bardana in KG
+  const bardanaKg = bCount > 0 && bGram > 0 ? (bGram * bCount) / 1000 : 0;
+
+  // 3. Weight after Bardana deduction (in KG)
+  const weightAfterBardanaKg = Math.max(0, grossWeightKg - bardanaKg);
+
+  // 4. Khot in KG
+  // Applied weight for refraction is in the unit of the rate
+  const khotAppliedWeight = khotRateUnit === "MAUND" ? weightAfterBardanaKg / 40 : weightAfterBardanaKg;
+  const khotKg = kRate > 0 ? (kRate * khotAppliedWeight) / 1000 : 0;
+
+  // 5. Net weight in KG
+  const netWeightKg = Math.max(0, weightAfterBardanaKg - khotKg);
+
+  // 6. Net weight in original unit
+  const netWeight = unit === "MAUND" ? netWeightKg / 40 : netWeightKg;
+
+  return {
+    grossWeightKg,
+    bardanaKg,
+    khotKg,
+    netWeightKg,
+    netWeight
+  };
+}
+

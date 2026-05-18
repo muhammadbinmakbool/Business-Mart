@@ -26,12 +26,15 @@ export class SupplierInvoiceService {
     const finalPayableAmount = netValue - totalAdvances;
 
     // 3. Prepare immutable snapshots for items
-    const itemsData = intakes.map(intake => ({
-      intakeTransactionId: intake.id,
-      weight: intake.grossWeight,
-      rate: intake.rate,
-      amount: Number(intake.grossWeight) * Number(intake.rate)
-    }));
+    const itemsData = intakes.map(intake => {
+      const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+      return {
+        intakeTransactionId: intake.id,
+        weight: billingWeight,
+        rate: intake.rate,
+        amount: billingWeight * Number(intake.rate)
+      };
+    });
 
     // 4. Sequence number
     const invoiceNumber = await SupplierInvoiceRepository.getNextInvoiceNumber();
@@ -86,12 +89,15 @@ export class SupplierInvoiceService {
     const totalAdvances = advances.reduce((sum, adv) => sum + Number(adv.amount), 0);
     const finalPayableAmount = netValue - totalAdvances;
 
-    const itemsData = intakes.map(intake => ({
-      intakeTransactionId: intake.id,
-      weight: intake.grossWeight,
-      rate: intake.rate,
-      amount: Number(intake.grossWeight) * Number(intake.rate)
-    }));
+    const itemsData = intakes.map(intake => {
+      const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+      return {
+        intakeTransactionId: intake.id,
+        weight: billingWeight,
+        rate: intake.rate,
+        amount: billingWeight * Number(intake.rate)
+      };
+    });
 
     // 5. Create NEW version (new record, new sequence number for now to satisfy @unique)
     // In a future refactor, we might want SUP-XXXXXX-V2 format.

@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import { ChevronLeft, Calendar, FileText, User, Package, Weight, Coins, CheckCircle, XCircle, Clock, Edit2 } from "lucide-react";
 import { IntakeService } from "@/modules/intake/services/IntakeService";
+import { PartyService } from "@/modules/parties/services/PartyService";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
@@ -11,6 +12,9 @@ import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
 export default async function IntakeDetailsPage({ params: paramsPromise }) {
   const params = await paramsPromise;
   const intake = await IntakeService.getIntake(params.id);
+
+  const parties = await PartyService.listParties();
+  const buyers = parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH"));
 
   if (!intake) {
     return <div className="p-8 text-center">Intake transaction not found.</div>;
@@ -146,7 +150,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
         <div className="space-y-6">
           <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Status Lifecycle</h2>
-            <StatusUpdateButtons intakeId={intake.id} currentStatus={intake.status} />
+            <StatusUpdateButtons intakeId={intake.id} currentStatus={intake.status} intake={intake} buyers={buyers} />
           </div>
 
           <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">

@@ -46,9 +46,19 @@ export class IntakeService {
       advances: intake.advances?.map(a => ({
         ...a,
         amount: Number(a.amount)
+      })),
+      salesTracks: intake.salesTracks?.map(st => ({
+        ...st,
+        quantity: Number(st.quantity),
+        buyingRate: st.buyingRate ? Number(st.buyingRate) : null,
+        sellingRate: st.sellingRate ? Number(st.sellingRate) : null,
+        buyer: st.buyer ? {
+          ...st.buyer
+        } : null
       }))
     };
   }
+
 
   static async createIntake(data) {
     let { partyId, newPartyData, ...intakeData } = data;
@@ -107,7 +117,8 @@ export class IntakeService {
   }
 
   static async updateIntake(id, data) {
-    const validated = intakeSchema.partial().parse(data);
+    const { buyerPartyId, ...rest } = data;
+    const validated = intakeSchema.partial().parse(rest);
     
     return prisma.$transaction(async (tx) => {
       // 1. Get current state
@@ -126,9 +137,9 @@ export class IntakeService {
 
       // Recalculate normalized weight if weight, unit, or product changed
       let newWeight = oldWeight;
-      const hasWeightChange = data.grossWeight !== undefined;
-      const hasUnitChange = data.unit !== undefined;
-      const hasProductChange = data.productId !== undefined;
+      const hasWeightChange = rest.grossWeight !== undefined;
+      const hasUnitChange = rest.unit !== undefined;
+      const hasProductChange = rest.productId !== undefined;
 
       if (hasWeightChange || hasUnitChange || hasProductChange) {
         const product = await tx.product.findUnique({ where: { id: newProductId } });
@@ -199,15 +210,62 @@ export class IntakeService {
       }
 
       // 4. Update the intake record
-      return tx.intakeTransaction.update({
+      const updated = await tx.intakeTransaction.update({
         where: { id: parseInt(id) },
         data: {
-          ...validated,
-          normalizedWeight: newWeight
+          partyId: validated.partyId,
+          productId: validated.productId,
+          entryDate: validated.entryDate,
+          bagCount: validated.bagCount,
+          grossWeight: validated.grossWeight,
+          unit: validated.unit,
+          normalizedWeight: newWeight,
+          notes: validated.notes,
+          status: newStatus,
+          rate: validated.rate !== undefined ? validated.rate : current.rate,
+          Bardana: validated.Bardana !== undefined ? validated.Bardana : current.Bardana,
+          Khot: validated.Khot !== undefined ? validated.Khot : current.Khot,
+          netWeight: validated.netWeight !== undefined ? validated.netWeight : current.netWeight,
         }
       });
+
+      // 5. If status is SOLD and buyer is specified, upsert SalesTrack!
+      if (newStatus === "SOLD" && buyerPartyId) {
+        const existingTrack = await tx.salesTrack.findFirst({
+          where: { intakeTransactionId: updated.id }
+        });
+
+        const quantityInKg = updated.unit === "MAUND" 
+          ? (updated.netWeight ? Number(updated.netWeight) * 40 : Number(updated.grossWeight) * 40)
+          : (updated.netWeight ? Number(updated.netWeight) : Number(updated.grossWeight));
+
+        const trackData = {
+          intakeTransactionId: updated.id,
+          supplierPartyId: updated.partyId,
+          buyerPartyId: parseInt(buyerPartyId),
+          productId: updated.productId,
+          quantity: quantityInKg,
+          buyingRate: updated.rate ? Number(updated.rate) : null,
+          sellingRate: updated.rate ? Number(updated.rate) : null,
+          notes: `Intake ${updated.intakeNumber} updated and marked as SOLD`
+        };
+
+        if (existingTrack) {
+          await tx.salesTrack.update({
+            where: { id: existingTrack.id },
+            data: trackData
+          });
+        } else {
+          await tx.salesTrack.create({
+            data: trackData
+          });
+        }
+      }
+
+      return updated;
     });
   }
+
 
   static async createIntakeWithAdvance(intakeData, advanceAmount, advanceNotes) {
     const intake = await this.createIntake(intakeData);
@@ -242,6 +300,67 @@ export class IntakeService {
     }));
   }
 
+  static async sellIntake(id, data) {
+    const intakeId = parseInt(id);
+    const buyerPartyId = parseInt(data.buyerPartyId);
+    const rate = Number(data.rate);
+    const Bardana = Number(data.Bardana) || 0;
+    const Khot = Number(data.Khot) || 0;
+    const netWeight = Number(data.netWeight) || 0;
+
+    return prisma.$transaction(async (tx) => {
+      // 1. Get the current intake record
+      const intake = await tx.intakeTransaction.findUnique({
+        where: { id: intakeId },
+        include: { product: true }
+      });
+      if (!intake) throw new Error("Intake transaction not found");
+
+      // 2. Update Intake Transaction fields
+      const updatedIntake = await tx.intakeTransaction.update({
+        where: { id: intakeId },
+        data: {
+          status: "SOLD",
+          Bardana,
+          Khot,
+          netWeight,
+          rate,
+        }
+      });
+
+      // 3. Upsert SalesTrack
+      const existingTrack = await tx.salesTrack.findFirst({
+        where: { intakeTransactionId: intakeId }
+      });
+
+      const quantityInKg = intake.unit === "MAUND" ? netWeight * 40 : netWeight;
+
+      const trackData = {
+        intakeTransactionId: intakeId,
+        supplierPartyId: intake.partyId,
+        buyerPartyId,
+        productId: intake.productId,
+        quantity: quantityInKg,
+        buyingRate: rate,
+        sellingRate: rate,
+        notes: `Intake ${intake.intakeNumber} marked as SOLD`
+      };
+
+      if (existingTrack) {
+        await tx.salesTrack.update({
+          where: { id: existingTrack.id },
+          data: trackData
+        });
+      } else {
+        await tx.salesTrack.create({
+          data: trackData
+        });
+      }
+
+      return updatedIntake;
+    });
+  }
+
   static async deleteIntake(id) {
     return prisma.$transaction(async (tx) => {
       const intake = await tx.intakeTransaction.findUnique({
@@ -273,3 +392,4 @@ export class IntakeService {
     });
   }
 }
+

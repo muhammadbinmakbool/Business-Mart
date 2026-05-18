@@ -50,6 +50,20 @@ export async function updateIntakeStatusAction(id, status) {
   }
 }
 
+export async function sellIntakeAction(id, data) {
+  try {
+    await IntakeService.sellIntake(id, data);
+    revalidatePath("/intake");
+    revalidatePath(`/intake/${id}`);
+    revalidatePath("/source-tracking");
+    return { success: true };
+  } catch (error) {
+    console.error("Error selling intake:", error);
+    return { error: error.message || "Failed to sell intake" };
+  }
+}
+
+
 export async function updateIntakeAction(id, formData) {
   const data = {
     partyId: formData.get("partyId"),
@@ -60,17 +74,24 @@ export async function updateIntakeAction(id, formData) {
     unit: formData.get("unit") || "KG",
     notes: formData.get("notes") || "",
     status: formData.get("status"),
+    buyerPartyId: formData.get("buyerPartyId") || null,
+    rate: formData.get("rate") ? Number(formData.get("rate")) : null,
+    Bardana: formData.get("Bardana") ? Number(formData.get("Bardana")) : null,
+    Khot: formData.get("Khot") ? Number(formData.get("Khot")) : null,
+    netWeight: formData.get("netWeight") ? Number(formData.get("netWeight")) : null,
   };
 
   try {
     await IntakeService.updateIntake(id, data);
     revalidatePath("/intake");
     revalidatePath(`/intake/${id}`);
+    revalidatePath("/source-tracking");
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to update intake transaction" };
   }
 }
+
 export async function deleteIntakeAction(id) {
   try {
     await IntakeService.deleteIntake(id);

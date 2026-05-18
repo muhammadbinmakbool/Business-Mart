@@ -19,6 +19,7 @@ export default async function EditIntakePage({ params: paramsPromise }) {
   }
 
   const suppliers = parties.filter(p => p.isActive || p.id === intake.partyId);
+  const buyers = parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH"));
   const activeProducts = products.filter(p => p.isActive || p.id === intake.productId);
 
   return (
@@ -37,8 +38,9 @@ export default async function EditIntakePage({ params: paramsPromise }) {
       </div>
 
       <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <EditIntakeForm intake={intake} suppliers={suppliers} products={activeProducts} />
+        <EditIntakeForm intake={intake} suppliers={suppliers} products={activeProducts} buyers={buyers} />
       </div>
     </div>
   );
 }
+

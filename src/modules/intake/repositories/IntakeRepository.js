@@ -20,10 +20,16 @@ export class IntakeRepository {
       include: {
         party: true,
         product: true,
-        advances: true
+        advances: true,
+        salesTracks: {
+          include: {
+            buyer: true
+          }
+        }
       }
     });
   }
+
 
   static async create(data) {
     const { partyId, productId, ...rest } = data;
