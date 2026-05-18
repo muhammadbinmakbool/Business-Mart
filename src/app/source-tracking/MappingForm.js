@@ -61,7 +61,7 @@ export default function MappingForm({
                 ...prev, 
                 supplierPartyId: intake.partyId,
                 productId: intake.productId || prev.productId,
-                quantity: intake.grossWeight || prev.quantity,
+                quantity: intake.normalizedWeight || prev.quantity,
                 buyingRate: intake.rate || prev.buyingRate
             }));
         }
@@ -124,7 +124,7 @@ export default function MappingForm({
               >
                 <option value="">No Intake Linked</option>
                 {intakes.map(i => (
-                  <option key={i.id} value={i.id}>{i.intakeNumber} - {i.party?.name} ({Number(i.grossWeight).toLocaleString()} KG)</option>
+                  <option key={i.id} value={i.id}>{i.intakeNumber} - {i.party?.name} ({Number(i.grossWeight).toLocaleString()} {i.unit === "MAUND" ? "MND" : i.unit})</option>
                 ))}
               </select>
             </div>
