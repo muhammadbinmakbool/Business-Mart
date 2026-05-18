@@ -6,7 +6,7 @@ export const intakeSchema = z.object({
   entryDate: z.string().or(z.date()).transform((val) => new Date(val)),
   bagCount: z.coerce.number().optional().nullable(),
   grossWeight: z.coerce.number().min(0.01, "Weight must be greater than 0"),
-  netQuantity: z.coerce.number().optional().nullable(),
+  netWeight: z.coerce.number().optional().nullable(),
   Bardana: z.coerce.number().optional().nullable(),
   Khot: z.coerce.number().optional().nullable(),
   unit: z.string().default("KG"),

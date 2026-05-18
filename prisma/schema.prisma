@@ -57,13 +57,13 @@ model IntakeTransaction {
   partyId      Int
   productId    Int
   bagCount     Int?
+  rate             Decimal?              @db.Decimal(18, 2)
   grossWeight      Decimal               @db.Decimal(18, 2)
-  netQuantity      Decimal?              @db.Decimal(18, 2)
-  Bardana          Decimal?              @db.Decimal(18, 2)
-  Khot             Decimal?              @db.Decimal(18, 2)
   unit             String                @default("KG")
   normalizedWeight Decimal               @default(0) @db.Decimal(18, 2)
-  rate             Decimal?              @db.Decimal(18, 2)
+  Bardana          Decimal?              @db.Decimal(18, 2)
+  Khot             Decimal?              @db.Decimal(18, 2)
+  netWeight        Decimal?              @db.Decimal(18, 2)
   notes            String?
   status           String                @default("PENDING")
   createdAt        DateTime              @default(now())
