@@ -13,7 +13,12 @@ export class IntakeService {
       ...intake,
       grossWeight: Number(intake.grossWeight),
       normalizedWeight: Number(intake.normalizedWeight),
-      rate: intake.rate ? Number(intake.rate) : null
+      rate: intake.rate ? Number(intake.rate) : null,
+      product: intake.product ? {
+        ...intake.product,
+        quantity: Number(intake.product.quantity),
+        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
+      } : null
     }));
   }
 
@@ -27,6 +32,11 @@ export class IntakeService {
       grossWeight: Number(intake.grossWeight),
       normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
+      product: intake.product ? {
+        ...intake.product,
+        quantity: Number(intake.product.quantity),
+        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
+      } : null,
       advances: intake.advances?.map(a => ({
         ...a,
         amount: Number(a.amount)
@@ -206,7 +216,13 @@ export class IntakeService {
     return intakes.map(intake => ({
       ...intake,
       grossWeight: Number(intake.grossWeight),
-      rate: Number(intake.rate)
+      normalizedWeight: Number(intake.normalizedWeight),
+      rate: intake.rate ? Number(intake.rate) : null,
+      product: intake.product ? {
+        ...intake.product,
+        quantity: Number(intake.product.quantity),
+        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
+      } : null
     }));
   }
 
