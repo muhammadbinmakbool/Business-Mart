@@ -12,6 +12,7 @@ export class IntakeService {
     return intakes.map(intake => ({
       ...intake,
       grossWeight: Number(intake.grossWeight),
+      normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null
     }));
   }
@@ -24,6 +25,7 @@ export class IntakeService {
     return {
       ...intake,
       grossWeight: Number(intake.grossWeight),
+      normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
       advances: intake.advances?.map(a => ({
         ...a,
