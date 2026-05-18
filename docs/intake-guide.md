@@ -30,14 +30,16 @@ If a supplier delivers **`10 MAUND`** of Wheat:
 
 ## 🔄 Intake Lifecycle & Status Transitions
 
-Each intake transaction has a lifecycle determined by its `status` field: `PENDING`, `COMPLETED`, or `CANCELLED`.
+Each intake transaction has a lifecycle determined by its `status` field: `PENDING`, `SOLD`, `CLEARED`, or `CANCELLED`.
 
 ```mermaid
 stateDiagram-v2
     [*] --> PENDING : Create Intake (adds to inventory)
-    PENDING --> COMPLETED : Finalize & Invoice
+    PENDING --> SOLD : Product is Sold
+    SOLD --> CLEARED : Payment Cleared & Closed
     PENDING --> CANCELLED : Void / Cancel (subtracts from inventory)
-    COMPLETED --> CANCELLED : Revert & Cancel (subtracts from inventory)
+    SOLD --> CANCELLED : Revert & Cancel (subtracts from inventory)
+    CLEARED --> CANCELLED : Revert & Cancel (subtracts from inventory)
     CANCELLED --> PENDING : Re-activate (adds to inventory)
 ```
 
@@ -46,7 +48,8 @@ stateDiagram-v2
 | Status | Meaning | Affects Inventory? | Billing & Ledger Status |
 | :--- | :--- | :--- | :--- |
 | **`PENDING`** | Goods are physically present at the warehouse but waiting for final pricing, inspection, or quality check. | **YES (Active)**<br>Normalized weight is active in `Product.quantity` stock. | Active. Eligible for supplier invoices and payment advances. Represents unchecked/unverified arrivals. |
-| **`COMPLETED`** | The physical weight, count, and quality of the delivery have been operationally verified and signed-off. | **YES (Active)**<br>No change to stock during `PENDING` $\rightarrow$ `COMPLETED`. | Active. Eligible for supplier invoices. Represents a verified delivery green-lit for billing. |
+| **`SOLD`** | The physical weight, count, and quality of the delivery have been operationally verified and the product has been sold. | **YES (Active)**<br>No change to stock during `PENDING` $\rightarrow$ `SOLD`. | Active. Eligible for supplier invoices. Represents a verified delivery green-lit for billing. |
+| **`CLEARED`** | Indicates that the intake transaction has been fully paid, billed, and completely closed. | **YES (Active)**<br>No change to stock during transition. | Fully paid and ledger balanced. Represents a completely closed account cycle. |
 | **`CANCELLED`** | The intake was declared invalid, rejected, returned, or logged in error. | **NO (Voided)**<br>Stock is automatically decremented from `Product.quantity`. | Completely excluded from invoices, statements, and reports. |
 
 ---
@@ -65,15 +68,16 @@ where: {
   status: { not: "CANCELLED" }
 }
 ```
-*   Both **`PENDING`** and **`COMPLETED`** intakes are open for billing.
+*   **`PENDING`**, **`SOLD`**, and **`CLEARED`** intakes are open/active for billing records.
 *   **`CANCELLED`** intakes are automatically hidden from the billing creator.
 
 ### 2. Operational Control Checkpoint
 *   **Unverified (`PENDING`)**: Goods are physically in the warehouse, but billing should wait until weight scales, laboratory testing, and bags are fully verified.
-*   **Verified (`COMPLETED`)**: Signals a clean green-light to the accounting department that the intake weight is correct, verified, and ready to be locked inside a **Supplier Invoice**.
+*   **Verified (`SOLD`)**: Signals a clean green-light to the accounting department that the intake weight is correct, verified, and has been sold.
+*   **Closed (`CLEARED`)**: Indication of final payment clearance, closing all active liabilities for this intake.
 
 ### 3. Invoice Lock
-Once the accountant selects `COMPLETED` intakes and generates a new **Supplier Invoice**:
+Once the accountant selects intakes and generates a new **Supplier Invoice**:
 *   An immutable financial snapshot is created.
 *   The linked intakes are permanently marked as **Invoiced** and locked from being billed again.
 

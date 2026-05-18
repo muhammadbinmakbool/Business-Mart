@@ -3,7 +3,7 @@
 import React from "react";
 import { updateIntakeStatusAction } from "@/modules/intake/controllers/intakeActions";
 import { toast } from "sonner";
-import { CheckCircle, XCircle, Clock } from "lucide-react";
+import { CheckCircle, XCircle, Clock, BadgeCheck, ShoppingBag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function StatusUpdateButtons({ intakeId, currentStatus }) {
@@ -33,17 +33,31 @@ export default function StatusUpdateButtons({ intakeId, currentStatus }) {
       </button>
 
       <button
-        onClick={() => handleUpdate("COMPLETED")}
-        disabled={currentStatus === "COMPLETED"}
+        onClick={() => handleUpdate("SOLD")}
+        disabled={currentStatus === "SOLD"}
         className={cn(
           "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors",
-          currentStatus === "COMPLETED" 
+          currentStatus === "SOLD" 
             ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default" 
             : "hover:bg-accent border border-transparent"
         )}
       >
-        <CheckCircle className="h-4 w-4" />
-        Mark as Completed
+        <ShoppingBag className="h-4 w-4" />
+        Mark as Sold
+      </button>
+
+      <button
+        onClick={() => handleUpdate("CLEARED")}
+        disabled={currentStatus === "CLEARED"}
+        className={cn(
+          "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors",
+          currentStatus === "CLEARED" 
+            ? "bg-blue-50 text-blue-600 border border-blue-200 cursor-default" 
+            : "hover:bg-accent border border-transparent"
+        )}
+      >
+        <BadgeCheck className="h-4 w-4" />
+        Mark as Cleared
       </button>
 
       <button

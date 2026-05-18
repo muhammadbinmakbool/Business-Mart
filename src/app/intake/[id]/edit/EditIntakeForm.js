@@ -119,7 +119,8 @@ export default function EditIntakeForm({ intake, suppliers, products }) {
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="PENDING">Pending</option>
-            <option value="COMPLETED">Completed</option>
+            <option value="SOLD">Sold</option>
+            <option value="CLEARED">Cleared</option>
             <option value="CANCELLED">Cancelled</option>
           </select>
         </div>

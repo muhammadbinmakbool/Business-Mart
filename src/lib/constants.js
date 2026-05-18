@@ -13,6 +13,7 @@ export const UNIT_TYPES = {
 
 export const INTAKE_STATUS = {
   PENDING: "PENDING",
-  COMPLETED: "COMPLETED",
+  SOLD: "SOLD",
+  CLEARED: "CLEARED",
   CANCELLED: "CANCELLED",
 };
