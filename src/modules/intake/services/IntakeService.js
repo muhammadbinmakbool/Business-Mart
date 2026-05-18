@@ -117,11 +117,15 @@ export class IntakeService {
 
       // Recalculate normalized weight if weight, unit, or product changed
       let newWeight = oldWeight;
-      if (validated.grossWeight !== undefined || validated.unit !== undefined || validated.productId !== undefined) {
+      const hasWeightChange = data.grossWeight !== undefined;
+      const hasUnitChange = data.unit !== undefined;
+      const hasProductChange = data.productId !== undefined;
+
+      if (hasWeightChange || hasUnitChange || hasProductChange) {
         const product = await tx.product.findUnique({ where: { id: newProductId } });
         if (!product) throw new Error("Product not found");
-        const rawWeight = validated.grossWeight !== undefined ? validated.grossWeight : Number(current.grossWeight);
-        const unit = validated.unit !== undefined ? validated.unit : current.unit;
+        const rawWeight = hasWeightChange ? validated.grossWeight : Number(current.grossWeight);
+        const unit = hasUnitChange ? validated.unit : current.unit;
         newWeight = UnitService.getNormalizedQuantity(rawWeight, unit, product);
       }
 
