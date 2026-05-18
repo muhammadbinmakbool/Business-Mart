@@ -11,3 +11,8 @@ export const INTAKE_STATUS = {
   CANCELLED: "CANCELLED",
 };
 
+export const UNIT_CATEGORIES = {
+  WEIGHT: "WEIGHT",
+  LIQUID: "LIQUID",
+  QUANTITY: "QUANTITY",
+};

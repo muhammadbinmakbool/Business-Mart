@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { UNIT_CATEGORIES } from "@/lib/units";
+import { UNIT_CATEGORIES } from "@/lib/constants";
+
+
 
 
 export const productSchema = z.object({

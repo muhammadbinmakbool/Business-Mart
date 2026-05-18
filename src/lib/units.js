@@ -1,8 +1,7 @@
-export const UNIT_CATEGORIES = {
-  WEIGHT: "WEIGHT",
-  LIQUID: "LIQUID",
-  QUANTITY: "QUANTITY",
-};
+import { UNIT_CATEGORIES } from "./constants";
+export { UNIT_CATEGORIES };
+
+
 
 export const UNITS = {
   // WEIGHT CATEGORY
