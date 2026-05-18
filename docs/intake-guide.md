@@ -45,9 +45,37 @@ stateDiagram-v2
 
 | Status | Meaning | Affects Inventory? | Billing & Ledger Status |
 | :--- | :--- | :--- | :--- |
-| **`PENDING`** | Goods are physically present at the warehouse but waiting for final pricing, inspection, or billing. | **YES (Active)**<br>Normalized weight is active in `Product.quantity` stock. | Active. Open to supplier invoices and payment advances. |
-| **`COMPLETED`** | The delivery has been matched to supplier invoices, reconciled, and fully settled. | **YES (Active)**<br>No change to stock during `PENDING` $\rightarrow$ `COMPLETED`. | Locked. Part of finalized ledgers. |
-| **`CANCELLED`** | The intake was declared invalid, rejected, returned, or logged in error. | **NO (Voided)**<br>Stock is automatically decremented from `Product.quantity`. | Completely excluded from invoices and reports. |
+| **`PENDING`** | Goods are physically present at the warehouse but waiting for final pricing, inspection, or quality check. | **YES (Active)**<br>Normalized weight is active in `Product.quantity` stock. | Active. Eligible for supplier invoices and payment advances. Represents unchecked/unverified arrivals. |
+| **`COMPLETED`** | The physical weight, count, and quality of the delivery have been operationally verified and signed-off. | **YES (Active)**<br>No change to stock during `PENDING` $\rightarrow$ `COMPLETED`. | Active. Eligible for supplier invoices. Represents a verified delivery green-lit for billing. |
+| **`CANCELLED`** | The intake was declared invalid, rejected, returned, or logged in error. | **NO (Voided)**<br>Stock is automatically decremented from `Product.quantity`. | Completely excluded from invoices, statements, and reports. |
+
+---
+
+## 💵 Invoicing & Billing Integration
+
+The transition of an intake transaction through its statuses plays a vital role in coordinating operational storage and backend accounting.
+
+### 1. Invoicing Eligibility Rule
+The database repository only pulls active, valid records when calculating uninvoiced inventory balances for a supplier:
+```javascript
+// From IntakeRepository.js -> getUninvoicedByPartyId
+where: {
+  partyId: parseInt(partyId),
+  invoiceItems: { none: { invoice: { status: { not: "SUPERSEDED" } } } },
+  status: { not: "CANCELLED" }
+}
+```
+*   Both **`PENDING`** and **`COMPLETED`** intakes are open for billing.
+*   **`CANCELLED`** intakes are automatically hidden from the billing creator.
+
+### 2. Operational Control Checkpoint
+*   **Unverified (`PENDING`)**: Goods are physically in the warehouse, but billing should wait until weight scales, laboratory testing, and bags are fully verified.
+*   **Verified (`COMPLETED`)**: Signals a clean green-light to the accounting department that the intake weight is correct, verified, and ready to be locked inside a **Supplier Invoice**.
+
+### 3. Invoice Lock
+Once the accountant selects `COMPLETED` intakes and generates a new **Supplier Invoice**:
+*   An immutable financial snapshot is created.
+*   The linked intakes are permanently marked as **Invoiced** and locked from being billed again.
 
 ---
 
