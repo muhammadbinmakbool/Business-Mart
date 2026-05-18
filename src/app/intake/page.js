@@ -67,7 +67,7 @@ export default async function IntakePage() {
                     <td className="px-4 py-3">{intake.product.name}</td>
                     <td className="px-4 py-3 text-right">{intake.bagCount || "-"}</td>
                     <td className="px-4 py-3 text-right font-semibold">
-                      {Number(intake.grossWeight).toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">KG</span>
+                      {Number(intake.grossWeight).toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span className={cn(

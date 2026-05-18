@@ -10,6 +10,7 @@ export async function createIntakeAction(formData) {
     entryDate: formData.get("entryDate"),
     bagCount: formData.get("bagCount") || null,
     grossWeight: formData.get("grossWeight"),
+    unit: formData.get("unit") || "KG",
     notes: formData.get("notes") || "",
     newPartyData: formData.get("partyId") === "new" ? {
       name: formData.get("newName"),
@@ -56,6 +57,7 @@ export async function updateIntakeAction(id, formData) {
     entryDate: formData.get("entryDate"),
     bagCount: formData.get("bagCount") || null,
     grossWeight: formData.get("grossWeight"),
+    unit: formData.get("unit") || "KG",
     notes: formData.get("notes") || "",
     status: formData.get("status"),
   };
