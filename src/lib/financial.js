@@ -19,7 +19,7 @@ export function round(value, decimals = 2) {
  * @param {number} value - The value of the adjustment
  * @param {object} context - { baseAmount, totalWeight, bagCount, rate }
  */
-export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight = 0, bagCount = 0, rate = 0 } = {}) {
+export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight = 0, bagCount = 0, rate = 0, unit = "KG" } = {}) {
   const val = Number(value);
   
   switch (method) {
@@ -32,12 +32,16 @@ export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight
     case "PER_BAG":
       return round(val * Number(bagCount));
     case "WEIGHT_PER_BAG":
-      // Deducts a certain weight per bag, then multiplies by rate
-      return round(val * Number(bagCount) * Number(rate));
+      // Deducts a certain weight per bag (in KG), then multiplies by rate.
+      // If unit is MAUND, we must convert the deducted weight from KG to Maund by dividing by 40!
+      const totalDeductedWeight = val * Number(bagCount);
+      const convertedWeight = unit === "MAUND" ? totalDeductedWeight / 40 : totalDeductedWeight;
+      return round(convertedWeight * Number(rate));
     default:
       return 0;
   }
 }
+
 
 /**
  * Calculates the final total for a buyer/supplier flow.
@@ -104,8 +108,10 @@ export function calculateSupplierDeductions(intakes, config = {}) {
       baseAmount: gross, 
       totalWeight: billingWeight, 
       bagCount: intake.bagCount || 0,
-      rate: intake.rate
+      rate: intake.rate,
+      unit: intake.unit || "KG"
     };
+
 
 
     // Kaat

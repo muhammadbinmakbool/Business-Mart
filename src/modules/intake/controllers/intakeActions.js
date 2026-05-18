@@ -76,10 +76,12 @@ export async function updateIntakeAction(id, formData) {
     status: formData.get("status"),
     buyerPartyId: formData.get("buyerPartyId") || null,
     rate: formData.get("rate") ? Number(formData.get("rate")) : null,
+    rateUnit: formData.get("rateUnit") || "KG",
     Bardana: formData.get("Bardana") ? Number(formData.get("Bardana")) : null,
     Khot: formData.get("Khot") ? Number(formData.get("Khot")) : null,
     netWeight: formData.get("netWeight") ? Number(formData.get("netWeight")) : null,
   };
+
 
   try {
     await IntakeService.updateIntake(id, data);

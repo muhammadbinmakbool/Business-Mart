@@ -190,3 +190,25 @@ export function calculateIntakeNetWeight({
   };
 }
 
+/**
+ * Converts a rate from a source unit to a target unit.
+ * E.g. converts rate per KG to rate per Maund, or rate per Maund to rate per KG.
+ */
+export function convertRate(rate, fromUnit, toUnit) {
+  const val = Number(rate) || 0;
+  if (fromUnit === toUnit) return val;
+  
+  // If converting from KG to MAUND (1 Maund = 40 KG, so rate per Maund = rate per KG * 40)
+  if (fromUnit === "KG" && toUnit === "MAUND") {
+    return val * 40;
+  }
+  
+  // If converting from MAUND to KG (rate per KG = rate per Maund / 40)
+  if (fromUnit === "MAUND" && toUnit === "KG") {
+    return val / 40;
+  }
+  
+  return val;
+}
+
+

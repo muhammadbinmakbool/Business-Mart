@@ -63,10 +63,12 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
       }
       formData.set("buyerPartyId", buyerPartyId);
       formData.set("rate", rate.toString());
+      formData.set("rateUnit", rateUnit);
       formData.set("Bardana", bardanaKg.toString());
       formData.set("Khot", khotKg.toString());
       formData.set("netWeight", netWeight.toString());
     }
+
 
     const result = await updateIntakeAction(intake.id, formData);
     if (result?.error) {

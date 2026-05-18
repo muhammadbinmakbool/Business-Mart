@@ -5,6 +5,8 @@ import { PartyService } from "../../parties/services/PartyService";
 import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
 import { prisma } from "@/lib/prisma";
+import { convertRate } from "@/lib/units";
+
 
 export class IntakeService {
   static async listIntakes() {
@@ -117,7 +119,7 @@ export class IntakeService {
   }
 
   static async updateIntake(id, data) {
-    const { buyerPartyId, ...rest } = data;
+    const { buyerPartyId, rateUnit, ...rest } = data;
     const validated = intakeSchema.partial().parse(rest);
     
     return prisma.$transaction(async (tx) => {
@@ -209,6 +211,16 @@ export class IntakeService {
         }
       }
 
+      // Calculate converted rates based on the units used!
+      const targetUnit = validated.unit || current.unit;
+      const finalSupplierRate = validated.rate !== undefined && validated.rate !== null
+        ? convertRate(validated.rate, rateUnit || "KG", targetUnit)
+        : current.rate;
+
+      const finalSalesTrackRate = validated.rate !== undefined && validated.rate !== null
+        ? convertRate(validated.rate, rateUnit || "KG", "KG")
+        : (current.rate ? convertRate(Number(current.rate), targetUnit, "KG") : null);
+
       // 4. Update the intake record
       const updated = await tx.intakeTransaction.update({
         where: { id: parseInt(id) },
@@ -222,7 +234,7 @@ export class IntakeService {
           normalizedWeight: newWeight,
           notes: validated.notes,
           status: newStatus,
-          rate: validated.rate !== undefined ? validated.rate : current.rate,
+          rate: finalSupplierRate,
           Bardana: validated.Bardana !== undefined ? validated.Bardana : current.Bardana,
           Khot: validated.Khot !== undefined ? validated.Khot : current.Khot,
           netWeight: validated.netWeight !== undefined ? validated.netWeight : current.netWeight,
@@ -245,8 +257,8 @@ export class IntakeService {
           buyerPartyId: parseInt(buyerPartyId),
           productId: updated.productId,
           quantity: quantityInKg,
-          buyingRate: updated.rate ? Number(updated.rate) : null,
-          sellingRate: updated.rate ? Number(updated.rate) : null,
+          buyingRate: finalSalesTrackRate,
+          sellingRate: finalSalesTrackRate,
           notes: `Intake ${updated.intakeNumber} updated and marked as SOLD`
         };
 
@@ -265,6 +277,7 @@ export class IntakeService {
       return updated;
     });
   }
+
 
 
   static async createIntakeWithAdvance(intakeData, advanceAmount, advanceNotes) {
@@ -304,6 +317,7 @@ export class IntakeService {
     const intakeId = parseInt(id);
     const buyerPartyId = parseInt(data.buyerPartyId);
     const rate = Number(data.rate);
+    const rateUnit = data.rateUnit || "KG";
     const Bardana = Number(data.Bardana) || 0;
     const Khot = Number(data.Khot) || 0;
     const netWeight = Number(data.netWeight) || 0;
@@ -316,6 +330,10 @@ export class IntakeService {
       });
       if (!intake) throw new Error("Intake transaction not found");
 
+      // Calculate converted rates!
+      const finalSupplierRate = convertRate(rate, rateUnit, intake.unit);
+      const finalSalesTrackRate = convertRate(rate, rateUnit, "KG");
+
       // 2. Update Intake Transaction fields
       const updatedIntake = await tx.intakeTransaction.update({
         where: { id: intakeId },
@@ -324,7 +342,7 @@ export class IntakeService {
           Bardana,
           Khot,
           netWeight,
-          rate,
+          rate: finalSupplierRate,
         }
       });
 
@@ -341,8 +359,8 @@ export class IntakeService {
         buyerPartyId,
         productId: intake.productId,
         quantity: quantityInKg,
-        buyingRate: rate,
-        sellingRate: rate,
+        buyingRate: finalSalesTrackRate,
+        sellingRate: finalSalesTrackRate,
         notes: `Intake ${intake.intakeNumber} marked as SOLD`
       };
 
@@ -360,6 +378,7 @@ export class IntakeService {
       return updatedIntake;
     });
   }
+
 
   static async deleteIntake(id) {
     return prisma.$transaction(async (tx) => {
