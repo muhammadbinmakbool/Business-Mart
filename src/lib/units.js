@@ -114,7 +114,7 @@ export function getConversionFactor(unitId, product) {
  * value: quantity in local unit
  */
 export function normalizeQuantity(value, unitId, product) {
-  if (!value) return 0;
+  if (value == null) return 0;
   const factor = getConversionFactor(unitId, product);
   return Number(value) * factor;
 }
@@ -124,7 +124,7 @@ export function normalizeQuantity(value, unitId, product) {
  * rate: price per local unit
  */
 export function normalizeRate(rate, unitId, product) {
-  if (!rate) return 0;
+  if (rate == null) return 0;
   const factor = getConversionFactor(unitId, product);
   return Number(rate) / factor;
 }
@@ -133,20 +133,20 @@ export function normalizeRate(rate, unitId, product) {
  * Converts from base unit to local unit.
  */
 export function convertFromBase(baseValue, targetUnitId, product) {
-    if (!baseValue) return 0;
-    const factor = getConversionFactor(targetUnitId, product);
-    return factor > 0 ? (Number(baseValue) / factor) : Number(baseValue);
+  if (baseValue == null) return 0;
+  const factor = getConversionFactor(targetUnitId, product);
+  return factor > 0 ? (Number(baseValue) / factor) : Number(baseValue);
 }
 
 /**
  * Calculates Net Weight, Bardana weight, and Khot weight from gross weight.
  * Orders of operations:
- * 1. Convert grossWeight to KG.
+ * 1. Convert grossWeight to KG using centralized registry.
  * 2. Calculate Bardana: (bardanaGramPerBag * bagCount) / 1000 (in KG).
  * 3. Deduct Bardana from grossWeight to get weightAfterBardana.
- * 4. Convert weightAfterBardana to khotRateUnit (KG or MAUND) and calculate Khot in KG: (khotRate * appliedWeight) / 1000.
+ * 4. Convert weightAfterBardana to khotRateUnit and calculate Khot in KG using centralized registry.
  * 5. Deduct Khot from weightAfterBardana to get netWeight (in KG).
- * 6. Convert netWeight back to the original unit.
+ * 6. Convert netWeight back to the original unit using centralized registry.
  */
 export function calculateIntakeNetWeight({
   grossWeight,
@@ -154,7 +154,8 @@ export function calculateIntakeNetWeight({
   bagCount = 0,
   bardanaGramPerBag = 0,
   khotRate = 0,
-  khotRateUnit = "KG"
+  khotRateUnit = "KG",
+  product = null
 }) {
   const gWeight = Number(grossWeight) || 0;
   const bCount = Number(bagCount) || 0;
@@ -162,7 +163,7 @@ export function calculateIntakeNetWeight({
   const kRate = Number(khotRate) || 0;
 
   // 1. Gross weight in KG
-  const grossWeightKg = unit === "MAUND" ? gWeight * 40 : gWeight;
+  const grossWeightKg = normalizeQuantity(gWeight, unit, product);
 
   // 2. Bardana in KG
   const bardanaKg = bCount > 0 && bGram > 0 ? (bGram * bCount) / 1000 : 0;
@@ -171,15 +172,15 @@ export function calculateIntakeNetWeight({
   const weightAfterBardanaKg = Math.max(0, grossWeightKg - bardanaKg);
 
   // 4. Khot in KG
-  // Applied weight for refraction is in the unit of the rate
-  const khotAppliedWeight = khotRateUnit === "MAUND" ? weightAfterBardanaKg / 40 : weightAfterBardanaKg;
+  // Applied weight for refraction is converted to the unit of the rate
+  const khotAppliedWeight = convertFromBase(weightAfterBardanaKg, khotRateUnit, product);
   const khotKg = kRate > 0 ? (kRate * khotAppliedWeight) / 1000 : 0;
 
   // 5. Net weight in KG
   const netWeightKg = Math.max(0, weightAfterBardanaKg - khotKg);
 
   // 6. Net weight in original unit
-  const netWeight = unit === "MAUND" ? netWeightKg / 40 : netWeightKg;
+  const netWeight = convertFromBase(netWeightKg, unit, product);
 
   return {
     grossWeightKg,
@@ -194,21 +195,14 @@ export function calculateIntakeNetWeight({
  * Converts a rate from a source unit to a target unit.
  * E.g. converts rate per KG to rate per Maund, or rate per Maund to rate per KG.
  */
-export function convertRate(rate, fromUnit, toUnit) {
-  const val = Number(rate) || 0;
-  if (fromUnit === toUnit) return val;
+export function convertRate(rate, fromUnit, toUnit, product = null) {
+  if (rate == null) return 0;
+  if (fromUnit === toUnit) return Number(rate);
   
-  // If converting from KG to MAUND (1 Maund = 40 KG, so rate per Maund = rate per KG * 40)
-  if (fromUnit === "KG" && toUnit === "MAUND") {
-    return val * 40;
-  }
+  // 1. Normalize local unit rate to base unit rate (e.g. rate per Maund -> rate per KG)
+  const baseRate = normalizeRate(rate, fromUnit, product);
   
-  // If converting from MAUND to KG (rate per KG = rate per Maund / 40)
-  if (fromUnit === "MAUND" && toUnit === "KG") {
-    return val / 40;
-  }
-  
-  return val;
+  // 2. Convert base rate to target unit rate
+  const targetFactor = getConversionFactor(toUnit, product);
+  return baseRate * targetFactor;
 }
-
-
