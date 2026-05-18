@@ -301,7 +301,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
             <thead>
               <tr className="bg-muted/50 text-[10px] uppercase font-bold text-muted-foreground tracking-widest border-b">
                 <th className="px-4 py-3 w-[40%]">Product</th>
-                <th className="px-4 py-3 text-right">Quantity / Weight</th>
+                <th className="px-4 py-3 text-right">Gross Weight</th>
                 <th className="px-4 py-3 text-right">Rate</th>
                 <th className="px-4 py-3 text-right">Amount</th>
                 <th className="px-4 py-3 text-center"></th>
@@ -489,7 +489,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
           
           <div className="space-y-4 font-medium">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">Total Weight</span>
+              <span className="text-muted-foreground">Total Gross Weight</span>
               <span className="font-mono">{totals.totalWeight.toLocaleString()} KG</span>
             </div>
             <div className="flex justify-between items-center">

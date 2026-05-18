@@ -155,7 +155,7 @@ export default function IntakeForm({ suppliers, products }) {
 
         {/* 4. Weight */}
         <div className="space-y-2">
-          <label htmlFor="grossWeight" className="text-sm font-medium">Quantity / Weight</label>
+          <label htmlFor="grossWeight" className="text-sm font-medium">Gross Weight</label>
           <input
             id="grossWeight"
             name="grossWeight"

@@ -70,7 +70,7 @@ export default function IntakeListClient({ intakes = [] }) {
                 <th className="px-4 py-3 font-semibold">Supplier</th>
                 <th className="px-4 py-3 font-semibold">Product</th>
                 <th className="px-4 py-3 font-semibold text-right">Bags</th>
-                <th className="px-4 py-3 font-semibold text-right">Weight</th>
+                <th className="px-4 py-3 font-semibold text-right">Gross Weight</th>
                 <th className="px-4 py-3 font-semibold text-center">Status</th>
                 <th className="px-4 py-3 font-semibold text-center">Actions</th>
               </tr>

@@ -42,7 +42,7 @@ export default async function SalesPage() {
                 <th className="px-4 py-4">Sale #</th>
                 <th className="px-4 py-4">Date</th>
                 <th className="px-4 py-4">Buyer</th>
-                <th className="px-4 py-4 text-right">Weight</th>
+                <th className="px-4 py-4 text-right">Gross Weight</th>
                 <th className="px-4 py-4 text-right">Rate (Rs.)</th>
                 <th className="px-4 py-4 text-right">Final Amount</th>
                 <th className="px-4 py-4 text-center">Status</th>

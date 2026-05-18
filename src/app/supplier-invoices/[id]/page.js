@@ -82,7 +82,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
                 <thead className="bg-muted/10">
                   <tr>
                     <th className="px-4 py-2 font-semibold">Product</th>
-                    <th className="px-4 py-2 font-semibold text-right">Weight</th>
+                    <th className="px-4 py-2 font-semibold text-right">Gross Weight</th>
                     <th className="px-4 py-2 font-semibold text-right">Rate</th>
                     <th className="px-4 py-2 font-semibold text-right">Gross</th>
                   </tr>
