@@ -111,8 +111,59 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
               </div>
             </div>
 
+            {(intake.status === "SOLD" || intake.status === "CLEARED") && (
+              <div className="pt-6 border-t space-y-4">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Sale & Billing Details</h3>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-xl space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-emerald-600">Net Weight</span>
+                    <div className="text-xl font-bold text-emerald-700">
+                      {Number(intake.netWeight || 0).toLocaleString()} <span className="text-xs font-normal italic uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                    </div>
+                  </div>
+                  <div className="bg-primary/5 border border-primary/10 p-4 rounded-xl space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-primary">Selling Rate</span>
+                    <div className="text-xl font-bold text-primary">
+                      Rs. {Number(intake.rate || 0).toLocaleString()} <span className="text-xs font-normal italic">/ {intake.unit === "MAUND" ? "MND" : "KG"}</span>
+                    </div>
+                  </div>
+                  <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-amber-600">Initial Total Amount</span>
+                    <div className="text-xl font-bold text-amber-700">
+                      Rs. {(Number(intake.netWeight || intake.grossWeight) * Number(intake.rate || 0)).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="bg-muted/40 p-4 rounded-xl flex justify-between items-center text-sm border border-muted-foreground/10">
+                    <span className="font-semibold text-muted-foreground">Total Bardana Weight</span>
+                    <span className="font-bold">{Number(intake.Bardana || 0).toLocaleString()} KG</span>
+                  </div>
+                  <div className="bg-muted/40 p-4 rounded-xl flex justify-between items-center text-sm border border-muted-foreground/10">
+                    <span className="font-semibold text-muted-foreground">Total Khot Refraction</span>
+                    <span className="font-bold">{Number(intake.Khot || 0).toLocaleString()} KG</span>
+                  </div>
+                </div>
+
+                {intake.salesTracks && intake.salesTracks[0] && (
+                  <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-xl flex items-center justify-between text-sm">
+                    <div className="space-y-0.5">
+                      <div className="font-semibold text-blue-800">Buyer Party Link</div>
+                      <div className="text-xs text-muted-foreground">Linked buyer: <span className="font-bold text-blue-900">{intake.salesTracks[0].buyer.name}</span></div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-blue-900">{Number(intake.salesTracks[0].quantity).toLocaleString()} KG</div>
+                      <div className="text-xs text-muted-foreground">Rs. {Number(intake.salesTracks[0].sellingRate).toLocaleString()} / KG</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {intake.notes && (
               <div className="space-y-2 pt-4 border-t">
+
                 <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Notes</span>
                 <p className="text-sm bg-muted/20 p-3 rounded-md italic">"{intake.notes}"</p>
               </div>

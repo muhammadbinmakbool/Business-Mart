@@ -39,6 +39,8 @@ export default function IntakeListClient({ intakes = [] }) {
     { key: "CANCELLED", label: "Cancelled", count: intakes.filter(i => i.status === "CANCELLED").length },
   ];
 
+  const showSoldColumns = activeTab === "SOLD" || activeTab === "CLEARED";
+
   return (
     <div className="space-y-6">
       {/* Search Input */}
@@ -71,6 +73,15 @@ export default function IntakeListClient({ intakes = [] }) {
                 <th className="px-4 py-3 font-semibold">Product</th>
                 <th className="px-4 py-3 font-semibold text-right">Bags</th>
                 <th className="px-4 py-3 font-semibold text-right">Gross Weight</th>
+                {showSoldColumns && (
+                  <>
+                    <th className="px-4 py-3 font-semibold text-right">Rate</th>
+                    <th className="px-4 py-3 font-semibold text-right">Bardana</th>
+                    <th className="px-4 py-3 font-semibold text-right">Khot</th>
+                    <th className="px-4 py-3 font-semibold text-right">Net Weight</th>
+                    <th className="px-4 py-3 font-semibold text-right">Initial Total</th>
+                  </>
+                )}
                 <th className="px-4 py-3 font-semibold text-center">Status</th>
                 <th className="px-4 py-3 font-semibold text-center">Actions</th>
               </tr>
@@ -78,7 +89,7 @@ export default function IntakeListClient({ intakes = [] }) {
             <tbody>
               {filteredIntakes.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground italic">
+                  <td colSpan={showSoldColumns ? 13 : 8} className="px-4 py-12 text-center text-muted-foreground italic">
                     No matching intake transactions found.
                   </td>
                 </tr>
@@ -95,6 +106,29 @@ export default function IntakeListClient({ intakes = [] }) {
                     <td className="px-4 py-3 text-right font-semibold">
                       {Number(intake.grossWeight).toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
                     </td>
+                    {showSoldColumns && (
+                      <>
+                        <td className="px-4 py-3 text-right font-medium whitespace-nowrap">
+                          Rs. {Number(intake.rate || 0).toLocaleString()} <span className="text-[10px] text-muted-foreground">/{intake.unit === "MAUND" ? "MND" : "KG"}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-muted-foreground whitespace-nowrap">
+                          {intake.Bardana !== null ? `${Number(intake.Bardana).toLocaleString()} KG` : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-right text-muted-foreground whitespace-nowrap">
+                          {intake.Khot !== null ? `${Number(intake.Khot).toLocaleString()} KG` : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-emerald-600 whitespace-nowrap">
+                          {intake.netWeight !== null ? (
+                            <>
+                              {Number(intake.netWeight).toLocaleString()} <span className="text-[10px] uppercase text-muted-foreground">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                            </>
+                          ) : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-amber-700 whitespace-nowrap">
+                          Rs. {(Number(intake.netWeight || intake.grossWeight) * Number(intake.rate || 0)).toLocaleString()}
+                        </td>
+                      </>
+                    )}
                     <td className="px-4 py-3 text-center">
                       <span className={cn(
                         "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
@@ -123,4 +157,5 @@ export default function IntakeListClient({ intakes = [] }) {
       </div>
     </div>
   );
+
 }
