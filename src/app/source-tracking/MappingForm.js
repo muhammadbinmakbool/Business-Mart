@@ -72,11 +72,15 @@ export default function MappingForm({
   const [buyingRateUnit, setBuyingRateUnit] = useState("KG");
   const [sellingRateUnit, setSellingRateUnit] = useState("KG");
 
-  // Determine available units based on selected product category
   const selectedProd = products.find(p => p.id === parseInt(formData.productId));
   const availableUnits = selectedProd 
     ? getUnitsByCategory(selectedProd.category) 
     : [{ id: "KG", name: "Kilogram" }];
+
+  // Filter products by selected supplier if supplierPartyId is selected
+  const displayedProducts = formData.supplierPartyId 
+    ? products.filter(p => intakes.some(i => i.partyId === parseInt(formData.supplierPartyId) && i.productId === p.id))
+    : products;
 
   const handleChange = (field, value) => {
     setFormData(prev => {
@@ -87,6 +91,16 @@ export default function MappingForm({
         const netW = Number(field === "netWeight" ? value : prev.netWeight) || 0;
         const rateVal = Number(field === "buyingRate" ? value : prev.buyingRate) || 0;
         updated.baseAmount = round(netW * rateVal, 2).toString();
+      }
+
+      // Filter product if it's not supplied by the newly selected supplier
+      if (field === "supplierPartyId" && value) {
+        const supplierId = parseInt(value);
+        const currentProdId = parseInt(prev.productId);
+        const isLinked = intakes.some(i => i.partyId === supplierId && i.productId === currentProdId);
+        if (!isLinked) {
+          updated.productId = "";
+        }
       }
       return updated;
     });
@@ -284,7 +298,7 @@ export default function MappingForm({
               >
                 <option value="">No Intake Linked</option>
                 {intakes.map(i => (
-                  <option key={i.id} value={i.id}>{i.intakeNumber} - {i.party?.name} ({Number(i.grossWeight).toLocaleString()} {i.unit === "MAUND" ? "MND" : i.unit})</option>
+                  <option key={i.id} value={i.id}>{i.intakeNumber} - {i.party?.name} - {i.product?.name || "N/A"} ({Number(i.grossWeight).toLocaleString()} {i.unit === "MAUND" ? "MND" : i.unit})</option>
                 ))}
               </select>
             </div>
@@ -331,7 +345,7 @@ export default function MappingForm({
                 className="w-full h-10 bg-card border rounded-xl px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               >
                 <option value="">Select Product...</option>
-                {products.map(p => (
+                {displayedProducts.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
