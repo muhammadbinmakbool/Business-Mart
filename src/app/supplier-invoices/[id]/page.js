@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import StatusUpdater from "./StatusUpdater";
 import RegenerateButton from "./RegenerateButton";
+import { calculateSupplierDeductions } from "@/lib/financial";
 
 export default async function SupplierInvoiceDetailPage({ params }) {
   const { id } = await params;
@@ -23,6 +24,22 @@ export default async function SupplierInvoiceDetailPage({ params }) {
   }
 
   const invoice = result.data;
+
+  // Recalculate per-intake breakdown using snapshot values from SupplierInvoiceItems
+  const { intakeBreakdowns } = calculateSupplierDeductions(
+    invoice.items.map(item => ({
+      ...item.intake,
+      id: item.intakeTransactionId,
+      netWeight: Number(item.weight),
+      rate: Number(item.rate)
+    })),
+    invoice.adjustments.map(adj => ({
+      adjustmentType: adj.adjustmentType,
+      method: adj.method,
+      value: Number(adj.value),
+      direction: adj.direction
+    }))
+  );
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
@@ -88,19 +105,102 @@ export default async function SupplierInvoiceDetailPage({ params }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {invoice.items.map(item => (
-                    <tr key={item.id} className="border-t">
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{item.intake.product.name}</div>
-                        <div className="text-[10px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
-                      </td>
-                      <td className="px-4 py-3 text-right">{Number(item.weight)} KG</td>
-                      <td className="px-4 py-3 text-right">Rs. {Number(item.rate)}</td>
-                      <td className="px-4 py-3 text-right font-bold">Rs. {Number(item.amount).toLocaleString()}</td>
-                    </tr>
-                  ))}
+                  {invoice.items.map(item => {
+                    const breakdown = intakeBreakdowns.find(b => b.intakeId === item.intakeTransactionId) || {
+                      deductions: 0,
+                      net: Number(item.amount),
+                      adjustments: []
+                    };
+                    return (
+                      <React.Fragment key={item.id}>
+                        <tr className="border-t">
+                          <td className="px-4 py-3">
+                            <div className="font-medium">{item.intake.product.name}</div>
+                            <div className="text-[10px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
+                          </td>
+                          <td className="px-4 py-3 text-right">{Number(item.weight)} KG</td>
+                          <td className="px-4 py-3 text-right">Rs. {Number(item.rate)}</td>
+                          <td className="px-4 py-3 text-right font-bold">Rs. {Number(item.amount).toLocaleString()}</td>
+                        </tr>
+                        {breakdown.adjustments && breakdown.adjustments.length > 0 && (
+                          <tr className="bg-muted/5">
+                            <td colSpan={4} className="px-4 py-2 text-xs">
+                              <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-muted-foreground pl-4 border-l-2 border-primary/20">
+                                <span className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground/80">Item Deductions:</span>
+                                {breakdown.adjustments.map((adj, idx) => (
+                                  <span key={idx}>
+                                    {adj.adjustmentType}:{" "}
+                                    <span className={cn(
+                                      "font-bold font-mono",
+                                      adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
+                                    )}>
+                                      {adj.direction === "ADD" ? "+" : "-"}Rs. {adj.calculatedAmount.toLocaleString()}
+                                    </span>
+                                  </span>
+                                ))}
+                                <span className="font-bold text-primary">
+                                  Net: Rs. {breakdown.net.toLocaleString()}
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* Billing Adjustments Card */}
+          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+            <div className="p-4 border-b bg-muted/30 font-bold uppercase text-[10px] tracking-wider text-muted-foreground flex justify-between items-center">
+              <span>Billing Adjustments Summary</span>
+              <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase">Calculated Per Intake</span>
+            </div>
+            <div className="p-0">
+              {invoice.adjustments.length === 0 ? (
+                <div className="px-4 py-6 text-center text-muted-foreground text-sm italic">
+                  No adjustments applied to this invoice.
+                </div>
+              ) : (
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-muted/5 text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
+                      <th className="px-4 py-2">Type</th>
+                      <th className="px-4 py-2">Rule</th>
+                      <th className="px-4 py-2 text-right">Total Calculated</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {invoice.adjustments.map(adj => (
+                      <tr key={adj.id}>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold">{adj.adjustmentType}</div>
+                          <div className={cn(
+                            "text-[9px] font-bold uppercase",
+                            adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
+                          )}>
+                            {adj.direction}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground font-medium">
+                          {adj.method === "PERCENTAGE" ? `${Number(adj.value)}%` : 
+                           adj.method === "PER_WEIGHT" ? `Rs. ${Number(adj.value)} per KG` : 
+                           `Fixed Rs. ${Number(adj.value)}`}
+                        </td>
+                        <td className={cn(
+                          "px-4 py-3 text-right font-bold",
+                          adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
+                        )}>
+                          {adj.direction === "ADD" ? "+" : "-"} Rs. {Number(adj.calculatedAmount).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 

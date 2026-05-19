@@ -36,26 +36,36 @@ export class SupplierInvoiceRepository {
             } 
           } 
         },
-        advances: true
+        advances: true,
+        adjustments: true
       }
     });
   }
 
-  static async createWithItems(invoiceData, itemsData, advanceIds) {
+  static async createWithItems(invoiceData, itemsData, advanceIds, adjustments = []) {
     return prisma.$transaction(async (tx) => {
       return tx.supplierInvoice.create({
         data: {
           ...invoiceData,
           items: {
             create: itemsData.map(item => ({
-              intakeTransactionId: item.intakeTransactionId,
               weight: item.weight,
               rate: item.rate,
-              amount: item.amount
+              amount: item.amount,
+              intake: { connect: { id: parseInt(item.intakeTransactionId) } }
             }))
           },
           advances: {
             connect: advanceIds.map(id => ({ id: parseInt(id) }))
+          },
+          adjustments: {
+            create: adjustments.map(adj => ({
+              adjustmentType: adj.adjustmentType,
+              method: adj.method,
+              value: adj.value,
+              calculatedAmount: adj.calculatedAmount,
+              direction: adj.direction
+            }))
           }
         }
       });

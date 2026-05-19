@@ -95,40 +95,53 @@ export function calculateTransactionTotals(items = [], adjustments = []) {
 /**
  * Calculates deductions and totals for a supplier settlement.
  */
-export function calculateSupplierDeductions(intakes, config = {}) {
+export function calculateSupplierDeductions(intakes, adjustments = []) {
   let totalGrossValue = 0;
   let totalDeductions = 0;
 
-  intakes.forEach(intake => {
+  const intakeBreakdowns = intakes.map(intake => {
     const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
-    const gross = billingWeight * Number(intake.rate);
+    const gross = billingWeight * Number(intake.rate || 0);
     totalGrossValue += gross;
 
     const context = { 
       baseAmount: gross, 
       totalWeight: billingWeight, 
       bagCount: intake.bagCount || 0,
-      rate: intake.rate,
+      rate: Number(intake.rate || 0),
       unit: intake.unit || "KG"
     };
 
+    let itemDeductions = 0;
+    const calculatedAdjs = adjustments.map(adj => {
+      const amt = calculateAdjustment(adj.method, adj.value, context);
+      if (adj.direction === "SUBTRACT") {
+        itemDeductions += amt;
+      } else {
+        itemDeductions -= amt;
+      }
+      return {
+        ...adj,
+        calculatedAmount: amt
+      };
+    });
 
+    totalDeductions += itemDeductions;
 
-    // Kaat
-    if (config.kaat) {
-      totalDeductions += calculateAdjustment(config.kaat.method, config.kaat.value, context);
-    }
-
-    // Brokerage
-    if (config.brokerage) {
-      totalDeductions += calculateAdjustment(config.brokerage.method, config.brokerage.value, context);
-    }
+    return {
+      intakeId: intake.id,
+      gross: round(gross),
+      deductions: round(itemDeductions),
+      net: round(gross - itemDeductions),
+      adjustments: calculatedAdjs
+    };
   });
 
   return {
     totalGrossValue: round(totalGrossValue),
     totalDeductions: round(totalDeductions),
-    netValue: round(totalGrossValue - totalDeductions)
+    netValue: round(totalGrossValue - totalDeductions),
+    intakeBreakdowns
   };
 }
 

@@ -6,7 +6,7 @@ export class SupplierInvoiceService {
   /**
    * Generates a new supplier invoice snapshot.
    */
-  static async generateInvoice(partyId, intakeIds, advanceIds, config = {}) {
+  static async generateInvoice(partyId, intakeIds, advanceIds, adjustments = []) {
     // 1. Fetch live data for event records
     const [intakes, advances] = await Promise.all([
       prisma.intakeTransaction.findMany({
@@ -21,25 +21,45 @@ export class SupplierInvoiceService {
     if (intakes.length === 0) throw new Error("No intakes selected");
 
     // 2. Compute totals via centralized financial logic
-    const { totalGrossValue, totalDeductions, netValue } = calculateSupplierDeductions(intakes, config);
+    const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakes, adjustments);
     const totalAdvances = advances.reduce((sum, adv) => sum + Number(adv.amount), 0);
     const finalPayableAmount = netValue - totalAdvances;
 
     // 3. Prepare immutable snapshots for items
     const itemsData = intakes.map(intake => {
       const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+      const rate = intake.rate !== null && intake.rate !== undefined ? Number(intake.rate) : 0;
       return {
         intakeTransactionId: intake.id,
         weight: billingWeight,
-        rate: intake.rate,
-        amount: billingWeight * Number(intake.rate)
+        rate: rate,
+        amount: billingWeight * rate
       };
     });
 
-    // 4. Sequence number
+    // 4. Aggregate calculatedAmount per adjustment
+    const processedAdjustments = adjustments.map(adj => {
+      let totalAmt = 0;
+      intakeBreakdowns.forEach(breakdown => {
+        const match = breakdown.adjustments.find(
+          a => a.adjustmentType === adj.adjustmentType && 
+               a.method === adj.method && 
+               Number(a.value) === Number(adj.value)
+        );
+        if (match) {
+          totalAmt += match.calculatedAmount;
+        }
+      });
+      return {
+        ...adj,
+        calculatedAmount: totalAmt
+      };
+    });
+
+    // 5. Sequence number
     const invoiceNumber = await SupplierInvoiceRepository.getNextInvoiceNumber();
 
-    // 5. Create derived document record
+    // 6. Create derived document record
     const invoice = await SupplierInvoiceRepository.createWithItems(
       {
         invoiceNumber,
@@ -53,7 +73,8 @@ export class SupplierInvoiceService {
         lastCalculatedAt: new Date()
       },
       itemsData,
-      advanceIds
+      advanceIds,
+      processedAdjustments
     );
 
     return JSON.parse(JSON.stringify(invoice));
@@ -62,7 +83,7 @@ export class SupplierInvoiceService {
   /**
    * Regenerates a new version of an invoice, preserving the old one.
    */
-  static async regenerateInvoice(oldInvoiceId, config = {}) {
+  static async regenerateInvoice(oldInvoiceId, adjustments = null) {
     const oldInvoice = await SupplierInvoiceRepository.getById(oldInvoiceId);
     if (!oldInvoice) throw new Error("Invoice not found");
 
@@ -84,23 +105,52 @@ export class SupplierInvoiceService {
       })
     ]);
 
-    // 4. Recalculate
-    const { totalGrossValue, totalDeductions, netValue } = calculateSupplierDeductions(intakes, config);
+    // 4. Resolve adjustments to use (fall back to old invoice adjustments if none provided)
+    const adjustmentsToUse = (adjustments && adjustments.length > 0) 
+      ? adjustments 
+      : (oldInvoice.adjustments || []).map(adj => ({
+          adjustmentType: adj.adjustmentType,
+          method: adj.method,
+          value: Number(adj.value),
+          direction: adj.direction
+        }));
+
+    // 5. Recalculate
+    const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakes, adjustmentsToUse);
     const totalAdvances = advances.reduce((sum, adv) => sum + Number(adv.amount), 0);
     const finalPayableAmount = netValue - totalAdvances;
 
     const itemsData = intakes.map(intake => {
       const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+      const rate = intake.rate !== null && intake.rate !== undefined ? Number(intake.rate) : 0;
       return {
         intakeTransactionId: intake.id,
         weight: billingWeight,
-        rate: intake.rate,
-        amount: billingWeight * Number(intake.rate)
+        rate: rate,
+        amount: billingWeight * rate
       };
     });
 
-    // 5. Create NEW version (new record, new sequence number for now to satisfy @unique)
-    // In a future refactor, we might want SUP-XXXXXX-V2 format.
+    // 6. Aggregate calculatedAmount per adjustment
+    const processedAdjustments = adjustmentsToUse.map(adj => {
+      let totalAmt = 0;
+      intakeBreakdowns.forEach(breakdown => {
+        const match = breakdown.adjustments.find(
+          a => a.adjustmentType === adj.adjustmentType && 
+               a.method === adj.method && 
+               Number(a.value) === Number(adj.value)
+        );
+        if (match) {
+          totalAmt += match.calculatedAmount;
+        }
+      });
+      return {
+        ...adj,
+        calculatedAmount: totalAmt
+      };
+    });
+
+    // 7. Create NEW version
     const invoiceNumber = await SupplierInvoiceRepository.getNextInvoiceNumber();
 
     const newInvoice = await SupplierInvoiceRepository.createWithItems(
@@ -116,7 +166,8 @@ export class SupplierInvoiceService {
         lastCalculatedAt: new Date()
       },
       itemsData,
-      advanceIds
+      advanceIds,
+      processedAdjustments
     );
 
     return JSON.parse(JSON.stringify(newInvoice));

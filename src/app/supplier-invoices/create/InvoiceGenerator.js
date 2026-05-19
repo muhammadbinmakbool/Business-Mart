@@ -2,7 +2,21 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { User, Package, Wallet, Calculator, ChevronRight, ChevronLeft, Check, Loader2 } from "lucide-react";
+import { 
+  User, 
+  Package, 
+  Wallet, 
+  Calculator, 
+  ChevronRight, 
+  ChevronLeft, 
+  Check, 
+  Loader2, 
+  Plus, 
+  Trash2, 
+  X, 
+  Banknote, 
+  ReceiptText 
+} from "lucide-react";
 import { getUninvoicedDataAction, generateSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import { calculateSupplierDeductions } from "@/lib/financial";
 import { cn } from "@/lib/utils";
@@ -19,10 +33,14 @@ export default function InvoiceGenerator({ suppliers }) {
   const [selectedAdvances, setSelectedAdvances] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Deductions config (hardcoded defaults for Step 4.5)
-  const [config, setConfig] = useState({
-    kaat: { method: "WEIGHT_PER_BAG", value: 1 }, // 1kg per bag
-    brokerage: { method: "PERCENTAGE", value: 1.5 } // 1.5% commission
+  // Dynamic adjustments (Starts empty as per user comment: "remove default adjustment")
+  const [adjustments, setAdjustments] = useState([]);
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [currentAdjustment, setCurrentAdjustment] = useState({
+    adjustmentType: ADJUSTMENT_TYPES_SUPPLIER[0] || "Labour",
+    method: "PERCENTAGE",
+    direction: "SUBTRACT",
+    value: ""
   });
 
   // Fetch data when party is selected
@@ -39,6 +57,7 @@ export default function InvoiceGenerator({ suppliers }) {
       setData(result.data);
       setSelectedIntakes(result.data.intakes.map(i => i.id));
       setSelectedAdvances(result.data.advances.map(a => a.id));
+      setAdjustments([]); // Reset adjustments to empty on new party selection
     } else {
       toast.error("Failed to load data: " + result.error);
     }
@@ -57,11 +76,38 @@ export default function InvoiceGenerator({ suppliers }) {
     );
   };
 
+  const addAdjustment = () => {
+    if (!currentAdjustment.value || isNaN(currentAdjustment.value) || parseFloat(currentAdjustment.value) <= 0) {
+      toast.error("Please enter a valid positive numeric value");
+      return;
+    }
+    setAdjustments([
+      ...adjustments,
+      {
+        adjustmentType: currentAdjustment.adjustmentType,
+        method: currentAdjustment.method,
+        value: parseFloat(currentAdjustment.value),
+        direction: currentAdjustment.direction
+      }
+    ]);
+    setIsAdjustmentModalOpen(false);
+    setCurrentAdjustment({
+      adjustmentType: ADJUSTMENT_TYPES_SUPPLIER[0] || "Labour",
+      method: "PERCENTAGE",
+      direction: "SUBTRACT",
+      value: ""
+    });
+  };
+
+  const removeAdjustment = (index) => {
+    setAdjustments(adjustments.filter((_, i) => i !== index));
+  };
+
   // Calculations
   const activeIntakes = data.intakes.filter(i => selectedIntakes.includes(i.id));
   const activeAdvances = data.advances.filter(a => selectedAdvances.includes(a.id));
 
-  const { totalGrossValue, totalDeductions, netValue } = calculateSupplierDeductions(activeIntakes, config);
+  const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(activeIntakes, adjustments);
   const totalAdvances = activeAdvances.reduce((sum, a) => sum + Number(a.amount), 0);
   const finalPayable = netValue - totalAdvances;
 
@@ -71,7 +117,7 @@ export default function InvoiceGenerator({ suppliers }) {
     formData.append("partyId", selectedParty.id);
     formData.append("intakeIds", JSON.stringify(selectedIntakes));
     formData.append("advanceIds", JSON.stringify(selectedAdvances));
-    formData.append("config", JSON.stringify(config));
+    formData.append("adjustments", JSON.stringify(adjustments));
 
     const result = await generateSupplierInvoiceAction(formData);
     if (result.success) {
@@ -227,48 +273,298 @@ export default function InvoiceGenerator({ suppliers }) {
 
       {/* Step 3: Preview */}
       {step === 3 && (
-        <div className="space-y-6">
-          <div className="rounded-2xl border bg-card shadow-xl overflow-hidden">
-            <div className="bg-primary p-6 text-primary-foreground">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-widest opacity-80">Settlement Preview</h3>
-                  <div className="text-2xl font-black">{selectedParty.name}</div>
-                </div>
-                <Calculator className="h-10 w-10 opacity-20" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Left Columns: Selected Items & Breakdowns */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+              <div className="px-6 py-4 bg-muted/30 border-b flex items-center justify-between">
+                <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  Selected Intakes & Per-Intake Breakdowns
+                </h3>
+              </div>
+              <div className="p-6 space-y-4">
+                {activeIntakes.map(intake => {
+                  const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id) || {
+                    gross: 0,
+                    deductions: 0,
+                    net: 0,
+                    adjustments: []
+                  };
+                  const weight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+                  return (
+                    <div key={intake.id} className="p-4 border rounded-xl space-y-3 bg-muted/10">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="font-mono text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded">
+                            {intake.intakeNumber}
+                          </span>
+                          <h4 className="font-bold text-sm mt-1">{intake.product.name}</h4>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">
+                            {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} KG @ Rs. {Number(intake.rate)}/{intake.unit || "KG"}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs text-muted-foreground block">Gross Amount</span>
+                          <span className="font-bold text-sm">Rs. {breakdown.gross.toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                      {breakdown.adjustments && breakdown.adjustments.length > 0 && (
+                        <div className="border-t pt-2 space-y-1.5">
+                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Applied Deductions</div>
+                          {breakdown.adjustments.map((adj, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-xs">
+                              <span className="text-muted-foreground">
+                                {adj.adjustmentType} ({adj.method === "PERCENTAGE" ? `${adj.value}%` : adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/KG` : `Fixed Rs. ${adj.value}`})
+                              </span>
+                              <span className={cn(
+                                "font-medium",
+                                adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
+                              )}>
+                                {adj.direction === "ADD" ? "+" : "-"} Rs. {adj.calculatedAmount.toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="border-t pt-2 flex justify-between items-center bg-primary/5 -mx-4 -mb-4 px-4 py-2 rounded-b-xl">
+                        <span className="text-xs font-bold text-primary">Net Intake Value</span>
+                        <span className="font-black text-sm text-primary">Rs. {breakdown.net.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-            
-            <div className="p-8 space-y-6">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="text-muted-foreground">Total Gross Value</div>
-                <div className="text-right font-bold">Rs. {totalGrossValue.toLocaleString()}</div>
-                
-                <div className="text-muted-foreground">Total Deductions (Kaat & Brokerage)</div>
-                <div className="text-right font-bold text-rose-600">- Rs. {totalDeductions.toLocaleString()}</div>
-                
-                <div className="pt-4 border-t text-muted-foreground">Net Product Value</div>
-                <div className="pt-4 border-t text-right font-bold">Rs. {netValue.toLocaleString()}</div>
-                
-                <div className="text-muted-foreground">Advances to Deduct</div>
-                <div className="text-right font-bold text-rose-600">- Rs. {totalAdvances.toLocaleString()}</div>
-                
-                <div className="pt-6 border-t text-lg font-black uppercase text-primary">Final Payable</div>
-                <div className="pt-6 border-t text-2xl font-black text-primary text-right">Rs. {finalPayable.toLocaleString()}</div>
+
+            {activeAdvances.length > 0 && (
+              <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+                <div className="px-6 py-4 bg-muted/30 border-b">
+                  <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Wallet className="h-4 w-4" />
+                    Advances to Deduct
+                  </h3>
+                </div>
+                <div className="p-6 divide-y divide-border">
+                  {activeAdvances.map(adv => (
+                    <div key={adv.id} className="flex justify-between items-center py-2 first:pt-0 last:pb-0">
+                      <div>
+                        <div className="text-sm font-bold">Advance Payment</div>
+                        <div className="text-xs text-muted-foreground">{adv.notes || "No notes"}</div>
+                      </div>
+                      <div className="font-mono font-bold text-sm text-rose-600">- Rs. {Number(adv.amount).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Columns: Adjustments Manager & Billing Summary */}
+          <div className="space-y-6">
+            {/* Dynamic Adjustments Card */}
+            <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
+              <div className="px-6 py-4 bg-muted/30 border-b flex items-center justify-between">
+                <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <Banknote className="h-4 w-4" />
+                  Billing Adjustments
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsAdjustmentModalOpen(true)}
+                  className="text-xs font-bold border border-primary/30 text-primary px-2.5 py-1.5 rounded-lg hover:bg-primary/5 transition-colors flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add
+                </button>
+              </div>
+              <div className="p-6 space-y-4">
+                {adjustments.length === 0 ? (
+                  <div className="py-8 text-center border-2 border-dashed rounded-xl opacity-40">
+                    <p className="text-xs">No adjustments added.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {adjustments.map((adj, index) => {
+                      // Sum up the calculated amount for this adjustment across all intake breakdowns
+                      let totalAmt = 0;
+                      intakeBreakdowns.forEach(breakdown => {
+                        const match = breakdown.adjustments.find(
+                          a => a.adjustmentType === adj.adjustmentType && 
+                               a.method === adj.method && 
+                               Number(a.value) === Number(adj.value)
+                        );
+                        if (match) {
+                          totalAmt += match.calculatedAmount;
+                        }
+                      });
+                      return (
+                        <div key={index} className="flex items-center justify-between bg-muted/30 px-3 py-2 rounded-lg border group">
+                          <div>
+                            <div className="font-bold text-xs">{adj.adjustmentType}</div>
+                            <div className="text-[9px] uppercase text-muted-foreground font-semibold">
+                              {adj.method === "PERCENTAGE" ? `${adj.value}%` : 
+                               adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/KG` : 
+                               `Fixed Rs. ${adj.value}`} 
+                              {" • "} 
+                              <span className={adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"}>
+                                {adj.direction}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className={cn(
+                              "font-mono font-bold text-xs",
+                              adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
+                            )}>
+                              {adj.direction === "ADD" ? "+" : "-"} {totalAmt.toLocaleString()}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => removeAdjustment(index)}
+                              className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Financial Summary Card */}
+            <div className="rounded-2xl bg-primary p-6 text-primary-foreground shadow-xl shadow-primary/10 space-y-6">
+              <h3 className="font-bold text-lg flex items-center gap-2 border-b border-white/20 pb-4">
+                <ReceiptText className="h-5 w-5" />
+                Settlement Summary
+              </h3>
+              
+              <div className="space-y-3 font-medium text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="opacity-80">Total Intakes</span>
+                  <span>{activeIntakes.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="opacity-80">Gross Product Value</span>
+                  <span>Rs. {totalGrossValue.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="opacity-80">Total Deductions</span>
+                  <span className="text-rose-200">- Rs. {totalDeductions.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center border-t border-white/10 pt-2 font-bold text-base">
+                  <span>Net Product Value</span>
+                  <span>Rs. {netValue.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center text-sm">
+                  <span className="opacity-80">Less: Total Advances</span>
+                  <span className="text-rose-200">- Rs. {totalAdvances.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-end border-t border-white/20 pt-4">
+                  <span className="font-bold text-xs uppercase opacity-75">Final Payout</span>
+                  <div className="text-right">
+                    <span className="text-2xl font-black">Rs. {finalPayable.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <button 
+                  onClick={() => setStep(2)} 
+                  className="flex-1 bg-white/10 hover:bg-white/25 border border-white/10 text-white py-3 rounded-xl font-bold text-sm transition-all text-center"
+                >
+                  Back
+                </button>
+                <button 
+                  disabled={isSubmitting}
+                  onClick={handleSubmit} 
+                  className="flex-[2] bg-white text-primary hover:bg-white/95 py-3 rounded-xl font-black text-sm shadow-md transition-all flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : "Confirm & Save"}
+                </button>
               </div>
             </div>
           </div>
 
-          <div className="flex justify-between pt-6">
-            <button onClick={() => setStep(2)} className="px-6 py-2 rounded-lg border hover:bg-muted transition-colors font-medium">Back</button>
-            <button 
-              disabled={isSubmitting}
-              onClick={handleSubmit} 
-              className="px-8 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-bold flex items-center gap-2 shadow-lg shadow-primary/20"
-            >
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm & Generate Invoice"}
-            </button>
-          </div>
+          {/* Adjustment Modal */}
+          {isAdjustmentModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+              <div className="bg-card border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="px-6 py-4 border-b flex items-center justify-between bg-muted/50">
+                  <h3 className="font-bold text-card-foreground">Add Billing Adjustment</h3>
+                  <button onClick={() => setIsAdjustmentModalOpen(false)} className="p-1 hover:bg-muted rounded-full transition-colors">
+                    <X className="h-5 w-5 text-card-foreground" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Type</label>
+                    <select 
+                      value={currentAdjustment.adjustmentType}
+                      onChange={e => setCurrentAdjustment({...currentAdjustment, adjustmentType: e.target.value})}
+                      className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-card-foreground"
+                    >
+                      {ADJUSTMENT_TYPES_SUPPLIER.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Method</label>
+                      <select 
+                        value={currentAdjustment.method}
+                        onChange={e => setCurrentAdjustment({...currentAdjustment, method: e.target.value})}
+                        className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-card-foreground"
+                      >
+                        <option value="PERCENTAGE">% Percentage</option>
+                        <option value="FIXED">Fixed Amount</option>
+                        <option value="PER_WEIGHT">Per Weight (KG)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Direction</label>
+                      <select 
+                        value={currentAdjustment.direction}
+                        onChange={e => setCurrentAdjustment({...currentAdjustment, direction: e.target.value})}
+                        className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-card-foreground"
+                      >
+                        <option value="SUBTRACT">Subtract (-)</option>
+                        <option value="ADD">Add (+)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Value</label>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={currentAdjustment.value}
+                      onChange={e => setCurrentAdjustment({...currentAdjustment, value: e.target.value})}
+                      className="w-full bg-background border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 font-mono text-lg text-card-foreground"
+                      autoFocus
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={addAdjustment}
+                    className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-bold mt-4 hover:opacity-90 transition-opacity"
+                  >
+                    Add to Invoice
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
