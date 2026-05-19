@@ -231,6 +231,9 @@ export default function MappingForm({
     try {
       const action = initialData.id ? updateTrackAction.bind(null, initialData.id) : createTrackAction;
       
+      if (!formData.intakeTransactionId) {
+        throw new Error("Please select an Intake Transaction.");
+      }
       if (!selectedProd) {
         throw new Error("Please select a product first.");
       }
@@ -290,13 +293,13 @@ export default function MappingForm({
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Intake Transaction (Optional)</label>
+              <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Intake Transaction</label>
               <select 
                 value={formData.intakeTransactionId}
                 onChange={(e) => handleChange("intakeTransactionId", e.target.value)}
                 className="w-full h-10 bg-card border rounded-xl px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               >
-                <option value="">No Intake Linked</option>
+                <option value="">Select Intake...</option>
                 {intakes.map(i => (
                   <option key={i.id} value={i.id}>{i.intakeNumber} - {i.party?.name} - {i.product?.name || "N/A"} ({Number(i.grossWeight).toLocaleString()} {i.unit === "MAUND" ? "MND" : i.unit})</option>
                 ))}
