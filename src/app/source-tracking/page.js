@@ -44,6 +44,8 @@ export default async function SourceTrackingPage() {
                 <th className="px-4 py-4">Buyer</th>
                 <th className="px-4 py-4 text-right">Quantity</th>
                 <th className="px-4 py-4 text-right">Rates (B/S)</th>
+                <th className="px-4 py-4 text-right">Net Weight</th>
+                <th className="px-4 py-4 text-right">Initial Total</th>
                 <th className="px-4 py-4">Ref #</th>
                 <th className="px-4 py-4 text-center">Actions</th>
               </tr>
@@ -51,7 +53,7 @@ export default async function SourceTrackingPage() {
             <tbody className="divide-y">
               {tracks.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground italic">
+                  <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground italic">
                     Mapping register is empty.
                   </td>
                 </tr>
@@ -77,8 +79,26 @@ export default async function SourceTrackingPage() {
                       <div className="text-rose-600/70">B: {track.buyingRate ? Number(track.buyingRate).toLocaleString() : "-"}</div>
                       <div className="text-emerald-600/70">S: {track.sellingRate ? Number(track.sellingRate).toLocaleString() : "-"}</div>
                     </td>
+                    <td className="px-4 py-3.5 text-right font-mono text-xs">
+                      {track.netWeight !== null && track.netWeight !== undefined ? (
+                        <>
+                          {Number(track.netWeight).toLocaleString()}{" "}
+                          <span className="text-[10px] opacity-40 uppercase">
+                            {track.intakeTransaction?.unit === "MAUND" ? "MND" : (track.intakeTransaction?.unit || "KG")}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground opacity-50">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-semibold text-amber-700 font-mono text-xs whitespace-nowrap">
+                      {track.initialTotal !== null && track.initialTotal !== undefined ? (
+                        <>Rs. {Number(track.initialTotal).toLocaleString()}</>
+                      ) : (
+                        <span className="text-muted-foreground opacity-50">-</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3.5 text-[10px] font-medium space-y-1">
-
                       {track.saleTransaction && (
                         <div className="text-primary flex items-center gap-1">
                           <ReceiptText className="h-3 w-3" /> {track.saleTransaction.saleNumber}

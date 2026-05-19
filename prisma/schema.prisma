@@ -147,10 +147,14 @@ model SalesTrack {
   buyingRate          Decimal?  @db.Decimal(18, 2)
   sellingRate         Decimal?  @db.Decimal(18, 2)
 
+  netWeight           Decimal?  @db.Decimal(18, 2)
+  initialTotal        Decimal?  @db.Decimal(18, 2)
+
   notes               String?
 
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+
 
   saleTransaction     SaleTransaction?   @relation(fields: [saleTransactionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   saleItem            SaleItem?          @relation(fields: [saleItemId], references: [id], onDelete: SetNull, onUpdate: NoAction)

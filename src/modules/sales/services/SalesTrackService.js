@@ -30,6 +30,8 @@ export class SalesTrackService {
         quantity: data.quantity,
         buyingRate: data.buyingRate ? Number(data.buyingRate) : null,
         sellingRate: data.sellingRate ? Number(data.sellingRate) : null,
+        netWeight: data.netWeight ? Number(data.netWeight) : null,
+        initialTotal: data.initialTotal ? Number(data.initialTotal) : null,
         notes: data.notes
       }
     });
@@ -48,6 +50,8 @@ export class SalesTrackService {
         quantity: data.quantity,
         buyingRate: data.buyingRate ? Number(data.buyingRate) : null,
         sellingRate: data.sellingRate ? Number(data.sellingRate) : null,
+        netWeight: data.netWeight ? Number(data.netWeight) : null,
+        initialTotal: data.initialTotal ? Number(data.initialTotal) : null,
         notes: data.notes
       }
     });

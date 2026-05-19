@@ -62,6 +62,8 @@ export default function MappingForm({
     quantity: initialData.quantity || "",
     buyingRate: initialData.buyingRate || "",
     sellingRate: initialData.sellingRate || "",
+    netWeight: initialData.netWeight || "",
+    initialTotal: initialData.initialTotal || "",
     notes: initialData.notes || ""
   });
 
@@ -77,15 +79,37 @@ export default function MappingForm({
     : [{ id: "KG", name: "Kilogram" }];
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-calculate initialTotal when netWeight or buyingRate/sellingRate changes manually
+      if (field === "netWeight" || field === "buyingRate") {
+        const netW = Number(field === "netWeight" ? value : prev.netWeight) || 0;
+        const rateVal = Number(field === "buyingRate" ? value : prev.buyingRate) || 0;
+        updated.initialTotal = round(netW * rateVal, 2).toString();
+      }
+      return updated;
+    });
     
     // Auto-fill logic for convenience
     if (field === "saleTransactionId") {
+        if (!value) {
+            setFormData(prev => ({
+                ...prev,
+                saleTransactionId: "",
+                buyerPartyId: "",
+                productId: "",
+                quantity: "",
+                sellingRate: ""
+            }));
+            return;
+        }
         const sale = sales.find(s => s.id === parseInt(value));
         if (sale) {
             const firstItem = sale.items?.[0];
             setFormData(prev => ({ 
                 ...prev, 
+                saleTransactionId: value,
                 buyerPartyId: sale.partyId,
                 productId: firstItem?.productId || prev.productId,
                 quantity: firstItem?.weight || sale.totalWeight || prev.quantity,
@@ -102,14 +126,33 @@ export default function MappingForm({
     }
     
     if (field === "intakeTransactionId") {
+        if (!value) {
+            setFormData(prev => ({
+                ...prev,
+                intakeTransactionId: "",
+                supplierPartyId: "",
+                productId: "",
+                quantity: "",
+                buyingRate: "",
+                netWeight: "",
+                initialTotal: ""
+            }));
+            return;
+        }
         const intake = intakes.find(i => i.id === parseInt(value));
         if (intake) {
+            const calculatedNetWeight = intake.netWeight !== null && intake.netWeight !== undefined ? intake.netWeight : intake.grossWeight;
+            const calculatedInitialTotal = Number(calculatedNetWeight) * Number(intake.rate || 0);
+
             setFormData(prev => ({ 
                 ...prev, 
+                intakeTransactionId: value,
                 supplierPartyId: intake.partyId,
                 productId: intake.productId || prev.productId,
                 quantity: intake.grossWeight || prev.quantity,
-                buyingRate: intake.rate || prev.buyingRate
+                buyingRate: intake.rate || prev.buyingRate,
+                netWeight: calculatedNetWeight,
+                initialTotal: calculatedInitialTotal
             }));
             if (intake.unit) {
                 setQuantityUnit(intake.unit);
@@ -187,7 +230,9 @@ export default function MappingForm({
         ...formData,
         quantity: normalizedQty,
         buyingRate: normalizedBuyingRate,
-        sellingRate: normalizedSellingRate
+        sellingRate: normalizedSellingRate,
+        netWeight: formData.netWeight ? Number(formData.netWeight) : null,
+        initialTotal: formData.initialTotal ? Number(formData.initialTotal) : null
       };
 
       const result = await action(payload);
@@ -374,6 +419,40 @@ export default function MappingForm({
                             ))}
                           </select>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Net Weight</label>
+                    <div className="relative flex items-center">
+                        <input 
+                            type="number"
+                            step="0.01"
+                            value={formData.netWeight}
+                            onChange={(e) => handleChange("netWeight", e.target.value)}
+                            className="w-full h-10 bg-card border rounded-xl px-3 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="0.00"
+                        />
+                        {formData.intakeTransactionId && (
+                          <div className="absolute right-3 text-[10px] uppercase font-bold text-muted-foreground">
+                            {getUnitLabel(quantityUnit)}
+                          </div>
+                        )}
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Initial Total Amount</label>
+                    <div className="relative flex items-center">
+                        <input 
+                            type="number"
+                            step="0.01"
+                            value={formData.initialTotal}
+                            onChange={(e) => handleChange("initialTotal", e.target.value)}
+                            className="w-full h-10 bg-card border rounded-xl px-3 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="Rs."
+                        />
                     </div>
                 </div>
             </div>
