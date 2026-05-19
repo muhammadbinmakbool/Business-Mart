@@ -136,7 +136,7 @@ model SalesTrack {
 
   saleTransactionId   Int?
   saleItemId          Int?
-  intakeTransactionId Int?
+  intakeTransactionId Int?      @unique
 
   supplierPartyId     Int?
   buyerPartyId        Int?

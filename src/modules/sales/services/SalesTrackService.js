@@ -19,6 +19,15 @@ export class SalesTrackService {
   }
 
   static async create(data) {
+    if (data.intakeTransactionId) {
+      const existing = await prisma.salesTrack.findUnique({
+        where: { intakeTransactionId: parseInt(data.intakeTransactionId) }
+      });
+      if (existing) {
+        throw new Error("This intake transaction is already mapped to a Sales Track entry.");
+      }
+    }
+
     return prisma.salesTrack.create({
       data: {
         saleTransactionId: data.saleTransactionId ? parseInt(data.saleTransactionId) : null,
@@ -38,6 +47,15 @@ export class SalesTrackService {
   }
 
   static async update(id, data) {
+    if (data.intakeTransactionId) {
+      const existing = await prisma.salesTrack.findUnique({
+        where: { intakeTransactionId: parseInt(data.intakeTransactionId) }
+      });
+      if (existing && existing.id !== parseInt(id)) {
+        throw new Error("This intake transaction is already mapped to another Sales Track entry.");
+      }
+    }
+
     return prisma.salesTrack.update({
       where: { id: parseInt(id) },
       data: {
