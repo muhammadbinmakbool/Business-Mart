@@ -22,11 +22,13 @@ export const ADJUSTMENT_TYPES_BUYER = [
   "Labour",
   "Ghesai",
   "Market Fee",
+  "Sootli"
 ];
 
 export const ADJUSTMENT_TYPES_SUPPLIER = [
   "Labour",
   "Brokerage",
+  "Aarhat",
   "Sootli",
   "Bardana",
   "Transport-Rent",

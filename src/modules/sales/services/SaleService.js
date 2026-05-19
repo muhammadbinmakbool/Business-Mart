@@ -52,10 +52,13 @@ export class SaleService {
     const { baseAmount, totalAdjustments, finalAmount, totalWeight } = calculateTransactionTotals(processedItems, adjustments);
 
     // Process adjustments for persistence
-    const processedAdjustments = adjustments.map(adj => ({
-      ...adj,
-      calculatedAmount: calculateAdjustment(adj.method, adj.value, { baseAmount, totalWeight })
-    }));
+    const processedAdjustments = adjustments.map(adj => {
+      const { id, saleId, ...cleanAdj } = adj;
+      return {
+        ...cleanAdj,
+        calculatedAmount: calculateAdjustment(cleanAdj.method, cleanAdj.value, { baseAmount, totalWeight })
+      };
+    });
 
     // 3. Atomically execute transaction
     return prisma.$transaction(async (tx) => {
@@ -174,10 +177,13 @@ export class SaleService {
     const { baseAmount, totalAdjustments, finalAmount, totalWeight } = calculateTransactionTotals(processedItems, adjustments);
 
     // Process adjustments for persistence
-    const processedAdjustments = adjustments.map(adj => ({
-      ...adj,
-      calculatedAmount: calculateAdjustment(adj.method, adj.value, { baseAmount, totalWeight })
-    }));
+    const processedAdjustments = adjustments.map(adj => {
+      const { id, saleId, ...cleanAdj } = adj;
+      return {
+        ...cleanAdj,
+        calculatedAmount: calculateAdjustment(cleanAdj.method, cleanAdj.value, { baseAmount, totalWeight })
+      };
+    });
 
     // 3. Atomically execute transaction
     return prisma.$transaction(async (tx) => {
