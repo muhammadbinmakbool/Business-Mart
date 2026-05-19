@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/financial";
-import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate } from "@/lib/units";
+import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate, convertRate, convertFromBase } from "@/lib/units";
 import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
 
 export default function SaleForm({ buyers, products, initialData = null }) {
@@ -84,12 +84,22 @@ export default function SaleForm({ buyers, products, initialData = null }) {
 
   const handleSelectTrack = (track) => {
     const hasOnlyEmptyRow = items.length === 1 && !items[0].productId && !items[0].weight && !items[0].rate;
+    
+    const originalUnit = track.intakeTransaction?.unit || "KG";
+    const product = products.find(p => p.id === track.productId);
+    
+    // Convert rate and weight back to the original unit (e.g. MAUND)
+    const displayRate = convertRate(track.sellingRate || track.buyingRate || 0, "KG", originalUnit, product);
+    const displayWeight = track.netWeight !== null && track.netWeight !== undefined
+      ? track.netWeight
+      : convertFromBase(track.quantity || 0, originalUnit, product);
+
     const newRow = {
       productId: track.productId?.toString() || "",
-      weight: track.netWeight || track.quantity || "",
-      rate: track.sellingRate || track.buyingRate || "",
-      unit: track.intakeTransaction?.unit || "KG",
-      rateUnit: track.intakeTransaction?.unit || "KG",
+      weight: displayWeight || "",
+      rate: displayRate || "",
+      unit: originalUnit,
+      rateUnit: originalUnit,
       salesTrackId: track.id,
       intakeNumber: track.intakeTransaction?.intakeNumber
     };
@@ -373,31 +383,40 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {unbilledTracks.map((track) => (
-                  <div
-                    key={track.id}
-                    onClick={() => handleSelectTrack(track)}
-                    className="flex items-center justify-between p-4 rounded-xl border bg-background hover:border-primary hover:bg-primary/5 transition-all text-left cursor-pointer group shadow-sm"
-                  >
-                    <div className="space-y-1">
-                      <div className="text-xs font-bold text-primary">
-                        {track.intakeTransaction?.intakeNumber || `Track #${track.id}`}
+                {unbilledTracks.map((track) => {
+                  const originalUnit = track.intakeTransaction?.unit || "KG";
+                  const product = products.find(p => p.id === track.productId);
+                  const displayRate = convertRate(track.sellingRate || track.buyingRate || 0, "KG", originalUnit, product);
+                  const displayWeight = track.netWeight !== null && track.netWeight !== undefined
+                    ? track.netWeight
+                    : convertFromBase(track.quantity || 0, originalUnit, product);
+
+                  return (
+                    <div
+                      key={track.id}
+                      onClick={() => handleSelectTrack(track)}
+                      className="flex items-center justify-between p-4 rounded-xl border bg-background hover:border-primary hover:bg-primary/5 transition-all text-left cursor-pointer group shadow-sm"
+                    >
+                      <div className="space-y-1">
+                        <div className="text-xs font-bold text-primary">
+                          {track.intakeTransaction?.intakeNumber || `Track #${track.id}`}
+                        </div>
+                        <div className="text-sm font-bold text-card-foreground group-hover:text-primary transition-colors">
+                          {track.product?.name || "Unknown Product"}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Rate: Rs. {displayRate} / {originalUnit}
+                        </div>
                       </div>
-                      <div className="text-sm font-bold text-card-foreground group-hover:text-primary transition-colors">
-                        {track.product?.name || "Unknown Product"}
-                      </div>
-                      <div className="text-[11px] text-muted-foreground">
-                        Rate: Rs. {track.sellingRate || track.buyingRate}
+                      <div className="text-right">
+                        <div className="text-sm font-black">{displayWeight} {originalUnit}</div>
+                        <div className="text-[10px] text-primary font-bold uppercase group-hover:underline mt-1">
+                          + Add
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="text-sm font-black">{track.netWeight || track.quantity} KG</div>
-                      <div className="text-[10px] text-primary font-bold uppercase group-hover:underline mt-1">
-                        + Add
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : null}
