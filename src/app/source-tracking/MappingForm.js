@@ -155,8 +155,8 @@ export default function MappingForm({
         }
         const intake = intakes.find(i => i.id === parseInt(value));
         if (intake) {
-            const calculatedNetWeight = intake.netWeight !== null && intake.netWeight !== undefined ? intake.netWeight : intake.grossWeight;
-            const calculatedBaseAmount = Number(calculatedNetWeight) * Number(intake.rate || 0);
+            const calculatedNetWeight = intake.netWeight !== null && intake.netWeight !== undefined ? intake.netWeight : "";
+            const calculatedBaseAmount = calculatedNetWeight !== "" ? (Number(calculatedNetWeight) * Number(intake.rate || 0)) : "";
 
             setFormData(prev => ({ 
                 ...prev, 
