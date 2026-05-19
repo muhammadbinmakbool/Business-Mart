@@ -265,7 +265,7 @@ export default function MappingForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-4xl space-y-8">
+    <form onSubmit={handleSubmit} className="w-full space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* Core Links Section */}
