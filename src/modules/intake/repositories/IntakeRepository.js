@@ -69,7 +69,7 @@ export class IntakeRepository {
       where: {
         partyId: parseInt(partyId),
         invoiceItems: { none: { invoice: { status: { not: "SUPERSEDED" } } } },
-        status: { not: "CANCELLED" }
+        status: "SOLD"
       },
       include: { product: true }
     });

@@ -150,6 +150,9 @@ model SalesTrack {
   netWeight           Decimal?  @db.Decimal(18, 2)
   baseAmount          Decimal?  @db.Decimal(18, 2)
 
+  isBilled            Boolean   @default(false)
+  isSettled           Boolean   @default(false)
+
   notes               String?
 
   createdAt           DateTime  @default(now())

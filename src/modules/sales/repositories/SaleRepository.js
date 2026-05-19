@@ -20,7 +20,12 @@ export class SaleRepository {
       include: {
         party: true,
         items: {
-          include: { product: true }
+          include: { 
+            product: true,
+            salesTracks: {
+              include: { intakeTransaction: true }
+            }
+          }
         },
         adjustments: true
       }

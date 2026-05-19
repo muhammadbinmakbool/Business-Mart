@@ -3,12 +3,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, Calculator, ReceiptText, Loader2, PlusCircle, X, Save, AlertCircle } from "lucide-react";
 import { createSaleAction, updateSaleAction } from "@/modules/sales/controllers/saleActions";
+import { getUnbilledTracksAction } from "@/modules/sales/controllers/trackActions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/financial";
 import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate } from "@/lib/units";
-import { ADJUSTMENT_TYPES } from "@/lib/constants";
+import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
 
 export default function SaleForm({ buyers, products, initialData = null }) {
   const router = useRouter();
@@ -23,12 +24,17 @@ export default function SaleForm({ buyers, products, initialData = null }) {
   );
   const [notes, setNotes] = useState(initialData?.notes || "");
   const [items, setItems] = useState(
-    initialData?.items?.map(item => ({
-      ...item,
-      productId: item.productId.toString(),
-      unit: item.unit || "KG",
-      rateUnit: item.rateUnit || "KG"
-    })) || [{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]
+    initialData?.items?.map(item => {
+      const track = item.salesTracks?.[0];
+      return {
+        ...item,
+        productId: item.productId.toString(),
+        unit: item.unit || "KG",
+        rateUnit: item.rateUnit || "KG",
+        salesTrackId: track?.id || null,
+        intakeNumber: track?.intakeTransaction?.intakeNumber || null
+      };
+    }) || [{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]
   );
   const [adjustments, setAdjustments] = useState(initialData?.adjustments || []);
   
@@ -42,6 +48,61 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     value: "", 
     direction: "ADD" 
   });
+
+  // Track Suggestions State
+  const [unbilledTracks, setUnbilledTracks] = useState([]);
+  const [loadingTracks, setLoadingTracks] = useState(false);
+  const initialUnbilledTracksRef = React.useRef([]);
+
+  const fetchUnbilledTracks = useCallback(async (buyerId) => {
+    setLoadingTracks(true);
+    try {
+      const result = await getUnbilledTracksAction(buyerId);
+      if (result.success) {
+        // Filter out tracks that are already selected in items
+        const currentSalesTrackIds = items.map(i => i.salesTrackId).filter(Boolean);
+        const filteredTracks = result.data.filter(t => !currentSalesTrackIds.includes(t.id));
+        setUnbilledTracks(filteredTracks);
+        initialUnbilledTracksRef.current = result.data;
+      } else {
+        toast.error("Failed to load available sold intakes: " + result.error);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingTracks(false);
+    }
+  }, [items]);
+
+  useEffect(() => {
+    if (partyId && partyId !== "new") {
+      fetchUnbilledTracks(partyId);
+    } else {
+      setUnbilledTracks([]);
+    }
+  }, [partyId]);
+
+  const handleSelectTrack = (track) => {
+    const hasOnlyEmptyRow = items.length === 1 && !items[0].productId && !items[0].weight && !items[0].rate;
+    const newRow = {
+      productId: track.productId?.toString() || "",
+      weight: track.netWeight || track.quantity || "",
+      rate: track.sellingRate || track.buyingRate || "",
+      unit: track.intakeTransaction?.unit || "KG",
+      rateUnit: track.intakeTransaction?.unit || "KG",
+      salesTrackId: track.id,
+      intakeNumber: track.intakeTransaction?.intakeNumber
+    };
+
+    if (hasOnlyEmptyRow) {
+      setItems([newRow]);
+    } else {
+      setItems([...items, newRow]);
+    }
+
+    setUnbilledTracks(prev => prev.filter(t => t.id !== track.id));
+    toast.success(`Prefilled item from Intake ${track.intakeTransaction?.intakeNumber || ""}`);
+  };
 
   // Totals State
   const [totals, setTotals] = useState({ baseAmount: 0, totalWeight: 0, totalAdjustments: 0, finalAmount: 0 });
@@ -74,9 +135,18 @@ export default function SaleForm({ buyers, products, initialData = null }) {
   // Handlers
   const addItem = () => setItems([...items, { productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]);
   const removeItem = (index) => {
+    const itemToRemove = items[index];
+    if (itemToRemove.salesTrackId) {
+      const originalTrack = initialUnbilledTracksRef.current.find(t => t.id === itemToRemove.salesTrackId);
+      if (originalTrack) {
+        setUnbilledTracks(prev => [...prev, originalTrack]);
+      }
+    }
     if (items.length > 1) {
       const newItems = items.filter((_, i) => i !== index);
       setItems(newItems);
+    } else {
+      setItems([{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]);
     }
   };
 
@@ -135,7 +205,8 @@ export default function SaleForm({ buyers, products, initialData = null }) {
             rate: parseFloat(item.rate),
             rateUnit: item.rateUnit || "KG",
             normalizedWeight,
-            amount
+            amount,
+            salesTrackId: item.salesTrackId ? parseInt(item.salesTrackId) : null
           };
         }),
         adjustments,
@@ -280,6 +351,59 @@ export default function SaleForm({ buyers, products, initialData = null }) {
         </div>
       </div>
 
+      {/* 1.5 Available Sold Intakes Suggestions */}
+      {partyId && partyId !== "new" && (
+        <div className="animate-in fade-in slide-in-from-top-4 duration-300">
+          {loadingTracks ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground p-4 bg-muted/20 border rounded-xl">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span>Loading available sold intakes...</span>
+            </div>
+          ) : unbilledTracks.length > 0 ? (
+            <div className="bg-card border rounded-xl p-5 space-y-4 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-foreground">
+                    Available Sold Intakes (Suggestions)
+                  </h4>
+                  <p className="text-xs text-muted-foreground">Select an intake to prefill item details (fully editable).</p>
+                </div>
+                <span className="bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-full">
+                  {unbilledTracks.length} Available
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {unbilledTracks.map((track) => (
+                  <div
+                    key={track.id}
+                    onClick={() => handleSelectTrack(track)}
+                    className="flex items-center justify-between p-4 rounded-xl border bg-background hover:border-primary hover:bg-primary/5 transition-all text-left cursor-pointer group shadow-sm"
+                  >
+                    <div className="space-y-1">
+                      <div className="text-xs font-bold text-primary">
+                        {track.intakeTransaction?.intakeNumber || `Track #${track.id}`}
+                      </div>
+                      <div className="text-sm font-bold text-card-foreground group-hover:text-primary transition-colors">
+                        {track.product?.name || "Unknown Product"}
+                      </div>
+                      <div className="text-[11px] text-muted-foreground">
+                        Rate: Rs. {track.sellingRate || track.buyingRate}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-black">{track.netWeight || track.quantity} KG</div>
+                      <div className="text-[10px] text-primary font-bold uppercase group-hover:underline mt-1">
+                        + Add
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+
       {/* 2. Items Table */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -329,6 +453,12 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                           </option>
                         ))}
                       </select>
+                      {item.intakeNumber && (
+                        <div className="text-[10px] text-primary font-bold px-2 mt-1 flex items-center gap-1">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                          Intake: {item.intakeNumber}
+                        </div>
+                      )}
                     </td>
                     <td className="px-2 py-2">
                       <div className="flex items-center gap-1">
@@ -571,7 +701,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                   onChange={e => setCurrentAdjustment({...currentAdjustment, adjustmentType: e.target.value})}
                   className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
                 >
-                  {ADJUSTMENT_TYPES.map(type => (
+                  {ADJUSTMENT_TYPES_BUYER.map(type => (
                     <option key={type} value={type}>{type}</option>
                   ))}
                 </select>

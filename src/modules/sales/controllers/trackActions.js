@@ -35,3 +35,13 @@ export async function deleteTrackAction(id) {
     return { success: false, error: error.message };
   }
 }
+
+export async function getUnbilledTracksAction(buyerPartyId) {
+  try {
+    const tracks = await SalesTrackService.listUnbilledByBuyer(buyerPartyId);
+    return { success: true, data: tracks };
+  } catch (error) {
+    console.error("Error fetching unbilled tracks:", error);
+    return { success: false, error: error.message };
+  }
+}

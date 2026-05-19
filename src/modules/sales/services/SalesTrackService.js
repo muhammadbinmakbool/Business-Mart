@@ -94,4 +94,62 @@ export class SalesTrackService {
     });
     return JSON.parse(JSON.stringify(track));
   }
+
+  static async listUnbilledByBuyer(buyerPartyId) {
+    const tracks = await prisma.salesTrack.findMany({
+      where: {
+        buyerPartyId: parseInt(buyerPartyId),
+        isBilled: false,
+      },
+      include: {
+        intakeTransaction: true,
+        product: true
+      },
+      orderBy: { createdAt: "desc" }
+    });
+    return tracks.map(track => ({
+      id: track.id,
+      saleTransactionId: track.saleTransactionId,
+      saleItemId: track.saleItemId,
+      intakeTransactionId: track.intakeTransactionId,
+      supplierPartyId: track.supplierPartyId,
+      buyerPartyId: track.buyerPartyId,
+      productId: track.productId,
+      quantity: Number(track.quantity),
+      buyingRate: track.buyingRate ? Number(track.buyingRate) : null,
+      sellingRate: track.sellingRate ? Number(track.sellingRate) : null,
+      netWeight: track.netWeight ? Number(track.netWeight) : null,
+      baseAmount: track.baseAmount ? Number(track.baseAmount) : null,
+      isBilled: track.isBilled,
+      isSettled: track.isSettled,
+      notes: track.notes,
+      createdAt: track.createdAt.toISOString(),
+      updatedAt: track.updatedAt.toISOString(),
+      intakeTransaction: track.intakeTransaction ? {
+        id: track.intakeTransaction.id,
+        intakeNumber: track.intakeTransaction.intakeNumber,
+        entryDate: track.intakeTransaction.entryDate.toISOString(),
+        partyId: track.intakeTransaction.partyId,
+        productId: track.intakeTransaction.productId,
+        bagCount: track.intakeTransaction.bagCount,
+        rate: track.intakeTransaction.rate ? Number(track.intakeTransaction.rate) : null,
+        grossWeight: Number(track.intakeTransaction.grossWeight),
+        unit: track.intakeTransaction.unit,
+        normalizedWeight: Number(track.intakeTransaction.normalizedWeight),
+        Bardana: track.intakeTransaction.Bardana ? Number(track.intakeTransaction.Bardana) : null,
+        Khot: track.intakeTransaction.Khot ? Number(track.intakeTransaction.Khot) : null,
+        netWeight: track.intakeTransaction.netWeight ? Number(track.intakeTransaction.netWeight) : null,
+        notes: track.intakeTransaction.notes,
+        status: track.intakeTransaction.status,
+        createdAt: track.intakeTransaction.createdAt.toISOString(),
+        updatedAt: track.intakeTransaction.updatedAt.toISOString(),
+      } : null,
+      product: track.product ? {
+        id: track.product.id,
+        name: track.product.name,
+        category: track.product.category,
+        primaryUnit: track.product.primaryUnit,
+      } : null
+    }));
+  }
 }

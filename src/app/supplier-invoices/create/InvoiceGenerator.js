@@ -7,6 +7,7 @@ import { getUninvoicedDataAction, generateSupplierInvoiceAction } from "@/module
 import { calculateSupplierDeductions } from "@/lib/financial";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { ADJUSTMENT_TYPES_SUPPLIER } from "@/lib/constants";
 
 export default function InvoiceGenerator({ suppliers }) {
   const router = useRouter();

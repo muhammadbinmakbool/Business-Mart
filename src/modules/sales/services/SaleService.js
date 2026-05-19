@@ -111,6 +111,24 @@ export class SaleService {
         include: { items: true, adjustments: true }
       });
 
+      // Link SalesTrack records if specified
+      for (let i = 0; i < processedItems.length; i++) {
+        const item = processedItems[i];
+        if (item.salesTrackId) {
+          const dbItem = sale.items.find(di => di.productId === parseInt(item.productId));
+          if (dbItem) {
+            await tx.salesTrack.update({
+              where: { id: parseInt(item.salesTrackId) },
+              data: {
+                isBilled: true,
+                saleTransactionId: sale.id,
+                saleItemId: dbItem.id
+              }
+            });
+          }
+        }
+      }
+
       // 3.5 Batched Update Product quantities concurrently in parallel using Promise.all
       await Promise.all(processedItems.map(item =>
         tx.product.update({
@@ -196,7 +214,17 @@ export class SaleService {
         }
       }
 
-      // 3.4 Delete old items & adjustments
+      // 3.4 Unlink previous SalesTrack records for this sale
+      await tx.salesTrack.updateMany({
+        where: { saleTransactionId: parseInt(id) },
+        data: {
+          isBilled: false,
+          saleTransactionId: null,
+          saleItemId: null
+        }
+      });
+
+      // Delete old items & adjustments
       await tx.saleItem.deleteMany({ where: { saleId: parseInt(id) } });
       await tx.transactionAdjustment.deleteMany({ where: { saleId: parseInt(id) } });
 
@@ -228,6 +256,24 @@ export class SaleService {
         },
         include: { items: true, adjustments: true }
       });
+
+      // Link new SalesTrack records if specified
+      for (let i = 0; i < processedItems.length; i++) {
+        const item = processedItems[i];
+        if (item.salesTrackId) {
+          const dbItem = updatedSale.items.find(di => di.productId === parseInt(item.productId));
+          if (dbItem) {
+            await tx.salesTrack.update({
+              where: { id: parseInt(item.salesTrackId) },
+              data: {
+                isBilled: true,
+                saleTransactionId: updatedSale.id,
+                saleItemId: dbItem.id
+              }
+            });
+          }
+        }
+      }
 
       // 3.6 Apply product snapshot quantity deltas concurrently in parallel batch using Promise.all
       await Promise.all(
@@ -263,6 +309,16 @@ export class SaleService {
             data: { quantity: { increment: Number(item.normalizedWeight) } }
           })
         ));
+
+        // Reset isBilled and clear link on SalesTrack records for this cancelled sale
+        await tx.salesTrack.updateMany({
+          where: { saleTransactionId: parseInt(id) },
+          data: {
+            isBilled: false,
+            saleTransactionId: null,
+            saleItemId: null
+          }
+        });
       } else if (oldStatus === "CANCELLED" && newStatus !== "CANCELLED") {
         // Reactivation: check availability and deduct snapshots
         const productIds = sale.items.map(item => item.productId);
@@ -314,7 +370,17 @@ export class SaleService {
         ));
       }
 
-      // 3. Soft delete the sale transaction
+      // 3. Reset isBilled and clear link on previous SalesTrack records for this sale
+      await tx.salesTrack.updateMany({
+        where: { saleTransactionId: parseInt(id) },
+        data: {
+          isBilled: false,
+          saleTransactionId: null,
+          saleItemId: null
+        }
+      });
+
+      // 4. Soft delete the sale transaction
       return tx.saleTransaction.update({
         where: { id: parseInt(id) },
         data: { isDeleted: true }

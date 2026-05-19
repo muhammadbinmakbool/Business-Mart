@@ -17,12 +17,19 @@ export const UNIT_CATEGORIES = {
   QUANTITY: "QUANTITY",
 };
 
-export const ADJUSTMENT_TYPES = [
+export const ADJUSTMENT_TYPES_BUYER = [
   "Commission",
   "Labour",
-  "Rent",
+  "Ghesai",
   "Market Fee",
-  "Transport",
-  "Unloading",
-  "Other"
 ];
+
+export const ADJUSTMENT_TYPES_SUPPLIER = [
+  "Labour",
+  "Brokerage",
+  "Sootli",
+  "Bardana",
+  "Transport-Rent",
+  "Loading"
+];
+
