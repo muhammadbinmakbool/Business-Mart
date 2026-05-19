@@ -45,7 +45,7 @@ export default async function SourceTrackingPage() {
                 <th className="px-4 py-4 text-right">Quantity</th>
                 <th className="px-4 py-4 text-right">Rates (B/S)</th>
                 <th className="px-4 py-4 text-right">Net Weight</th>
-                <th className="px-4 py-4 text-right">Initial Total</th>
+                <th className="px-4 py-4 text-right">Base Amount</th>
                 <th className="px-4 py-4">Ref #</th>
                 <th className="px-4 py-4 text-center">Actions</th>
               </tr>
@@ -92,8 +92,8 @@ export default async function SourceTrackingPage() {
                       )}
                     </td>
                     <td className="px-4 py-3.5 text-right font-semibold text-amber-700 font-mono text-xs whitespace-nowrap">
-                      {track.initialTotal !== null && track.initialTotal !== undefined ? (
-                        <>Rs. {Number(track.initialTotal).toLocaleString()}</>
+                      {track.baseAmount !== null && track.baseAmount !== undefined ? (
+                        <>Rs. {Number(track.baseAmount).toLocaleString()}</>
                       ) : (
                         <span className="text-muted-foreground opacity-50">-</span>
                       )}

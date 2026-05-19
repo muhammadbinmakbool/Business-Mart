@@ -31,7 +31,7 @@ export class SalesTrackService {
         buyingRate: data.buyingRate ? Number(data.buyingRate) : null,
         sellingRate: data.sellingRate ? Number(data.sellingRate) : null,
         netWeight: data.netWeight ? Number(data.netWeight) : null,
-        initialTotal: data.initialTotal ? Number(data.initialTotal) : null,
+        baseAmount: data.baseAmount ? Number(data.baseAmount) : null,
         notes: data.notes
       }
     });
@@ -51,7 +51,7 @@ export class SalesTrackService {
         buyingRate: data.buyingRate ? Number(data.buyingRate) : null,
         sellingRate: data.sellingRate ? Number(data.sellingRate) : null,
         netWeight: data.netWeight ? Number(data.netWeight) : null,
-        initialTotal: data.initialTotal ? Number(data.initialTotal) : null,
+        baseAmount: data.baseAmount ? Number(data.baseAmount) : null,
         notes: data.notes
       }
     });

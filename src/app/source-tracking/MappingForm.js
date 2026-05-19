@@ -63,7 +63,7 @@ export default function MappingForm({
     buyingRate: initialData.buyingRate || "",
     sellingRate: initialData.sellingRate || "",
     netWeight: initialData.netWeight || "",
-    initialTotal: initialData.initialTotal || "",
+    baseAmount: initialData.baseAmount || "",
     notes: initialData.notes || ""
   });
 
@@ -82,11 +82,11 @@ export default function MappingForm({
     setFormData(prev => {
       const updated = { ...prev, [field]: value };
       
-      // Auto-calculate initialTotal when netWeight or buyingRate/sellingRate changes manually
+      // Auto-calculate baseAmount when netWeight or buyingRate/sellingRate changes manually
       if (field === "netWeight" || field === "buyingRate") {
         const netW = Number(field === "netWeight" ? value : prev.netWeight) || 0;
         const rateVal = Number(field === "buyingRate" ? value : prev.buyingRate) || 0;
-        updated.initialTotal = round(netW * rateVal, 2).toString();
+        updated.baseAmount = round(netW * rateVal, 2).toString();
       }
       return updated;
     });
@@ -135,14 +135,14 @@ export default function MappingForm({
                 quantity: "",
                 buyingRate: "",
                 netWeight: "",
-                initialTotal: ""
+                baseAmount: ""
             }));
             return;
         }
         const intake = intakes.find(i => i.id === parseInt(value));
         if (intake) {
             const calculatedNetWeight = intake.netWeight !== null && intake.netWeight !== undefined ? intake.netWeight : intake.grossWeight;
-            const calculatedInitialTotal = Number(calculatedNetWeight) * Number(intake.rate || 0);
+            const calculatedBaseAmount = Number(calculatedNetWeight) * Number(intake.rate || 0);
 
             setFormData(prev => ({ 
                 ...prev, 
@@ -152,7 +152,7 @@ export default function MappingForm({
                 quantity: intake.grossWeight || prev.quantity,
                 buyingRate: intake.rate || prev.buyingRate,
                 netWeight: calculatedNetWeight,
-                initialTotal: calculatedInitialTotal
+                baseAmount: calculatedBaseAmount
             }));
             if (intake.unit) {
                 setQuantityUnit(intake.unit);
@@ -232,7 +232,7 @@ export default function MappingForm({
         buyingRate: normalizedBuyingRate,
         sellingRate: normalizedSellingRate,
         netWeight: formData.netWeight ? Number(formData.netWeight) : null,
-        initialTotal: formData.initialTotal ? Number(formData.initialTotal) : null
+        baseAmount: formData.baseAmount ? Number(formData.baseAmount) : null
       };
 
       const result = await action(payload);
@@ -443,13 +443,13 @@ export default function MappingForm({
                     </div>
                 </div>
                 <div className="space-y-2">
-                    <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Initial Total Amount</label>
+                    <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Base Amount</label>
                     <div className="relative flex items-center">
                         <input 
                             type="number"
                             step="0.01"
-                            value={formData.initialTotal}
-                            onChange={(e) => handleChange("initialTotal", e.target.value)}
+                            value={formData.baseAmount}
+                            onChange={(e) => handleChange("baseAmount", e.target.value)}
                             className="w-full h-10 bg-card border rounded-xl px-3 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                             placeholder="Rs."
                         />

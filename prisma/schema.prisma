@@ -148,7 +148,7 @@ model SalesTrack {
   sellingRate         Decimal?  @db.Decimal(18, 2)
 
   netWeight           Decimal?  @db.Decimal(18, 2)
-  initialTotal        Decimal?  @db.Decimal(18, 2)
+  baseAmount          Decimal?  @db.Decimal(18, 2)
 
   notes               String?
 

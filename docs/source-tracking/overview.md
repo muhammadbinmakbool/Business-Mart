@@ -15,7 +15,7 @@ The Source Tracking module (implemented via the `SalesTrack` table) is an indepe
 
 The `SalesTrack` model stores:
 - **Links**: Optional IDs for `SaleTransaction`, `SaleItem`, `IntakeTransaction`, `Party` (Supplier/Buyer), and `Product`.
-- **Metrics**: `quantity`, `buyingRate`, `sellingRate`, `netWeight`, and `initialTotal`.
+- **Metrics**: `quantity`, `buyingRate`, `sellingRate`, `netWeight`, and `baseAmount`.
 - **Metadata**: `notes`.
 
 ## Key Differentiator from Allocation Engines

@@ -255,7 +255,7 @@ export class IntakeService {
           ? Number(updated.netWeight) 
           : Number(updated.grossWeight);
         const rateForTotal = updated.rate ? Number(updated.rate) : 0;
-        const initialTotal = weightForTotal * rateForTotal;
+        const baseAmount = weightForTotal * rateForTotal;
 
         const trackData = {
           intakeTransactionId: updated.id,
@@ -266,7 +266,7 @@ export class IntakeService {
           buyingRate: finalSalesTrackRate,
           sellingRate: finalSalesTrackRate,
           netWeight: updated.netWeight !== null && updated.netWeight !== undefined ? Number(updated.netWeight) : null,
-          initialTotal: initialTotal,
+          baseAmount: baseAmount,
           notes: `Intake ${updated.intakeNumber} updated and marked as SOLD`
         };
 
@@ -360,7 +360,7 @@ export class IntakeService {
       });
 
       const quantityInKg = intake.unit === "MAUND" ? netWeight * 40 : netWeight;
-      const initialTotal = netWeight * finalSupplierRate;
+      const baseAmount = netWeight * finalSupplierRate;
 
       const trackData = {
         intakeTransactionId: intakeId,
@@ -371,7 +371,7 @@ export class IntakeService {
         buyingRate: finalSalesTrackRate,
         sellingRate: finalSalesTrackRate,
         netWeight,
-        initialTotal,
+        baseAmount,
         notes: `Intake ${intake.intakeNumber} marked as SOLD`
       };
 
