@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/financial";
 import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate } from "@/lib/units";
+import { ADJUSTMENT_TYPES } from "@/lib/constants";
 
 export default function SaleForm({ buyers, products, initialData = null }) {
   const router = useRouter();
@@ -570,13 +571,9 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                   onChange={e => setCurrentAdjustment({...currentAdjustment, adjustmentType: e.target.value})}
                   className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
                 >
-                  <option value="Commission">Commission</option>
-                  <option value="Labour">Labour</option>
-                  <option value="Rent">Rent</option>
-                  <option value="Market Fee">Market Fee</option>
-                  <option value="Transport">Transport</option>
-                  <option value="Unloading">Unloading</option>
-                  <option value="Other">Other</option>
+                  {ADJUSTMENT_TYPES.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
                 </select>
               </div>
 

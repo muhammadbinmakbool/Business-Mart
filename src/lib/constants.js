@@ -16,3 +16,13 @@ export const UNIT_CATEGORIES = {
   LIQUID: "LIQUID",
   QUANTITY: "QUANTITY",
 };
+
+export const ADJUSTMENT_TYPES = [
+  "Commission",
+  "Labour",
+  "Rent",
+  "Market Fee",
+  "Transport",
+  "Unloading",
+  "Other"
+];
