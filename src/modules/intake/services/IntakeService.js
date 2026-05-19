@@ -54,6 +54,8 @@ export class IntakeService {
         quantity: Number(st.quantity),
         buyingRate: st.buyingRate ? Number(st.buyingRate) : null,
         sellingRate: st.sellingRate ? Number(st.sellingRate) : null,
+        netWeight: st.netWeight ? Number(st.netWeight) : null,
+        baseAmount: st.baseAmount ? Number(st.baseAmount) : null,
         buyer: st.buyer ? {
           ...st.buyer
         } : null
