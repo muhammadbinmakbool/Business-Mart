@@ -36,7 +36,12 @@ export default function SaleForm({ buyers, products, initialData = null }) {
       };
     }) || [{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]
   );
-  const [adjustments, setAdjustments] = useState(initialData?.adjustments || []);
+  const [adjustments, setAdjustments] = useState(
+    initialData?.adjustments?.map(adj => ({
+      ...adj,
+      unit: adj.unit || "KG"
+    })) || []
+  );
   
   // UI State
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
@@ -46,7 +51,8 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     adjustmentType: "Commission", 
     method: "PERCENTAGE", 
     value: "", 
-    direction: "ADD" 
+    direction: "ADD",
+    unit: "KG"
   });
 
   // Track Suggestions State
@@ -127,7 +133,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
       try {
         const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product);
         const normalizedWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
-        return { normalizedWeight, normalizedRate };
+        return { normalizedWeight, normalizedRate, product };
       } catch (e) {
         return { normalizedWeight: 0, normalizedRate: 0 };
       }
@@ -177,10 +183,20 @@ export default function SaleForm({ buyers, products, initialData = null }) {
   };
 
   const addAdjustment = () => {
-    if (!currentAdjustment.value) return;
-    setAdjustments([...adjustments, { ...currentAdjustment }]);
+    if (!currentAdjustment.value || isNaN(currentAdjustment.value) || parseFloat(currentAdjustment.value) <= 0) {
+      toast.error("Please enter a valid positive numeric value");
+      return;
+    }
+    setAdjustments([
+      ...adjustments,
+      {
+        ...currentAdjustment,
+        value: parseFloat(currentAdjustment.value),
+        unit: currentAdjustment.method === "PER_WEIGHT" ? currentAdjustment.unit : null
+      }
+    ]);
     setIsAdjustmentModalOpen(false);
-    setCurrentAdjustment({ adjustmentType: "Commission", method: "PERCENTAGE", value: "", direction: "ADD" });
+    setCurrentAdjustment({ adjustmentType: "Commission", method: "PERCENTAGE", value: "", direction: "ADD", unit: "KG" });
   };
 
   const removeAdjustment = (index) => {
@@ -581,7 +597,9 @@ export default function SaleForm({ buyers, products, initialData = null }) {
               adjustments.map((adj, index) => {
                 const amount = calculateAdjustment(adj.method, adj.value, { 
                   baseAmount: totals.baseAmount, 
-                  totalWeight: totals.totalWeight 
+                  totalWeight: totals.totalWeight,
+                  bagCount: totals.totalBagCount || 0,
+                  adjustmentUnit: adj.unit
                 });
                 return (
                   <div key={index} className="flex items-center justify-between bg-muted/30 px-4 py-3 rounded-lg border group">
@@ -589,7 +607,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                       <div className="font-bold text-sm">{adj.adjustmentType}</div>
                       <div className="text-[10px] uppercase text-muted-foreground font-semibold">
                         {adj.method === "PERCENTAGE" ? `${adj.value}%` : 
-                         adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per KG` : 
+                         adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per ${adj.unit || "KG"}` : 
                          `Fixed Rs. ${adj.value}`} 
                         {" • "} 
                         <span className={adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"}>
@@ -731,12 +749,19 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                   <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Method</label>
                   <select 
                     value={currentAdjustment.method}
-                    onChange={e => setCurrentAdjustment({...currentAdjustment, method: e.target.value})}
+                    onChange={e => {
+                      const method = e.target.value;
+                      setCurrentAdjustment({
+                        ...currentAdjustment, 
+                        method,
+                        unit: method === "PER_WEIGHT" ? "KG" : null
+                      });
+                    }}
                     className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
                   >
                     <option value="PERCENTAGE">% Percentage</option>
                     <option value="FIXED">Fixed Amount</option>
-                    <option value="PER_WEIGHT">Per Weight (KG)</option>
+                    <option value="PER_WEIGHT">Per Weight</option>
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -751,6 +776,21 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                   </select>
                 </div>
               </div>
+
+              {currentAdjustment.method === "PER_WEIGHT" && (
+                <div className="space-y-2 animate-in slide-in-from-top duration-100">
+                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Weight Unit</label>
+                  <select 
+                    value={currentAdjustment.unit || "KG"}
+                    onChange={e => setCurrentAdjustment({...currentAdjustment, unit: e.target.value})}
+                    className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-card-foreground"
+                  >
+                    <option value="KG">KG</option>
+                    <option value="MAUND">Maund</option>
+                    <option value="BAG">Bag</option>
+                  </select>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Value</label>

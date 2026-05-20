@@ -39,7 +39,8 @@ export default function InvoiceGenerator({ suppliers }) {
     adjustmentType: ADJUSTMENT_TYPES_SUPPLIER[0] || "Labour",
     method: "PERCENTAGE",
     direction: "SUBTRACT",
-    value: ""
+    value: "",
+    unit: "KG"
   });
 
   // Fetch data when party is selected
@@ -92,7 +93,8 @@ export default function InvoiceGenerator({ suppliers }) {
             adjustmentType: currentAdjustment.adjustmentType,
             method: currentAdjustment.method,
             value: parseFloat(currentAdjustment.value),
-            direction: currentAdjustment.direction
+            direction: currentAdjustment.direction,
+            unit: currentAdjustment.method === "PER_WEIGHT" ? currentAdjustment.unit : null
           }
         ]
       };
@@ -104,7 +106,8 @@ export default function InvoiceGenerator({ suppliers }) {
       adjustmentType: ADJUSTMENT_TYPES_SUPPLIER[0] || "Labour",
       method: "PERCENTAGE",
       direction: "SUBTRACT",
-      value: ""
+      value: "",
+      unit: "KG"
     });
   };
 
@@ -339,6 +342,10 @@ export default function InvoiceGenerator({ suppliers }) {
                             type="button"
                             onClick={() => {
                               setActiveIntakeForAdjustment(intake.id);
+                              setCurrentAdjustment(prev => ({
+                                ...prev,
+                                unit: intake.unit || "KG"
+                              }));
                               setIsAdjustmentModalOpen(true);
                             }}
                             className="text-[10px] font-bold border border-primary/30 text-primary px-2 py-1 rounded hover:bg-primary/5 transition-colors flex items-center gap-0.5"
@@ -357,7 +364,7 @@ export default function InvoiceGenerator({ suppliers }) {
                                     {adj.adjustmentType}
                                   </span>
                                   <span className="text-[9px] text-muted-foreground/60 uppercase">
-                                    {adj.method === "PERCENTAGE" ? `${adj.value}%` : adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/${intake.unit || "KG"}` : `Fixed Rs. ${adj.value}`}
+                                    {adj.method === "PERCENTAGE" ? `${adj.value}%` : adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/${adj.unit || "KG"}` : `Fixed Rs. ${adj.value}`}
                                     {" • "}
                                     <span className={adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"}>
                                       {adj.direction}
@@ -507,12 +514,22 @@ export default function InvoiceGenerator({ suppliers }) {
                       <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Method</label>
                       <select 
                         value={currentAdjustment.method}
-                        onChange={e => setCurrentAdjustment({...currentAdjustment, method: e.target.value})}
+                        onChange={e => {
+                          const method = e.target.value;
+                          const defaultUnit = method === "PER_WEIGHT"
+                            ? (data.intakes.find(i => i.id === activeIntakeForAdjustment)?.unit || "KG")
+                            : "KG";
+                          setCurrentAdjustment({
+                            ...currentAdjustment,
+                            method,
+                            unit: defaultUnit
+                          });
+                        }}
                         className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-card-foreground"
                       >
                         <option value="PERCENTAGE">% Percentage</option>
                         <option value="FIXED">Fixed Amount</option>
-                        <option value="PER_WEIGHT">Per Weight ({data.intakes.find(i => i.id === activeIntakeForAdjustment)?.unit || "KG"})</option>
+                        <option value="PER_WEIGHT">Per Weight</option>
                       </select>
                     </div>
                     <div className="space-y-2">
@@ -527,6 +544,21 @@ export default function InvoiceGenerator({ suppliers }) {
                       </select>
                     </div>
                   </div>
+
+                  {currentAdjustment.method === "PER_WEIGHT" && (
+                    <div className="space-y-2 animate-in slide-in-from-top duration-100">
+                      <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Weight Unit</label>
+                      <select 
+                        value={currentAdjustment.unit}
+                        onChange={e => setCurrentAdjustment({...currentAdjustment, unit: e.target.value})}
+                        className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-card-foreground"
+                      >
+                        <option value="KG">KG</option>
+                        <option value="MAUND">Maund</option>
+                        <option value="BAG">Bag</option>
+                      </select>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Value</label>

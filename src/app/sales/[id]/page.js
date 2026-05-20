@@ -174,7 +174,7 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
                          </td>
                          <td className="px-6 py-4 text-xs text-muted-foreground font-medium">
                             {adj.method === "PERCENTAGE" ? `${adj.value}% of Base` : 
-                             adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per KG` : 
+                             adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per ${adj.unit || "KG"}` : 
                              `Fixed Rs. ${adj.value}`}
                          </td>
                          <td className={cn(

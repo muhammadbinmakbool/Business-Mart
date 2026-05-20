@@ -1,3 +1,5 @@
+import { getConversionFactor } from "./units";
+
 /**
  * Financial Utilities
  * Centralized logic for all financial calculations in Business Mart.
@@ -17,9 +19,9 @@ export function round(value, decimals = 2) {
  * Calculates the amount for an adjustment.
  * @param {string} method - FIXED, PERCENTAGE, PER_WEIGHT, PER_BAG, WEIGHT_PER_BAG
  * @param {number} value - The value of the adjustment
- * @param {object} context - { baseAmount, totalWeight, bagCount, rate }
+ * @param {object} context - { baseAmount, totalWeight, bagCount, rate, unit, product, adjustmentUnit }
  */
-export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight = 0, bagCount = 0, rate = 0, unit = "KG" } = {}) {
+export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight = 0, bagCount = 0, rate = 0, unit = "KG", product = null, adjustmentUnit = "KG" } = {}) {
   const val = Number(value);
   
   switch (method) {
@@ -27,8 +29,18 @@ export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight
       return round(val);
     case "PERCENTAGE":
       return round((val / 100) * Number(baseAmount));
-    case "PER_WEIGHT":
-      return round(val * Number(totalWeight));
+    case "PER_WEIGHT": {
+      const adjUnit = adjustmentUnit || "KG";
+      if (adjUnit === "BAG") {
+        return round(val * Number(bagCount));
+      }
+      // Convert weight in original unit (`unit`) to target unit (`adjUnit`)
+      // 1. Convert to KG (base unit)
+      const weightInKg = unit === "KG" ? Number(totalWeight) : Number(totalWeight) * getConversionFactor(unit, product);
+      // 2. Convert to target unit
+      const weightInTarget = adjUnit === "KG" ? weightInKg : weightInKg / getConversionFactor(adjUnit, product);
+      return round(val * weightInTarget);
+    }
     case "PER_BAG":
       return round(val * Number(bagCount));
     case "WEIGHT_PER_BAG":
@@ -46,14 +58,22 @@ export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight
 /**
  * Calculates the final total for a buyer/supplier flow.
  * @param {number} baseAmount - The base product amount
- * @param {Array} adjustments - Array of { method, value, direction }
+ * @param {Array} adjustments - Array of { method, value, direction, unit }
  * @param {number} totalWeight - Total weight of products
  */
-export function calculateFinalTotal(baseAmount, adjustments = [], totalWeight = 0, bagCount = 0, rate = 0) {
+export function calculateFinalTotal(baseAmount, adjustments = [], totalWeight = 0, bagCount = 0, rate = 0, unit = "KG", product = null) {
   const base = Number(baseAmount);
   
   const totalAdjustments = adjustments.reduce((acc, adj) => {
-    const amt = calculateAdjustment(adj.method, adj.value, { baseAmount: base, totalWeight, bagCount, rate });
+    const amt = calculateAdjustment(adj.method, adj.value, { 
+      baseAmount: base, 
+      totalWeight, 
+      bagCount, 
+      rate,
+      unit,
+      product,
+      adjustmentUnit: adj.unit
+    });
     return adj.direction === "SUBTRACT" ? acc - amt : acc + amt;
   }, 0);
 
@@ -67,13 +87,14 @@ export function calculateFinalTotal(baseAmount, adjustments = [], totalWeight = 
 /**
  * ARCHITECTURAL LOCK: Single Source of Truth for Transaction Calculations.
  * Both UI and Backend must use this logic.
- * @param {Array} items - Array of { normalizedWeight, normalizedRate }
+ * @param {Array} items - Array of { normalizedWeight, normalizedRate, product }
  * @param {Array} adjustments - Array of adjustments
  */
 export function calculateTransactionTotals(items = [], adjustments = []) {
   // 1. Calculate Base Amount using strictly normalized values
   let baseAmount = 0;
   let totalWeight = 0;
+  let totalBagCount = 0;
 
   items.forEach(item => {
     const itemWeight = Number(item.normalizedWeight || 0);
@@ -81,14 +102,26 @@ export function calculateTransactionTotals(items = [], adjustments = []) {
     
     baseAmount += round(itemWeight * itemRate);
     totalWeight += itemWeight;
+
+    if (item.product) {
+      try {
+        const bagFactor = getConversionFactor("BAG", item.product);
+        if (bagFactor > 0) {
+          totalBagCount += itemWeight / bagFactor;
+        }
+      } catch (e) {
+        // Fallback or ignore if BAG conversion is not supported
+      }
+    }
   });
 
   // 2. Apply Adjustments
-  const result = calculateFinalTotal(baseAmount, adjustments, totalWeight);
+  const result = calculateFinalTotal(baseAmount, adjustments, totalWeight, totalBagCount, 0, "KG", null);
 
   return {
     ...result,
-    totalWeight: round(totalWeight)
+    totalWeight: round(totalWeight),
+    totalBagCount: round(totalBagCount)
   };
 }
 
@@ -106,13 +139,17 @@ export function calculateSupplierDeductions(intakes) {
       totalWeight: billingWeight, 
       bagCount: intake.bagCount || 0,
       rate: Number(intake.rate || 0),
-      unit: intake.unit || "KG"
+      unit: intake.unit || "KG",
+      product: intake.product || null
     };
 
     let itemDeductions = 0;
     const itemAdjustments = intake.adjustments || [];
     const calculatedAdjs = itemAdjustments.map(adj => {
-      const amt = calculateAdjustment(adj.method, adj.value, context);
+      const amt = calculateAdjustment(adj.method, adj.value, {
+        ...context,
+        adjustmentUnit: adj.unit
+      });
       if (adj.direction === "SUBTRACT") {
         itemDeductions += amt;
       } else {
@@ -123,6 +160,7 @@ export function calculateSupplierDeductions(intakes) {
         method: adj.method,
         value: Number(adj.value),
         direction: adj.direction,
+        unit: adj.unit || null,
         calculatedAmount: amt
       };
     });

@@ -44,7 +44,8 @@ export class SaleService {
       processedItems.push({
         ...item,
         normalizedWeight: normalizedQty,
-        normalizedRate
+        normalizedRate,
+        product
       });
     }
 
@@ -54,9 +55,25 @@ export class SaleService {
     // Process adjustments for persistence
     const processedAdjustments = adjustments.map(adj => {
       const { id, saleId, ...cleanAdj } = adj;
+      let totalBagCount = 0;
+      processedItems.forEach(pi => {
+        if (pi.product) {
+          try {
+            const bagFactor = Number(pi.product.unitConversion);
+            if (bagFactor > 0) {
+              totalBagCount += pi.normalizedWeight / bagFactor;
+            }
+          } catch (e) {}
+        }
+      });
       return {
         ...cleanAdj,
-        calculatedAmount: calculateAdjustment(cleanAdj.method, cleanAdj.value, { baseAmount, totalWeight })
+        calculatedAmount: calculateAdjustment(cleanAdj.method, cleanAdj.value, { 
+          baseAmount, 
+          totalWeight, 
+          bagCount: totalBagCount,
+          adjustmentUnit: cleanAdj.unit
+        })
       };
     });
 
@@ -169,7 +186,8 @@ export class SaleService {
       processedItems.push({
         ...item,
         normalizedWeight: normalizedQty,
-        normalizedRate
+        normalizedRate,
+        product
       });
     }
 
@@ -179,9 +197,25 @@ export class SaleService {
     // Process adjustments for persistence
     const processedAdjustments = adjustments.map(adj => {
       const { id, saleId, ...cleanAdj } = adj;
+      let totalBagCount = 0;
+      processedItems.forEach(pi => {
+        if (pi.product) {
+          try {
+            const bagFactor = Number(pi.product.unitConversion);
+            if (bagFactor > 0) {
+              totalBagCount += pi.normalizedWeight / bagFactor;
+            }
+          } catch (e) {}
+        }
+      });
       return {
         ...cleanAdj,
-        calculatedAmount: calculateAdjustment(cleanAdj.method, cleanAdj.value, { baseAmount, totalWeight })
+        calculatedAmount: calculateAdjustment(cleanAdj.method, cleanAdj.value, { 
+          baseAmount, 
+          totalWeight, 
+          bagCount: totalBagCount,
+          adjustmentUnit: cleanAdj.unit
+        })
       };
     });
 

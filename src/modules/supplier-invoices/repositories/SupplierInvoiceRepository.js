@@ -59,7 +59,8 @@ export class SupplierInvoiceRepository {
                   method: adj.method,
                   value: adj.value,
                   calculatedAmount: adj.calculatedAmount,
-                  direction: adj.direction
+                  direction: adj.direction,
+                  unit: adj.unit || null
                 }))
               }
             }))

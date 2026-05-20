@@ -60,7 +60,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
           value: Number(adj.value),
           direction: adj.direction,
           calculatedAmount: Number(adj.calculatedAmount),
-          unit: item.intake.unit || "KG"
+          unit: adj.unit || null
         });
       }
     });
@@ -154,7 +154,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
                                 <span className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground/80 font-semibold">Item Deductions:</span>
                                 {breakdown.adjustments.map((adj, idx) => (
                                   <span key={idx}>
-                                    {adj.adjustmentType}:{" "}
+                                    {adj.adjustmentType} ({adj.method === "PERCENTAGE" ? `${adj.value}%` : adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/${adj.unit || "KG"}` : `Fixed`}):{" "}
                                     <span className={cn(
                                       "font-bold font-mono",
                                       adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"

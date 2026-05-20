@@ -178,6 +178,7 @@ model TransactionAdjustment {
   value            Decimal         @db.Decimal(18, 2)
   calculatedAmount Decimal         @db.Decimal(18, 2)
   direction        String          @default("ADD") // ADD or SUBTRACT
+  unit             String?         @db.NVarChar(50)
   sale             SaleTransaction @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
@@ -209,6 +210,7 @@ model SupplierInvoiceAdjustment {
   value                 Decimal             @db.Decimal(18, 2)
   calculatedAmount      Decimal             @db.Decimal(18, 2)
   direction             String              @default("ADD") // ADD or SUBTRACT
+  unit                  String?             @db.NVarChar(50)
   item                  SupplierInvoiceItem @relation(fields: [supplierInvoiceItemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
