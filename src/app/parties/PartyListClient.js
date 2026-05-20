@@ -14,9 +14,10 @@ export default function PartyListClient({ parties = [] }) {
 
   const filteredParties = useMemo(() => {
     return parties.filter((party) => {
-      // 1. Status Filter
-      if (activeTab === "ACTIVE" && !party.isActive) return false;
-      if (activeTab === "INACTIVE" && party.isActive) return false;
+      // 1. Party Type Filter
+      if (activeTab === "BUYER" && party.partyType !== "BUYER" && party.partyType !== "BOTH") return false;
+      if (activeTab === "SUPPLIER" && party.partyType !== "SUPPLIER" && party.partyType !== "BOTH") return false;
+      if (activeTab === "BOTH" && party.partyType !== "BOTH") return false;
 
       // 2. Search Query Filter
       if (searchQuery.trim() !== "") {
@@ -34,8 +35,9 @@ export default function PartyListClient({ parties = [] }) {
   // Calculate dynamic tab counts
   const tabs = [
     { key: "ALL", label: "All", count: parties.length },
-    { key: "ACTIVE", label: "Active", count: parties.filter(p => p.isActive).length },
-    { key: "INACTIVE", label: "Inactive", count: parties.filter(p => !p.isActive).length },
+    { key: "BUYER", label: "Buyer", count: parties.filter(p => p.partyType === "BUYER" || p.partyType === "BOTH").length },
+    { key: "SUPPLIER", label: "Supplier", count: parties.filter(p => p.partyType === "SUPPLIER" || p.partyType === "BOTH").length },
+    { key: "BOTH", label: "Both", count: parties.filter(p => p.partyType === "BOTH").length },
   ];
 
   return (
