@@ -105,15 +105,6 @@ export default function SourceTrackingListClient({ tracks = [] }) {
                   Buyer
                 </SortableHeader>
                 <SortableHeader
-                  field="quantity"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="text-right"
-                >
-                  Quantity
-                </SortableHeader>
-                <SortableHeader
                   field="sellingRate"
                   currentSortField={sortField}
                   currentSortDirection={sortDirection}
@@ -154,7 +145,7 @@ export default function SourceTrackingListClient({ tracks = [] }) {
             <tbody className="divide-y">
               {sortedTracks.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground italic">
+                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground italic">
                     Mapping register is empty.
                   </td>
                 </tr>
@@ -180,10 +171,6 @@ export default function SourceTrackingListClient({ tracks = [] }) {
                           No Buyer
                         </span>
                       )}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-mono text-xs">
-                      {Number(track.quantity).toLocaleString()}{" "}
-                      <span className="text-[10px] opacity-40">KG</span>
                     </td>
                     <td className="px-4 py-3.5 text-right font-mono text-[10px]">
                       <div className="text-rose-600/70">
