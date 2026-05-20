@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { Search, Eye, ShoppingBag, BadgeCheck, Clock, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import SortableHeader from "@/components/SortableHeader";
 
 export default function IntakeListClient({ intakes = [] }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -29,6 +31,16 @@ export default function IntakeListClient({ intakes = [] }) {
 
     return true;
   });
+
+  // Pre-calculate initialTotal for sorting and rendering
+  const mappedIntakes = useMemo(() => {
+    return filteredIntakes.map(intake => ({
+      ...intake,
+      initialTotal: Number(intake.netWeight || intake.grossWeight || 0) * Number(intake.rate || 0)
+    }));
+  }, [filteredIntakes]);
+
+  const { sortedData: sortedIntakes, sortField, sortDirection, requestSort } = useTableSorting(mappedIntakes, "entryDate", "desc");
 
   // Calculate dynamic tab counts
   const tabs = [
@@ -66,35 +78,35 @@ export default function IntakeListClient({ intakes = [] }) {
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm border-collapse">
             <thead>
-              <tr className="border-b bg-muted/50 transition-colors">
-                <th className="px-4 py-3 font-semibold">Intake #</th>
-                <th className="px-4 py-3 font-semibold">Date</th>
-                <th className="px-4 py-3 font-semibold">Supplier</th>
-                <th className="px-4 py-3 font-semibold">Product</th>
-                <th className="px-4 py-3 font-semibold text-right">Bags</th>
-                <th className="px-4 py-3 font-semibold text-right">Gross Weight</th>
+              <tr className="border-b bg-muted/50 transition-colors text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                <SortableHeader field="intakeNumber" currentSortField={sortField} currentSortDirection={sortDirection} onRequestSort={requestSort}>Intake #</SortableHeader>
+                <SortableHeader field="entryDate" currentSortField={sortField} currentSortDirection={sortDirection} onRequestSort={requestSort}>Date</SortableHeader>
+                <SortableHeader field="party.name" currentSortField={sortField} currentSortDirection={sortDirection} onRequestSort={requestSort}>Supplier</SortableHeader>
+                <SortableHeader field="product.name" currentSortField={sortField} currentSortDirection={sortDirection} onRequestSort={requestSort}>Product</SortableHeader>
+                <SortableHeader field="bagCount" currentSortField={sortField} currentSortDirection={sortDirection} onRequestSort={requestSort} className="text-right">Bags</SortableHeader>
+                <SortableHeader field="grossWeight" currentSortField={sortField} currentSortDirection={sortDirection} onRequestSort={requestSort} className="text-right">Gross Weight</SortableHeader>
                 {showSoldColumns && (
                   <>
-                    <th className="px-4 py-3 font-semibold text-right">Rate</th>
-                    <th className="px-4 py-3 font-semibold text-right">Bardana</th>
-                    <th className="px-4 py-3 font-semibold text-right">Khot</th>
-                    <th className="px-4 py-3 font-semibold text-right">Net Weight</th>
-                    <th className="px-4 py-3 font-semibold text-right">Initial Total</th>
+                    <SortableHeader field="rate" currentSortField={sortField} currentSortDirection={sortDirection} onRequestSort={requestSort} className="text-right">Rate</SortableHeader>
+                    <th className="px-4 py-3 font-semibold text-right select-none">Bardana</th>
+                    <th className="px-4 py-3 font-semibold text-right select-none">Khot</th>
+                    <SortableHeader field="netWeight" currentSortField={sortField} currentSortDirection={sortDirection} onRequestSort={requestSort} className="text-right">Net Weight</SortableHeader>
+                    <SortableHeader field="initialTotal" currentSortField={sortField} currentSortDirection={sortDirection} onRequestSort={requestSort} className="text-right">Initial Total</SortableHeader>
                   </>
                 )}
-                <th className="px-4 py-3 font-semibold text-center">Status</th>
-                <th className="px-4 py-3 font-semibold text-center">Actions</th>
+                <SortableHeader field="status" currentSortField={sortField} currentSortDirection={sortDirection} onRequestSort={requestSort} className="text-center">Status</SortableHeader>
+                <th className="px-4 py-3 font-semibold text-center select-none">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredIntakes.length === 0 ? (
+              {sortedIntakes.length === 0 ? (
                 <tr>
                   <td colSpan={showSoldColumns ? 13 : 8} className="px-4 py-12 text-center text-muted-foreground italic">
                     No matching intake transactions found.
                   </td>
                 </tr>
               ) : (
-                filteredIntakes.map((intake) => (
+                sortedIntakes.map((intake) => (
                   <tr key={intake.id} className="border-b hover:bg-muted/30 transition-colors">
                     <td className="px-4 py-3 font-mono font-medium text-primary">{intake.intakeNumber}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -125,7 +137,7 @@ export default function IntakeListClient({ intakes = [] }) {
                           ) : "-"}
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-amber-700 whitespace-nowrap">
-                          Rs. {(Number(intake.netWeight || intake.grossWeight) * Number(intake.rate || 0)).toLocaleString()}
+                          Rs. {intake.initialTotal.toLocaleString()}
                         </td>
                       </>
                     )}

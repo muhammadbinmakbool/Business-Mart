@@ -1,0 +1,160 @@
+"use client";
+
+import React, { useState, useMemo } from "react";
+import Link from "next/link";
+import { Plus, Search, User } from "lucide-react";
+import { format } from "date-fns";
+import { useTableSorting } from "@/hooks/useTableSorting";
+import SortableHeader from "@/components/SortableHeader";
+
+export default function AdvanceListClient({ advances = [] }) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredAdvances = useMemo(() => {
+    return advances.filter((advance) => {
+      if (searchQuery.trim() === "") return true;
+      const query = searchQuery.toLowerCase();
+      const matchSupplier = advance.party?.name?.toLowerCase().includes(query);
+      const matchNotes = advance.notes?.toLowerCase().includes(query);
+      const matchIntakeNumber = advance.intakeTransaction?.intakeNumber?.toLowerCase().includes(query);
+      return matchSupplier || matchNotes || matchIntakeNumber;
+    });
+  }, [advances, searchQuery]);
+
+  // Pre-calculate fields for nested sorting
+  const mappedAdvances = useMemo(() => {
+    return filteredAdvances.map((advance) => ({
+      ...advance,
+      supplierName: advance.party?.name || "",
+      intakeNumber: advance.intakeTransaction?.intakeNumber || "",
+    }));
+  }, [filteredAdvances]);
+
+  const {
+    sortedData: sortedAdvances,
+    sortField,
+    sortDirection,
+    requestSort,
+  } = useTableSorting(mappedAdvances, "createdAt", "desc");
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Supplier Advances</h1>
+          <p className="text-muted-foreground">Track all payments and advances made to suppliers.</p>
+        </div>
+        <Link
+          href="/advances/create"
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          Record Advance
+        </Link>
+      </div>
+
+      <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
+        <Search className="h-4 w-4 text-muted-foreground" />
+        <input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by supplier, remarks, or intake #..."
+          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+        />
+      </div>
+
+      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm border-collapse">
+            <thead>
+              <tr className="border-b bg-muted/50 transition-colors text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                <SortableHeader
+                  field="createdAt"
+                  currentSortField={sortField}
+                  currentSortDirection={sortDirection}
+                  onRequestSort={requestSort}
+                >
+                  Date
+                </SortableHeader>
+                <SortableHeader
+                  field="supplierName"
+                  currentSortField={sortField}
+                  currentSortDirection={sortDirection}
+                  onRequestSort={requestSort}
+                >
+                  Supplier
+                </SortableHeader>
+                <SortableHeader
+                  field="amount"
+                  currentSortField={sortField}
+                  currentSortDirection={sortDirection}
+                  onRequestSort={requestSort}
+                  className="text-right"
+                >
+                  Amount
+                </SortableHeader>
+                <SortableHeader
+                  field="intakeNumber"
+                  currentSortField={sortField}
+                  currentSortDirection={sortDirection}
+                  onRequestSort={requestSort}
+                >
+                  Linked Intake
+                </SortableHeader>
+                <SortableHeader
+                  field="notes"
+                  currentSortField={sortField}
+                  currentSortDirection={sortDirection}
+                  onRequestSort={requestSort}
+                >
+                  Remarks
+                </SortableHeader>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedAdvances.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground italic">
+                    No advance payments recorded.
+                  </td>
+                </tr>
+              ) : (
+                sortedAdvances.map((advance) => (
+                  <tr key={advance.id} className="border-b hover:bg-muted/30 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {format(new Date(advance.createdAt), "dd MMM yyyy, hh:mm a")}
+                    </td>
+                    <td className="px-4 py-3 font-medium">
+                      <div className="flex items-center gap-2">
+                        <User className="h-3 w-3 text-muted-foreground" />
+                        {advance.supplierName}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-primary">
+                      Rs. {Number(advance.amount).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      {advance.intakeTransaction ? (
+                        <Link
+                          href={`/intake/${advance.intakeTransactionId}`}
+                          className="text-blue-600 hover:underline font-mono text-xs"
+                        >
+                          {advance.intakeNumber}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground text-xs italic">Standalone</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground italic">
+                      {advance.notes || "-"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
