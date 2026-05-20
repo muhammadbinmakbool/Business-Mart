@@ -92,10 +92,7 @@ export function calculateTransactionTotals(items = [], adjustments = []) {
   };
 }
 
-/**
- * Calculates deductions and totals for a supplier settlement.
- */
-export function calculateSupplierDeductions(intakes, adjustments = []) {
+export function calculateSupplierDeductions(intakes) {
   let totalGrossValue = 0;
   let totalDeductions = 0;
 
@@ -113,7 +110,8 @@ export function calculateSupplierDeductions(intakes, adjustments = []) {
     };
 
     let itemDeductions = 0;
-    const calculatedAdjs = adjustments.map(adj => {
+    const itemAdjustments = intake.adjustments || [];
+    const calculatedAdjs = itemAdjustments.map(adj => {
       const amt = calculateAdjustment(adj.method, adj.value, context);
       if (adj.direction === "SUBTRACT") {
         itemDeductions += amt;
@@ -121,7 +119,10 @@ export function calculateSupplierDeductions(intakes, adjustments = []) {
         itemDeductions -= amt;
       }
       return {
-        ...adj,
+        adjustmentType: adj.adjustmentType,
+        method: adj.method,
+        value: Number(adj.value),
+        direction: adj.direction,
         calculatedAmount: amt
       };
     });

@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
-import { ChevronLeft, History, CheckCircle2, AlertCircle, RefreshCcw, Printer } from "lucide-react";
-import { getSupplierInvoiceAction, updateInvoiceStatusAction, regenerateSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
+import { ChevronLeft, History, AlertCircle, Printer } from "lucide-react";
+import { getSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import StatusUpdater from "./StatusUpdater";
@@ -25,21 +25,45 @@ export default async function SupplierInvoiceDetailPage({ params }) {
 
   const invoice = result.data;
 
-  // Recalculate per-intake breakdown using snapshot values from SupplierInvoiceItems
+  // Recalculate per-intake breakdown using snapshot values and nested adjustments from SupplierInvoiceItems
   const { intakeBreakdowns } = calculateSupplierDeductions(
     invoice.items.map(item => ({
       ...item.intake,
       id: item.intakeTransactionId,
       netWeight: Number(item.weight),
-      rate: Number(item.rate)
-    })),
-    invoice.adjustments.map(adj => ({
-      adjustmentType: adj.adjustmentType,
-      method: adj.method,
-      value: Number(adj.value),
-      direction: adj.direction
+      rate: Number(item.rate),
+      adjustments: (item.adjustments || []).map(adj => ({
+        adjustmentType: adj.adjustmentType,
+        method: adj.method,
+        value: Number(adj.value),
+        direction: adj.direction
+      }))
     }))
   );
+
+  // Group and sum identical adjustments across items to display in the overall summary card
+  const summaryAdjustments = [];
+  invoice.items.forEach(item => {
+    (item.adjustments || []).forEach(adj => {
+      const existing = summaryAdjustments.find(
+        a => a.adjustmentType === adj.adjustmentType &&
+             a.method === adj.method &&
+             Number(a.value) === Number(adj.value) &&
+             a.direction === adj.direction
+      );
+      if (existing) {
+        existing.calculatedAmount += Number(adj.calculatedAmount);
+      } else {
+        summaryAdjustments.push({
+          adjustmentType: adj.adjustmentType,
+          method: adj.method,
+          value: Number(adj.value),
+          direction: adj.direction,
+          calculatedAmount: Number(adj.calculatedAmount)
+        });
+      }
+    });
+  });
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
@@ -126,7 +150,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
                           <tr className="bg-muted/5">
                             <td colSpan={4} className="px-4 py-2 text-xs">
                               <div className="flex flex-wrap gap-x-6 gap-y-1 text-[11px] text-muted-foreground pl-4 border-l-2 border-primary/20">
-                                <span className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground/80">Item Deductions:</span>
+                                <span className="font-bold text-[10px] uppercase tracking-wider text-muted-foreground/80 font-semibold">Item Deductions:</span>
                                 {breakdown.adjustments.map((adj, idx) => (
                                   <span key={idx}>
                                     {adj.adjustmentType}:{" "}
@@ -160,7 +184,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
               <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase">Calculated Per Intake</span>
             </div>
             <div className="p-0">
-              {invoice.adjustments.length === 0 ? (
+              {summaryAdjustments.length === 0 ? (
                 <div className="px-4 py-6 text-center text-muted-foreground text-sm italic">
                   No adjustments applied to this invoice.
                 </div>
@@ -174,8 +198,8 @@ export default async function SupplierInvoiceDetailPage({ params }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {invoice.adjustments.map(adj => (
-                      <tr key={adj.id}>
+                    {summaryAdjustments.map((adj, idx) => (
+                      <tr key={idx}>
                         <td className="px-4 py-3">
                           <div className="font-semibold">{adj.adjustmentType}</div>
                           <div className={cn(
@@ -260,12 +284,12 @@ export default async function SupplierInvoiceDetailPage({ params }) {
           
           <div className="rounded-xl border bg-muted/20 p-4 text-xs space-y-2 text-muted-foreground">
              <div className="flex justify-between">
-               <span>Created At</span>
-               <span>{format(new Date(invoice.createdAt), "dd MMM yyyy HH:mm")}</span>
+                <span>Created At</span>
+                <span>{format(new Date(invoice.createdAt), "dd MMM yyyy HH:mm")}</span>
              </div>
              <div className="flex justify-between">
-               <span>Snapshot Version</span>
-               <span className="font-mono">V{invoice.version}</span>
+                <span>Snapshot Version</span>
+                <span className="font-mono">V{invoice.version}</span>
              </div>
           </div>
         </div>

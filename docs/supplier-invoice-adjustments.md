@@ -6,13 +6,13 @@ This document describes the architectural layout, database models, mathematical 
 
 ## 1. Architectural Role and Principles
 
-Adjustments represent additional charges or deductions calculated and applied to supplier settlements. Unlike Sales Invoices (where adjustments are calculated once on the final base amount), Supplier Invoices calculate adjustments **individually per intake** first, sum the resulting deductions, and then deduct the total from the gross value.
+Adjustments represent additional charges or deductions calculated and applied to supplier settlements. Unlike Sales Invoices (where adjustments are calculated once globally on the final invoice amount), Supplier Invoices calculate adjustments **individually per intake**. 
 
 Key design principles include:
-- **Per-Intake Granularity**: All adjustments are computed on each intake's specific context (gross weight, rate, unit, bag count) before totals are aggregated.
-- **Centralized Math (Financial Boundary)**: Calculations are executed via `calculateSupplierDeductions` inside `src/lib/financial.js`.
-- **Immutable Snapshots**: The resolved monetary value in Rupees (`calculatedAmount`) and configuration values (`value`, `method`, `direction`) are persisted as snapshots for audit integrity.
-- **Prisma Cascade Behavior**: Adjustments are tightly coupled to their parent `SupplierInvoice` and deleted automatically on cascade delete.
+- **Per-Intake Granularity**: All adjustments are added directly to specific intakes rather than applied globally. Users can define different adjustment types or values for each intake separately.
+- **Centralized Math (Financial Boundary)**: Calculations are executed via `calculateSupplierDeductions` inside `src/lib/financial.js` by passing intakes containing their nested adjustments array.
+- **Immutable Snapshots**: The resolved monetary value in Rupees (`calculatedAmount`) and configuration values (`value`, `method`, `direction`) are persisted as snapshots nested under the respective `SupplierInvoiceItem` for audit integrity.
+- **Prisma Cascade Behavior**: Adjustments are tightly coupled to their parent `SupplierInvoiceItem` and deleted automatically on cascade delete of the item or invoice.
 
 ---
 
@@ -27,7 +27,7 @@ src/
 │       ├── [id]/
 │       │   └── page.js                      # Detail View: renders per-item breakdowns & adjustments table
 │       └── create/
-│           └── InvoiceGenerator.js          # UI Layer: Wizard interface to add/delete adjustments & preview math
+│           └── InvoiceGenerator.js          # UI Layer: Wizard interface to add/delete adjustments per-intake
 ├── lib/
 │   ├── constants.js                         # Constants: defines ADJUSTMENT_TYPES_SUPPLIER
 │   ├── financial.js                         # Math Engine: contains calculateSupplierDeductions
@@ -35,9 +35,9 @@ src/
 └── modules/
     └── supplier-invoices/
         ├── controllers/
-        │   └── supplierInvoiceActions.js     # Entrypoint: parses adjustments from Form Data
+        │   └── supplierInvoiceActions.js     # Entrypoint: parses adjustmentsByIntake map from Form Data
         ├── repositories/
-        │   └── SupplierInvoiceRepository.js  # DB Interface: nested writes and includes adjustments
+        │   └── SupplierInvoiceRepository.js  # DB Interface: nested writes and includes adjustments per-item
         └── services/
             └── SupplierInvoiceService.js     # Business Logic: orchestrates calculations & persistence
 ```
@@ -46,34 +46,45 @@ src/
 
 ## 3. Database Schema
 
-Adjustments are stored in the `SupplierInvoiceAdjustment` model, which links to `SupplierInvoice` with an `onDelete: Cascade` constraint.
+Adjustments are stored in the `SupplierInvoiceAdjustment` model, which links to `SupplierInvoiceItem` with an `onDelete: Cascade` constraint.
 
 ```prisma
 model SupplierInvoice {
-  id                 Int                         @id @default(autoincrement())
-  invoiceNumber      String                      @unique // SUP-XXXXXX
+  id                 Int                 @id @default(autoincrement())
+  invoiceNumber      String              @unique // SUP-XXXXXX
   partyId            Int
-  totalGrossValue    Decimal                     @db.Decimal(18, 2) // Sum of intake gross values
-  totalDeductions    Decimal                     @db.Decimal(18, 2) // Sum of calculated adjustments
-  totalAdvances      Decimal                     @db.Decimal(18, 2) // Sum of linked advances
-  finalPayableAmount Decimal                     @db.Decimal(18, 2) // (Gross - Deductions) - Advances
-  status             String                      @default("PENDING") // PENDING, PAID, SUPERSEDED
-  version            Int                         @default(1)
-  isOutdated         Boolean                     @default(false)
+  totalGrossValue    Decimal             @db.Decimal(18, 2) // Sum of intake gross values
+  totalDeductions    Decimal             @db.Decimal(18, 2) // Sum of calculated adjustments
+  totalAdvances      Decimal             @db.Decimal(18, 2) // Sum of linked advances
+  finalPayableAmount Decimal             @db.Decimal(18, 2) // (Gross - Deductions) - Advances
+  status             String              @default("PENDING") // PENDING, PAID, SUPERSEDED
+  version            Int                 @default(1)
+  isOutdated         Boolean             @default(false)
   items              SupplierInvoiceItem[]
-  adjustments        SupplierInvoiceAdjustment[]
   // ... other fields
 }
 
+model SupplierInvoiceItem {
+  id                    Int                         @id @default(autoincrement())
+  supplierInvoiceId     Int
+  intakeTransactionId   Int
+  weight                Decimal                     @db.Decimal(18, 2)
+  rate                  Decimal                     @db.Decimal(18, 2)
+  amount                Decimal                     @db.Decimal(18, 2)
+  invoice               SupplierInvoice             @relation(fields: [supplierInvoiceId], references: [id], onDelete: Cascade)
+  intake                IntakeTransaction           @relation(fields: [intakeTransactionId], references: [id])
+  adjustments           SupplierInvoiceAdjustment[]
+}
+
 model SupplierInvoiceAdjustment {
-  id                Int             @id @default(autoincrement())
-  supplierInvoiceId Int
-  adjustmentType    String          // Labour, Brokerage, Aarhat, Sootli, Bardana, Transport-Rent, Loading
-  method            String          // FIXED, PERCENTAGE, PER_WEIGHT
-  value             Decimal         @db.Decimal(18, 2) // User input value (e.g. 1.50)
-  calculatedAmount  Decimal         @db.Decimal(18, 2) // Total resolved amount in Rupees across all intakes
-  direction         String          @default("SUBTRACT") // ADD or SUBTRACT
-  invoice           SupplierInvoice @relation(fields: [supplierInvoiceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                    Int                 @id @default(autoincrement())
+  supplierInvoiceItemId Int
+  adjustmentType        String              // Labour, Brokerage, Aarhat, Sootli, Bardana, Transport-Rent, Loading
+  method                String              // FIXED, PERCENTAGE, PER_WEIGHT
+  value                 Decimal             @db.Decimal(18, 2) // User input value (e.g. 1.50)
+  calculatedAmount      Decimal             @db.Decimal(18, 2) // Resolved amount in Rupees for this specific item
+  direction             String              @default("SUBTRACT") // ADD or SUBTRACT
+  item                  SupplierInvoiceItem @relation(fields: [supplierInvoiceItemId], references: [id], onDelete: Cascade)
 }
 ```
 
@@ -105,10 +116,10 @@ Supplier adjustments strictly support three mathematical methods:
 
 ## 5. Centralized Calculations (`src/lib/financial.js`)
 
-The calculation engine computes each adjustment on a per-intake basis.
+The calculation engine computes each adjustment on a per-intake basis, pulling the adjustments nested inside each intake object.
 
 ```javascript
-export function calculateSupplierDeductions(intakes = [], adjustments = []) {
+export function calculateSupplierDeductions(intakes = []) {
   let totalGrossValue = 0;
   let totalDeductions = 0;
 
@@ -120,7 +131,8 @@ export function calculateSupplierDeductions(intakes = [], adjustments = []) {
     const gross = round(weight * rate);
     
     let itemDeductions = 0;
-    const calculatedAdjs = adjustments.map(adj => {
+    const itemAdjustments = intake.adjustments || [];
+    const calculatedAdjs = itemAdjustments.map(adj => {
       let amt = 0;
       const val = Number(adj.value);
       
@@ -180,36 +192,24 @@ export function calculateSupplierDeductions(intakes = [], adjustments = []) {
 ## 6. End-to-End Operational Lifecycle
 
 ### 6.1 Generation Workflow (`SupplierInvoiceService.generateInvoice`)
-1. Client submits selected intakes, advances, and the `adjustments` list.
-2. The service calls `calculateSupplierDeductions(intakes, adjustments)` to retrieve the per-intake breakdowns and final totals.
-3. **Calculated Amount Aggregation**: Because adjustments are saved globally for the invoice but calculated per-intake, the service sums the calculated amounts across all selected intakes for each adjustment record:
-   ```javascript
-   const processedAdjustments = adjustments.map(adj => {
-     let totalAmt = 0;
-     intakeBreakdowns.forEach(breakdown => {
-       const match = breakdown.adjustments.find(
-         a => a.adjustmentType === adj.adjustmentType && 
-              a.method === adj.method && 
-              Number(a.value) === Number(adj.value)
-       );
-       if (match) totalAmt += match.calculatedAmount;
-     });
-     return { ...adj, calculatedAmount: totalAmt };
-   });
-   ```
-4. Saves records inside a transaction using nested writes in `SupplierInvoiceRepository.createWithItems`.
+1. Client submits selected intakes, advances, and `adjustmentsByIntake` map: `{ [intakeId]: [ { adjustmentType, method, value, direction } ] }`.
+2. The service maps adjustments into the intakes array and invokes `calculateSupplierDeductions(intakesWithAdjustments)`.
+3. Prepares immutable snapshots for items with nested adjustments.
+4. Saves records inside a transaction using nested item write in `SupplierInvoiceRepository.createWithItems`.
 
 ### 6.2 Regeneration Workflow (`SupplierInvoiceService.regenerateInvoice`)
-1. Used when underlying intakes or advances change, or when adjustments are edited on an existing invoice.
+1. Used when underlying intakes/advances are modified, or adjustments are updated on an existing invoice.
 2. The old invoice is marked `SUPERSEDED`.
 3. Fresh data for intakes and advances is fetched.
-4. If new adjustments are passed, they are used; otherwise, the service falls back to copying the previous adjustments.
-5. Recursively recalculates and maps totals, saving a new version `V(x+1)`.
+4. Falls back to copying adjustments from the old invoice items if no map is provided.
+5. Maps and recalculates totals, saving a new version `V(x+1)`.
 
-### 6.3 Interface Layout & Rendering (`InvoiceGenerator.js`)
-- **Step 3 (Preview)**:
-  - Users can click "Add Adjustment" to configure values.
-  - The interface loops through `intakeBreakdowns` to display inline applied adjustments (e.g. `Brokerage: -Rs. 250.00`) and the resulting Net Intake Value for each selected item card.
+### 6.3 Interface Layout & Rendering
+- **Invoice Generation Wizard (`InvoiceGenerator.js`)**:
+  - In **Step 3 (Preview)**, each intake card acts as a self-contained manager.
+  - Users can click "Add" to open a modal and configure a custom adjustment specifically for that intake.
+  - Displays list of applied adjustments inline with delete icons, automatically calculating values in real-time.
 - **Detail View (`page.js`)**:
-  - Automatically invokes `calculateSupplierDeductions` at render-time using snapshot rates and weights from `SupplierInvoiceItem` database records.
-  - Renders inline items breakdown tables and a separate overall Billing Adjustments Summary card.
+  - Fetches nested adjustments per-item using prisma relation.
+  - Renders inline items breakdown tables with their respective deductions.
+  - Groups and sums identical adjustments across all items to build a unified Billing Adjustments Summary card.

@@ -9,9 +9,9 @@ export async function generateSupplierInvoiceAction(formData) {
     const partyId = formData.get("partyId");
     const intakeIds = JSON.parse(formData.get("intakeIds") || "[]");
     const advanceIds = JSON.parse(formData.get("advanceIds") || "[]");
-    const adjustments = JSON.parse(formData.get("adjustments") || "[]");
+    const adjustmentsByIntake = JSON.parse(formData.get("adjustmentsByIntake") || "{}");
 
-    const invoice = await SupplierInvoiceService.generateInvoice(partyId, intakeIds, advanceIds, adjustments);
+    const invoice = await SupplierInvoiceService.generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake);
     
     revalidatePath("/supplier-invoices");
     return { success: true, data: invoice };
@@ -21,9 +21,9 @@ export async function generateSupplierInvoiceAction(formData) {
   }
 }
 
-export async function regenerateSupplierInvoiceAction(invoiceId, adjustments = null) {
+export async function regenerateSupplierInvoiceAction(invoiceId, adjustmentsByIntake = null) {
   try {
-    const newInvoice = await SupplierInvoiceService.regenerateInvoice(invoiceId, adjustments);
+    const newInvoice = await SupplierInvoiceService.regenerateInvoice(invoiceId, adjustmentsByIntake);
     revalidatePath(`/supplier-invoices/${invoiceId}`);
     revalidatePath("/supplier-invoices");
     return { success: true, data: newInvoice };

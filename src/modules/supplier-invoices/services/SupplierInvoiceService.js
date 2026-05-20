@@ -6,7 +6,7 @@ export class SupplierInvoiceService {
   /**
    * Generates a new supplier invoice snapshot.
    */
-  static async generateInvoice(partyId, intakeIds, advanceIds, adjustments = []) {
+  static async generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake = {}) {
     // 1. Fetch live data for event records
     const [intakes, advances] = await Promise.all([
       prisma.intakeTransaction.findMany({
@@ -20,46 +20,37 @@ export class SupplierInvoiceService {
 
     if (intakes.length === 0) throw new Error("No intakes selected");
 
-    // 2. Compute totals via centralized financial logic
-    const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakes, adjustments);
+    // 2. Map adjustments to intakes and compute totals via centralized financial logic
+    const intakesWithAdjustments = intakes.map(intake => ({
+      ...intake,
+      adjustments: adjustmentsByIntake[intake.id] || []
+    }));
+
+    const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakesWithAdjustments);
     const totalAdvances = advances.reduce((sum, adv) => sum + Number(adv.amount), 0);
     const finalPayableAmount = netValue - totalAdvances;
 
-    // 3. Prepare immutable snapshots for items
+    // 3. Prepare immutable snapshots for items with nested adjustments
     const itemsData = intakes.map(intake => {
       const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
       const rate = intake.rate !== null && intake.rate !== undefined ? Number(intake.rate) : 0;
+      
+      const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
+      const itemAdjustments = breakdown ? breakdown.adjustments : [];
+
       return {
         intakeTransactionId: intake.id,
         weight: billingWeight,
         rate: rate,
-        amount: billingWeight * rate
+        amount: billingWeight * rate,
+        adjustments: itemAdjustments
       };
     });
 
-    // 4. Aggregate calculatedAmount per adjustment
-    const processedAdjustments = adjustments.map(adj => {
-      let totalAmt = 0;
-      intakeBreakdowns.forEach(breakdown => {
-        const match = breakdown.adjustments.find(
-          a => a.adjustmentType === adj.adjustmentType && 
-               a.method === adj.method && 
-               Number(a.value) === Number(adj.value)
-        );
-        if (match) {
-          totalAmt += match.calculatedAmount;
-        }
-      });
-      return {
-        ...adj,
-        calculatedAmount: totalAmt
-      };
-    });
-
-    // 5. Sequence number
+    // 4. Sequence number
     const invoiceNumber = await SupplierInvoiceRepository.getNextInvoiceNumber();
 
-    // 6. Create derived document record
+    // 5. Create derived document record
     const invoice = await SupplierInvoiceRepository.createWithItems(
       {
         invoiceNumber,
@@ -73,8 +64,7 @@ export class SupplierInvoiceService {
         lastCalculatedAt: new Date()
       },
       itemsData,
-      advanceIds,
-      processedAdjustments
+      advanceIds
     );
 
     return JSON.parse(JSON.stringify(invoice));
@@ -83,7 +73,7 @@ export class SupplierInvoiceService {
   /**
    * Regenerates a new version of an invoice, preserving the old one.
    */
-  static async regenerateInvoice(oldInvoiceId, adjustments = null) {
+  static async regenerateInvoice(oldInvoiceId, adjustmentsByIntake = null) {
     const oldInvoice = await SupplierInvoiceRepository.getById(oldInvoiceId);
     if (!oldInvoice) throw new Error("Invoice not found");
 
@@ -106,47 +96,44 @@ export class SupplierInvoiceService {
     ]);
 
     // 4. Resolve adjustments to use (fall back to old invoice adjustments if none provided)
-    const adjustmentsToUse = (adjustments && adjustments.length > 0) 
-      ? adjustments 
-      : (oldInvoice.adjustments || []).map(adj => ({
+    let adjustmentsToUse = {};
+    if (adjustmentsByIntake && Object.keys(adjustmentsByIntake).length > 0) {
+      adjustmentsToUse = adjustmentsByIntake;
+    } else {
+      oldInvoice.items.forEach(item => {
+        adjustmentsToUse[item.intakeTransactionId] = (item.adjustments || []).map(adj => ({
           adjustmentType: adj.adjustmentType,
           method: adj.method,
           value: Number(adj.value),
           direction: adj.direction
         }));
+      });
+    }
 
-    // 5. Recalculate
-    const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakes, adjustmentsToUse);
+    // 5. Map adjustments and recalculate
+    const intakesWithAdjustments = intakes.map(intake => ({
+      ...intake,
+      adjustments: adjustmentsToUse[intake.id] || []
+    }));
+
+    const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakesWithAdjustments);
     const totalAdvances = advances.reduce((sum, adv) => sum + Number(adv.amount), 0);
     const finalPayableAmount = netValue - totalAdvances;
 
+    // 6. Prepare item snapshots
     const itemsData = intakes.map(intake => {
       const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
       const rate = intake.rate !== null && intake.rate !== undefined ? Number(intake.rate) : 0;
+      
+      const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
+      const itemAdjustments = breakdown ? breakdown.adjustments : [];
+
       return {
         intakeTransactionId: intake.id,
         weight: billingWeight,
         rate: rate,
-        amount: billingWeight * rate
-      };
-    });
-
-    // 6. Aggregate calculatedAmount per adjustment
-    const processedAdjustments = adjustmentsToUse.map(adj => {
-      let totalAmt = 0;
-      intakeBreakdowns.forEach(breakdown => {
-        const match = breakdown.adjustments.find(
-          a => a.adjustmentType === adj.adjustmentType && 
-               a.method === adj.method && 
-               Number(a.value) === Number(adj.value)
-        );
-        if (match) {
-          totalAmt += match.calculatedAmount;
-        }
-      });
-      return {
-        ...adj,
-        calculatedAmount: totalAmt
+        amount: billingWeight * rate,
+        adjustments: itemAdjustments
       };
     });
 
@@ -166,8 +153,7 @@ export class SupplierInvoiceService {
         lastCalculatedAt: new Date()
       },
       itemsData,
-      advanceIds,
-      processedAdjustments
+      advanceIds
     );
 
     return JSON.parse(JSON.stringify(newInvoice));

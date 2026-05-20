@@ -6,7 +6,6 @@ import {
   User, 
   Package, 
   Wallet, 
-  Calculator, 
   ChevronRight, 
   ChevronLeft, 
   Check, 
@@ -14,7 +13,6 @@ import {
   Plus, 
   Trash2, 
   X, 
-  Banknote, 
   ReceiptText 
 } from "lucide-react";
 import { getUninvoicedDataAction, generateSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
@@ -33,8 +31,9 @@ export default function InvoiceGenerator({ suppliers }) {
   const [selectedAdvances, setSelectedAdvances] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Dynamic adjustments (Starts empty as per user comment: "remove default adjustment")
-  const [adjustments, setAdjustments] = useState([]);
+  // Per-intake adjustments state: { [intakeId]: [adjustments] }
+  const [adjustmentsByIntake, setAdjustmentsByIntake] = useState({});
+  const [activeIntakeForAdjustment, setActiveIntakeForAdjustment] = useState(null);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   const [currentAdjustment, setCurrentAdjustment] = useState({
     adjustmentType: ADJUSTMENT_TYPES_SUPPLIER[0] || "Labour",
@@ -57,7 +56,7 @@ export default function InvoiceGenerator({ suppliers }) {
       setData(result.data);
       setSelectedIntakes(result.data.intakes.map(i => i.id));
       setSelectedAdvances(result.data.advances.map(a => a.id));
-      setAdjustments([]); // Reset adjustments to empty on new party selection
+      setAdjustmentsByIntake({}); // Reset on party change
     } else {
       toast.error("Failed to load data: " + result.error);
     }
@@ -81,16 +80,26 @@ export default function InvoiceGenerator({ suppliers }) {
       toast.error("Please enter a valid positive numeric value");
       return;
     }
-    setAdjustments([
-      ...adjustments,
-      {
-        adjustmentType: currentAdjustment.adjustmentType,
-        method: currentAdjustment.method,
-        value: parseFloat(currentAdjustment.value),
-        direction: currentAdjustment.direction
-      }
-    ]);
+    if (!activeIntakeForAdjustment) return;
+
+    setAdjustmentsByIntake(prev => {
+      const currentList = prev[activeIntakeForAdjustment] || [];
+      return {
+        ...prev,
+        [activeIntakeForAdjustment]: [
+          ...currentList,
+          {
+            adjustmentType: currentAdjustment.adjustmentType,
+            method: currentAdjustment.method,
+            value: parseFloat(currentAdjustment.value),
+            direction: currentAdjustment.direction
+          }
+        ]
+      };
+    });
+
     setIsAdjustmentModalOpen(false);
+    setActiveIntakeForAdjustment(null);
     setCurrentAdjustment({
       adjustmentType: ADJUSTMENT_TYPES_SUPPLIER[0] || "Labour",
       method: "PERCENTAGE",
@@ -99,15 +108,27 @@ export default function InvoiceGenerator({ suppliers }) {
     });
   };
 
-  const removeAdjustment = (index) => {
-    setAdjustments(adjustments.filter((_, i) => i !== index));
+  const removeAdjustment = (intakeId, index) => {
+    setAdjustmentsByIntake(prev => {
+      const currentList = prev[intakeId] || [];
+      return {
+        ...prev,
+        [intakeId]: currentList.filter((_, i) => i !== index)
+      };
+    });
   };
 
   // Calculations
   const activeIntakes = data.intakes.filter(i => selectedIntakes.includes(i.id));
   const activeAdvances = data.advances.filter(a => selectedAdvances.includes(a.id));
 
-  const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(activeIntakes, adjustments);
+  // Map local adjustmentsByIntake into active intakes object array
+  const intakesWithAdjustments = activeIntakes.map(intake => ({
+    ...intake,
+    adjustments: adjustmentsByIntake[intake.id] || []
+  }));
+
+  const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakesWithAdjustments);
   const totalAdvances = activeAdvances.reduce((sum, a) => sum + Number(a.amount), 0);
   const finalPayable = netValue - totalAdvances;
 
@@ -117,7 +138,7 @@ export default function InvoiceGenerator({ suppliers }) {
     formData.append("partyId", selectedParty.id);
     formData.append("intakeIds", JSON.stringify(selectedIntakes));
     formData.append("advanceIds", JSON.stringify(selectedAdvances));
-    formData.append("adjustments", JSON.stringify(adjustments));
+    formData.append("adjustmentsByIntake", JSON.stringify(adjustmentsByIntake));
 
     const result = await generateSupplierInvoiceAction(formData);
     if (result.success) {
@@ -293,7 +314,7 @@ export default function InvoiceGenerator({ suppliers }) {
                   };
                   const weight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
                   return (
-                    <div key={intake.id} className="p-4 border rounded-xl space-y-3 bg-muted/10">
+                    <div key={intake.id} className="p-4 border rounded-xl space-y-4 bg-muted/10 relative group/card">
                       <div className="flex justify-between items-start">
                         <div>
                           <span className="font-mono text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded">
@@ -305,31 +326,70 @@ export default function InvoiceGenerator({ suppliers }) {
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="text-xs text-muted-foreground block">Gross Amount</span>
+                          <span className="text-xs text-muted-foreground block font-medium">Gross Amount</span>
                           <span className="font-bold text-sm">Rs. {breakdown.gross.toLocaleString()}</span>
                         </div>
                       </div>
 
-                      {breakdown.adjustments && breakdown.adjustments.length > 0 && (
-                        <div className="border-t pt-2 space-y-1.5">
-                          <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Applied Deductions</div>
-                          {breakdown.adjustments.map((adj, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-xs">
-                              <span className="text-muted-foreground">
-                                {adj.adjustmentType} ({adj.method === "PERCENTAGE" ? `${adj.value}%` : adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/KG` : `Fixed Rs. ${adj.value}`})
-                              </span>
-                              <span className={cn(
-                                "font-medium",
-                                adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
-                              )}>
-                                {adj.direction === "ADD" ? "+" : "-"} Rs. {adj.calculatedAmount.toLocaleString()}
-                              </span>
-                            </div>
-                          ))}
+                      {/* Per-Intake Adjustments Manager */}
+                      <div className="border-t border-dashed pt-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Adjustments / Deductions</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveIntakeForAdjustment(intake.id);
+                              setIsAdjustmentModalOpen(true);
+                            }}
+                            className="text-[10px] font-bold border border-primary/30 text-primary px-2 py-1 rounded hover:bg-primary/5 transition-colors flex items-center gap-0.5"
+                          >
+                            <Plus className="h-2.5 w-2.5" />
+                            Add
+                          </button>
                         </div>
-                      )}
 
-                      <div className="border-t pt-2 flex justify-between items-center bg-primary/5 -mx-4 -mb-4 px-4 py-2 rounded-b-xl">
+                        {breakdown.adjustments && breakdown.adjustments.length > 0 ? (
+                          <div className="space-y-1.5">
+                            {breakdown.adjustments.map((adj, idx) => (
+                              <div key={idx} className="flex justify-between items-center text-xs bg-card border rounded-lg px-3 py-1.5 group/item">
+                                <div className="flex flex-col">
+                                  <span className="font-semibold text-muted-foreground">
+                                    {adj.adjustmentType}
+                                  </span>
+                                  <span className="text-[9px] text-muted-foreground/60 uppercase">
+                                    {adj.method === "PERCENTAGE" ? `${adj.value}%` : adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/KG` : `Fixed Rs. ${adj.value}`}
+                                    {" • "}
+                                    <span className={adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"}>
+                                      {adj.direction}
+                                    </span>
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className={cn(
+                                    "font-mono font-bold",
+                                    adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
+                                  )}>
+                                    {adj.direction === "ADD" ? "+" : "-"} Rs. {adj.calculatedAmount.toLocaleString()}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeAdjustment(intake.id, idx)}
+                                    className="text-muted-foreground hover:text-rose-600 transition-colors p-0.5"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-[10px] text-muted-foreground italic text-center py-2 border border-dashed rounded-lg opacity-60 bg-muted/5">
+                            No adjustments applied to this intake.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t pt-3 flex justify-between items-center bg-primary/5 -mx-4 -mb-4 px-4 py-2.5 rounded-b-xl">
                         <span className="text-xs font-bold text-primary">Net Intake Value</span>
                         <span className="font-black text-sm text-primary">Rs. {breakdown.net.toLocaleString()}</span>
                       </div>
@@ -362,81 +422,8 @@ export default function InvoiceGenerator({ suppliers }) {
             )}
           </div>
 
-          {/* Right Columns: Adjustments Manager & Billing Summary */}
+          {/* Right Columns: Billing Summary */}
           <div className="space-y-6">
-            {/* Dynamic Adjustments Card */}
-            <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
-              <div className="px-6 py-4 bg-muted/30 border-b flex items-center justify-between">
-                <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <Banknote className="h-4 w-4" />
-                  Billing Adjustments
-                </h3>
-                <button
-                  type="button"
-                  onClick={() => setIsAdjustmentModalOpen(true)}
-                  className="text-xs font-bold border border-primary/30 text-primary px-2.5 py-1.5 rounded-lg hover:bg-primary/5 transition-colors flex items-center gap-1"
-                >
-                  <Plus className="h-3 w-3" />
-                  Add
-                </button>
-              </div>
-              <div className="p-6 space-y-4">
-                {adjustments.length === 0 ? (
-                  <div className="py-8 text-center border-2 border-dashed rounded-xl opacity-40">
-                    <p className="text-xs">No adjustments added.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {adjustments.map((adj, index) => {
-                      // Sum up the calculated amount for this adjustment across all intake breakdowns
-                      let totalAmt = 0;
-                      intakeBreakdowns.forEach(breakdown => {
-                        const match = breakdown.adjustments.find(
-                          a => a.adjustmentType === adj.adjustmentType && 
-                               a.method === adj.method && 
-                               Number(a.value) === Number(adj.value)
-                        );
-                        if (match) {
-                          totalAmt += match.calculatedAmount;
-                        }
-                      });
-                      return (
-                        <div key={index} className="flex items-center justify-between bg-muted/30 px-3 py-2 rounded-lg border group">
-                          <div>
-                            <div className="font-bold text-xs">{adj.adjustmentType}</div>
-                            <div className="text-[9px] uppercase text-muted-foreground font-semibold">
-                              {adj.method === "PERCENTAGE" ? `${adj.value}%` : 
-                               adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/KG` : 
-                               `Fixed Rs. ${adj.value}`} 
-                              {" • "} 
-                              <span className={adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"}>
-                                {adj.direction}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <span className={cn(
-                              "font-mono font-bold text-xs",
-                              adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
-                            )}>
-                              {adj.direction === "ADD" ? "+" : "-"} {totalAmt.toLocaleString()}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => removeAdjustment(index)}
-                              className="p-1 text-muted-foreground hover:text-destructive transition-colors"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
             {/* Financial Summary Card */}
             <div className="rounded-2xl bg-primary p-6 text-primary-foreground shadow-xl shadow-primary/10 space-y-6">
               <h3 className="font-bold text-lg flex items-center gap-2 border-b border-white/20 pb-4">
@@ -497,7 +484,7 @@ export default function InvoiceGenerator({ suppliers }) {
               <div className="bg-card border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
                 <div className="px-6 py-4 border-b flex items-center justify-between bg-muted/50">
                   <h3 className="font-bold text-card-foreground">Add Billing Adjustment</h3>
-                  <button onClick={() => setIsAdjustmentModalOpen(false)} className="p-1 hover:bg-muted rounded-full transition-colors">
+                  <button onClick={() => { setIsAdjustmentModalOpen(false); setActiveIntakeForAdjustment(null); }} className="p-1 hover:bg-muted rounded-full transition-colors">
                     <X className="h-5 w-5 text-card-foreground" />
                   </button>
                 </div>
@@ -559,7 +546,7 @@ export default function InvoiceGenerator({ suppliers }) {
                     onClick={addAdjustment}
                     className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-bold mt-4 hover:opacity-90 transition-opacity"
                   >
-                    Add to Invoice
+                    Add to Intake
                   </button>
                 </div>
               </div>
