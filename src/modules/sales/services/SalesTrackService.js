@@ -133,6 +133,7 @@ export class SalesTrackService {
         productId: track.intakeTransaction.productId,
         bagCount: track.intakeTransaction.bagCount,
         rate: track.intakeTransaction.rate ? Number(track.intakeTransaction.rate) : null,
+        rateUnit: track.intakeTransaction.rateUnit || "KG",
         grossWeight: Number(track.intakeTransaction.grossWeight),
         unit: track.intakeTransaction.unit,
         normalizedWeight: Number(track.intakeTransaction.normalizedWeight),

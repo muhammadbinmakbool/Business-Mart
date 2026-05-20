@@ -1,4 +1,4 @@
-import { getConversionFactor } from "./units";
+import { getConversionFactor, convertRate } from "./units";
 
 /**
  * Financial Utilities
@@ -131,14 +131,15 @@ export function calculateSupplierDeductions(intakes) {
 
   const intakeBreakdowns = intakes.map(intake => {
     const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
-    const gross = billingWeight * Number(intake.rate || 0);
+    const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+    const gross = billingWeight * Number(actualRate || 0);
     totalGrossValue += gross;
 
     const context = { 
       baseAmount: gross, 
       totalWeight: billingWeight, 
       bagCount: intake.bagCount || 0,
-      rate: Number(intake.rate || 0),
+      rate: Number(actualRate || 0),
       unit: intake.unit || "KG",
       product: intake.product || null
     };

@@ -22,7 +22,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   // SOLD calculations states
   const [buyerPartyId, setBuyerPartyId] = useState(intake.salesTracks?.[0]?.buyerPartyId?.toString() || "");
   const [rate, setRate] = useState(intake.rate || "");
-  const [rateUnit, setRateUnit] = useState("KG");
+  const [rateUnit, setRateUnit] = useState(intake.rateUnit || "KG");
   const [bardanaGramPerBag, setBardanaGramPerBag] = useState(
     intake.Bardana && intake.bagCount ? Math.round((Number(intake.Bardana) * 1000) / Number(intake.bagCount)).toString() : "150"
   );

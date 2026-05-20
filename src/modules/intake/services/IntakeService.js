@@ -19,6 +19,7 @@ export class IntakeService {
       Khot: intake.Khot ? Number(intake.Khot) : null,
       normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
+      rateUnit: intake.rateUnit || "KG",
       product: intake.product ? {
         ...intake.product,
         quantity: Number(intake.product.quantity),
@@ -40,6 +41,7 @@ export class IntakeService {
       Khot: intake.Khot ? Number(intake.Khot) : null,
       normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
+      rateUnit: intake.rateUnit || "KG",
       product: intake.product ? {
         ...intake.product,
         quantity: Number(intake.product.quantity),
@@ -98,6 +100,7 @@ export class IntakeService {
           unit: validated.unit || "KG",
           normalizedWeight,
           rate: validated.rate ?? null,
+          rateUnit: validated.rateUnit || "KG",
           notes: validated.notes,
           status: validated.status || "PENDING",
           entryDate: validated.entryDate,
@@ -121,7 +124,7 @@ export class IntakeService {
   }
 
   static async updateIntake(id, data) {
-    const { buyerPartyId, rateUnit, ...rest } = data;
+    const { buyerPartyId, ...rest } = data;
     const validated = intakeSchema.partial().parse(rest);
     
     return prisma.$transaction(async (tx) => {
@@ -214,14 +217,16 @@ export class IntakeService {
       }
 
       // Calculate converted rates based on the units used!
-      const targetUnit = validated.unit || current.unit;
       const finalSupplierRate = validated.rate !== undefined && validated.rate !== null
-        ? convertRate(validated.rate, rateUnit || "KG", targetUnit)
+        ? validated.rate
         : current.rate;
+      const finalSupplierRateUnit = validated.rateUnit !== undefined && validated.rateUnit !== null
+        ? validated.rateUnit
+        : current.rateUnit || "KG";
 
       const finalSalesTrackRate = validated.rate !== undefined && validated.rate !== null
-        ? convertRate(validated.rate, rateUnit || "KG", "KG")
-        : (current.rate ? convertRate(Number(current.rate), targetUnit, "KG") : null);
+        ? convertRate(validated.rate, validated.rateUnit || "KG", "KG")
+        : (current.rate ? convertRate(Number(current.rate), current.rateUnit || "KG", "KG") : null);
 
       // 4. Update the intake record
       const updated = await tx.intakeTransaction.update({
@@ -237,6 +242,7 @@ export class IntakeService {
           notes: validated.notes,
           status: newStatus,
           rate: finalSupplierRate,
+          rateUnit: finalSupplierRateUnit,
           Bardana: validated.Bardana !== undefined ? validated.Bardana : current.Bardana,
           Khot: validated.Khot !== undefined ? validated.Khot : current.Khot,
           netWeight: validated.netWeight !== undefined ? validated.netWeight : current.netWeight,
@@ -256,7 +262,8 @@ export class IntakeService {
         const weightForTotal = updated.netWeight !== null && updated.netWeight !== undefined 
           ? Number(updated.netWeight) 
           : Number(updated.grossWeight);
-        const rateForTotal = updated.rate ? Number(updated.rate) : 0;
+        const actualRate = convertRate(updated.rate, updated.rateUnit || "KG", updated.unit || "KG");
+        const rateForTotal = actualRate ? Number(actualRate) : 0;
         const baseAmount = weightForTotal * rateForTotal;
 
         const trackData = {
@@ -315,6 +322,7 @@ export class IntakeService {
       Khot: intake.Khot ? Number(intake.Khot) : null,
       normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
+      rateUnit: intake.rateUnit || "KG",
       product: intake.product ? {
         ...intake.product,
         quantity: Number(intake.product.quantity),
@@ -341,7 +349,6 @@ export class IntakeService {
       if (!intake) throw new Error("Intake transaction not found");
 
       // Calculate converted rates!
-      const finalSupplierRate = convertRate(rate, rateUnit, intake.unit);
       const finalSalesTrackRate = convertRate(rate, rateUnit, "KG");
 
       // 2. Update Intake Transaction fields
@@ -352,7 +359,8 @@ export class IntakeService {
           Bardana,
           Khot,
           netWeight,
-          rate: finalSupplierRate,
+          rate: rate,
+          rateUnit: rateUnit,
         }
       });
 
@@ -362,7 +370,7 @@ export class IntakeService {
       });
 
       const quantityInKg = intake.unit === "MAUND" ? netWeight * 40 : netWeight;
-      const baseAmount = netWeight * finalSupplierRate;
+      const baseAmount = netWeight * convertRate(rate, rateUnit, intake.unit, intake.product);
 
       const trackData = {
         intakeTransactionId: intakeId,

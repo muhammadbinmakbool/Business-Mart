@@ -11,6 +11,7 @@ export const intakeSchema = z.object({
   Khot: z.coerce.number().optional().nullable(),
   unit: z.string().default("KG"),
   rate: z.coerce.number().optional().nullable(),
+  rateUnit: z.string().default("KG"),
   notes: z.string().optional().nullable(),
   status: z.string().default("PENDING"),
 });

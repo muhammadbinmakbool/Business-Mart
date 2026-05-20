@@ -13,8 +13,8 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
   // Form State
   const [buyerPartyId, setBuyerPartyId] = useState("");
-  const [rate, setRate] = useState("");
-  const [rateUnit, setRateUnit] = useState("KG");
+  const [rate, setRate] = useState(intake?.rate || "");
+  const [rateUnit, setRateUnit] = useState(intake?.rateUnit || "KG");
   const [bagCount, setBagCount] = useState(intake?.bagCount || "");
   const [bardanaGramPerBag, setBardanaGramPerBag] = useState("150");
   const [khotRate, setKhotRate] = useState("0");

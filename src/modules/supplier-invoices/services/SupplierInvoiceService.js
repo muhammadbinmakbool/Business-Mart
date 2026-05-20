@@ -1,6 +1,7 @@
 import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceRepository";
 import { calculateSupplierDeductions } from "@/lib/financial";
 import { prisma } from "@/lib/prisma";
+import { convertRate } from "@/lib/units";
 
 export class SupplierInvoiceService {
   /**
@@ -33,7 +34,8 @@ export class SupplierInvoiceService {
     // 3. Prepare immutable snapshots for items with nested adjustments
     const itemsData = intakes.map(intake => {
       const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
-      const rate = intake.rate !== null && intake.rate !== undefined ? Number(intake.rate) : 0;
+      const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+      const rate = actualRate ? Number(actualRate) : 0;
       
       const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
       const itemAdjustments = breakdown ? breakdown.adjustments : [];
@@ -123,7 +125,8 @@ export class SupplierInvoiceService {
     // 6. Prepare item snapshots
     const itemsData = intakes.map(intake => {
       const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
-      const rate = intake.rate !== null && intake.rate !== undefined ? Number(intake.rate) : 0;
+      const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+      const rate = actualRate ? Number(actualRate) : 0;
       
       const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
       const itemAdjustments = breakdown ? breakdown.adjustments : [];

@@ -39,7 +39,7 @@ export class SaleService {
       if (!validation.valid) throw new Error(validation.error);
 
       const normalizedQty = UnitService.getNormalizedQuantity(item.weight, item.unit || "KG", product);
-      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.unit || "KG", product);
+      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.rateUnit || "KG", product);
 
       processedItems.push({
         ...item,
@@ -181,7 +181,7 @@ export class SaleService {
       if (!validation.valid) throw new Error(validation.error);
 
       const normalizedQty = UnitService.getNormalizedQuantity(item.weight, item.unit || "KG", product);
-      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.unit || "KG", product);
+      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.rateUnit || "KG", product);
 
       processedItems.push({
         ...item,

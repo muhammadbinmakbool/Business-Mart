@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
 import DeleteButton from "@/components/DeleteButton";
 import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
+import { convertRate } from "@/lib/units";
 
 export default async function IntakeDetailsPage({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -124,13 +125,17 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
                   <div className="bg-primary/5 border border-primary/10 p-4 rounded-xl space-y-1">
                     <span className="text-[10px] font-bold uppercase text-primary">Selling Rate</span>
                     <div className="text-xl font-bold text-primary">
-                      Rs. {Number(intake.rate || 0).toLocaleString()} <span className="text-xs font-normal italic">/ {intake.unit === "MAUND" ? "MND" : "KG"}</span>
+                      Rs. {Number(intake.rate || 0).toLocaleString()} <span className="text-xs font-normal italic">/ {intake.rateUnit === "MAUND" ? "MND" : "KG"}</span>
                     </div>
                   </div>
                   <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl space-y-1">
                     <span className="text-[10px] font-bold uppercase text-amber-600">Initial Total Amount</span>
                     <div className="text-xl font-bold text-amber-700">
-                      Rs. {(Number(intake.netWeight || intake.grossWeight) * Number(intake.rate || 0)).toLocaleString()}
+                      Rs. {(() => {
+                        const billingWeight = Number(intake.netWeight || intake.grossWeight || 0);
+                        const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+                        return (billingWeight * Number(actualRate || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                      })()}
                     </div>
                   </div>
                 </div>

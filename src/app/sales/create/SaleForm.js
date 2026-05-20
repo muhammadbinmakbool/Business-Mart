@@ -92,10 +92,11 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     const hasOnlyEmptyRow = items.length === 1 && !items[0].productId && !items[0].weight && !items[0].rate;
     
     const originalUnit = track.intakeTransaction?.unit || "KG";
+    const originalRateUnit = track.intakeTransaction?.rateUnit || "KG";
     const product = products.find(p => p.id === track.productId);
     
     // Convert rate and weight back to the original unit (e.g. MAUND)
-    const displayRate = convertRate(track.sellingRate || track.buyingRate || 0, "KG", originalUnit, product);
+    const displayRate = convertRate(track.sellingRate || track.buyingRate || 0, "KG", originalRateUnit, product);
     const displayWeight = track.netWeight !== null && track.netWeight !== undefined
       ? track.netWeight
       : convertFromBase(track.quantity || 0, originalUnit, product);
@@ -105,7 +106,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
       weight: displayWeight || "",
       rate: displayRate || "",
       unit: originalUnit,
-      rateUnit: originalUnit,
+      rateUnit: originalRateUnit,
       salesTrackId: track.id,
       intakeNumber: track.intakeTransaction?.intakeNumber
     };
