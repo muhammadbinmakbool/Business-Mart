@@ -7,12 +7,17 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
+import StatusFilterTabs from "@/components/StatusFilterTabs";
 
 export default function SalesListClient({ sales = [] }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("ALL");
 
   const filteredSales = useMemo(() => {
     return sales.filter((sale) => {
+      if (activeTab !== "ALL" && sale.status !== activeTab) {
+        return false;
+      }
       if (searchQuery.trim() === "") return true;
       const query = searchQuery.toLowerCase();
       const matchNumber = sale.saleNumber?.toLowerCase().includes(query);
@@ -22,7 +27,7 @@ export default function SalesListClient({ sales = [] }) {
       );
       return matchNumber || matchBuyer || matchProduct;
     });
-  }, [sales, searchQuery]);
+  }, [sales, searchQuery, activeTab]);
 
   // Pre-calculate custom fields for sorting
   const mappedSales = useMemo(() => {
@@ -43,6 +48,13 @@ export default function SalesListClient({ sales = [] }) {
     sortDirection,
     requestSort,
   } = useTableSorting(mappedSales, "entryDate", "desc");
+
+  const tabs = [
+    { key: "ALL", label: "All", count: sales.length },
+    { key: "PENDING", label: "Pending", count: sales.filter(s => s.status === "PENDING").length },
+    { key: "COMPLETED", label: "Completed", count: sales.filter(s => s.status === "COMPLETED").length },
+    { key: "CANCELLED", label: "Cancelled", count: sales.filter(s => s.status === "CANCELLED").length },
+  ];
 
   return (
     <div className="space-y-6">
@@ -69,6 +81,12 @@ export default function SalesListClient({ sales = [] }) {
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </div>
+
+      <StatusFilterTabs
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        tabs={tabs}
+      />
 
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">

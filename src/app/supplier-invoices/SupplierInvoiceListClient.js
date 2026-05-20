@@ -7,19 +7,24 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
+import StatusFilterTabs from "@/components/StatusFilterTabs";
 
 export default function SupplierInvoiceListClient({ invoices = [] }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("ALL");
 
   const filteredInvoices = useMemo(() => {
     return invoices.filter((invoice) => {
+      if (activeTab !== "ALL" && invoice.status !== activeTab) {
+        return false;
+      }
       if (searchQuery.trim() === "") return true;
       const query = searchQuery.toLowerCase();
       const matchNumber = invoice.invoiceNumber?.toLowerCase().includes(query);
       const matchSupplier = invoice.party?.name?.toLowerCase().includes(query);
       return matchNumber || matchSupplier;
     });
-  }, [invoices, searchQuery]);
+  }, [invoices, searchQuery, activeTab]);
 
   // Pre-calculate fields for sorting
   const mappedInvoices = useMemo(() => {
@@ -35,6 +40,13 @@ export default function SupplierInvoiceListClient({ invoices = [] }) {
     sortDirection,
     requestSort,
   } = useTableSorting(mappedInvoices, "entryDate", "desc");
+
+  const tabs = [
+    { key: "ALL", label: "All", count: invoices.length },
+    { key: "PENDING", label: "Pending", count: invoices.filter(i => i.status === "PENDING").length },
+    { key: "COMPLETED", label: "Completed", count: invoices.filter(i => i.status === "COMPLETED").length },
+    { key: "SUPERSEDED", label: "Superseded", count: invoices.filter(i => i.status === "SUPERSEDED").length },
+  ];
 
   return (
     <div className="space-y-6">
@@ -61,6 +73,12 @@ export default function SupplierInvoiceListClient({ invoices = [] }) {
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </div>
+
+      <StatusFilterTabs
+        activeTab={activeTab}
+        onChange={setActiveTab}
+        tabs={tabs}
+      />
 
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
