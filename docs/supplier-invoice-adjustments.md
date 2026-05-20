@@ -84,6 +84,7 @@ model SupplierInvoiceAdjustment {
   value                 Decimal             @db.Decimal(18, 2) // User input value (e.g. 1.50)
   calculatedAmount      Decimal             @db.Decimal(18, 2) // Resolved amount in Rupees for this specific item
   direction             String              @default("SUBTRACT") // ADD or SUBTRACT
+  unit                  String?             @db.NVarChar(50)   // Custom unit selection (KG, MAUND, BAG) for PER_WEIGHT adjustments
   item                  SupplierInvoiceItem @relation(fields: [supplierInvoiceItemId], references: [id], onDelete: Cascade)
 }
 ```
@@ -143,9 +144,17 @@ export function calculateSupplierDeductions(intakes = []) {
         case "PERCENTAGE":
           amt = (val / 100) * gross;
           break;
-        case "PER_WEIGHT":
-          amt = val * weight;
+        case "PER_WEIGHT": {
+          const adjUnit = adj.unit || "KG";
+          if (adjUnit === "BAG") {
+            amt = val * Number(intake.bagCount || 0);
+          } else {
+            const weightInKg = intake.unit === "KG" ? Number(weight) : Number(weight) * getConversionFactor(intake.unit, product);
+            const weightInTarget = adjUnit === "KG" ? weightInKg : weightInKg / getConversionFactor(adjUnit, product);
+            amt = val * weightInTarget;
+          }
           break;
+        }
         default:
           amt = 0;
       }

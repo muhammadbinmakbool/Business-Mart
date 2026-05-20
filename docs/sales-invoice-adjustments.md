@@ -68,6 +68,7 @@ model TransactionAdjustment {
   value            Decimal         @db.Decimal(18, 2) // Input value entered by user (e.g. 5.00)
   calculatedAmount Decimal         @db.Decimal(18, 2) // Resolved monetary value in Rupees
   direction        String          @default("ADD")    // ADD or SUBTRACT
+  unit             String?         @db.NVarChar(50)   // Custom unit selection (KG, MAUND, BAG) for PER_WEIGHT adjustments
   sale             SaleTransaction @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 ```
@@ -111,7 +112,7 @@ Two core functions inside `financial.js` handle all mathematical logic.
 Calculates the numerical amount of a single adjustment based on its method and values.
 
 ```javascript
-export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight = 0, bagCount = 0, rate = 0, unit = "KG" } = {}) {
+export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight = 0, bagCount = 0, rate = 0, unit = "KG", product = null, adjustmentUnit = "KG" } = {}) {
   const val = Number(value);
   
   switch (method) {
@@ -119,8 +120,15 @@ export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight
       return round(val);
     case "PERCENTAGE":
       return round((val / 100) * Number(baseAmount));
-    case "PER_WEIGHT":
-      return round(val * Number(totalWeight));
+    case "PER_WEIGHT": {
+      const adjUnit = adjustmentUnit || "KG";
+      if (adjUnit === "BAG") {
+        return round(val * Number(bagCount));
+      }
+      const weightInKg = unit === "KG" ? Number(totalWeight) : Number(totalWeight) * getConversionFactor(unit, product);
+      const weightInTarget = adjUnit === "KG" ? weightInKg : weightInKg / getConversionFactor(adjUnit, product);
+      return round(val * weightInTarget);
+    }
     case "PER_BAG":
       return round(val * Number(bagCount));
     case "WEIGHT_PER_BAG":
@@ -142,6 +150,7 @@ export function calculateTransactionTotals(items = [], adjustments = []) {
   // 1. Calculate Base Amount using strictly normalized values
   let baseAmount = 0;
   let totalWeight = 0;
+  let totalBagCount = 0;
 
   items.forEach(item => {
     const itemWeight = Number(item.normalizedWeight || 0);
@@ -149,14 +158,24 @@ export function calculateTransactionTotals(items = [], adjustments = []) {
     
     baseAmount += round(itemWeight * itemRate);
     totalWeight += itemWeight;
+
+    if (item.product) {
+      try {
+        const bagFactor = getConversionFactor("BAG", item.product);
+        if (bagFactor > 0) {
+          totalBagCount += itemWeight / bagFactor;
+        }
+      } catch (e) {}
+    }
   });
 
   // 2. Apply Adjustments
-  const result = calculateFinalTotal(baseAmount, adjustments, totalWeight);
+  const result = calculateFinalTotal(baseAmount, adjustments, totalWeight, totalBagCount, 0, "KG", null);
 
   return {
     ...result,
-    totalWeight: round(totalWeight)
+    totalWeight: round(totalWeight),
+    totalBagCount: round(totalBagCount)
   };
 }
 
