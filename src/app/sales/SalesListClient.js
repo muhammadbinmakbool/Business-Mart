@@ -106,7 +106,7 @@ export default function SalesListClient({ sales = [] }) {
                   onRequestSort={requestSort}
                   className="text-right"
                 >
-                  Gross Weight
+                  Net Weight
                 </SortableHeader>
                 <SortableHeader
                   field="displayRate"

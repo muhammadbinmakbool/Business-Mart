@@ -106,7 +106,7 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
                 <thead>
                   <tr className="bg-muted/10 text-[10px] uppercase font-bold text-muted-foreground tracking-widest border-b">
                     <th className="px-6 py-3">Product</th>
-                    <th className="px-6 py-3 text-right">Gross Weight</th>
+                    <th className="px-6 py-3 text-right">Net Weight</th>
                     <th className="px-6 py-3 text-right">Rate</th>
                     <th className="px-6 py-3 text-right">Amount</th>
                   </tr>
