@@ -59,7 +59,8 @@ export default async function SupplierInvoiceDetailPage({ params }) {
           method: adj.method,
           value: Number(adj.value),
           direction: adj.direction,
-          calculatedAmount: Number(adj.calculatedAmount)
+          calculatedAmount: Number(adj.calculatedAmount),
+          unit: item.intake.unit || "KG"
         });
       }
     });
@@ -142,8 +143,8 @@ export default async function SupplierInvoiceDetailPage({ params }) {
                             <div className="font-medium">{item.intake.product.name}</div>
                             <div className="text-[10px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
                           </td>
-                          <td className="px-4 py-3 text-right">{Number(item.weight)} KG</td>
-                          <td className="px-4 py-3 text-right">Rs. {Number(item.rate)}</td>
+                          <td className="px-4 py-3 text-right">{Number(item.weight)} {item.intake.unit || "KG"}</td>
+                          <td className="px-4 py-3 text-right">Rs. {Number(item.rate)} / {item.intake.unit || "KG"}</td>
                           <td className="px-4 py-3 text-right font-bold">Rs. {Number(item.amount).toLocaleString()}</td>
                         </tr>
                         {breakdown.adjustments && breakdown.adjustments.length > 0 && (
@@ -211,7 +212,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground font-medium">
                           {adj.method === "PERCENTAGE" ? `${Number(adj.value)}%` : 
-                           adj.method === "PER_WEIGHT" ? `Rs. ${Number(adj.value)} per KG` : 
+                           adj.method === "PER_WEIGHT" ? `Rs. ${Number(adj.value)} per ${adj.unit || "KG"}` : 
                            `Fixed Rs. ${Number(adj.value)}`}
                         </td>
                         <td className={cn(

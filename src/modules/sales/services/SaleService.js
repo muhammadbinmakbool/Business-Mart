@@ -103,7 +103,7 @@ export class SaleService {
               unit: item.unit || "KG",
               normalizedWeight: item.normalizedWeight,
               rate: item.rate,
-              rateUnit: item.unit || "KG",
+              rateUnit: item.rateUnit || "KG",
               amount: item.amount
             }))
           },
@@ -252,7 +252,7 @@ export class SaleService {
               unit: item.unit || "KG",
               normalizedWeight: item.normalizedWeight,
               rate: item.rate,
-              rateUnit: item.unit || "KG",
+              rateUnit: item.rateUnit || "KG",
               amount: item.amount
             }))
           },

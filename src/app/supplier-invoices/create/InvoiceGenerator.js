@@ -231,8 +231,8 @@ export default function InvoiceGenerator({ suppliers }) {
                     <div className="font-medium">{i.product.name}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-lg">{Number(i.grossWeight)} KG</div>
-                    <div className="text-xs text-muted-foreground">Rs. {Number(i.rate)} / Unit</div>
+                    <div className="font-bold text-lg">{Number(i.grossWeight)} {i.unit || "KG"}</div>
+                    <div className="text-xs text-muted-foreground">Rs. {Number(i.rate)} / {i.unit || "KG"}</div>
                   </div>
                 </div>
               ))}
@@ -322,7 +322,7 @@ export default function InvoiceGenerator({ suppliers }) {
                           </span>
                           <h4 className="font-bold text-sm mt-1">{intake.product.name}</h4>
                           <div className="text-[10px] text-muted-foreground mt-0.5">
-                            {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} KG @ Rs. {Number(intake.rate)}/{intake.unit || "KG"}
+                            {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} {intake.unit || "KG"} @ Rs. {Number(intake.rate)}/{intake.unit || "KG"}
                           </div>
                         </div>
                         <div className="text-right">
@@ -357,7 +357,7 @@ export default function InvoiceGenerator({ suppliers }) {
                                     {adj.adjustmentType}
                                   </span>
                                   <span className="text-[9px] text-muted-foreground/60 uppercase">
-                                    {adj.method === "PERCENTAGE" ? `${adj.value}%` : adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/KG` : `Fixed Rs. ${adj.value}`}
+                                    {adj.method === "PERCENTAGE" ? `${adj.value}%` : adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/${intake.unit || "KG"}` : `Fixed Rs. ${adj.value}`}
                                     {" • "}
                                     <span className={adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"}>
                                       {adj.direction}
@@ -512,7 +512,7 @@ export default function InvoiceGenerator({ suppliers }) {
                       >
                         <option value="PERCENTAGE">% Percentage</option>
                         <option value="FIXED">Fixed Amount</option>
-                        <option value="PER_WEIGHT">Per Weight (KG)</option>
+                        <option value="PER_WEIGHT">Per Weight ({data.intakes.find(i => i.id === activeIntakeForAdjustment)?.unit || "KG"})</option>
                       </select>
                     </div>
                     <div className="space-y-2">
