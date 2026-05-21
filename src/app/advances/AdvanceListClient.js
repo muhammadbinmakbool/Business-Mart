@@ -6,12 +6,18 @@ import { Plus, Search, User } from "lucide-react";
 import { format } from "date-fns";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
+import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 
-export default function AdvanceListClient({ advances = [] }) {
+export default function AdvanceListClient({ advances = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState(() => getDefaultFilterState(defaultPreset));
+
+  const dateFilteredAdvances = useMemo(() => {
+    return filterByDateRange(advances, "createdAt", dateFilter);
+  }, [advances, dateFilter]);
 
   const filteredAdvances = useMemo(() => {
-    return advances.filter((advance) => {
+    return dateFilteredAdvances.filter((advance) => {
       if (searchQuery.trim() === "") return true;
       const query = searchQuery.toLowerCase();
       const matchSupplier = advance.party?.name?.toLowerCase().includes(query);
@@ -19,7 +25,7 @@ export default function AdvanceListClient({ advances = [] }) {
       const matchIntakeNumber = advance.intakeTransaction?.intakeNumber?.toLowerCase().includes(query);
       return matchSupplier || matchNotes || matchIntakeNumber;
     });
-  }, [advances, searchQuery]);
+  }, [dateFilteredAdvances, searchQuery]);
 
   // Pre-calculate fields for nested sorting
   const mappedAdvances = useMemo(() => {
@@ -53,14 +59,18 @@ export default function AdvanceListClient({ advances = [] }) {
         </Link>
       </div>
 
-      <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        <input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by supplier, remarks, or intake #..."
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
+      {/* Search and Filter Row */}
+      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+        <div className="flex-1 flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-sm">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by supplier, remarks, or intake #..."
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+        <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
       </div>
 
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">

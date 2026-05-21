@@ -95,8 +95,21 @@ To implement the filter on a new page:
 
 4. **Render UI Controls**:
    ```jsx
-   <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-     <SearchInput />
-     <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
-   </div>
-   ```
+    <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+      <SearchInput />
+      <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
+    </div>
+    ```
+
+---
+
+## Active Page Integrations
+
+The `DateRangeFilter` is integrated across the following listing views:
+
+* **Goods Intake** (`IntakeListClient.js`): Filters arrivals on the `entryDate` field.
+* **Sales / Billing** (`SalesListClient.js`): Filters buyer invoices on the `entryDate` field.
+* **Source Tracking** (`SourceTrackingListClient.js`): Filters manual registers on the `createdAt` field.
+* **Supplier Settlements** (`SupplierInvoiceListClient.js`): Filters settlement invoices on the `entryDate` field.
+* **Supplier Advances** (`AdvanceListClient.js`): Filters payments/advances on the `createdAt` field.
+
