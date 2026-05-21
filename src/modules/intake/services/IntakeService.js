@@ -152,10 +152,6 @@ export class IntakeService {
         newWeight = UnitService.getNormalizedQuantity(rawWeight, unit, product);
       }
 
-      // 3. Delegate inventory recalculation to InventoryService
-      //    (handles product changes, weight changes, and status changes)
-      await InventoryService.handleIntakeUpdated(oldProductId, newProductId, tx);
-
       // Calculate converted rates based on the units used!
       const finalSupplierRate = validated.rate !== undefined && validated.rate !== null
         ? validated.rate
@@ -168,7 +164,7 @@ export class IntakeService {
         ? convertRate(validated.rate, validated.rateUnit || "KG", "KG")
         : (current.rate ? convertRate(Number(current.rate), current.rateUnit || "KG", "KG") : null);
 
-      // 4. Update the intake record
+      // 3. Update the intake record FIRST
       const updated = await tx.intakeTransaction.update({
         where: { id: parseInt(id) },
         data: {
@@ -188,6 +184,10 @@ export class IntakeService {
           netWeight: validated.netWeight !== undefined ? validated.netWeight : current.netWeight,
         }
       });
+
+      // 4. Delegate inventory recalculation to InventoryService AFTER the record update
+      //    (the SUM query now sees the new status, weight, and product)
+      await InventoryService.handleIntakeUpdated(oldProductId, newProductId, tx);
 
       // 5. If status is SOLD and buyer is specified, upsert SalesTrack!
       if (newStatus === "SOLD" && buyerPartyId) {
