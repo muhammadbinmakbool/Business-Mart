@@ -226,3 +226,19 @@ model SupplierInvoiceItem {
   intake              IntakeTransaction           @relation(fields: [intakeTransactionId], references: [id], onUpdate: NoAction)
   adjustments         SupplierInvoiceAdjustment[]
 }
+
+model LedgerSession {
+  id                   Int      @id @default(autoincrement())
+  title                String
+  startDate            DateTime
+  endDate              DateTime
+  supplierTotal        Decimal  @db.Decimal(18, 2)
+  buyerTotal           Decimal  @db.Decimal(18, 2)
+  difference           Decimal  @db.Decimal(18, 2)
+  supplierInvoiceCount Int      @default(0)
+  buyerInvoiceCount    Int      @default(0)
+  status               String   @default("OPEN") // OPEN | LOCKED
+  notes                String?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
