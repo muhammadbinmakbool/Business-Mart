@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import DeleteButton from "@/components/DeleteButton";
 import { deletePartyAction } from "@/modules/parties/controllers/partyActions";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
+import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 
 export default function PartyListClient({ parties = [] }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -56,13 +57,11 @@ export default function PartyListClient({ parties = [] }) {
         </Link>
       </div>
 
-      <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        <input
+      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+        <DebouncedSearchInput
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={setSearchQuery}
           placeholder="Search parties by name, phone or address..."
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
         />
       </div>
 

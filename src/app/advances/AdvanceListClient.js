@@ -7,6 +7,7 @@ import { format } from "date-fns";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
 import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
+import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 
 export default function AdvanceListClient({ advances = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,15 +62,11 @@ export default function AdvanceListClient({ advances = [], defaultPreset = "all"
 
       {/* Search and Filter Row */}
       <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-        <div className="flex-1 flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-sm">
-          <Search className="h-4 w-4 text-muted-foreground" />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by supplier, remarks, or intake #..."
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-        </div>
+        <DebouncedSearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by supplier, remarks, or intake #..."
+        />
         <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
       </div>
 
