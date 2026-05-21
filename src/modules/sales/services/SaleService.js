@@ -4,6 +4,7 @@ import { PartyService } from "../../parties/services/PartyService";
 import { calculateFinalTotal, calculateAdjustment, round, calculateTransactionTotals } from "@/lib/financial";
 import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
+import { InventoryService } from "../../products/services/InventoryService";
 
 export class SaleService {
   /**
@@ -149,13 +150,8 @@ export class SaleService {
         }
       }
 
-      // 3.5 Batched Update Product quantities concurrently in parallel using Promise.all
-      await Promise.all(processedItems.map(item =>
-        tx.product.update({
-          where: { id: parseInt(item.productId) },
-          data: { quantity: { decrement: item.normalizedWeight } }
-        })
-      ));
+      // 3.5 Delegate to InventoryService (no-op under intake-driven model)
+      await InventoryService.handleSaleCreated(processedItems, tx);
 
       return sale;
     });
@@ -315,16 +311,8 @@ export class SaleService {
         }
       }
 
-      // 3.6 Apply product snapshot quantity deltas concurrently in parallel batch using Promise.all
-      await Promise.all(
-        Array.from(deltas.entries()).map(([productId, delta]) => {
-          if (Math.abs(delta) < 0.001) return Promise.resolve(); // No change
-          return tx.product.update({
-            where: { id: productId },
-            data: { quantity: { increment: delta } }
-          });
-        })
-      );
+      // 3.6 Delegate to InventoryService (no-op under intake-driven model)
+      await InventoryService.handleSaleUpdated(deltas, tx);
 
       return updatedSale;
     });
@@ -342,14 +330,6 @@ export class SaleService {
       const newStatus = status;
 
       if (oldStatus !== "CANCELLED" && newStatus === "CANCELLED") {
-        // Reversal: restore stock snapshots
-        await Promise.all(sale.items.map(item => 
-          tx.product.update({
-            where: { id: item.productId },
-            data: { quantity: { increment: Number(item.normalizedWeight) } }
-          })
-        ));
-
         // Reset isBilled and clear link on SalesTrack records for this cancelled sale
         await tx.salesTrack.updateMany({
           where: { saleTransactionId: parseInt(id) },
@@ -359,30 +339,10 @@ export class SaleService {
             saleItemId: null
           }
         });
-      } else if (oldStatus === "CANCELLED" && newStatus !== "CANCELLED") {
-        // Reactivation: check availability and deduct snapshots
-        const productIds = sale.items.map(item => item.productId);
-        const dbProducts = await tx.product.findMany({
-          where: { id: { in: productIds } }
-        });
-        const productMap = new Map(dbProducts.map(p => [p.id, p]));
-
-        // Validate stock
-        for (const item of sale.items) {
-          const product = productMap.get(item.productId);
-          if (!product || Number(product.quantity) < Number(item.normalizedWeight)) {
-            throw new Error(`INSUFFICIENT_STOCK: Reactivating this sale would reduce "${product?.name || item.productId}" stock below zero.`);
-          }
-        }
-
-        // Apply decrement
-        await Promise.all(sale.items.map(item => 
-          tx.product.update({
-            where: { id: item.productId },
-            data: { quantity: { decrement: Number(item.normalizedWeight) } }
-          })
-        ));
       }
+
+      // Delegate to InventoryService (no-op under intake-driven model)
+      await InventoryService.handleSaleStatusUpdated(sale.items, oldStatus, newStatus, tx);
 
       return tx.saleTransaction.update({
         where: { id: parseInt(id) },
@@ -400,15 +360,8 @@ export class SaleService {
       });
       if (!sale) throw new Error("Sale transaction not found");
 
-      // 2. Restore snapshot stock if sale was active (not already cancelled or soft-deleted)
-      if (!sale.isDeleted && sale.status !== "CANCELLED") {
-        await Promise.all(sale.items.map(item => 
-          tx.product.update({
-            where: { id: item.productId },
-            data: { quantity: { increment: Number(item.normalizedWeight) } }
-          })
-        ));
-      }
+      // 2. Delegate to InventoryService (no-op under intake-driven model)
+      await InventoryService.handleSaleDeleted(sale.items, tx);
 
       // 3. Reset isBilled and clear link on previous SalesTrack records for this sale
       await tx.salesTrack.updateMany({

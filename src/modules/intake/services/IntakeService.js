@@ -4,6 +4,7 @@ import { intakeSchema } from "../validations/intakeSchema";
 import { PartyService } from "../../parties/services/PartyService";
 import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
+import { InventoryService } from "../../products/services/InventoryService";
 import { prisma } from "@/lib/prisma";
 import { convertRate } from "@/lib/units";
 
@@ -111,13 +112,8 @@ export class IntakeService {
         }
       });
 
-      // 3. Update Product Snapshot quantity (increment)
-      if (validated.status !== "CANCELLED") {
-        await tx.product.update({
-          where: { id: parseInt(validated.productId) },
-          data: { quantity: { increment: normalizedWeight } }
-        });
-      }
+      // 3. Delegate inventory update to InventoryService
+      await InventoryService.handleIntakeCreated(parseInt(validated.productId), tx);
 
       return intake;
     });
@@ -156,65 +152,9 @@ export class IntakeService {
         newWeight = UnitService.getNormalizedQuantity(rawWeight, unit, product);
       }
 
-      // 3. Apply quantity snapshot adjustments
-      // Product changed
-      if (oldProductId !== newProductId) {
-        // Subtract from old product (if it was active)
-        if (oldStatus !== "CANCELLED") {
-          const oldProduct = await tx.product.findUnique({ where: { id: oldProductId } });
-          if (Number(oldProduct.quantity) < oldWeight) {
-            throw new Error(`INSUFFICIENT_STOCK: Reverting old product "${oldProduct.name}" stock would result in negative inventory.`);
-          }
-          await tx.product.update({
-            where: { id: oldProductId },
-            data: { quantity: { decrement: oldWeight } }
-          });
-        }
-
-        // Add to new product (if it is active)
-        if (newStatus !== "CANCELLED") {
-          await tx.product.update({
-            where: { id: newProductId },
-            data: { quantity: { increment: newWeight } }
-          });
-        }
-      } 
-      // Product did not change
-      else {
-        // Was active, now cancelled -> subtract
-        if (oldStatus !== "CANCELLED" && newStatus === "CANCELLED") {
-          const product = await tx.product.findUnique({ where: { id: oldProductId } });
-          if (Number(product.quantity) < oldWeight) {
-            throw new Error(`INSUFFICIENT_STOCK: Reverting intake stock for "${product.name}" would result in negative inventory.`);
-          }
-          await tx.product.update({
-            where: { id: oldProductId },
-            data: { quantity: { decrement: oldWeight } }
-          });
-        }
-        // Was cancelled, now active -> add
-        else if (oldStatus === "CANCELLED" && newStatus !== "CANCELLED") {
-          await tx.product.update({
-            where: { id: oldProductId },
-            data: { quantity: { increment: newWeight } }
-          });
-        }
-        // Remained active -> apply delta
-        else if (oldStatus !== "CANCELLED" && newStatus !== "CANCELLED") {
-          const delta = newWeight - oldWeight;
-          if (delta < 0) {
-            // Decrementing stock: check negative inventory bound
-            const product = await tx.product.findUnique({ where: { id: oldProductId } });
-            if (Number(product.quantity) < Math.abs(delta)) {
-              throw new Error(`INSUFFICIENT_STOCK: Updating intake would reduce "${product.name}" stock below zero.`);
-            }
-          }
-          await tx.product.update({
-            where: { id: oldProductId },
-            data: { quantity: { increment: delta } }
-          });
-        }
-      }
+      // 3. Delegate inventory recalculation to InventoryService
+      //    (handles product changes, weight changes, and status changes)
+      await InventoryService.handleIntakeUpdated(oldProductId, newProductId, tx);
 
       // Calculate converted rates based on the units used!
       const finalSupplierRate = validated.rate !== undefined && validated.rate !== null
@@ -364,6 +304,9 @@ export class IntakeService {
         }
       });
 
+      // 2.5 Delegate inventory update — intake is no longer PENDING
+      await InventoryService.handleIntakeSold(intake.productId, tx);
+
       // 3. Upsert SalesTrack
       const existingTrack = await tx.salesTrack.findFirst({
         where: { intakeTransactionId: intakeId }
@@ -408,27 +351,21 @@ export class IntakeService {
       });
       if (!intake) throw new Error("Intake transaction not found");
 
-      // Decrement product snapshot stock if delete and intake was active
-      if (intake.status !== "CANCELLED") {
-        const product = await tx.product.findUnique({ where: { id: intake.productId } });
-        if (Number(product.quantity) < Number(intake.normalizedWeight)) {
-          throw new Error(`INSUFFICIENT_STOCK: Deleting this intake would reduce "${product.name}" stock below zero.`);
-        }
-
-        await tx.product.update({
-          where: { id: intake.productId },
-          data: { quantity: { decrement: Number(intake.normalizedWeight) } }
-        });
-      }
+      const productId = intake.productId;
 
       // Delete linked advances first
       await tx.intakeAdvance.deleteMany({
         where: { intakeTransactionId: parseInt(id) }
       });
       
-      return tx.intakeTransaction.delete({
+      const deleted = await tx.intakeTransaction.delete({
         where: { id: parseInt(id) }
       });
+
+      // Delegate inventory recalculation after deleting the intake record
+      await InventoryService.handleIntakeDeleted(productId, tx);
+
+      return deleted;
     });
   }
 }
