@@ -8,13 +8,19 @@ import { format } from "date-fns";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
+import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 
-export default function SalesListClient({ sales = [] }) {
+export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("ALL");
+  const [dateFilter, setDateFilter] = useState(() => getDefaultFilterState(defaultPreset));
+
+  const dateFilteredSales = useMemo(() => {
+    return filterByDateRange(sales, "entryDate", dateFilter);
+  }, [sales, dateFilter]);
 
   const filteredSales = useMemo(() => {
-    return sales.filter((sale) => {
+    return dateFilteredSales.filter((sale) => {
       if (activeTab !== "ALL" && sale.status !== activeTab) {
         return false;
       }
@@ -27,7 +33,7 @@ export default function SalesListClient({ sales = [] }) {
       );
       return matchNumber || matchBuyer || matchProduct;
     });
-  }, [sales, searchQuery, activeTab]);
+  }, [dateFilteredSales, searchQuery, activeTab]);
 
   // Pre-calculate custom fields for sorting
   const mappedSales = useMemo(() => {
@@ -50,10 +56,10 @@ export default function SalesListClient({ sales = [] }) {
   } = useTableSorting(mappedSales, "entryDate", "desc");
 
   const tabs = [
-    { key: "ALL", label: "All", count: sales.length },
-    { key: "PENDING", label: "Pending", count: sales.filter(s => s.status === "PENDING").length },
-    { key: "COMPLETED", label: "Completed", count: sales.filter(s => s.status === "COMPLETED").length },
-    { key: "CANCELLED", label: "Cancelled", count: sales.filter(s => s.status === "CANCELLED").length },
+    { key: "ALL", label: "All", count: dateFilteredSales.length },
+    { key: "PENDING", label: "Pending", count: dateFilteredSales.filter(s => s.status === "PENDING").length },
+    { key: "COMPLETED", label: "Completed", count: dateFilteredSales.filter(s => s.status === "COMPLETED").length },
+    { key: "CANCELLED", label: "Cancelled", count: dateFilteredSales.filter(s => s.status === "CANCELLED").length },
   ];
 
   return (
@@ -72,14 +78,18 @@ export default function SalesListClient({ sales = [] }) {
         </Link>
       </div>
 
-      <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        <input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by sale #, buyer or product..."
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
+      {/* Search and Filter Row */}
+      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+        <div className="flex-1 flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-sm">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by sale #, buyer or product..."
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+        <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
       </div>
 
       <StatusFilterTabs

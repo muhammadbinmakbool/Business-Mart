@@ -8,13 +8,19 @@ import { format } from "date-fns";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
+import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 
-export default function SupplierInvoiceListClient({ invoices = [] }) {
+export default function SupplierInvoiceListClient({ invoices = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("ALL");
+  const [dateFilter, setDateFilter] = useState(() => getDefaultFilterState(defaultPreset));
+
+  const dateFilteredInvoices = useMemo(() => {
+    return filterByDateRange(invoices, "entryDate", dateFilter);
+  }, [invoices, dateFilter]);
 
   const filteredInvoices = useMemo(() => {
-    return invoices.filter((invoice) => {
+    return dateFilteredInvoices.filter((invoice) => {
       if (activeTab !== "ALL" && invoice.status !== activeTab) {
         return false;
       }
@@ -24,7 +30,7 @@ export default function SupplierInvoiceListClient({ invoices = [] }) {
       const matchSupplier = invoice.party?.name?.toLowerCase().includes(query);
       return matchNumber || matchSupplier;
     });
-  }, [invoices, searchQuery, activeTab]);
+  }, [dateFilteredInvoices, searchQuery, activeTab]);
 
   // Pre-calculate fields for sorting
   const mappedInvoices = useMemo(() => {
@@ -42,10 +48,10 @@ export default function SupplierInvoiceListClient({ invoices = [] }) {
   } = useTableSorting(mappedInvoices, "entryDate", "desc");
 
   const tabs = [
-    { key: "ALL", label: "All", count: invoices.length },
-    { key: "PENDING", label: "Pending", count: invoices.filter(i => i.status === "PENDING").length },
-    { key: "COMPLETED", label: "Completed", count: invoices.filter(i => i.status === "COMPLETED").length },
-    { key: "SUPERSEDED", label: "Superseded", count: invoices.filter(i => i.status === "SUPERSEDED").length },
+    { key: "ALL", label: "All", count: dateFilteredInvoices.length },
+    { key: "PENDING", label: "Pending", count: dateFilteredInvoices.filter(i => i.status === "PENDING").length },
+    { key: "COMPLETED", label: "Completed", count: dateFilteredInvoices.filter(i => i.status === "COMPLETED").length },
+    { key: "SUPERSEDED", label: "Superseded", count: dateFilteredInvoices.filter(i => i.status === "SUPERSEDED").length },
   ];
 
   return (
@@ -64,14 +70,18 @@ export default function SupplierInvoiceListClient({ invoices = [] }) {
         </Link>
       </div>
 
-      <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        <input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by invoice #, supplier..."
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
+      {/* Search and Filter Row */}
+      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+        <div className="flex-1 flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-sm">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by invoice #, supplier..."
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+        <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
       </div>
 
       <StatusFilterTabs

@@ -7,12 +7,18 @@ import { format } from "date-fns";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
 import { convertRate } from "@/lib/units";
+import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 
-export default function SourceTrackingListClient({ tracks = [] }) {
+export default function SourceTrackingListClient({ tracks = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [dateFilter, setDateFilter] = useState(() => getDefaultFilterState(defaultPreset));
+
+  const dateFilteredTracks = useMemo(() => {
+    return filterByDateRange(tracks, "createdAt", dateFilter);
+  }, [tracks, dateFilter]);
 
   const filteredTracks = useMemo(() => {
-    return tracks.filter((track) => {
+    return dateFilteredTracks.filter((track) => {
       if (searchQuery.trim() === "") return true;
       const query = searchQuery.toLowerCase();
       const matchProduct = track.product?.name?.toLowerCase().includes(query);
@@ -22,7 +28,7 @@ export default function SourceTrackingListClient({ tracks = [] }) {
       const matchIntakeNumber = track.intakeTransaction?.intakeNumber?.toLowerCase().includes(query);
       return matchProduct || matchSupplier || matchBuyer || matchSaleNumber || matchIntakeNumber;
     });
-  }, [tracks, searchQuery]);
+  }, [dateFilteredTracks, searchQuery]);
 
   // Pre-calculate fields for nested sorting
   const mappedTracks = useMemo(() => {
@@ -58,14 +64,18 @@ export default function SourceTrackingListClient({ tracks = [] }) {
         </Link>
       </div>
 
-      <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        <input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search mapping register by product, supplier, buyer or invoice #..."
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
+      {/* Search and Filter Row */}
+      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+        <div className="flex-1 flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-sm">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search mapping register by product, supplier, buyer or invoice #..."
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+        <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
       </div>
 
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">

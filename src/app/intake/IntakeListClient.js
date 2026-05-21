@@ -8,29 +8,38 @@ import { cn } from "@/lib/utils";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
+import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 
-export default function IntakeListClient({ intakes = [] }) {
+export default function IntakeListClient({ intakes = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("ALL");
+  const [dateFilter, setDateFilter] = useState(() => getDefaultFilterState(defaultPreset));
 
-  // Filter logic: Filter by tab first, then search query
-  const filteredIntakes = intakes.filter((intake) => {
-    // 1. Status Filter
-    if (activeTab !== "ALL" && intake.status !== activeTab) {
-      return false;
-    }
+  // 1. Date Range Filter
+  const dateFilteredIntakes = useMemo(() => {
+    return filterByDateRange(intakes, "entryDate", dateFilter);
+  }, [intakes, dateFilter]);
 
-    // 2. Search Query Filter
-    if (searchQuery.trim() !== "") {
-      const query = searchQuery.toLowerCase();
-      const matchNumber = intake.intakeNumber?.toLowerCase().includes(query);
-      const matchSupplier = intake.party?.name?.toLowerCase().includes(query);
-      const matchProduct = intake.product?.name?.toLowerCase().includes(query);
-      return matchNumber || matchSupplier || matchProduct;
-    }
+  // 2. Tab & Search Filters
+  const filteredIntakes = useMemo(() => {
+    return dateFilteredIntakes.filter((intake) => {
+      // Status Filter
+      if (activeTab !== "ALL" && intake.status !== activeTab) {
+        return false;
+      }
 
-    return true;
-  });
+      // Search Query Filter
+      if (searchQuery.trim() !== "") {
+        const query = searchQuery.toLowerCase();
+        const matchNumber = intake.intakeNumber?.toLowerCase().includes(query);
+        const matchSupplier = intake.party?.name?.toLowerCase().includes(query);
+        const matchProduct = intake.product?.name?.toLowerCase().includes(query);
+        return matchNumber || matchSupplier || matchProduct;
+      }
+
+      return true;
+    });
+  }, [dateFilteredIntakes, activeTab, searchQuery]);
 
   // Pre-calculate initialTotal for sorting and rendering
   const mappedIntakes = useMemo(() => {
@@ -42,28 +51,31 @@ export default function IntakeListClient({ intakes = [] }) {
 
   const { sortedData: sortedIntakes, sortField, sortDirection, requestSort } = useTableSorting(mappedIntakes, "entryDate", "desc");
 
-  // Calculate dynamic tab counts
+  // Calculate dynamic tab counts based on active date range
   const tabs = [
-    { key: "ALL", label: "All", count: intakes.length },
-    { key: "PENDING", label: "Pending", count: intakes.filter(i => i.status === "PENDING").length },
-    { key: "SOLD", label: "Sold", count: intakes.filter(i => i.status === "SOLD").length },
-    { key: "CLEARED", label: "Cleared", count: intakes.filter(i => i.status === "CLEARED").length },
-    { key: "CANCELLED", label: "Cancelled", count: intakes.filter(i => i.status === "CANCELLED").length },
+    { key: "ALL", label: "All", count: dateFilteredIntakes.length },
+    { key: "PENDING", label: "Pending", count: dateFilteredIntakes.filter(i => i.status === "PENDING").length },
+    { key: "SOLD", label: "Sold", count: dateFilteredIntakes.filter(i => i.status === "SOLD").length },
+    { key: "CLEARED", label: "Cleared", count: dateFilteredIntakes.filter(i => i.status === "CLEARED").length },
+    { key: "CANCELLED", label: "Cancelled", count: dateFilteredIntakes.filter(i => i.status === "CANCELLED").length },
   ];
 
   const showSoldColumns = activeTab === "SOLD" || activeTab === "CLEARED";
 
   return (
     <div className="space-y-6">
-      {/* Search Input */}
-      <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 shadow-sm">
-        <Search className="h-4 w-4 text-muted-foreground" />
-        <input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by intake #, supplier or product..."
-          className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-        />
+      {/* Search and Filter Row */}
+      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+        <div className="flex-1 flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-sm">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by intake #, supplier or product..."
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </div>
+        <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
       </div>
 
       {/* Reusable Tab Filtering Buttons */}
