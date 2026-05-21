@@ -6,6 +6,7 @@ import { Plus, Search, MapPin, ReceiptText } from "lucide-react";
 import { format } from "date-fns";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
+import { convertRate } from "@/lib/units";
 
 export default function SourceTrackingListClient({ tracks = [] }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -172,13 +173,27 @@ export default function SourceTrackingListClient({ tracks = [] }) {
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-3.5 text-right font-mono text-[10px]">
-                      <div className="text-rose-600/70">
-                        B: {track.buyingRate ? Number(track.buyingRate).toLocaleString() : "-"}
-                      </div>
-                      <div className="text-emerald-600/70">
-                        S: {track.sellingRate ? Number(track.sellingRate).toLocaleString() : "-"}
-                      </div>
+                    <td className="px-4 py-3.5 text-right font-mono text-[10px] whitespace-nowrap">
+                      {(() => {
+                        const targetUnit = track.intakeTransaction?.unit || "KG";
+                        const displayUnitLabel = targetUnit === "MAUND" ? "Mnd" : targetUnit;
+                        const displayBuyingRate = track.buyingRate 
+                          ? convertRate(Number(track.buyingRate), "KG", targetUnit, track.product)
+                          : null;
+                        const displaySellingRate = track.sellingRate 
+                          ? convertRate(Number(track.sellingRate), "KG", targetUnit, track.product)
+                          : null;
+                        return (
+                          <>
+                            <div className="text-rose-600/70">
+                              B: {displayBuyingRate !== null ? `Rs. ${Number(displayBuyingRate).toLocaleString()} /${displayUnitLabel}` : "-"}
+                            </div>
+                            <div className="text-emerald-600/70">
+                              S: {displaySellingRate !== null ? `Rs. ${Number(displaySellingRate).toLocaleString()} /${displayUnitLabel}` : "-"}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3.5 text-right font-mono text-xs">
                       {track.netWeight !== null && track.netWeight !== undefined ? (
