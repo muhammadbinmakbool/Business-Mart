@@ -195,14 +195,12 @@ export class IntakeService {
           where: { intakeTransactionId: updated.id }
         });
 
-        const quantityInKg = updated.unit === "MAUND" 
-          ? (updated.netWeight ? Number(updated.netWeight) * 40 : Number(updated.grossWeight) * 40)
-          : (updated.netWeight ? Number(updated.netWeight) : Number(updated.grossWeight));
-
+        const product = await tx.product.findUnique({ where: { id: updated.productId } });
         const weightForTotal = updated.netWeight !== null && updated.netWeight !== undefined 
           ? Number(updated.netWeight) 
           : Number(updated.grossWeight);
-        const actualRate = convertRate(updated.rate, updated.rateUnit || "KG", updated.unit || "KG");
+        const quantityInKg = UnitService.getNormalizedQuantity(weightForTotal, updated.unit, product);
+        const actualRate = convertRate(updated.rate, updated.rateUnit || "KG", updated.unit || "KG", product);
         const rateForTotal = actualRate ? Number(actualRate) : 0;
         const baseAmount = weightForTotal * rateForTotal;
 
@@ -312,7 +310,7 @@ export class IntakeService {
         where: { intakeTransactionId: intakeId }
       });
 
-      const quantityInKg = intake.unit === "MAUND" ? netWeight * 40 : netWeight;
+      const quantityInKg = UnitService.getNormalizedQuantity(netWeight, intake.unit, intake.product);
       const baseAmount = netWeight * convertRate(rate, rateUnit, intake.unit, intake.product);
 
       const trackData = {

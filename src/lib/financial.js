@@ -45,9 +45,10 @@ export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight
       return round(val * Number(bagCount));
     case "WEIGHT_PER_BAG":
       // Deducts a certain weight per bag (in KG), then multiplies by rate.
-      // If unit is MAUND, we must convert the deducted weight from KG to Maund by dividing by 40!
+      // We convert the deducted weight from KG to the target unit by dividing by the conversion factor.
       const totalDeductedWeight = val * Number(bagCount);
-      const convertedWeight = unit === "MAUND" ? totalDeductedWeight / 40 : totalDeductedWeight;
+      const factor = getConversionFactor(unit, product);
+      const convertedWeight = totalDeductedWeight / factor;
       return round(convertedWeight * Number(rate));
     default:
       return 0;
