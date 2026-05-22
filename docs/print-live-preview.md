@@ -97,6 +97,101 @@ Ledger Report Preview: http://localhost:3000/print/preview?type=ledger
 **Double Isolation (No styling leaks)**: Just like the print/download runtime, the preview template renders inside a visible iframe containing only the safe printStyles.js. This guarantees that you see exactly what the printed/downloaded copy will look like, without any Next.js/Tailwind styling interference.
 
 **Hot Module Replacement (HMR)**: The preview page uses a React Portal (createPortal) to mount the templates directly inside the iframe's DOM. 
-Because of this:
 When you edit any template file in your code editor (e.g. SaleInvoiceTemplate.js or printStyles.js), Next.js immediately hot-reloads the component.
 The changes are rendered instantly inside the preview iframe, showing you how your edits affect the print output without needing to refresh the page or click download again.
+
+---
+
+## 📋 Step-by-Step Guide: Adding a New Print Template
+
+If a colleague or friend gives you a custom template file (e.g. `CustomInvoiceTemplate.js`), simply pasting it into `src/print/templates/` will **not** work automatically. You must register it so the application knows how to fetch its data, map its properties, and show it in the previewer.
+
+Follow these 5 steps to register and use a new template:
+
+### Step 1: Paste the Template Component
+Place the new template component inside the templates folder:
+`src/print/templates/CustomInvoiceTemplate.js`
+
+Ensure it takes a single `data` prop and wraps its root container inside `<BasePrintLayout>` (to automatically receive the company header, watermark, and footer layout):
+```jsx
+import React from "react";
+import BasePrintLayout from "./BasePrintLayout";
+
+export default function CustomInvoiceTemplate({ data }) {
+  return (
+    <BasePrintLayout
+      title="Custom Invoice"
+      documentId={data.documentId}
+      date={data.entryDate}
+      status={data.status}
+    >
+      <div>{/* Friend's print-safe JSX content */}</div>
+    </BasePrintLayout>
+  );
+}
+```
+
+### Step 2: Define a Data Mapper
+Add a mapper function in `src/print/mappers/dataMappers.js` to translate raw database models into the shape of the `data` object expected by the template:
+```javascript
+export function mapCustomToPrintModel(rawDbItem) {
+  return {
+    documentId: rawDbItem.invoiceNumber || `CUST-${rawDbItem.id}`,
+    entryDate: rawDbItem.createdAt,
+    status: rawDbItem.status,
+    // Add other fields expected by your template...
+  };
+}
+```
+
+### Step 3: Register in Print Utilities
+Import the new template and mapper inside `src/print/utils/printUtils.js`, and add a case for it in the `switch (templateType)` statement:
+```javascript
+import CustomInvoiceTemplate from "../templates/CustomInvoiceTemplate";
+import { mapCustomToPrintModel } from "../mappers/dataMappers";
+
+// Inside renderTemplateToHTML(templateType, data):
+case "custom": {
+  const mapped = mapCustomToPrintModel(data);
+  htmlString = renderToString(<CustomInvoiceTemplate data={mapped} />);
+  orientation = "portrait"; // or "landscape"
+  break;
+}
+```
+
+### Step 4: Register in Preview Page
+To enable hot-reloaded previews, register the template in `src/app/print/preview/page.js`. Add a case in `switch(type)` to fetch a sample record from the database and pass it to the component:
+```javascript
+import CustomInvoiceTemplate from "@/print/templates/CustomInvoiceTemplate";
+import { mapCustomToPrintModel } from "@/print/mappers/dataMappers";
+
+// Inside the switch(type):
+case "custom": {
+  let record = await prisma.customTransaction.findFirst({
+    orderBy: { createdAt: "desc" }
+  });
+  if (!record) {
+    errorMsg = "No Custom Records found in the database.";
+  } else {
+    const mapped = mapCustomToPrintModel(record);
+    content = <CustomInvoiceTemplate data={mapped} />;
+    docIdText = record.invoiceNumber || `ID: ${record.id}`;
+  }
+  break;
+}
+```
+
+### Step 5: Add to Settings Workspace
+Add your new template to the list of templates inside `src/app/settings/page.js` to see it in the settings dashboard:
+```javascript
+const templates = [
+  // ... existing templates
+  {
+    name: "Custom Partner Invoice",
+    description: "Preview and style the custom template for partner company invoices.",
+    type: "custom",
+    path: "/print/preview?type=custom"
+  }
+];
+```
+Once added, you can click on the template from Settings, view it, and edit the file under `src/print/templates/CustomInvoiceTemplate.js` with instant live hot-reloading!
