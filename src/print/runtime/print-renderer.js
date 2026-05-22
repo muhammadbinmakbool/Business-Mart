@@ -70,10 +70,14 @@ export function renderIsolatedPrint({ htmlString, orientation, generationType, f
         }
       }, 350);
     } else if (generationType === "pdf") {
+      console.log("[Print Runtime] Injecting html2pdf script into iframe context...");
+      
       // Dynamically load html2pdf script in the iframe context to isolate html2canvas
       const script = doc.createElement("script");
-      script.src = "/api/html2pdf";
+      script.src = window.location.origin + "/api/html2pdf";
+      
       script.onload = () => {
+        console.log("[Print Runtime] html2pdf script loaded successfully. Starting generation...");
         // Wait briefly for browser layout/style calculations inside iframe
         setTimeout(async () => {
           try {
@@ -99,11 +103,25 @@ export function renderIsolatedPrint({ htmlString, orientation, generationType, f
               }
             };
 
-            // Generate PDF from the iframe context
-            await html2pdf().set(opt).from(target).save();
+            console.log("[Print Runtime] Rendering document to PDF blob...");
+            // Generate PDF as blob inside the iframe context
+            const blob = await html2pdf().set(opt).from(target).toPdf().output("blob");
+            console.log("[Print Runtime] PDF blob generated. Triggering download in parent window...");
+
+            // Trigger file download in the parent window context to bypass iframe restrictions
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${filename}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            console.log("[Print Runtime] Download completed successfully.");
             resolve();
           } catch (err) {
-            console.error("PDF generation inside iframe failed:", err);
+            console.error("[Print Runtime] PDF generation inside iframe failed:", err);
             reject(err);
           } finally {
             if (document.body.contains(iframe)) {
@@ -114,7 +132,7 @@ export function renderIsolatedPrint({ htmlString, orientation, generationType, f
       };
       script.onerror = () => {
         const err = new Error("Failed to load html2pdf script in iframe context");
-        console.error(err);
+        console.error("[Print Runtime]", err);
         reject(err);
         if (document.body.contains(iframe)) {
           document.body.removeChild(iframe);
