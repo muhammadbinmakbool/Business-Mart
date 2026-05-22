@@ -1,6 +1,7 @@
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { generatePDF } from "../generators/pdfGenerator";
+import { printStyles } from "../styles/printStyles";
 import {
   mapIntakeToPrintModel,
   mapSaleToPrintModel,
@@ -14,12 +15,21 @@ import LedgerTemplate from "../templates/LedgerTemplate";
 
 /**
  * Creates a hidden iframe containing the rendered print layout.
+ *
+ * IMPORTANT — html2canvas compatibility:
+ * We intentionally do NOT copy the parent application's stylesheets into the
+ * iframe.  The app uses Tailwind v4 which emits oklch()/lab() CSS color
+ * functions that html2canvas (used by html2pdf.js) cannot parse, causing a
+ * hard crash.
+ *
+ * Instead we inject `printStyles` — a self-contained CSS string that uses only
+ * hex and rgba colours.  All print template classes must be defined there.
  */
 function renderTemplateToIframe(templateType, data) {
   let htmlString = "";
   let orientation = "portrait";
 
-  // 1. Map raw data to stable print models & select React Template
+  // 1. Map raw data to stable print models & select React template
   switch (templateType) {
     case "intake": {
       const mapped = mapIntakeToPrintModel(data);
@@ -50,7 +60,7 @@ function renderTemplateToIframe(templateType, data) {
       throw new Error(`Unsupported template type: ${templateType}`);
   }
 
-  // 2. Create target iframe element
+  // 2. Create a hidden iframe
   const iframe = document.createElement("iframe");
   iframe.style.position = "fixed";
   iframe.style.right = "0";
@@ -60,7 +70,7 @@ function renderTemplateToIframe(templateType, data) {
   iframe.style.border = "0";
   document.body.appendChild(iframe);
 
-  // 3. Write markup into iframe
+  // 3. Write markup into iframe — NO parent stylesheets included here.
   const doc = iframe.contentDocument || iframe.contentWindow.document;
   doc.open();
   doc.write(`
@@ -76,157 +86,67 @@ function renderTemplateToIframe(templateType, data) {
   `);
   doc.close();
 
-  // 4. Copy and sanitize parent stylesheet links and inline styles to iframe for Tailwind compatibility
-  let combinedCss = "";
+  // 4. Inject isolated print-safe stylesheet (hex/rgba only, no CSS variables).
+  //    This is the ONLY stylesheet in the iframe — parent styles are excluded
+  //    to prevent html2canvas from crashing on oklch/lab color functions.
+  const safeStyleNode = doc.createElement("style");
+  safeStyleNode.textContent = printStyles;
+  doc.head.appendChild(safeStyleNode);
 
-  // Temporary canvas to resolve oklch/lab colors using browser-native engine
-  let canvas = null;
-  let ctx = null;
-  try {
-    canvas = document.createElement("canvas");
-    canvas.width = 1;
-    canvas.height = 1;
-    ctx = canvas.getContext("2d");
-  } catch (e) {}
-
-  function resolveColor(colorStr) {
-    if (!ctx) return "rgb(0, 0, 0)";
-    try {
-      ctx.clearRect(0, 0, 1, 1);
-      ctx.fillStyle = colorStr;
-      ctx.fillRect(0, 0, 1, 1);
-      const data = ctx.getImageData(0, 0, 1, 1).data;
-      if (data[3] === 0 && !colorStr.includes("transparent")) {
-        return "rgb(0, 0, 0)";
-      }
-      return `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${data[3] / 255})`;
-    } catch (e) {
-      return "rgb(0, 0, 0)";
-    }
-  }
-
-  function sanitizeCss(cssText) {
-    if (!cssText) return "";
-    return cssText.replace(/(oklch|oklab|lab|lch)\([^)]*\)/gi, (match) => {
-      return resolveColor(match);
-    });
-  }
-
-  const parentStyles = document.querySelectorAll('style, link[rel="stylesheet"]');
-  parentStyles.forEach(styleNode => {
-    try {
-      if (styleNode.tagName.toLowerCase() === "style") {
-        combinedCss += styleNode.textContent + "\n";
-      } else if (styleNode.tagName.toLowerCase() === "link") {
-        const sheet = styleNode.sheet;
-        if (sheet) {
-          try {
-            const rules = sheet.cssRules || sheet.rules;
-            if (rules) {
-              for (let i = 0; i < rules.length; i++) {
-                combinedCss += rules[i].cssText + "\n";
-              }
-            }
-          } catch (corsErr) {
-            // For cross-origin stylesheets (e.g. Google Fonts), clone node as-is
-            doc.head.appendChild(styleNode.cloneNode(true));
-          }
-        } else {
-          doc.head.appendChild(styleNode.cloneNode(true));
-        }
-      }
-    } catch (e) {
-      doc.head.appendChild(styleNode.cloneNode(true));
-    }
-  });
-
-  const sanitizedStyleNode = doc.createElement("style");
-  sanitizedStyleNode.textContent = sanitizeCss(combinedCss);
-  doc.head.appendChild(sanitizedStyleNode);
-
-  // 5. Inject central print subsystem styles
-  const printSubsystemStyle = doc.createElement("style");
-  printSubsystemStyle.textContent = `
-    @media print {
-      * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      body {
-        margin: 0 !important;
-        padding: 0 !important;
-        background: white !important;
-      }
-      @page {
-        size: A4 ${orientation};
-        margin: 15mm 12mm 15mm 12mm;
-      }
-    }
-    .print-watermark {
-      position: fixed;
-      top: 55%;
-      left: 50%;
-      transform: translate(-50%, -50%) rotate(-30deg);
-      font-size: 5.5rem;
-      font-weight: 900;
-      color: rgba(0, 0, 0, 0.025);
-      text-transform: uppercase;
-      pointer-events: none;
-      white-space: nowrap;
-      letter-spacing: 0.5rem;
-      z-index: 0;
-    }
-    .print-container {
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .no-break {
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
-    }
-    tr {
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
+  // 5. Inject @page rule for correct paper size / orientation
+  const pageStyle = doc.createElement("style");
+  pageStyle.textContent = `
+    @page {
+      size: A4 ${orientation};
+      margin: ${orientation === "landscape" ? "10mm" : "15mm 12mm 15mm 12mm"};
     }
   `;
-  doc.head.appendChild(printSubsystemStyle);
+  doc.head.appendChild(pageStyle);
 
   return { iframe, doc, orientation };
 }
 
 /**
- * Triggers native system printing on the rendered layout.
+ * Triggers native browser print dialog on the rendered template layout.
  */
 export function triggerPrint(templateType, data) {
   const { iframe } = renderTemplateToIframe(templateType, data);
 
-  // Wait briefly for style sheets to load before invoking print dialog
+  // Brief delay allows the iframe document to finish painting before print
   setTimeout(() => {
     iframe.contentWindow.focus();
     iframe.contentWindow.print();
-    
-    // Cleanup iframe after print
+
+    // Remove iframe after the user closes the print dialog
     setTimeout(() => {
-      document.body.removeChild(iframe);
-    }, 1000);
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
+    }, 1500);
   }, 350);
 }
 
 /**
- * Generates and downloads a PDF of the rendered layout.
+ * Generates and downloads a PDF of the rendered template layout.
+ *
+ * html2canvas renders the iframe's #print-root element.  Because the iframe
+ * contains only our safe isolated stylesheet (no oklch/lab), html2canvas will
+ * not crash on unsupported colour functions.
  */
 export async function triggerDownloadPDF(templateType, data, filename) {
   const { iframe, doc, orientation } = renderTemplateToIframe(templateType, data);
   const target = doc.getElementById("print-root");
 
-  // Wait briefly for page stylesheet parsing before saving PDF
+  // Brief delay allows styles to be applied to the iframe DOM before capture
   setTimeout(async () => {
     try {
       await generatePDF(target, filename, { orientation });
     } catch (error) {
       console.error("PDF generation failed:", error);
     } finally {
-      document.body.removeChild(iframe);
+      if (document.body.contains(iframe)) {
+        document.body.removeChild(iframe);
+      }
     }
   }, 350);
 }

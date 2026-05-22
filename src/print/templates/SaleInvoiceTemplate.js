@@ -126,7 +126,7 @@ export default function SaleInvoiceTemplate({ data }) {
               </div>
               <div className="flex justify-between items-center pt-2.5 border-t border-slate-200">
                 <span className="font-bold text-slate-800">Final Invoice Total:</span>
-                <span className="text-lg font-black text-primary">
+                <span className="text-lg font-black print-text-primary">
                   Rs. {data.totals.finalAmount}
                 </span>
               </div>

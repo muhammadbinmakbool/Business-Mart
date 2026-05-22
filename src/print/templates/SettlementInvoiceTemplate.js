@@ -78,7 +78,7 @@ export default function SettlementInvoiceTemplate({ data }) {
                   {item.adjustments && item.adjustments.length > 0 && (
                     <tr className="bg-slate-50/50">
                       <td colSpan={4} className="px-4 py-2 text-[10px] border-b">
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-500 font-mono pl-4 border-l-2 border-primary/20">
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-500 font-mono pl-4 border-l-2 print-border-primary">
                           <span className="font-bold text-[9px] uppercase text-slate-400">Intake Deductions:</span>
                           {item.adjustments.map((adj, aIdx) => (
                             <span key={aIdx}>
@@ -88,7 +88,7 @@ export default function SettlementInvoiceTemplate({ data }) {
                               </span>
                             </span>
                           ))}
-                          <span className="font-bold text-primary pl-2">
+                          <span className="font-bold print-text-primary pl-2">
                             Net Intake: Rs. {item.netAmount}
                           </span>
                         </div>
@@ -179,7 +179,7 @@ export default function SettlementInvoiceTemplate({ data }) {
               </div>
               <div className="flex justify-between items-center pt-2.5 border-t border-slate-200">
                 <span className="font-bold text-slate-800">Net Payable Amount:</span>
-                <span className="text-lg font-black text-primary">
+                <span className="text-lg font-black print-text-primary">
                   Rs. {data.totals.finalPayable}
                 </span>
               </div>
