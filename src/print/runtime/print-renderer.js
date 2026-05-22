@@ -84,7 +84,7 @@ export function renderIsolatedPrint({ htmlString, orientation, generationType, f
 
             const target = doc.getElementById("print-root");
             const opt = {
-              margin: [12, 10, 12, 10],
+              margin: new iframe.contentWindow.Array(12, 10, 12, 10),
               filename: `${filename}.pdf`,
               image: { type: "jpeg", quality: 0.98 },
               html2canvas: {
