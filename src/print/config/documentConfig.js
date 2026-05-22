@@ -2,7 +2,7 @@
 
 export const DOCUMENT_CONFIG = {
   companyName: "Rehmania & Company",
-  companyAddress: "Grain Market, Pakpattan, Punjab, Pakistan",
+  companyAddress: "Grain Market, Rahim Yar Khan, Punjab, Pakistan",
   companyPhone: "0301-6782024",
   companyEmail: "info@rehmania-grain.com",
   defaultCurrency: "Rs.",
