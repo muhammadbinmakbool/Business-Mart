@@ -95,7 +95,7 @@ export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
                               </span>
                             </span>
                           ))}
-                          <span className="font-bold text-primary pl-2 rtl:pl-0 rtl:pr-2">
+                          <span className="font-bold print-text-primary pl-2 rtl:pl-0 rtl:pr-2">
                             {t("netIntake", locale)}: {formatCurrency(item.netAmount, locale)}
                           </span>
                         </div>
@@ -186,7 +186,7 @@ export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
               </div>
               <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 rtl:flex-row-reverse">
                 <span className="font-bold text-slate-800">{t("netPayableAmount", locale)}:</span>
-                <span className="text-lg font-black text-primary">
+                <span className="text-lg font-black print-text-primary">
                   {formatCurrency(data.totals.finalPayable, locale)}
                 </span>
               </div>

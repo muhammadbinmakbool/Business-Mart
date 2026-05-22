@@ -103,9 +103,21 @@ export function renderIsolatedPrint({ htmlString, orientation, generationType, f
               }
             };
 
-            console.log("[Print Runtime] Rendering document and saving PDF...");
-            // Use native html2pdf save method which is fully supported and cross-browser safe
-            await html2pdf().set(opt).from(target).save();
+            console.log("[Print Runtime] Rendering document to PDF blob...");
+            // Generate PDF as blob inside the iframe context
+            const blob = await html2pdf().set(opt).from(target).toPdf().output("blob");
+            console.log("[Print Runtime] PDF blob generated. Triggering download in parent window...");
+
+            // Trigger file download in the parent window context to bypass iframe restrictions
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${filename}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
             console.log("[Print Runtime] Download completed successfully.");
             resolve();
           } catch (err) {

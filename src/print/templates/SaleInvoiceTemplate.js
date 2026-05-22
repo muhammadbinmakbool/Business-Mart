@@ -133,7 +133,7 @@ export default function SaleInvoiceTemplate({ data, locale = "en" }) {
               </div>
               <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 rtl:flex-row-reverse">
                 <span className="font-bold text-slate-800">{t("finalInvTotal", locale)}:</span>
-                <span className="text-lg font-black text-primary">
+                <span className="text-lg font-black print-text-primary">
                   {formatCurrency(data.totals.finalAmount, locale)}
                 </span>
               </div>
