@@ -14,13 +14,13 @@ src/print/
 │   └── PrintButtons.js          # Client component rendering "Print" and "Download PDF" buttons
 ├── config/
 │   └── documentConfig.js        # Global branding config (company name, address, email, watermark)
-├── generators/
-│   └── pdfGenerator.js          # Thin wrapper around html2pdf.js for client-side PDF download
 ├── mappers/
 │   └── dataMappers.js           # Decoupling layer mapping raw database entities to stable template objects
+├── runtime/
+│   └── print-renderer.js        # ★ ISOLATED RUNTIME (creates iframe, loads html2pdf, triggers print/PDF)
 ├── styles/
-│   ├── print.css                # Source reference (not loaded by iframe — for documentation only)
-│   └── printStyles.js           # ★ SINGLE SOURCE OF TRUTH for all print styles (injected into iframe)
+│   ├── print.css                # Reference stylesheet
+│   └── printStyles.js           # ★ SINGLE SOURCE OF TRUTH for print styles (injected into iframe)
 ├── templates/
 │   ├── BasePrintLayout.js       # Shared shell layout (branding header, watermark, footer)
 │   ├── IntakeReceiptTemplate.js # Goods Intake receipt — portrait
@@ -28,8 +28,11 @@ src/print/
 │   ├── SaleInvoiceTemplate.js   # Buyer Sale invoice — portrait
 │   └── SettlementInvoiceTemplate.js # Supplier Settlement invoice — portrait
 └── utils/
-    └── printUtils.js            # Handles React server-rendering, iframe spawning, and style injection
+    └── printUtils.js            # Entry utility mapping raw data and converting templates to HTML string
 ```
+
+Additionally, there is an offline-compatible API route:
+* `src/app/api/html2pdf/route.js` - Serves `html2pdf.bundle.min.js` from local `node_modules` directly to the iframe context.
 
 ---
 
@@ -37,13 +40,13 @@ src/print/
 
 1. **Trigger**: The user clicks "Print" or "Download PDF" in the UI (`PrintButtons.js`).
 2. **Mapping**: Raw database data is normalised into a stable display model via `dataMappers.js`.
-3. **Rendering**: The mapped data is passed into the appropriate template (e.g. `SaleInvoiceTemplate.js`).
-4. **Serialization**: `printUtils.js` converts the React component to a raw HTML string using `renderToString`.
+3. **Serialization**: `printUtils.js` converts the React component to a raw HTML string using `renderToString`.
+4. **Isolated Rendering**: The HTML string and options are sent to `print-renderer.js`.
 5. **Iframe spawning**: A hidden `<iframe>` is created off-screen and the HTML string is written into it.
-6. **Style injection**: Only `printStyles.js` is injected into the iframe head — the parent application stylesheets are **intentionally excluded** (see html2canvas Compatibility Rules below).
+6. **Style injection**: Only `printStyles.js` is injected into the iframe head.
 7. **Execution**:
    - **Print**: The iframe's `window.print()` is called to open the native browser dialog.
-   - **PDF**: `pdfGenerator.js` passes the iframe's `#print-root` element to `html2pdf.js` for download.
+   - **PDF**: The iframe loads `/api/html2pdf` dynamically. Once loaded, `iframe.contentWindow.html2pdf()` runs inside the iframe context to generate and download the PDF.
 
 ---
 
@@ -70,11 +73,13 @@ Attempting to parse an unsupported color function "lab"
 
 and the PDF download silently fails.
 
-Tailwind v4 — used in this project — generates **all** theme colors using `oklch()`. Any stylesheet imported from the parent application will contain these functions and will crash html2canvas.
+Tailwind v4 — used in this project — generates **all** theme colors using `oklch()`. Any stylesheet imported from the parent application or computed style evaluated in the parent context will contain these functions and will crash html2canvas.
 
-### The Solution — Isolated Print Stylesheet
+### The Solution — Isolated Print Context
 
-The print subsystem injects **only** `src/print/styles/printStyles.js` into the iframe. The parent application's stylesheets are never copied.
+We guarantee isolation in two ways:
+1. **Isolated Stylesheet**: The print subsystem injects **only** `src/print/styles/printStyles.js` into the iframe. The parent application's stylesheets are never copied.
+2. **Isolated Execution**: `html2pdf` and `html2canvas` are loaded and executed **inside the iframe's content window**. Since the iframe has no parent Tailwind stylesheets loaded, its computed styles will never contain `oklch` or `lab` values.
 
 `printStyles.js` contains a complete, self-contained CSS definition using **only**:
 - Hex colors (`#ffffff`, `#1e293b`, …)
@@ -109,24 +114,6 @@ When editing print templates (`src/print/templates/*.js`), follow these rules:
 <div className="print-border-primary">            // resolves to rgba(29,78,216,0.2)
 <div className="text-slate-800">                  // safe — hex defined in printStyles.js
 ```
-
-❌ **Forbidden** — importing or referencing the parent application's global CSS:
-```js
-// Never do this inside src/print/:
-import "@/app/globals.css";
-import "tailwindcss";
-```
-
-### How to Add a New Safe Color
-
-Open `src/print/styles/printStyles.js` and add the class under the appropriate section:
-
-```css
-/* Inside the printStyles template literal */
-.my-custom-print-class { color: #4a5568; background: rgba(74, 85, 104, 0.05); }
-```
-
-That class is then immediately available in all print templates.
 
 ---
 
@@ -178,20 +165,3 @@ export default function SaleInvoiceTemplate({ data }) {
 | Ledger Report | A4 Landscape | 10mm |
 
 Orientation is controlled inside `printUtils.js`. Setting `orientation = "landscape"` for a template type automatically adjusts the `@page` rule injected into the iframe.
-
----
-
-## 🧩 Adding a New Document Type
-
-1. **Create Template**: `src/print/templates/NewDocumentTemplate.js`
-2. **Add Mapper**: Add `mapNewDocument(rawData)` to `src/print/mappers/dataMappers.js`
-3. **Register in Utils**: Add a `case` in `renderTemplateToIframe()` inside `printUtils.js`:
-   ```javascript
-   case "new_document": {
-     const mapped = mapNewDocument(data);
-     htmlString = renderToString(<NewDocumentTemplate data={mapped} />);
-     break;
-   }
-   ```
-4. **Render Buttons**: Add `<PrintButtons type="new_document" data={rawObject} filename="doc.pdf" />` to the detail page.
-5. **Add any new CSS classes** needed by the template to `src/print/styles/printStyles.js` using safe hex/rgba values only.
