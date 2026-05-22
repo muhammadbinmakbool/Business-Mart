@@ -204,27 +204,27 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
   ];
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-900 text-white">
+    <div className="flex flex-col min-h-screen bg-background text-foreground">
       {/* Control Header */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between px-6 py-4 bg-slate-950 border-b border-slate-800 gap-4 shrink-0">
+      <header className="flex flex-col md:flex-row md:items-center justify-between px-6 py-4 bg-card border-b border-border gap-4 shrink-0 text-card-foreground">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-sm text-slate-400 hover:text-white transition-colors">
-            ← Back to Dashboard
+          <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground transition-colors font-medium">
+            ← Back to Settings
           </Link>
-          <span className="text-slate-700">|</span>
-          <h1 className="text-lg font-bold text-emerald-400 tracking-tight">Print Template Live Editor</h1>
+          <span className="text-border">|</span>
+          <h1 className="text-lg font-bold tracking-tight text-primary">Print Template Live Editor</h1>
         </div>
 
         {/* Tab Buttons */}
-        <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800">
+        <div className="flex bg-muted p-1 rounded-lg border border-border">
           {tabs.map((tab) => (
             <Link
               key={tab.key}
               href={`/print/preview?type=${tab.key}`}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 type === tab.key
-                  ? "bg-emerald-500 text-white shadow-sm"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {tab.label}
@@ -235,17 +235,17 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
         {/* Custom Record Loader */}
         <form className="flex items-center gap-2">
           <input type="hidden" name="type" value={type} />
-          <span className="text-xs text-slate-400 font-medium">Record ID:</span>
+          <span className="text-xs text-muted-foreground font-medium">Record ID:</span>
           <input
             type="number"
             name="id"
             placeholder="Latest"
             defaultValue={idStr || ""}
-            className="w-20 px-2 py-1 bg-slate-900 border border-slate-800 rounded text-xs text-center text-white focus:outline-none focus:border-emerald-500"
+            className="w-20 px-2 py-1 bg-background border border-input rounded text-xs text-center text-foreground focus:outline-none focus:border-primary"
           />
           <button
             type="submit"
-            className="bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded text-xs font-bold text-white transition-all"
+            className="bg-primary text-primary-foreground hover:bg-primary/95 px-3 py-1 rounded text-xs font-bold transition-all shadow-sm"
           >
             Load
           </button>
@@ -255,19 +255,19 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
       {/* Preview Workspace */}
       <main className="flex-1 flex flex-col">
         {/* Active Record Indicator */}
-        <div className="bg-slate-950/50 px-6 py-2 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
+        <div className="bg-muted/30 px-6 py-2 border-b border-border flex items-center justify-between text-xs text-muted-foreground">
           <div>
-            Showing Template: <span className="font-bold text-white uppercase">{type}</span>
+            Showing Template: <span className="font-bold text-foreground uppercase">{type}</span>
           </div>
           <div>
-            Active Document: <span className="font-mono text-emerald-400 font-bold bg-slate-900 px-2 py-0.5 rounded">{docIdText}</span>
+            Active Document: <span className="font-mono text-primary font-bold bg-muted px-2 py-0.5 rounded border border-border">{docIdText}</span>
           </div>
         </div>
 
         {/* Error or Iframe view */}
         {errorMsg ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-slate-400 space-y-4">
-            <span className="text-red-400 font-bold">⚠️ {errorMsg}</span>
+          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center text-muted-foreground space-y-4 bg-muted/10">
+            <span className="text-destructive font-bold">⚠️ {errorMsg}</span>
             <p className="text-xs max-w-md">
               Try creating a new record in the app or load a specific ID using the selector above.
             </p>
