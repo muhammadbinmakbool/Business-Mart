@@ -20,6 +20,7 @@ import StatusUpdateButtons from "./StatusUpdateButtons";
 import RevertStatusButton from "./RevertStatusButton";
 import DeleteButton from "@/components/DeleteButton";
 import { deleteSaleAction, updateSaleStatusAction } from "@/modules/sales/controllers/saleActions";
+import PrintButtons from "@/print/components/PrintButtons";
 
 export default async function SaleDetailsPage({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -73,10 +74,11 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
             <Edit2 className="h-4 w-4" />
             Edit
           </Link>
-          <button className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent transition-colors">
-            <Printer className="h-4 w-4" />
-            Print
-          </button>
+          <PrintButtons
+            type="sale"
+            data={sale}
+            filename={`Sale-${sale.saleNumber || sale.id}`}
+          />
           <DeleteButton 
             id={sale.id} 
             deleteAction={deleteSaleAction} 
@@ -256,7 +258,7 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
              <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-3">
                 <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Notes</h3>
                 <p className="text-sm italic text-muted-foreground leading-relaxed">
-                   "{sale.notes}"
+                   &quot;{sale.notes}&quot;
                 </p>
              </div>
            )}

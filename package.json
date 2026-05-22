@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
@@ -12,6 +12,7 @@
     "@prisma/client": "^6.4.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "html2pdf.js": "^0.14.0",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",
     "prisma": "^6.4.1",

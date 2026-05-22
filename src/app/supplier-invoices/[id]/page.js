@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import StatusUpdater from "./StatusUpdater";
 import RegenerateButton from "./RegenerateButton";
 import { calculateSupplierDeductions } from "@/lib/financial";
+import PrintButtons from "@/print/components/PrintButtons";
 
 export default async function SupplierInvoiceDetailPage({ params }) {
   const { id } = await params;
@@ -86,9 +87,15 @@ export default async function SupplierInvoiceDetailPage({ params }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:bg-muted transition-colors font-medium text-sm">
-            <Printer className="h-4 w-4" /> Print
-          </button>
+          <PrintButtons
+            type="settlement"
+            data={{
+              invoice,
+              intakeBreakdowns,
+              summaryAdjustments
+            }}
+            filename={`Settlement-${invoice.invoiceNumber || invoice.id}`}
+          />
           {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
             <RegenerateButton invoiceId={invoice.id} />
           )}

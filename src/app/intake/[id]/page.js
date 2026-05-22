@@ -9,6 +9,7 @@ import StatusUpdateButtons from "./StatusUpdateButtons";
 import DeleteButton from "@/components/DeleteButton";
 import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { convertRate } from "@/lib/units";
+import PrintButtons from "@/print/components/PrintButtons";
 
 export default async function IntakeDetailsPage({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -170,7 +171,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
               <div className="space-y-2 pt-4 border-t">
 
                 <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Notes</span>
-                <p className="text-sm bg-muted/20 p-3 rounded-md italic">"{intake.notes}"</p>
+                <p className="text-sm bg-muted/20 p-3 rounded-md italic">&quot;{intake.notes}&quot;</p>
               </div>
             )}
           </div>
@@ -211,10 +212,12 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
 
           <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Print / Share</h2>
-            <button className="w-full flex items-center justify-center gap-2 py-2 text-sm border rounded-lg hover:bg-accent transition-colors">
-              <FileText className="h-4 w-4" />
-              Download Receipt
-            </button>
+            <PrintButtons
+              type="intake"
+              data={intake}
+              filename={`Intake-${intake.intakeNumber || intake.id}`}
+              className="flex-col w-full !items-stretch"
+            />
           </div>
         </div>
       </div>

@@ -18,6 +18,7 @@ import {
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import PrintButtons from "@/print/components/PrintButtons";
 
 import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
@@ -125,6 +126,63 @@ export default function LedgerClient({
     return calculateReconciliationSummary(filteredInvoices, filteredSales, DEFAULT_TOLERANCE);
   }, [filteredInvoices, filteredSales]);
 
+  const selectedSupplierName = useMemo(() => {
+    if (selectedSupplierId === "ALL") return "All Suppliers";
+    return suppliers.find(s => s.id === parseInt(selectedSupplierId))?.name || `Supplier ID: ${selectedSupplierId}`;
+  }, [selectedSupplierId, suppliers]);
+
+  const selectedBuyerName = useMemo(() => {
+    if (selectedBuyerId === "ALL") return "All Buyers";
+    return buyers.find(b => b.id === parseInt(selectedBuyerId))?.name || `Buyer ID: ${selectedBuyerId}`;
+  }, [selectedBuyerId, buyers]);
+
+  const printDataLive = useMemo(() => {
+    return {
+      title: "Ledger Reconciliation Report (Live)",
+      startDate: dateFilter.startDate,
+      endDate: dateFilter.endDate,
+      supplierName: selectedSupplierName,
+      buyerName: selectedBuyerName,
+      invoices: filteredInvoices,
+      sales: filteredSales,
+      summary: liveSummary,
+      isSavedSession: false,
+      drift: null
+    };
+  }, [dateFilter, selectedSupplierName, selectedBuyerName, filteredInvoices, filteredSales, liveSummary]);
+
+  const printDataHistory = useMemo(() => {
+    if (!viewingSessionDetails) return null;
+    return {
+      title: `Ledger Reconciliation Report: ${viewingSessionDetails.session.title}`,
+      startDate: viewingSessionDetails.session.startDate,
+      endDate: viewingSessionDetails.session.endDate,
+      supplierName: "All (Saved Snapshot)",
+      buyerName: "All (Saved Snapshot)",
+      invoices: viewingSessionDetails.invoices,
+      sales: viewingSessionDetails.sales,
+      summary: {
+        supplier: {
+          baseTotal: viewingSessionDetails.session.supplierTotal,
+          gross: viewingSessionDetails.liveSummary?.supplier?.gross || 0,
+          deductions: viewingSessionDetails.liveSummary?.supplier?.deductions || 0,
+          advances: viewingSessionDetails.liveSummary?.supplier?.advances || 0,
+          activeCount: viewingSessionDetails.session.supplierInvoiceCount,
+        },
+        buyer: {
+          baseTotal: viewingSessionDetails.session.buyerTotal,
+          base: viewingSessionDetails.liveSummary?.buyer?.base || 0,
+          adjustments: viewingSessionDetails.liveSummary?.buyer?.adjustments || 0,
+          activeCount: viewingSessionDetails.session.buyerInvoiceCount,
+        },
+        difference: viewingSessionDetails.session.difference,
+        matched: Math.abs(Number(viewingSessionDetails.session.difference)) <= 1.00
+      },
+      isSavedSession: true,
+      drift: viewingSessionDetails.drift
+    };
+  }, [viewingSessionDetails]);
+
   // Load latest list of sessions from backend
   const refreshSessions = async () => {
     const result = await listLedgerSessionsAction();
@@ -203,13 +261,20 @@ export default function LedgerClient({
         </div>
         
         {activeTab === "LIVE" && !showSaveForm && !viewingSessionDetails && (
-          <button
-            onClick={() => setShowSaveForm(true)}
-            className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shrink-0"
-          >
-            <Plus className="h-4 w-4" />
-            Save Session Snapshot
-          </button>
+          <div className="flex items-center gap-3 shrink-0">
+            <PrintButtons
+              type="ledger"
+              data={printDataLive}
+              filename={`Ledger-Live-${format(new Date(), "yyyy-MM-dd")}`}
+            />
+            <button
+              onClick={() => setShowSaveForm(true)}
+              className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              Save Session Snapshot
+            </button>
+          </div>
         )}
       </div>
 
@@ -476,6 +541,11 @@ export default function LedgerClient({
             </div>
 
             <div className="flex items-center gap-3">
+              <PrintButtons
+                type="ledger"
+                data={printDataHistory}
+                filename={`Ledger-Snapshot-${viewingSessionDetails.session.title.replace(/\s+/g, "-")}`}
+              />
               <button
                 onClick={() => handleToggleLock(viewingSessionDetails.session.id)}
                 className="flex items-center gap-2 border px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-accent transition-colors"
@@ -536,7 +606,7 @@ export default function LedgerClient({
             <div className="rounded-xl border bg-card p-5 shadow-sm space-y-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Session Audit Notes</h3>
               <p className="text-sm text-foreground bg-muted/20 p-3 rounded-lg border italic whitespace-pre-wrap">
-                "{viewingSessionDetails.session.notes}"
+                &quot;{viewingSessionDetails.session.notes}&quot;
               </p>
             </div>
           )}

@@ -1,0 +1,77 @@
+/* Print Subsystem Central Stylesheet */
+
+@media print {
+  /* Ensure backgrounds and colors render correctly */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  }
+
+  /* Avoid page breaks inside specific blocks (like headers, signatures, or table rows) */
+  .no-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  thead {
+    display: table-header-group !important;
+  }
+
+  /* Default A4 portrait margins */
+  @page {
+    size: A4 portrait;
+    margin: 15mm 12mm 15mm 12mm;
+  }
+
+  /* Landscape print layout target */
+  @page landscape-layout {
+    size: A4 landscape;
+    margin: 10mm;
+  }
+
+  .print-landscape {
+    page: landscape-layout;
+    width: 100%;
+  }
+
+  /* Hide print buttons or controls when printing */
+  .hide-on-print {
+    display: none !important;
+  }
+}
+
+/* Watermark Styling */
+.print-watermark {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  font-size: 5rem;
+  font-weight: 900;
+  color: rgba(0, 0, 0, 0.03);
+  text-transform: uppercase;
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: 0.5rem;
+  z-index: 0;
+}
+
+/* Base print container styles for uniform sizing */
+.print-container {
+  position: relative;
+  width: 100%;
+  min-height: 100%;
+  background: white;
+  color: #1a1a1a;
+}
