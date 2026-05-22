@@ -6,7 +6,7 @@ import { resolvePrintTemplate } from "../registry";
 /**
  * Renders the chosen React template to a static HTML string and returns its page orientation.
  */
-function renderTemplateToHTML(templateType, data) {
+function renderTemplateToHTML(templateType, data, locale = "en") {
   let mapperArgs = [];
   let rawData = data;
 
@@ -23,7 +23,7 @@ function renderTemplateToHTML(templateType, data) {
     mapperArgs
   );
 
-  const htmlString = renderToString(<Component data={mappedData} />);
+  const htmlString = renderToString(<Component data={mappedData} locale={locale} />);
 
   return { htmlString, orientation };
 }
@@ -31,8 +31,8 @@ function renderTemplateToHTML(templateType, data) {
 /**
  * Triggers native system printing on the rendered isolated layout.
  */
-export function triggerPrint(templateType, data) {
-  const { htmlString, orientation } = renderTemplateToHTML(templateType, data);
+export function triggerPrint(templateType, data, locale = "en") {
+  const { htmlString, orientation } = renderTemplateToHTML(templateType, data, locale);
   renderIsolatedPrint({
     htmlString,
     orientation,
@@ -43,8 +43,8 @@ export function triggerPrint(templateType, data) {
 /**
  * Generates and downloads a PDF of the rendered isolated layout.
  */
-export async function triggerDownloadPDF(templateType, data, filename) {
-  const { htmlString, orientation } = renderTemplateToHTML(templateType, data);
+export async function triggerDownloadPDF(templateType, data, filename, locale = "en") {
+  const { htmlString, orientation } = renderTemplateToHTML(templateType, data, locale);
   await renderIsolatedPrint({
     htmlString,
     orientation,
@@ -52,3 +52,4 @@ export async function triggerDownloadPDF(templateType, data, filename) {
     filename
   });
 }
+

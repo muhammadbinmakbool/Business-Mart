@@ -300,6 +300,92 @@ thead {
 /* Hover background (no interactivity in print, but html2canvas captures the class) */
 .hover\\:bg-slate-50:hover { background-color: #f8fafc; }
 
+/* ── RTL Styles ───────────────────────────────────────────── */
+
+[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+[dir="rtl"] .text-right {
+  text-align: left !important;
+}
+
+[dir="rtl"] .text-left {
+  text-align: right !important;
+}
+
+[dir="rtl"] .border-l {
+  border-left: 0 !important;
+  border-right: 1px solid #e2e8f0 !important;
+}
+
+[dir="rtl"] .border-l-2 {
+  border-left: 0 !important;
+  border-right: 2px solid #e2e8f0 !important;
+}
+
+[dir="rtl"] .print-border-primary {
+  border-left: 0 !important;
+  border-right: 2px solid rgba(29, 78, 216, 0.2) !important;
+}
+
+[dir="rtl"] .pl-4 {
+  padding-left: 0 !important;
+  padding-right: 1rem !important;
+}
+
+[dir="rtl"] .pl-6 {
+  padding-left: 0 !important;
+  padding-right: 1.5rem !important;
+}
+
+[dir="rtl"] .pr-4 {
+  padding-right: 0 !important;
+  padding-left: 1rem !important;
+}
+
+/* RTL Flex & Spacing Utilities */
+[dir="rtl"] .rtl\\:flex-row-reverse {
+  flex-direction: row-reverse !important;
+}
+
+[dir="rtl"] .rtl\\:pl-0 {
+  padding-left: 0 !important;
+}
+
+[dir="rtl"] .rtl\\:pr-6 {
+  padding-right: 1.5rem !important;
+}
+
+[dir="rtl"] .rtl\\:pr-0 {
+  padding-right: 0 !important;
+}
+
+[dir="rtl"] .rtl\\:pl-6 {
+  padding-left: 1.5rem !important;
+}
+
+[dir="rtl"] .rtl\\:pl-4 {
+  padding-left: 1rem !important;
+}
+
+[dir="rtl"] .rtl\\:pl-2 {
+  padding-left: 0.5rem !important;
+}
+
+[dir="rtl"] .rtl\\:pr-2 {
+  padding-right: 0.5rem !important;
+}
+
+[dir="rtl"] .rtl\\:border-l-0 {
+  border-left: 0 !important;
+}
+
+[dir="rtl"] .rtl\\:border-r {
+  border-right: 1px solid #e2e8f0 !important;
+}
+
 /* ── @media print overrides ───────────────────────────────── */
 
 @media print {

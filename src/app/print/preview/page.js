@@ -12,6 +12,7 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
   const type = searchParams.type || "sale";
   const idStr = searchParams.id;
   const id = idStr ? parseInt(idStr) : null;
+  const locale = searchParams.locale || "en";
 
   let content = null;
   let errorMsg = "";
@@ -37,7 +38,7 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
           errorMsg = "No Intake Transactions found in database.";
         } else {
           const { Component, mappedData } = resolvePrintTemplate("intake", intake);
-          content = <Component data={mappedData} />;
+          content = <Component data={mappedData} locale={locale} />;
           docIdText = intake.intakeNumber;
         }
         break;
@@ -68,7 +69,7 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
           errorMsg = "No Sale Transactions found in database.";
         } else {
           const { Component, mappedData } = resolvePrintTemplate("sale", sale);
-          content = <Component data={mappedData} />;
+          content = <Component data={mappedData} locale={locale} />;
           docIdText = sale.saleNumber;
         }
         break;
@@ -154,7 +155,7 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
             invoice.version || null,
             [intakeBreakdowns, summaryAdjustments]
           );
-          content = <Component data={mappedData} />;
+          content = <Component data={mappedData} locale={locale} />;
           docIdText = invoice.invoiceNumber;
         }
         break;
@@ -179,7 +180,7 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
         };
 
         const { Component, mappedData } = resolvePrintTemplate("ledger", data);
-        content = <Component data={mappedData} />;
+        content = <Component data={mappedData} locale={locale} />;
         docIdText = `${start} to ${end}`;
         break;
       }
@@ -216,7 +217,7 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
           {tabs.map((tab) => (
             <Link
               key={tab.key}
-              href={`/print/preview?type=${tab.key}`}
+              href={`/print/preview?type=${tab.key}&locale=${locale}${idStr ? `&id=${idStr}` : ""}`}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
                 type === tab.key
                   ? "bg-background text-foreground shadow-sm"
@@ -228,9 +229,34 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
           ))}
         </div>
 
+        {/* Language Switcher */}
+        <div className="flex bg-muted p-1 rounded-lg border border-border items-center gap-1">
+          <Link
+            href={`/print/preview?type=${type}&locale=en${idStr ? `&id=${idStr}` : ""}`}
+            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+              locale === "en"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            English (LTR)
+          </Link>
+          <Link
+            href={`/print/preview?type=${type}&locale=ur${idStr ? `&id=${idStr}` : ""}`}
+            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+              locale === "ur"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            اردو (RTL)
+          </Link>
+        </div>
+
         {/* Custom Record Loader */}
         <form className="flex items-center gap-2">
           <input type="hidden" name="type" value={type} />
+          <input type="hidden" name="locale" value={locale} />
           <span className="text-xs text-muted-foreground font-medium">Record ID:</span>
           <input
             type="number"
@@ -279,3 +305,4 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
     </div>
   );
 }
+
