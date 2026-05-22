@@ -184,12 +184,8 @@ export default function SourceTrackingListClient({ tracks = [], defaultPreset = 
                       {(() => {
                         const targetUnit = track.intakeTransaction?.unit || "KG";
                         const displayUnitLabel = targetUnit === "MAUND" ? "Mnd" : targetUnit;
-                        const displayBuyingRate = track.buyingRate 
-                          ? convertRate(Number(track.buyingRate), "KG", targetUnit, track.product)
-                          : null;
-                        const displaySellingRate = track.sellingRate 
-                          ? convertRate(Number(track.sellingRate), "KG", targetUnit, track.product)
-                          : null;
+                        const displayBuyingRate = track.buyingRate ? Number(track.buyingRate) : null;
+                        const displaySellingRate = track.sellingRate ? Number(track.sellingRate) : null;
                         return (
                           <>
                             <div className="text-rose-600/70">

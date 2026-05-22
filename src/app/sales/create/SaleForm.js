@@ -95,11 +95,11 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     const originalRateUnit = track.intakeTransaction?.rateUnit || "KG";
     const product = products.find(p => p.id === track.productId);
     
-    // Convert rate and weight back to the original unit (e.g. MAUND)
-    const displayRate = convertRate(track.sellingRate || track.buyingRate || 0, "KG", originalRateUnit, product);
+    // Use original rate and weight directly (no back-conversion needed)
+    const displayRate = track.sellingRate || track.buyingRate || 0;
     const displayWeight = track.netWeight !== null && track.netWeight !== undefined
       ? track.netWeight
-      : convertFromBase(track.quantity || 0, originalUnit, product);
+      : (track.quantity || 0);
 
     const newRow = {
       productId: track.productId?.toString() || "",
@@ -403,10 +403,10 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                 {unbilledTracks.map((track) => {
                   const originalUnit = track.intakeTransaction?.unit || "KG";
                   const product = products.find(p => p.id === track.productId);
-                  const displayRate = convertRate(track.sellingRate || track.buyingRate || 0, "KG", originalUnit, product);
+                  const displayRate = track.sellingRate || track.buyingRate || 0;
                   const displayWeight = track.netWeight !== null && track.netWeight !== undefined
                     ? track.netWeight
-                    : convertFromBase(track.quantity || 0, originalUnit, product);
+                    : (track.quantity || 0);
 
                   return (
                     <div

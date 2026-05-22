@@ -161,8 +161,8 @@ export class IntakeService {
         : current.rateUnit || "KG";
 
       const finalSalesTrackRate = validated.rate !== undefined && validated.rate !== null
-        ? convertRate(validated.rate, validated.rateUnit || "KG", "KG")
-        : (current.rate ? convertRate(Number(current.rate), current.rateUnit || "KG", "KG") : null);
+        ? validated.rate
+        : current.rate;
 
       // 3. Update the intake record FIRST
       const updated = await tx.intakeTransaction.update({
@@ -209,7 +209,7 @@ export class IntakeService {
           supplierPartyId: updated.partyId,
           buyerPartyId: parseInt(buyerPartyId),
           productId: updated.productId,
-          quantity: quantityInKg,
+          quantity: weightForTotal,
           buyingRate: finalSalesTrackRate,
           sellingRate: finalSalesTrackRate,
           netWeight: updated.netWeight !== null && updated.netWeight !== undefined ? Number(updated.netWeight) : null,
@@ -287,7 +287,7 @@ export class IntakeService {
       if (!intake) throw new Error("Intake transaction not found");
 
       // Calculate converted rates!
-      const finalSalesTrackRate = convertRate(rate, rateUnit, "KG");
+      const finalSalesTrackRate = rate;
 
       // 2. Update Intake Transaction fields
       const updatedIntake = await tx.intakeTransaction.update({
@@ -318,7 +318,7 @@ export class IntakeService {
         supplierPartyId: intake.partyId,
         buyerPartyId,
         productId: intake.productId,
-        quantity: quantityInKg,
+        quantity: netWeight,
         buyingRate: finalSalesTrackRate,
         sellingRate: finalSalesTrackRate,
         netWeight,

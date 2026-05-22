@@ -158,8 +158,8 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
                       <div className="text-xs text-muted-foreground">Linked buyer: <span className="font-bold text-blue-900">{intake.salesTracks[0].buyer.name}</span></div>
                     </div>
                     <div className="text-right">
-                      <div className="font-bold text-blue-900">{Number(intake.salesTracks[0].quantity).toLocaleString()} KG</div>
-                      <div className="text-xs text-muted-foreground">Rs. {Number(intake.salesTracks[0].sellingRate).toLocaleString()} / KG</div>
+                      <div className="font-bold text-blue-900">{Number(intake.salesTracks[0].quantity).toLocaleString()} {intake.unit}</div>
+                      <div className="text-xs text-muted-foreground">Rs. {Number(intake.salesTracks[0].sellingRate).toLocaleString()} / {intake.rateUnit || "KG"}</div>
                     </div>
                   </div>
                 )}

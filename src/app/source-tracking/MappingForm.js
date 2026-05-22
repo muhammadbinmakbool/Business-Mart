@@ -68,9 +68,15 @@ export default function MappingForm({
   });
 
   // Local React states to track units for each input field
-  const [quantityUnit, setQuantityUnit] = useState("KG");
-  const [buyingRateUnit, setBuyingRateUnit] = useState("KG");
-  const [sellingRateUnit, setSellingRateUnit] = useState("KG");
+  const [quantityUnit, setQuantityUnit] = useState(() => {
+    return initialData?.intakeTransaction?.unit || "KG";
+  });
+  const [buyingRateUnit, setBuyingRateUnit] = useState(() => {
+    return initialData?.intakeTransaction?.rateUnit || "KG";
+  });
+  const [sellingRateUnit, setSellingRateUnit] = useState(() => {
+    return initialData?.intakeTransaction?.rateUnit || "KG";
+  });
 
   const selectedProd = products.find(p => p.id === parseInt(formData.productId));
   const availableUnits = selectedProd 
@@ -238,16 +244,24 @@ export default function MappingForm({
         throw new Error("Please select a product first.");
       }
 
-      // Convert quantity and rates to base units (KG/ML/PIECE) before saving to DB
-      const normalizedQty = normalizeQuantity(formData.quantity, quantityUnit, selectedProd);
-      const normalizedBuyingRate = formData.buyingRate ? normalizeRate(formData.buyingRate, buyingRateUnit, selectedProd) : null;
-      const normalizedSellingRate = formData.sellingRate ? normalizeRate(formData.sellingRate, sellingRateUnit, selectedProd) : null;
+      // Convert quantity and rates to the linked intake's units before saving to DB
+      const intake = intakes.find(i => i.id === parseInt(formData.intakeTransactionId));
+      const targetUnit = intake?.unit || "KG";
+      const targetRateUnit = intake?.rateUnit || "KG";
+
+      const finalQty = convertFromBase(normalizeQuantity(formData.quantity, quantityUnit, selectedProd), targetUnit, selectedProd);
+      
+      const baseBuyingRate = formData.buyingRate ? normalizeRate(formData.buyingRate, buyingRateUnit, selectedProd) : null;
+      const finalBuyingRate = baseBuyingRate !== null ? baseBuyingRate * getConversionFactor(targetRateUnit, selectedProd) : null;
+
+      const baseSellingRate = formData.sellingRate ? normalizeRate(formData.sellingRate, sellingRateUnit, selectedProd) : null;
+      const finalSellingRate = baseSellingRate !== null ? baseSellingRate * getConversionFactor(targetRateUnit, selectedProd) : null;
 
       const payload = {
         ...formData,
-        quantity: normalizedQty,
-        buyingRate: normalizedBuyingRate,
-        sellingRate: normalizedSellingRate,
+        quantity: finalQty,
+        buyingRate: finalBuyingRate,
+        sellingRate: finalSellingRate,
         netWeight: formData.netWeight ? Number(formData.netWeight) : null,
         baseAmount: formData.baseAmount ? Number(formData.baseAmount) : null
       };
