@@ -76,11 +76,73 @@ function renderTemplateToIframe(templateType, data) {
   `);
   doc.close();
 
-  // 4. Copy parent stylesheet links and inline styles to iframe for Tailwind compatibility
+  // 4. Copy and sanitize parent stylesheet links and inline styles to iframe for Tailwind compatibility
+  let combinedCss = "";
+
+  // Temporary canvas to resolve oklch/lab colors using browser-native engine
+  let canvas = null;
+  let ctx = null;
+  try {
+    canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    ctx = canvas.getContext("2d");
+  } catch (e) {}
+
+  function resolveColor(colorStr) {
+    if (!ctx) return "rgb(0, 0, 0)";
+    try {
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = colorStr;
+      ctx.fillRect(0, 0, 1, 1);
+      const data = ctx.getImageData(0, 0, 1, 1).data;
+      if (data[3] === 0 && !colorStr.includes("transparent")) {
+        return "rgb(0, 0, 0)";
+      }
+      return `rgba(${data[0]}, ${data[1]}, ${data[2]}, ${data[3] / 255})`;
+    } catch (e) {
+      return "rgb(0, 0, 0)";
+    }
+  }
+
+  function sanitizeCss(cssText) {
+    if (!cssText) return "";
+    return cssText.replace(/(oklch|oklab|lab|lch)\([^)]*\)/gi, (match) => {
+      return resolveColor(match);
+    });
+  }
+
   const parentStyles = document.querySelectorAll('style, link[rel="stylesheet"]');
-  parentStyles.forEach(style => {
-    doc.head.appendChild(style.cloneNode(true));
+  parentStyles.forEach(styleNode => {
+    try {
+      if (styleNode.tagName.toLowerCase() === "style") {
+        combinedCss += styleNode.textContent + "\n";
+      } else if (styleNode.tagName.toLowerCase() === "link") {
+        const sheet = styleNode.sheet;
+        if (sheet) {
+          try {
+            const rules = sheet.cssRules || sheet.rules;
+            if (rules) {
+              for (let i = 0; i < rules.length; i++) {
+                combinedCss += rules[i].cssText + "\n";
+              }
+            }
+          } catch (corsErr) {
+            // For cross-origin stylesheets (e.g. Google Fonts), clone node as-is
+            doc.head.appendChild(styleNode.cloneNode(true));
+          }
+        } else {
+          doc.head.appendChild(styleNode.cloneNode(true));
+        }
+      }
+    } catch (e) {
+      doc.head.appendChild(styleNode.cloneNode(true));
+    }
   });
+
+  const sanitizedStyleNode = doc.createElement("style");
+  sanitizedStyleNode.textContent = sanitizeCss(combinedCss);
+  doc.head.appendChild(sanitizedStyleNode);
 
   // 5. Inject central print subsystem styles
   const printSubsystemStyle = doc.createElement("style");
