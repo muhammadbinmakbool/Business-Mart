@@ -3,16 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 import { printStyles } from "@/print/styles/printStyles";
-import {
-  mapIntakeToPrintModel,
-  mapSaleToPrintModel,
-  mapSettlementToPrintModel,
-  mapLedgerToPrintModel
-} from "@/print/mappers/dataMappers";
-import IntakeReceiptTemplate from "@/print/templates/IntakeReceiptTemplate";
-import SaleInvoiceTemplate from "@/print/templates/SaleInvoiceTemplate";
-import SettlementInvoiceTemplate from "@/print/templates/SettlementInvoiceTemplate";
-import LedgerTemplate from "@/print/templates/LedgerTemplate";
+import { resolvePrintTemplate } from "@/print/registry";
 import { LedgerService } from "@/modules/ledger/services/LedgerService";
 import PrintPreviewFrame from "./PrintPreviewFrame";
 
@@ -45,8 +36,8 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
         if (!intake) {
           errorMsg = "No Intake Transactions found in database.";
         } else {
-          const mapped = mapIntakeToPrintModel(intake);
-          content = <IntakeReceiptTemplate data={mapped} />;
+          const { Component, mappedData } = resolvePrintTemplate("intake", intake);
+          content = <Component data={mappedData} />;
           docIdText = intake.intakeNumber;
         }
         break;
@@ -76,8 +67,8 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
         if (!sale) {
           errorMsg = "No Sale Transactions found in database.";
         } else {
-          const mapped = mapSaleToPrintModel(sale);
-          content = <SaleInvoiceTemplate data={mapped} />;
+          const { Component, mappedData } = resolvePrintTemplate("sale", sale);
+          content = <Component data={mappedData} />;
           docIdText = sale.saleNumber;
         }
         break;
@@ -157,8 +148,13 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
             });
           });
 
-          const mapped = mapSettlementToPrintModel(invoice, intakeBreakdowns, summaryAdjustments);
-          content = <SettlementInvoiceTemplate data={mapped} />;
+          const { Component, mappedData } = resolvePrintTemplate(
+            "settlement",
+            invoice,
+            invoice.version || null,
+            [intakeBreakdowns, summaryAdjustments]
+          );
+          content = <Component data={mappedData} />;
           docIdText = invoice.invoiceNumber;
         }
         break;
@@ -182,8 +178,8 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
           totals: ledgerResult.totals || {}
         };
 
-        const mapped = mapLedgerToPrintModel(data);
-        content = <LedgerTemplate data={mapped} />;
+        const { Component, mappedData } = resolvePrintTemplate("ledger", data);
+        content = <Component data={mappedData} />;
         docIdText = `${start} to ${end}`;
         break;
       }

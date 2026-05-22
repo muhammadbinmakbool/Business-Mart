@@ -1,53 +1,29 @@
 import React from "react";
 import { renderToString } from "react-dom/server";
 import { renderIsolatedPrint } from "../runtime/print-renderer";
-import {
-  mapIntakeToPrintModel,
-  mapSaleToPrintModel,
-  mapSettlementToPrintModel,
-  mapLedgerToPrintModel
-} from "../mappers/dataMappers";
-import IntakeReceiptTemplate from "../templates/IntakeReceiptTemplate";
-import SaleInvoiceTemplate from "../templates/SaleInvoiceTemplate";
-import SettlementInvoiceTemplate from "../templates/SettlementInvoiceTemplate";
-import LedgerTemplate from "../templates/LedgerTemplate";
+import { resolvePrintTemplate } from "../registry";
 
 /**
  * Renders the chosen React template to a static HTML string and returns its page orientation.
  */
 function renderTemplateToHTML(templateType, data) {
-  let htmlString = "";
-  let orientation = "portrait";
+  let mapperArgs = [];
+  let rawData = data;
 
-  switch (templateType) {
-    case "intake": {
-      const mapped = mapIntakeToPrintModel(data);
-      htmlString = renderToString(<IntakeReceiptTemplate data={mapped} />);
-      break;
-    }
-    case "sale": {
-      const mapped = mapSaleToPrintModel(data);
-      htmlString = renderToString(<SaleInvoiceTemplate data={mapped} />);
-      break;
-    }
-    case "settlement": {
-      const mapped = mapSettlementToPrintModel(
-        data.invoice || data,
-        data.intakeBreakdowns || [],
-        data.summaryAdjustments || []
-      );
-      htmlString = renderToString(<SettlementInvoiceTemplate data={mapped} />);
-      break;
-    }
-    case "ledger": {
-      const mapped = mapLedgerToPrintModel(data);
-      htmlString = renderToString(<LedgerTemplate data={mapped} />);
-      orientation = "landscape";
-      break;
-    }
-    default:
-      throw new Error(`Unsupported template type: ${templateType}`);
+  if (templateType === "settlement") {
+    rawData = data.invoice || data;
+    mapperArgs = [data.intakeBreakdowns || [], data.summaryAdjustments || []];
   }
+
+  // Resolve template component, perform data mapping and schema validation
+  const { Component, mappedData, orientation } = resolvePrintTemplate(
+    templateType,
+    rawData,
+    rawData.version || null, // Auto-pick version if defined in database record
+    mapperArgs
+  );
+
+  const htmlString = renderToString(<Component data={mappedData} />);
 
   return { htmlString, orientation };
 }
