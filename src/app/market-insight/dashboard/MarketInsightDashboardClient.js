@@ -207,15 +207,15 @@ export default function MarketInsightDashboardClient({
   return (
     <div className="space-y-6 pb-12">
       {/* Disclaimer Banner */}
-      <div className="rounded-xl border bg-slate-900/60 p-4 border-sky-950 flex items-start gap-3.5 shadow-md">
-        <Info className="h-5 w-5 text-sky-400 shrink-0 mt-0.5" />
+      <div className="rounded-xl border bg-sky-50/50 dark:bg-slate-900/60 p-4 border-sky-100 dark:border-sky-950 flex items-start gap-3.5 shadow-md">
+        <Info className="h-5 w-5 text-sky-500 dark:text-sky-400 shrink-0 mt-0.5" />
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded bg-sky-900/60 text-sky-300 border border-sky-800">
+            <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800">
               Reference Market Data Only
             </span>
           </div>
-          <p className="text-xs text-slate-400 font-medium leading-relaxed">
+          <p className="text-xs text-slate-600 dark:text-slate-400 font-medium leading-relaxed">
             Market Insight is an observation-only analytics layer containing market rate logs ("market memory"). 
             These rates are independent records and **never** auto-fill invoice transactions, modify inventory stock, or affect ledger balances.
           </p>
@@ -226,7 +226,7 @@ export default function MarketInsightDashboardClient({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">Market Insight</h1>
-          <p className="text-sm text-slate-400">Track raw pricing fluctuations, event volumes, and product flow metrics.</p>
+          <p className="text-sm text-slate-550 dark:text-slate-400">Track raw pricing fluctuations, event volumes, and product flow metrics.</p>
         </div>
         <button
           onClick={() => setIsModalOpen(true)}
@@ -240,13 +240,13 @@ export default function MarketInsightDashboardClient({
       {/* Tabs and Filters Panel */}
       <div className="bg-card border rounded-xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* View Tabs */}
-        <div className="flex items-center gap-1.5 bg-slate-950 p-1 rounded-lg border border-slate-800 self-start">
+        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800 self-start">
           <button
             onClick={() => setActiveTab("charts")}
             className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-2 ${
               activeTab === "charts" 
-                ? "bg-slate-800 text-slate-100 shadow-sm" 
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-sm border border-slate-200/50 dark:border-slate-700/50" 
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
             <TrendingUp className="h-3.5 w-3.5" />
@@ -256,8 +256,8 @@ export default function MarketInsightDashboardClient({
             onClick={() => setActiveTab("audit")}
             className={`px-4 py-1.5 text-xs font-semibold rounded-md transition-all flex items-center gap-2 ${
               activeTab === "audit" 
-                ? "bg-slate-800 text-slate-100 shadow-sm" 
-                : "text-slate-400 hover:text-slate-200"
+                ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 shadow-sm border border-slate-200/50 dark:border-slate-700/50" 
+                : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
             }`}
           >
             <BookOpen className="h-3.5 w-3.5" />
@@ -274,7 +274,7 @@ export default function MarketInsightDashboardClient({
             <select
               value={currentProductId || "ALL"}
               onChange={(e) => handleProductFilterChange(e.target.value)}
-              className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary text-slate-200"
+              className="bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-primary text-slate-800 dark:text-slate-200"
             >
               <option value="ALL">All Products (Charts fallback to first)</option>
               {products.map(p => (
@@ -287,15 +287,15 @@ export default function MarketInsightDashboardClient({
             <span className="text-xs text-slate-500 font-semibold flex items-center gap-1">
               <Calendar className="h-3.5 w-3.5" /> Range:
             </span>
-            <div className="flex items-center bg-slate-950 border border-slate-800 rounded-lg p-0.5 text-xs">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg p-0.5 text-xs">
               {["7d", "30d", "90d"].map(p => (
                 <button
                   key={p}
                   onClick={() => handlePeriodChange(p)}
                   className={`px-2.5 py-1 font-bold rounded-md transition-all uppercase ${
                     currentPeriod === p 
-                      ? "bg-slate-800 text-slate-200" 
-                      : "text-slate-500 hover:text-slate-300"
+                      ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm border border-slate-200/50 dark:border-slate-700/50" 
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-300"
                   }`}
                 >
                   {p}
@@ -311,17 +311,17 @@ export default function MarketInsightDashboardClient({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Rate Trend Card */}
           <div className="lg:col-span-2 bg-card border rounded-xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b pb-3 border-slate-800">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800">
               <div className="space-y-0.5">
                 <h3 className="font-bold text-base flex items-center gap-2">
-                  <TrendingUp className="h-4.5 w-4.5 text-emerald-400" />
+                  <TrendingUp className="h-4.5 w-4.5 text-emerald-500 dark:text-emerald-400" />
                   Rate Trend Line
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Historical rate history for <strong className="text-slate-300">{chartProduct?.name || "Product"}</strong> ({currentPeriod.toUpperCase()})
+                  Historical rate history for <strong className="text-slate-800 dark:text-slate-300">{chartProduct?.name || "Product"}</strong> ({currentPeriod.toUpperCase()})
                 </p>
               </div>
-              <span className="text-[10px] font-bold text-slate-500 bg-slate-950 px-2 py-1 rounded border border-slate-800 uppercase">
+              <span className="text-[10px] font-bold text-slate-550 dark:text-slate-500 bg-slate-50 dark:bg-slate-950 px-2 py-1 rounded border border-slate-200 dark:border-slate-800 uppercase">
                 Observed Memory
               </span>
             </div>
@@ -329,7 +329,7 @@ export default function MarketInsightDashboardClient({
             {/* SVG Line Chart */}
             {svgLinePath && lineChartData ? (
               <div className="space-y-4">
-                <div className="relative h-[240px] w-full bg-slate-950/40 rounded-lg p-2 border border-slate-900 flex items-center justify-center">
+                <div className="relative h-[240px] w-full bg-slate-50/50 dark:bg-slate-950/40 rounded-lg p-2 border border-slate-200 dark:border-slate-900 flex items-center justify-center">
                   <svg 
                     viewBox="0 0 800 220" 
                     className="w-full h-full overflow-visible"
@@ -342,13 +342,13 @@ export default function MarketInsightDashboardClient({
                         <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
                       </linearGradient>
                     </defs>
-
+ 
                     {/* Gridlines */}
-                    <line x1="40" y1="20" x2="760" y2="20" stroke="#1e293b" strokeDasharray="3,3" />
-                    <line x1="40" y1="70" x2="760" y2="70" stroke="#1e293b" strokeDasharray="3,3" />
-                    <line x1="40" y1="120" x2="760" y2="120" stroke="#1e293b" strokeDasharray="3,3" />
-                    <line x1="40" y1="170" x2="760" y2="170" stroke="#1e293b" strokeDasharray="3,3" />
-                    <line x1="40" y1="200" x2="760" y2="200" stroke="#334155" />
+                    <line x1="40" y1="20" x2="760" y2="20" className="stroke-slate-200 dark:stroke-slate-800" strokeDasharray="3,3" />
+                    <line x1="40" y1="70" x2="760" y2="70" className="stroke-slate-200 dark:stroke-slate-800" strokeDasharray="3,3" />
+                    <line x1="40" y1="120" x2="760" y2="120" className="stroke-slate-200 dark:stroke-slate-800" strokeDasharray="3,3" />
+                    <line x1="40" y1="170" x2="760" y2="170" className="stroke-slate-200 dark:stroke-slate-800" strokeDasharray="3,3" />
+                    <line x1="40" y1="200" x2="760" y2="200" className="stroke-slate-300 dark:stroke-slate-700" />
 
                     {/* Gradient Area Fill */}
                     <path d={svgLinePath.area} fill="url(#chartGrad)" />
@@ -369,7 +369,7 @@ export default function MarketInsightDashboardClient({
                                 cx={c.x} 
                                 cy={c.y} 
                                 r="4" 
-                                className="fill-emerald-500 stroke-slate-950 stroke-2 hover:r-6 hover:fill-emerald-400 transition-all cursor-pointer" 
+                                className="fill-emerald-500 stroke-white dark:stroke-slate-950 stroke-2 hover:r-6 hover:fill-emerald-400 transition-all cursor-pointer" 
                               />
                               <title>{`${c.label}: Rs. ${c.rate}`}</title>
                             </>
@@ -397,28 +397,28 @@ export default function MarketInsightDashboardClient({
                 
                 {/* Statistics summaries */}
                 <div className="grid grid-cols-3 gap-4 text-center">
-                  <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-900 space-y-0.5">
+                  <div className="bg-slate-50 dark:bg-slate-950/40 p-3 rounded-lg border border-slate-200 dark:border-slate-900 space-y-0.5">
                     <span className="text-[10px] text-slate-500 font-bold uppercase">Highest Observed</span>
-                    <div className="font-extrabold text-sm text-emerald-400">
+                    <div className="font-extrabold text-sm text-emerald-600 dark:text-emerald-400">
                       Rs. {Math.round(lineChartData.yMax)}
                     </div>
                   </div>
-                  <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-900 space-y-0.5">
+                  <div className="bg-slate-50 dark:bg-slate-950/40 p-3 rounded-lg border border-slate-200 dark:border-slate-900 space-y-0.5">
                     <span className="text-[10px] text-slate-500 font-bold uppercase">Lowest Observed</span>
-                    <div className="font-extrabold text-sm text-rose-400">
+                    <div className="font-extrabold text-sm text-rose-600 dark:text-rose-400">
                       Rs. {Math.round(lineChartData.yMin)}
                     </div>
                   </div>
-                  <div className="bg-slate-950/40 p-3 rounded-lg border border-slate-900 space-y-0.5">
+                  <div className="bg-slate-50 dark:bg-slate-950/40 p-3 rounded-lg border border-slate-200 dark:border-slate-900 space-y-0.5">
                     <span className="text-[10px] text-slate-500 font-bold uppercase">Total Logs (Period)</span>
-                    <div className="font-extrabold text-sm text-slate-300">
+                    <div className="font-extrabold text-sm text-slate-800 dark:text-slate-300">
                       {pricePoints.filter(p => p.rate !== null).length} Entries
                     </div>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="h-[240px] flex flex-col items-center justify-center border border-dashed rounded-lg bg-slate-950/20 text-slate-500 space-y-2">
+              <div className="h-[240px] flex flex-col items-center justify-center border border-dashed rounded-lg bg-slate-50 dark:bg-slate-950/20 border-slate-200 dark:border-slate-800 text-slate-500 space-y-2">
                 <AlertTriangle className="h-6 w-6 text-amber-500/70" />
                 <p className="text-xs">No price logs found for this product in the selected period.</p>
                 <button
@@ -434,9 +434,9 @@ export default function MarketInsightDashboardClient({
           {/* Activity Event Counting Card */}
           <div className="bg-card border rounded-xl p-6 shadow-sm flex flex-col justify-between space-y-4">
             <div>
-              <div className="flex items-center justify-between border-b pb-3 border-slate-800">
+              <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-800">
                 <h3 className="font-bold text-base flex items-center gap-2">
-                  <Clock className="h-4.5 w-4.5 text-sky-400" />
+                  <Clock className="h-4.5 w-4.5 text-sky-500 dark:text-sky-400" />
                   Activity Counts
                 </h3>
                 <span className="text-[10px] text-slate-500 font-mono">Counts Only</span>
@@ -447,7 +447,7 @@ export default function MarketInsightDashboardClient({
             </div>
 
             {/* Event Count Bars Chart */}
-            <div className="h-[180px] w-full flex items-end justify-between gap-1 bg-slate-950/30 rounded-lg p-3 border border-slate-900">
+            <div className="h-[180px] w-full flex items-end justify-between gap-1 bg-slate-50 dark:bg-slate-950/30 rounded-lg p-3 border border-slate-200 dark:border-slate-900">
               {analyticsData.map((d, i) => {
                 const intakeHeight = (d.intakesCount / activityMax) * 100;
                 const saleHeight = (d.salesCount / activityMax) * 100;
@@ -485,14 +485,14 @@ export default function MarketInsightDashboardClient({
             </div>
 
             {/* Color indicators */}
-            <div className="flex items-center justify-around text-xs bg-slate-950/20 py-2.5 rounded-lg border border-slate-900/60 font-semibold">
+            <div className="flex items-center justify-around text-xs bg-slate-50 dark:bg-slate-950/20 py-2.5 rounded-lg border border-slate-200 dark:border-slate-900/60 font-semibold">
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 bg-sky-500 rounded" />
-                <span className="text-slate-400">Intake Count</span>
+                <span className="text-slate-650 dark:text-slate-400">Intake Count</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-3 w-3 bg-violet-500 rounded" />
-                <span className="text-slate-400">Sale Count</span>
+                <span className="text-slate-650 dark:text-slate-400">Sale Count</span>
               </div>
             </div>
           </div>
@@ -501,7 +501,7 @@ export default function MarketInsightDashboardClient({
         /* Raw Data Audit Table view */
         <div className="bg-card border rounded-xl shadow-sm overflow-hidden space-y-4 p-6">
           {/* Header & filters inside table */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
             <div className="relative max-w-xs w-full">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
               <input
@@ -509,20 +509,20 @@ export default function MarketInsightDashboardClient({
                 placeholder="Search raw entries..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-slate-200"
+                className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary text-slate-800 dark:text-slate-200"
               />
             </div>
 
             {/* Archive State Filters */}
-            <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 self-start">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200 dark:border-slate-800 self-start">
               {["ACTIVE", "ARCHIVED", "ALL"].map(filter => (
                 <button
                   key={filter}
                   onClick={() => handleAuditFilterChange(filter)}
                   className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
                     currentAuditFilter === filter 
-                      ? "bg-slate-800 text-slate-200 shadow-sm" 
-                      : "text-slate-400 hover:text-slate-200"
+                      ? "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm border border-slate-200/50 dark:border-slate-700/50" 
+                      : "text-slate-550 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                   }`}
                 >
                   {filter.charAt(0) + filter.slice(1).toLowerCase()}
@@ -535,7 +535,7 @@ export default function MarketInsightDashboardClient({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider text-[10px]">
+                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
                   <th className="py-3 px-4">Product</th>
                   <th className="py-3 px-4">Date</th>
                   <th className="py-3 px-4">Rate (Rs.)</th>
@@ -546,43 +546,43 @@ export default function MarketInsightDashboardClient({
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
                 {displayedRatesList.length > 0 ? (
                   displayedRatesList.map((item) => (
                     <tr 
                       key={item.id} 
-                      className={`hover:bg-slate-800/20 transition-colors ${
-                        item.isDeleted ? "opacity-60 text-slate-500 bg-slate-950/20" : ""
+                      className={`hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors ${
+                        item.isDeleted ? "opacity-60 text-slate-500 bg-slate-50 dark:bg-slate-950/20" : ""
                       }`}
                     >
-                      <td className="py-3 px-4 font-bold text-slate-200">
+                      <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">
                         {item.product?.name || `Product ${item.productId}`}
                       </td>
-                      <td className="py-3 px-4 font-mono text-slate-400">
+                      <td className="py-3 px-4 font-mono text-slate-650 dark:text-slate-400">
                         {new Date(item.date).toLocaleDateString(undefined, {
                           year: "numeric",
                           month: "short",
                           day: "numeric"
                         })}
                       </td>
-                      <td className="py-3 px-4 font-bold text-emerald-400 font-mono">
+                      <td className="py-3 px-4 font-bold text-emerald-600 dark:text-emerald-400 font-mono">
                         Rs. {item.rate}
                       </td>
-                      <td className="py-3 px-4 text-slate-400 font-medium">{item.unit}</td>
+                      <td className="py-3 px-4 text-slate-650 dark:text-slate-400 font-medium">{item.unit}</td>
                       <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 border border-slate-800 text-slate-400">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
                           {item.source || "MANUAL"}
                         </span>
                       </td>
-                      <td className="py-3 px-4 font-mono text-slate-400">
+                      <td className="py-3 px-4 font-mono text-slate-650 dark:text-slate-400">
                         {item.createdBy || "System"}
                       </td>
-                      <td className="py-3 px-4 max-w-[180px] truncate text-slate-400" title={item.notes}>
+                      <td className="py-3 px-4 max-w-[180px] truncate text-slate-650 dark:text-slate-400" title={item.notes}>
                         {item.notes || "—"}
                       </td>
                       <td className="py-3 px-4 text-right">
                         {item.isDeleted ? (
-                          <span className="text-[10px] uppercase font-bold text-slate-600 bg-slate-900 border border-slate-800/40 px-2.5 py-0.5 rounded-full">
+                          <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-600 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/40 px-2.5 py-0.5 rounded-full">
                             Archived
                           </span>
                         ) : (
@@ -613,57 +613,57 @@ export default function MarketInsightDashboardClient({
       {/* Record Rate Log Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-card border border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="border-b border-slate-800 pb-3 flex items-start justify-between">
+          <div className="bg-card border border-slate-200 dark:border-slate-800 rounded-2xl max-w-md w-full shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-3 flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-bold text-slate-100">Record Daily Market Rate</h3>
-                <p className="text-xs text-slate-400">Log an observed pricing point for tracking trends.</p>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">Record Daily Market Rate</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">Log an observed pricing point for tracking trends.</p>
               </div>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="text-slate-500 hover:text-slate-400 text-sm font-semibold hover:bg-slate-800/40 px-2.5 py-1 rounded"
+                className="text-slate-500 hover:text-slate-700 dark:hover:text-slate-400 text-sm font-semibold hover:bg-slate-100 dark:hover:bg-slate-800/40 px-2.5 py-1 rounded"
               >
                 ✕
               </button>
             </div>
-
+ 
             <form onSubmit={handleFormSubmit} className="space-y-4">
               {/* Product */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Select Product</label>
+                <label className="text-xs font-semibold text-slate-550 dark:text-slate-400">Select Product</label>
                 <select
                   name="productId"
                   required
                   value={selectedProductRateId}
                   onChange={(e) => setSelectedProductRateId(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-200"
+                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-850 dark:text-slate-200"
                 >
                   {products.map(p => (
                     <option key={p.id} value={p.id}>{p.name}</option>
                   ))}
                 </select>
               </div>
-
+ 
               {/* Rate & Unit */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400">Rate (Rs.)</label>
+                  <label className="text-xs font-semibold text-slate-550 dark:text-slate-400">Rate (Rs.)</label>
                   <input
                     type="number"
                     name="rate"
                     step="0.01"
                     required
                     placeholder="e.g. 4200"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-200 font-mono"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-850 dark:text-slate-200 font-mono"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400">Rate Unit</label>
+                  <label className="text-xs font-semibold text-slate-550 dark:text-slate-400">Rate Unit</label>
                   <select
                     name="unit"
                     value={defaultUnit}
                     onChange={() => {}} // Controlled by state default, editable via state if user customizes
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-200"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-850 dark:text-slate-200"
                   >
                     <option value="KG">Kilogram (KG)</option>
                     <option value="MAUND">Maund (40 KG)</option>
@@ -673,24 +673,24 @@ export default function MarketInsightDashboardClient({
                   </select>
                 </div>
               </div>
-
+ 
               {/* Date & Source */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400">Observation Date</label>
+                  <label className="text-xs font-semibold text-slate-550 dark:text-slate-400">Observation Date</label>
                   <input
                     type="date"
                     name="date"
                     required
                     defaultValue={new Date().toISOString().split("T")[0]}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-200 font-mono"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-850 dark:text-slate-200 font-mono"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-400">Source Registry</label>
+                  <label className="text-xs font-semibold text-slate-550 dark:text-slate-400">Source Registry</label>
                   <select
                     name="source"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-200"
+                    className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-850 dark:text-slate-200"
                   >
                     <option value="MANUAL">Manual operator</option>
                     <option value="MARKET"> Ghalla Mandi board</option>
@@ -701,23 +701,23 @@ export default function MarketInsightDashboardClient({
                   </select>
                 </div>
               </div>
-
+ 
               {/* Notes */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-400">Notes (Optional)</label>
+                <label className="text-xs font-semibold text-slate-550 dark:text-slate-400">Notes (Optional)</label>
                 <textarea
                   name="notes"
                   placeholder="Record specific seasonal context, quality factors..."
-                  className="w-full h-20 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-200 resize-none"
+                  className="w-full h-20 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-850 dark:text-slate-200 resize-none"
                 />
               </div>
-
+ 
               {/* Submit Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 hover:bg-slate-850 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-300 transition-colors"
+                  className="px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-xs font-semibold text-slate-555 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 transition-colors"
                 >
                   Cancel
                 </button>
