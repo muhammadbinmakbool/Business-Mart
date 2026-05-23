@@ -38,13 +38,13 @@ export const WIDGET_REGISTRY = [
     name: "Pending Attention Items",
     component: PendingAttentionWidget,
     enabled: true,
-    gridClass: "col-span-full lg:col-span-4"
+    gridClass: "col-span-full lg:col-span-4 lg:row-span-2"
   },
   {
     id: "recentActivity",
     name: "System Activity Feed",
     component: RecentActivityWidget,
     enabled: true,
-    gridClass: "col-span-full"
+    gridClass: "col-span-full lg:col-span-8"
   }
 ];
