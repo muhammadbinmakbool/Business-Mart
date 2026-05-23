@@ -30,7 +30,7 @@ const menuItems = [
 
   { name: "Ledger", href: "/ledger", icon: BookOpen },
 
-  { name: "Rates", href: "/rates", icon: TrendingUp },
+  { name: "Market Insight", href: "/market-insight", icon: TrendingUp },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
