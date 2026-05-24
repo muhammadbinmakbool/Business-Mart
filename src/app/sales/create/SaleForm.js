@@ -402,6 +402,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {unbilledTracks.map((track) => {
                   const originalUnit = track.intakeTransaction?.unit || "KG";
+                  const originalRateUnit = track.intakeTransaction?.rateUnit || "KG";
                   const product = products.find(p => p.id === track.productId);
                   const displayRate = track.sellingRate || track.buyingRate || 0;
                   const displayWeight = track.netWeight !== null && track.netWeight !== undefined
@@ -422,7 +423,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                           {track.product?.name || "Unknown Product"}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
-                          Rate: Rs. {displayRate} / {originalUnit}
+                          Rate: Rs. {displayRate} / {originalRateUnit === "MAUND" ? "Maund" : originalRateUnit}
                         </div>
                       </div>
                       <div className="text-right">

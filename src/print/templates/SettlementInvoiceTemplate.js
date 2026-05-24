@@ -74,7 +74,7 @@ export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
                       {formatWeight(item.weight, item.unit, locale)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {formatCurrency(item.rate, locale)} / {item.unit === "MAUND" || item.unit === "MND" ? (locale === "ur" ? "من" : "MND") : item.unit}
+                      {formatCurrency(item.rate, locale)} / {item.rateUnit === "MAUND" || item.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : item.rateUnit}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-slate-800">
                       {formatCurrency(item.grossAmount, locale)}

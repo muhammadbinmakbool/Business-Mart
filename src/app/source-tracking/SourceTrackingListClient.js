@@ -182,7 +182,7 @@ export default function SourceTrackingListClient({ tracks = [], defaultPreset = 
                     </td>
                     <td className="px-4 py-3.5 text-right font-mono text-[10px] whitespace-nowrap">
                       {(() => {
-                        const targetUnit = track.intakeTransaction?.unit || "KG";
+                        const targetUnit = track.intakeTransaction?.rateUnit || "KG";
                         const displayUnitLabel = targetUnit === "MAUND" ? "Mnd" : targetUnit;
                         const displayBuyingRate = track.buyingRate ? Number(track.buyingRate) : null;
                         const displaySellingRate = track.sellingRate ? Number(track.sellingRate) : null;

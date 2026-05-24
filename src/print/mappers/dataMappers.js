@@ -39,7 +39,7 @@ export function mapIntakeToPrintModel(intake) {
     soldDetails: isSold && track ? {
       netWeight: Number(track.quantity).toLocaleString(),
       rate: Number(track.sellingRate).toLocaleString(),
-      rateUnit: track.rateUnit || intake.unit || "KG",
+      rateUnit: intake.rateUnit || "KG",
       bardanaWeight: Number(intake.Bardana || 0).toLocaleString(),
       khotWeight: Number(intake.Khot || 0).toLocaleString(),
       baseAmount: Number(track.quantity * track.sellingRate).toLocaleString()
@@ -124,6 +124,7 @@ export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summar
         weight: Number(item.weight).toLocaleString(),
         unit: item.intake?.unit || "KG",
         rate: Number(item.rate).toLocaleString(),
+        rateUnit: item.intake?.rateUnit || "KG",
         grossAmount: Number(item.amount).toLocaleString(),
         netAmount: Number(breakdown.net).toLocaleString(),
         adjustments: (breakdown.adjustments || []).map(adj => ({

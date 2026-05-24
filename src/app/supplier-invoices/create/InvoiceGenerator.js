@@ -235,7 +235,7 @@ export default function InvoiceGenerator({ suppliers }) {
                   </div>
                   <div className="text-right">
                     <div className="font-bold text-lg">{Number(i.grossWeight)} {i.unit || "KG"}</div>
-                    <div className="text-xs text-muted-foreground">Rs. {Number(i.rate)} / {i.unit || "KG"}</div>
+                    <div className="text-xs text-muted-foreground">Rs. {Number(i.rate)} / {i.rateUnit === "MAUND" ? "Maund" : (i.rateUnit || "KG")}</div>
                   </div>
                 </div>
               ))}
@@ -325,7 +325,7 @@ export default function InvoiceGenerator({ suppliers }) {
                           </span>
                           <h4 className="font-bold text-sm mt-1">{intake.product.name}</h4>
                           <div className="text-[10px] text-muted-foreground mt-0.5">
-                            {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} {intake.unit || "KG"} @ Rs. {Number(intake.rate)}/{intake.unit || "KG"}
+                            {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} {intake.unit || "KG"} @ Rs. {Number(intake.rate)}/{intake.rateUnit === "MAUND" ? "Maund" : (intake.rateUnit || "KG")}
                           </div>
                         </div>
                         <div className="text-right">

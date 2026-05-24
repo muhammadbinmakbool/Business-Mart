@@ -130,7 +130,7 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
                     {showSoldColumns && (
                       <>
                         <td className="px-4 py-3 text-right font-medium whitespace-nowrap">
-                          Rs. {Number(intake.rate || 0).toLocaleString()} <span className="text-[10px] text-muted-foreground">/{intake.unit === "MAUND" ? "MND" : "KG"}</span>
+                          Rs. {Number(intake.rate || 0).toLocaleString()} <span className="text-[10px] text-muted-foreground">/{intake.rateUnit === "MAUND" ? "MND" : "KG"}</span>
                         </td>
                         <td className="px-4 py-3 text-right text-muted-foreground whitespace-nowrap">
                           {intake.Bardana !== null ? `${Number(intake.Bardana).toLocaleString()} KG` : "-"}

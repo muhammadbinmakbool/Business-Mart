@@ -151,7 +151,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
                             <div className="text-[10px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
                           </td>
                           <td className="px-4 py-3 text-right">{Number(item.weight)} {item.intake.unit || "KG"}</td>
-                          <td className="px-4 py-3 text-right">Rs. {Number(item.rate)} / {item.intake.unit || "KG"}</td>
+                          <td className="px-4 py-3 text-right">Rs. {Number(item.rate)} / {item.intake.rateUnit === "MAUND" ? "Maund" : (item.intake.rateUnit || "KG")}</td>
                           <td className="px-4 py-3 text-right font-bold">Rs. {Number(item.amount).toLocaleString()}</td>
                         </tr>
                         {breakdown.adjustments && breakdown.adjustments.length > 0 && (
