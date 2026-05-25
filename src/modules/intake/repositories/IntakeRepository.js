@@ -21,6 +21,11 @@ export class IntakeRepository {
         party: true,
         product: true,
         advances: true,
+        invoiceItems: {
+          include: {
+            invoice: true
+          }
+        },
         salesTracks: {
           include: {
             buyer: true

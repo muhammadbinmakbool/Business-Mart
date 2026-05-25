@@ -33,12 +33,16 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   // Status Reversion states
   const [showUnbilledConfirmModal, setShowUnbilledConfirmModal] = useState(false);
   const [showBilledBlockModal, setShowBilledBlockModal] = useState(false);
+  const [showSupplierBlockModal, setShowSupplierBlockModal] = useState(false);
   const [formDataToSubmit, setFormDataToSubmit] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const salesTrack = intake.salesTracks?.[0];
   const hasSalesTrack = !!salesTrack;
   const isBilled = salesTrack ? (salesTrack.isBilled || salesTrack.saleTransactionId !== null) : false;
+
+  const supplierInvoiceItem = intake.invoiceItems?.[0];
+  const hasSupplierInvoice = !!supplierInvoiceItem;
 
   React.useEffect(() => {
     if (!intake.unit) {
@@ -162,14 +166,20 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     const formData = new FormData(e.currentTarget);
 
     const isReverting = (intake.status === "SOLD" || intake.status === "CLEARED") && (status === "PENDING" || status === "CANCELLED");
-    if (isReverting && hasSalesTrack) {
-      if (isBilled) {
-        setShowBilledBlockModal(true);
+    if (isReverting) {
+      if (hasSupplierInvoice) {
+        setShowSupplierBlockModal(true);
         return;
-      } else {
-        setFormDataToSubmit(formData);
-        setShowUnbilledConfirmModal(true);
-        return;
+      }
+      if (hasSalesTrack) {
+        if (isBilled) {
+          setShowBilledBlockModal(true);
+          return;
+        } else {
+          setFormDataToSubmit(formData);
+          setShowUnbilledConfirmModal(true);
+          return;
+        }
       }
     }
 
@@ -609,6 +619,64 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
               <button
                 type="button"
                 onClick={() => setShowBilledBlockModal(false)}
+                className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors"
+              >
+                Close Dialog
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Supplier Settlement Revert Block Modal */}
+      {showSupplierBlockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+            <div className="flex items-center justify-between border-b px-6 py-4 bg-rose-50 dark:bg-rose-950/10">
+              <div className="flex items-center gap-3">
+                <div className="bg-rose-100 dark:bg-rose-900/30 p-2 rounded-lg text-rose-700 dark:text-rose-500">
+                  <XCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-rose-900 dark:text-rose-400">Reversion Blocked</h3>
+                  <p className="text-xs text-rose-700 dark:text-rose-500">Intake is settled with supplier</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowSupplierBlockModal(false)}
+                className="p-1.5 hover:bg-accent rounded-full transition-colors text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-left">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                This intake is already included in a finalized **Supplier Settlement / Invoice**, so you cannot revert its status.
+              </p>
+
+              <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl space-y-2 text-xs">
+                <div className="font-bold text-rose-900 dark:text-rose-400">Linked Supplier Settlement Info:</div>
+                <div className="grid grid-cols-2 gap-y-1 text-muted-foreground">
+                  <div>Supplier Invoice:</div>
+                  <div className="font-semibold text-foreground">{supplierInvoiceItem?.invoice?.invoiceNumber || "N/A"}</div>
+                  <div>Settled Weight:</div>
+                  <div className="font-semibold text-foreground">{Number(supplierInvoiceItem?.weight || 0).toLocaleString()} KG</div>
+                  <div>Settlement Status:</div>
+                  <div className="font-semibold text-rose-700 dark:text-rose-400">{supplierInvoiceItem?.invoice?.status || "COMPLETED"}</div>
+                </div>
+              </div>
+
+              <div className="bg-rose-50 dark:bg-rose-950/20 p-3.5 rounded-lg border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-300 leading-normal">
+                <strong>How to resolve:</strong> You must first edit or delete the associated Supplier Invoice <strong>{supplierInvoiceItem?.invoice?.invoiceNumber || ""}</strong> in the Supplier Invoices module to exclude this intake before you can revert its status here.
+              </div>
+            </div>
+
+            <div className="border-t px-6 py-4 bg-muted/20 flex justify-end font-medium">
+              <button
+                type="button"
+                onClick={() => setShowSupplierBlockModal(false)}
                 className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors"
               >
                 Close Dialog

@@ -52,6 +52,19 @@ export class IntakeService {
         ...a,
         amount: Number(a.amount)
       })),
+      invoiceItems: intake.invoiceItems?.map(ii => ({
+        ...ii,
+        weight: Number(ii.weight),
+        rate: Number(ii.rate),
+        amount: Number(ii.amount),
+        invoice: ii.invoice ? {
+          ...ii.invoice,
+          totalGrossValue: Number(ii.invoice.totalGrossValue),
+          totalDeductions: Number(ii.invoice.totalDeductions),
+          totalAdvances: Number(ii.invoice.totalAdvances),
+          finalPayableAmount: Number(ii.invoice.finalPayableAmount)
+        } : null
+      })),
       salesTracks: intake.salesTracks?.map(st => ({
         ...st,
         quantity: Number(st.quantity),
@@ -138,8 +151,16 @@ export class IntakeService {
       const newProductId = validated.productId ? parseInt(validated.productId) : oldProductId;
       const newStatus = validated.status || oldStatus;
 
-      // Validation Rule: If transitioning away from SOLD or CLEARED to PENDING or CANCELLED, verify/delete unbilled SalesTrack
+      // Validation Rule: If transitioning away from SOLD or CLEARED to PENDING or CANCELLED, verify/delete unbilled SalesTrack and block if included in Supplier Settlement
       if ((oldStatus === "SOLD" || oldStatus === "CLEARED") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
+        // Check for Supplier Settlement linkage
+        const supplierInvoiceItem = await tx.supplierInvoiceItem.findFirst({
+          where: { intakeTransactionId: current.id }
+        });
+        if (supplierInvoiceItem) {
+          throw new Error("Cannot change status because this intake is already included in a Supplier Settlement/Invoice. Please remove it from the supplier settlement first.");
+        }
+
         const existingTrack = await tx.salesTrack.findUnique({
           where: { intakeTransactionId: current.id }
         });
