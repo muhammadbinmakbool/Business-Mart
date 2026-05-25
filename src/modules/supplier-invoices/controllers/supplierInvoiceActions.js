@@ -88,3 +88,21 @@ export async function getUninvoicedDataAction(partyId) {
     return { success: false, error: error.message };
   }
 }
+
+export async function editSupplierInvoiceAction(formData) {
+  try {
+    const invoiceId = parseInt(formData.get("invoiceId"));
+    const intakeIds = JSON.parse(formData.get("intakeIds") || "[]");
+    const advanceIds = JSON.parse(formData.get("advanceIds") || "[]");
+    const adjustmentsByIntake = JSON.parse(formData.get("adjustmentsByIntake") || "{}");
+
+    const newInvoice = await SupplierInvoiceService.editInvoice(invoiceId, intakeIds, advanceIds, adjustmentsByIntake);
+    
+    revalidatePath(`/supplier-invoices/${invoiceId}`);
+    revalidatePath("/supplier-invoices");
+    return { success: true, data: newInvoice };
+  } catch (error) {
+    console.error("Failed to edit supplier invoice:", error);
+    return { success: false, error: error.message };
+  }
+}

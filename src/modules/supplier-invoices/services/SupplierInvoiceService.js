@@ -161,4 +161,120 @@ export class SupplierInvoiceService {
 
     return JSON.parse(JSON.stringify(newInvoice));
   }
+
+  /**
+   * Edits an invoice by generating a new version with updated selections and adjustments.
+   */
+  static async editInvoice(oldInvoiceId, newIntakeIds, newAdvanceIds, newAdjustmentsByIntake) {
+    const oldInvoice = await SupplierInvoiceRepository.getById(oldInvoiceId);
+    if (!oldInvoice) throw new Error("Invoice not found");
+
+    if (oldInvoice.status !== "PENDING") {
+      throw new Error("Only PENDING invoices can be edited");
+    }
+
+    return prisma.$transaction(async (tx) => {
+      // 1. Mark old invoice as SUPERSEDED and isOutdated
+      await tx.supplierInvoice.update({
+        where: { id: parseInt(oldInvoiceId) },
+        data: { status: "SUPERSEDED", isOutdated: true }
+      });
+
+      // 2. Fetch fresh event records
+      const [intakes, advances] = await Promise.all([
+        tx.intakeTransaction.findMany({
+          where: { id: { in: newIntakeIds.map(id => parseInt(id)) } },
+          include: { product: true }
+        }),
+        tx.intakeAdvance.findMany({
+          where: { id: { in: newAdvanceIds.map(id => parseInt(id)) } }
+        })
+      ]);
+
+      if (intakes.length === 0) throw new Error("No intakes selected");
+
+      // 3. Map adjustments and recalculate
+      const intakesWithAdjustments = intakes.map(intake => ({
+        ...intake,
+        adjustments: newAdjustmentsByIntake[intake.id] || []
+      }));
+
+      const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakesWithAdjustments);
+      const totalAdvances = advances.reduce((sum, adv) => sum + Number(adv.amount), 0);
+      const finalPayableAmount = netValue - totalAdvances;
+
+      // 4. Prepare item snapshots
+      const itemsData = intakes.map(intake => {
+        const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+        const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+        const rate = actualRate ? Number(actualRate) : 0;
+        
+        const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
+        const itemAdjustments = breakdown ? breakdown.adjustments : [];
+
+        return {
+          intakeTransactionId: intake.id,
+          weight: billingWeight,
+          rate: rate,
+          amount: billingWeight * rate,
+          adjustments: itemAdjustments
+        };
+      });
+
+      // 5. Create NEW version with a new invoice number but incremented version
+      const lastInvoice = await tx.supplierInvoice.findFirst({
+        orderBy: { id: "desc" },
+        select: { id: true }
+      });
+      const nextId = (lastInvoice?.id || 0) + 1;
+      const invoiceNumber = `SUP-${nextId.toString().padStart(6, "0")}`;
+
+      const newInvoice = await tx.supplierInvoice.create({
+        data: {
+          invoiceNumber,
+          partyId: oldInvoice.partyId,
+          totalGrossValue,
+          totalDeductions,
+          totalAdvances,
+          finalPayableAmount,
+          status: "PENDING",
+          version: oldInvoice.version + 1,
+          lastCalculatedAt: new Date(),
+          items: {
+            create: itemsData.map(item => ({
+              weight: item.weight,
+              rate: item.rate,
+              amount: item.amount,
+              intake: { connect: { id: parseInt(item.intakeTransactionId) } },
+              adjustments: {
+                create: (item.adjustments || []).map(adj => ({
+                  adjustmentType: adj.adjustmentType,
+                  method: adj.method,
+                  value: adj.value,
+                  calculatedAmount: adj.calculatedAmount,
+                  direction: adj.direction,
+                  unit: adj.unit || null
+                }))
+              }
+            }))
+          },
+          advances: {
+            connect: newAdvanceIds.map(id => ({ id: parseInt(id) }))
+          }
+        },
+        include: {
+          items: {
+            include: {
+              intake: { include: { product: true } },
+              adjustments: true
+            }
+          },
+          advances: true,
+          party: true
+        }
+      });
+
+      return JSON.parse(JSON.stringify(newInvoice));
+    });
+  }
 }

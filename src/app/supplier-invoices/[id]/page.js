@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { ChevronLeft, History, AlertCircle, Printer } from "lucide-react";
+import { ChevronLeft, History, AlertCircle, Printer, Edit } from "lucide-react";
 import { getSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -96,6 +96,15 @@ export default async function SupplierInvoiceDetailPage({ params }) {
             }}
             filename={`Settlement-${invoice.invoiceNumber || invoice.id}`}
           />
+          {invoice.status === "PENDING" && (
+            <Link
+              href={`/supplier-invoices/${invoice.id}/edit`}
+              className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold text-sm hover:bg-primary/95 transition-all shadow-lg shadow-primary/20"
+            >
+              <Edit className="h-4 w-4" />
+              Edit
+            </Link>
+          )}
           {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
             <RegenerateButton invoiceId={invoice.id} />
           )}

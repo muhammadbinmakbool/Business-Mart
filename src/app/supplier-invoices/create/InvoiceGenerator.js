@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { 
   User, 
   Package, 
@@ -15,15 +16,15 @@ import {
   X, 
   ReceiptText 
 } from "lucide-react";
-import { getUninvoicedDataAction, generateSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
+import { getUninvoicedDataAction, generateSupplierInvoiceAction, editSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import { calculateSupplierDeductions } from "@/lib/financial";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ADJUSTMENT_TYPES_SUPPLIER } from "@/lib/constants";
 
-export default function InvoiceGenerator({ suppliers }) {
+export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
   const router = useRouter();
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(initialInvoice ? 2 : 1);
   const [selectedParty, setSelectedParty] = useState(null);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({ intakes: [], advances: [] });
@@ -43,12 +44,73 @@ export default function InvoiceGenerator({ suppliers }) {
     unit: "KG"
   });
 
-  // Fetch data when party is selected
+  // Group and load initial adjustments if editing
   useEffect(() => {
-    if (selectedParty) {
+    if (initialInvoice) {
+      setSelectedParty(initialInvoice.party);
+      setSelectedIntakes(initialInvoice.items.map(item => item.intakeTransactionId));
+      setSelectedAdvances(initialInvoice.advances.map(a => a.id));
+      
+      const initialAdjustments = {};
+      initialInvoice.items.forEach(item => {
+        initialAdjustments[item.intakeTransactionId] = (item.adjustments || []).map(adj => ({
+          adjustmentType: adj.adjustmentType,
+          method: adj.method,
+          value: Number(adj.value),
+          direction: adj.direction,
+          unit: adj.unit || null
+        }));
+      });
+      setAdjustmentsByIntake(initialAdjustments);
+      
+      // Fetch other available uninvoiced intakes/advances
+      fetchEditData(initialInvoice.party.id, initialInvoice);
+    }
+  }, [initialInvoice]);
+
+  const fetchEditData = async (partyId, initial) => {
+    setLoading(true);
+    const result = await getUninvoicedDataAction(partyId);
+    if (result.success) {
+      // Intakes: merge current invoice items (with details) + any other uninvoiced intakes
+      const linkedIntakes = initial.items.map(item => ({
+        ...item.intake,
+        grossWeight: Number(item.weight),
+        rate: Number(item.rate),
+      }));
+
+      // Find unique intakes combining both list
+      const combinedIntakes = [...linkedIntakes];
+      result.data.intakes.forEach(i => {
+        if (!combinedIntakes.some(ci => ci.id === i.id)) {
+          combinedIntakes.push(i);
+        }
+      });
+
+      // Advances: merge current advances + other unlinked advances
+      const combinedAdvances = [...initial.advances];
+      result.data.advances.forEach(a => {
+        if (!combinedAdvances.some(ca => ca.id === a.id)) {
+          combinedAdvances.push(a);
+        }
+      });
+
+      setData({
+        intakes: combinedIntakes,
+        advances: combinedAdvances
+      });
+    } else {
+      toast.error("Failed to load additional data: " + result.error);
+    }
+    setLoading(false);
+  };
+
+  // Fetch data when party is selected (only when NOT in edit mode)
+  useEffect(() => {
+    if (selectedParty && !initialInvoice) {
       fetchData(selectedParty.id);
     }
-  }, [selectedParty]);
+  }, [selectedParty, initialInvoice]);
 
   const fetchData = async (partyId) => {
     setLoading(true);
@@ -143,13 +205,25 @@ export default function InvoiceGenerator({ suppliers }) {
     formData.append("advanceIds", JSON.stringify(selectedAdvances));
     formData.append("adjustmentsByIntake", JSON.stringify(adjustmentsByIntake));
 
-    const result = await generateSupplierInvoiceAction(formData);
-    if (result.success) {
-      toast.success("Invoice generated successfully!");
-      router.push(`/supplier-invoices/${result.data.id}`);
+    if (initialInvoice) {
+      formData.append("invoiceId", initialInvoice.id);
+      const result = await editSupplierInvoiceAction(formData);
+      if (result.success) {
+        toast.success("Invoice updated successfully!");
+        router.push(`/supplier-invoices/${result.data.id}`);
+      } else {
+        toast.error(result.error);
+        setIsSubmitting(false);
+      }
     } else {
-      toast.error(result.error);
-      setIsSubmitting(false);
+      const result = await generateSupplierInvoiceAction(formData);
+      if (result.success) {
+        toast.success("Invoice generated successfully!");
+        router.push(`/supplier-invoices/${result.data.id}`);
+      } else {
+        toast.error(result.error);
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -283,7 +357,11 @@ export default function InvoiceGenerator({ suppliers }) {
           )}
 
           <div className="flex justify-between pt-6">
-            <button onClick={() => setStep(1)} className="px-6 py-2 rounded-lg border hover:bg-muted transition-colors font-medium">Back</button>
+            {initialInvoice ? (
+              <Link href={`/supplier-invoices/${initialInvoice.id}`} className="px-6 py-2 rounded-lg border hover:bg-muted transition-colors font-medium">Cancel</Link>
+            ) : (
+              <button onClick={() => setStep(1)} className="px-6 py-2 rounded-lg border hover:bg-muted transition-colors font-medium">Back</button>
+            )}
             <button 
               disabled={selectedIntakes.length === 0}
               onClick={() => setStep(3)} 
