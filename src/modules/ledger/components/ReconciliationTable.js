@@ -29,9 +29,9 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
                   <th className="px-3 py-2">Invoice #</th>
                   <th className="px-3 py-2">Date</th>
                   <th className="px-3 py-2">Supplier</th>
-                  <th className="px-3 py-2 text-right">Gross (Base)</th>
-                  <th className="px-3 py-2 text-right">Deductions</th>
-                  <th className="px-3 py-2 text-right">Net Payable</th>
+                  <th className="px-3 py-2 text-right">Base Amount</th>
+                  <th className="px-3 py-2 text-right">Total Adjustments</th>
+                  <th className="px-3 py-2 text-right">Final Total</th>
                   <th className="px-3 py-2 text-center">Status</th>
                   <th className="px-2 py-2"></th>
                 </tr>

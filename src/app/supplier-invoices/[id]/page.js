@@ -268,11 +268,11 @@ export default async function SupplierInvoiceDetailPage({ params }) {
 
             <div className="pt-4 border-t space-y-4">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Gross Value</span>
+                <span className="text-muted-foreground">Base Amount</span>
                 <span className="font-bold">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Deductions</span>
+                <span className="text-muted-foreground">Total Adjustments</span>
                 <span className="font-bold text-rose-600">- Rs. {Number(invoice.totalDeductions).toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-sm">
@@ -280,7 +280,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
                 <span className="font-bold text-rose-600">- Rs. {Number(invoice.totalAdvances).toLocaleString()}</span>
               </div>
               <div className="pt-4 border-t flex justify-between items-center">
-                <span className="font-black text-primary uppercase">Net Payable</span>
+                <span className="font-black text-primary uppercase">Final Total</span>
                 <span className="text-2xl font-black text-primary">Rs. {Number(invoice.finalPayableAmount).toLocaleString()}</span>
               </div>
             </div>

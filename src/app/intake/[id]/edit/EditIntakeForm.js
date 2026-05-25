@@ -100,7 +100,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   };
 
   // Real-time calculation logic
-  const { grossWeightKg, bardanaKg, khotKg, netWeight } = calculateIntakeNetWeight({
+  const { grossWeightKg, bardanaKg, khotKg, netWeightKg, netWeight } = calculateIntakeNetWeight({
     grossWeight: Number(grossWeight) || 0,
     unit: unit,
     bagCount: Number(bagCount) || 0,
@@ -401,8 +401,17 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
             <div className="space-y-0.5">
               <span className="text-[10px] font-bold uppercase text-emerald-800 tracking-wider">Computed Net Weight (For Billing)</span>
               <div className="text-2xl font-black text-emerald-700 font-mono">
-                {netWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                <span className="text-xs font-normal uppercase ml-1 italic">{unit === "MAUND" ? "MND" : unit}</span>
+                {unit === "BAG" ? (
+                  <>
+                    {netWeightKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <span className="text-xs font-normal uppercase ml-1 italic">KG</span>
+                  </>
+                ) : (
+                  <>
+                    {netWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <span className="text-xs font-normal uppercase ml-1 italic">{unit === "MAUND" ? "MND" : unit}</span>
+                  </>
+                )}
               </div>
             </div>
             <div className="bg-emerald-100 p-2 rounded-lg text-emerald-700">

@@ -88,11 +88,11 @@ export default function LedgerDashboard({ summary, drift = null, isSavedSession 
           </div>
           <div className="mt-4 pt-3 border-t border-dashed border-muted/50 grid grid-cols-3 gap-1 text-[10px] text-muted-foreground">
             <div>
-              <span className="block font-semibold">Gross:</span>
+              <span className="block font-semibold">Base:</span>
               <span className="block font-medium truncate">{formatRs(supplier.gross)}</span>
             </div>
             <div>
-              <span className="block font-semibold">Deductions:</span>
+              <span className="block font-semibold">Adjustments:</span>
               <span className="block font-medium truncate">-{formatRs(supplier.deductions)}</span>
             </div>
             <div>

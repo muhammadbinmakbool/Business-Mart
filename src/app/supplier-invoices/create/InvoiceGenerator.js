@@ -444,15 +444,15 @@ export default function InvoiceGenerator({ suppliers }) {
                   <span>{activeIntakes.length}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="opacity-80">Gross Product Value</span>
+                  <span className="opacity-80">Base Amount</span>
                   <span>Rs. {totalGrossValue.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="opacity-80">Total Deductions</span>
+                  <span className="opacity-80">Total Adjustments</span>
                   <span className="text-rose-200">- Rs. {totalDeductions.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center border-t border-white/10 pt-2 font-bold text-base">
-                  <span>Net Product Value</span>
+                  <span>Net Amount</span>
                   <span>Rs. {netValue.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
@@ -460,7 +460,7 @@ export default function InvoiceGenerator({ suppliers }) {
                   <span className="text-rose-200">- Rs. {totalAdvances.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between items-end border-t border-white/20 pt-4">
-                  <span className="font-bold text-xs uppercase opacity-75">Final Payout</span>
+                  <span className="font-bold text-xs uppercase opacity-75">Final Total</span>
                   <div className="text-right">
                     <span className="text-2xl font-black">Rs. {finalPayable.toLocaleString()}</span>
                   </div>

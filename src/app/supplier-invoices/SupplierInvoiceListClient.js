@@ -123,7 +123,7 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
                   onRequestSort={requestSort}
                   className="text-right"
                 >
-                  Net Payable
+                  Final Total
                 </SortableHeader>
                 <SortableHeader
                   field="version"
