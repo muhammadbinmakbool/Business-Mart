@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getUnitsByCategory, calculateIntakeNetWeight, normalizeQuantity, convertFromBase } from "@/lib/units";
-import { Scale, User, DollarSign, Box } from "lucide-react";
+import { Scale, User, DollarSign, Box, X, XCircle } from "lucide-react";
 import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
 
 export default function EditIntakeForm({ intake, suppliers, products, buyers = [] }) {
@@ -29,6 +29,16 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   );
   const [khotRate, setKhotRate] = useState("0");
   const [khotRateUnit, setKhotRateUnit] = useState("KG");
+
+  // Status Reversion states
+  const [showUnbilledConfirmModal, setShowUnbilledConfirmModal] = useState(false);
+  const [showBilledBlockModal, setShowBilledBlockModal] = useState(false);
+  const [formDataToSubmit, setFormDataToSubmit] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const salesTrack = intake.salesTracks?.[0];
+  const hasSalesTrack = !!salesTrack;
+  const isBilled = salesTrack ? (salesTrack.isBilled || salesTrack.saleTransactionId !== null) : false;
 
   React.useEffect(() => {
     if (!intake.unit) {
@@ -109,9 +119,8 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     product: selectedProduct
   });
 
-  async function handleSubmit(formData) {
-    // Inject calculated net values into the FormData object prior to submission
-    formData.set("partyId", formData.get("partyId"));
+  const executeSubmit = async (formData) => {
+    setIsSubmitting(true);
     formData.set("productId", selectedProductId);
     formData.set("unit", unit);
     formData.set("grossWeight", grossWeight);
@@ -122,10 +131,12 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     if (status === "SOLD") {
       if (!buyerPartyId) {
         toast.error("Please select a buyer Party");
+        setIsSubmitting(false);
         return;
       }
       if (!rate || Number(rate) <= 0) {
         toast.error("Please specify a valid Rate");
+        setIsSubmitting(false);
         return;
       }
       formData.set("buyerPartyId", buyerPartyId);
@@ -136,18 +147,45 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
       formData.set("netWeight", netWeight.toString());
     }
 
-
     const result = await updateIntakeAction(intake.id, formData);
+    setIsSubmitting(false);
     if (result?.error) {
       toast.error(result.error);
     } else {
       toast.success("Intake updated successfully");
       router.push(`/intake/${intake.id}`);
     }
-  }
+  };
+
+  const onSubmit = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+
+    const isReverting = (intake.status === "SOLD" || intake.status === "CLEARED") && (status === "PENDING" || status === "CANCELLED");
+    if (isReverting && hasSalesTrack) {
+      if (isBilled) {
+        setShowBilledBlockModal(true);
+        return;
+      } else {
+        setFormDataToSubmit(formData);
+        setShowUnbilledConfirmModal(true);
+        return;
+      }
+    }
+
+    await executeSubmit(formData);
+  };
+
+  const confirmRevertSubmit = async () => {
+    setShowUnbilledConfirmModal(false);
+    if (formDataToSubmit) {
+      await executeSubmit(formDataToSubmit);
+      setFormDataToSubmit(null);
+    }
+  };
 
   return (
-    <form action={handleSubmit} className="space-y-6">
+    <form onSubmit={onSubmit} className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
           <label htmlFor="partyId" className="text-sm font-medium">Supplier</label>
@@ -440,11 +478,145 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
         </Link>
         <button
           type="submit"
-          className="bg-primary text-primary-foreground px-6 py-2 rounded-md text-sm hover:bg-primary/90 transition-colors"
+          disabled={isSubmitting}
+          className="bg-primary text-primary-foreground px-6 py-2 rounded-md text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Save Changes
+          {isSubmitting ? "Saving..." : "Save Changes"}
         </button>
       </div>
+
+      {/* Unbilled Status Revert Confirmation Modal */}
+      {showUnbilledConfirmModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+            <div className="flex items-center justify-between border-b px-6 py-4 bg-amber-50 dark:bg-amber-950/10">
+              <div className="flex items-center gap-3">
+                <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-lg text-amber-700 dark:text-amber-500">
+                  <Scale className="h-5 w-5 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-amber-900 dark:text-amber-400">Revert Intake Status</h3>
+                  <p className="text-xs text-amber-700 dark:text-amber-500">Reverting will remove sales trace</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => {
+                  setShowUnbilledConfirmModal(false);
+                  setFormDataToSubmit(null);
+                }}
+                className="p-1.5 hover:bg-accent rounded-full transition-colors text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-left">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Reverting this intake&apos;s status to <span className="font-bold text-foreground">{status}</span> will have the following operational consequences:
+              </p>
+              
+              <ul className="space-y-2 text-xs text-muted-foreground bg-muted/40 p-4 rounded-xl border border-muted-foreground/10">
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-600 font-bold">•</span>
+                  <span><strong>Remove Source Tracking</strong>: The active sales trace tied to buyer <strong>{salesTrack?.buyer?.name || "N/A"}</strong> will be permanently deleted.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-600 font-bold">•</span>
+                  <span><strong>Remove Billing Eligibility</strong>: It will no longer be eligible to generate a Sales Invoice.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-amber-600 font-bold">•</span>
+                  <span><strong>Restore Inventory</strong>: The quantity ({Number(intake.normalizedWeight || 0).toLocaleString()} KG) will be returned to inventory.</span>
+                </li>
+              </ul>
+
+              <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg flex gap-3 text-xs text-amber-800 dark:text-amber-300">
+                <span className="font-black text-sm">⚠️</span>
+                <span>This action cannot be undone. Make sure you want to revert this transaction&apos;s status.</span>
+              </div>
+            </div>
+
+            <div className="border-t px-6 py-4 bg-muted/20 flex justify-end gap-3 font-medium">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUnbilledConfirmModal(false);
+                  setFormDataToSubmit(null);
+                }}
+                className="px-4 py-2 border rounded-lg text-sm hover:bg-accent transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmRevertSubmit}
+                className="bg-amber-600 hover:bg-amber-500 text-white px-5 py-2 rounded-lg text-sm transition-colors"
+              >
+                Confirm Revert
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Billed Status Revert Block Modal */}
+      {showBilledBlockModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-card border rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]">
+            <div className="flex items-center justify-between border-b px-6 py-4 bg-rose-50 dark:bg-rose-950/10">
+              <div className="flex items-center gap-3">
+                <div className="bg-rose-100 dark:bg-rose-900/30 p-2 rounded-lg text-rose-700 dark:text-rose-500">
+                  <XCircle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-rose-900 dark:text-rose-400">Reversion Blocked</h3>
+                  <p className="text-xs text-rose-700 dark:text-rose-500">Intake is already billed</p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowBilledBlockModal(false)}
+                className="p-1.5 hover:bg-accent rounded-full transition-colors text-muted-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 text-left">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                This intake is already included in a finalized invoice/sale transaction, so you cannot revert its status.
+              </p>
+
+              <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl space-y-2 text-xs">
+                <div className="font-bold text-rose-900 dark:text-rose-400">Linked Sales Trace Info:</div>
+                <div className="grid grid-cols-2 gap-y-1 text-muted-foreground">
+                  <div>Buyer Party:</div>
+                  <div className="font-semibold text-foreground">{salesTrack?.buyer?.name || "N/A"}</div>
+                  <div>Weight:</div>
+                  <div className="font-semibold text-foreground">{Number(salesTrack?.quantity || 0).toLocaleString()} {intake.unit}</div>
+                  <div>Invoice ID / Status:</div>
+                  <div className="font-semibold text-rose-700 dark:text-rose-400">Billed & Finalized</div>
+                </div>
+              </div>
+
+              <div className="bg-rose-50 dark:bg-rose-950/20 p-3.5 rounded-lg border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-300 leading-normal">
+                <strong>How to resolve:</strong> You must first edit or delete the associated Sales Invoice in the Sales/Billing module to remove this intake before you can revert its status here.
+              </div>
+            </div>
+
+            <div className="border-t px-6 py-4 bg-muted/20 flex justify-end font-medium">
+              <button
+                type="button"
+                onClick={() => setShowBilledBlockModal(false)}
+                className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors"
+              >
+                Close Dialog
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

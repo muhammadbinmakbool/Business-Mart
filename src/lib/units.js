@@ -18,6 +18,12 @@ export const UNITS = {
     category: UNIT_CATEGORIES.WEIGHT, 
     factor: 40 
   },
+  TON: { 
+    id: "TON", 
+    name: "Ton", 
+    category: UNIT_CATEGORIES.WEIGHT, 
+    factor: 1000 
+  },
   BAG: { 
     id: "BAG", 
     name: "Bag", 

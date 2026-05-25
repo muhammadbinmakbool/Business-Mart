@@ -138,6 +138,22 @@ export class IntakeService {
       const newProductId = validated.productId ? parseInt(validated.productId) : oldProductId;
       const newStatus = validated.status || oldStatus;
 
+      // Validation Rule: If transitioning away from SOLD or CLEARED to PENDING or CANCELLED, verify/delete unbilled SalesTrack
+      if ((oldStatus === "SOLD" || oldStatus === "CLEARED") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
+        const existingTrack = await tx.salesTrack.findUnique({
+          where: { intakeTransactionId: current.id }
+        });
+        if (existingTrack) {
+          if (existingTrack.isBilled || existingTrack.saleTransactionId !== null) {
+            throw new Error("Cannot change status because this intake's sales trace is already included in a Sales Invoice. Please remove it from the invoice first.");
+          }
+          // If not billed, delete the SalesTrack record atomically
+          await tx.salesTrack.delete({
+            where: { id: existingTrack.id }
+          });
+        }
+      }
+
       // Recalculate normalized weight if weight, unit, or product changed
       let newWeight = oldWeight;
       const hasWeightChange = rest.grossWeight !== undefined;
