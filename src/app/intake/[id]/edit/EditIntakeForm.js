@@ -5,7 +5,7 @@ import { updateIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getUnitsByCategory, calculateIntakeNetWeight } from "@/lib/units";
+import { getUnitsByCategory, calculateIntakeNetWeight, normalizeQuantity, convertFromBase } from "@/lib/units";
 import { Scale, User, DollarSign, Box } from "lucide-react";
 import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
 
@@ -39,6 +39,66 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     }
   }, [intake]);
 
+  const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
+  const compatibleUnits = selectedProduct ? getUnitsByCategory(selectedProduct.category) : [];
+
+  const handleProductChange = (productId) => {
+    setSelectedProductId(productId);
+    const prod = products.find(p => p.id === parseInt(productId));
+    if (prod) {
+      const units = getUnitsByCategory(prod.category);
+      const prefUnit = getPreferredWeightUnit();
+      const isPrefCompatible = units.some(u => u.id === prefUnit);
+      const defaultUnit = isPrefCompatible ? prefUnit : (prod.primaryUnit || "KG");
+      setUnit(defaultUnit);
+
+      const hasConversion = prod.unitConversion && Number(prod.unitConversion) > 0;
+      if (defaultUnit === "BAG") {
+        setGrossWeight(bagCount);
+      } else if (hasConversion && grossWeight) {
+        const weightInKg = normalizeQuantity(grossWeight, defaultUnit, prod);
+        const bags = convertFromBase(weightInKg, "BAG", prod);
+        const calculatedBags = Math.round(bags);
+        setBagCount(calculatedBags ? calculatedBags.toString() : "");
+      }
+    } else {
+      setUnit("");
+      setGrossWeight("");
+      setBagCount("");
+    }
+  };
+
+  const handleGrossWeightChange = (val) => {
+    setGrossWeight(val);
+    const hasConversion = selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0;
+    if (hasConversion && (unit === "KG" || unit === "MAUND")) {
+      const weightInKg = normalizeQuantity(val, unit, selectedProduct);
+      const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
+      const calculatedBags = Math.round(bags);
+      setBagCount(calculatedBags ? calculatedBags.toString() : "");
+    }
+  };
+
+  const handleUnitChange = (newUnit) => {
+    setUnit(newUnit);
+    const hasConversion = selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0;
+    if (newUnit === "BAG") {
+      setGrossWeight(bagCount);
+    } else if (hasConversion) {
+      const weightInKg = normalizeQuantity(grossWeight, newUnit, selectedProduct);
+      const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
+      const calculatedBags = Math.round(bags);
+      setBagCount(calculatedBags ? calculatedBags.toString() : "");
+    }
+  };
+
+  const handleBagCountChange = (val) => {
+    setBagCount(val);
+    if (unit === "BAG") {
+      setGrossWeight(val);
+    }
+  };
+
   // Real-time calculation logic
   const { grossWeightKg, bardanaKg, khotKg, netWeight } = calculateIntakeNetWeight({
     grossWeight: Number(grossWeight) || 0,
@@ -46,11 +106,9 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     bagCount: Number(bagCount) || 0,
     bardanaGramPerBag: Number(bardanaGramPerBag) || 0,
     khotRate: Number(khotRate) || 0,
-    khotRateUnit: khotRateUnit
+    khotRateUnit: khotRateUnit,
+    product: selectedProduct
   });
-
-  const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
-  const compatibleUnits = selectedProduct ? getUnitsByCategory(selectedProduct.category) : [];
 
   async function handleSubmit(formData) {
     // Inject calculated net values into the FormData object prior to submission
@@ -113,7 +171,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
             id="productId"
             required
             value={selectedProductId}
-            onChange={(e) => setSelectedProductId(e.target.value)}
+            onChange={(e) => handleProductChange(e.target.value)}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
           >
             {products.map(p => (
@@ -128,7 +186,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
             id="unit"
             required
             value={unit}
-            onChange={e => setUnit(e.target.value)}
+            onChange={e => handleUnitChange(e.target.value)}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
           >
             {compatibleUnits.map(u => (
@@ -138,26 +196,50 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="grossWeight" className="text-sm font-medium">Gross Weight</label>
-          <input
-            id="grossWeight"
-            type="number"
-            step="0.01"
-            required
-            value={grossWeight}
-            onChange={e => setGrossWeight(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
-          />
+          <label htmlFor="grossWeight" className="text-sm font-medium">
+            Gross Weight {unit === "BAG" ? "(Calculated in KG)" : ""}
+          </label>
+          {unit === "BAG" ? (
+            <>
+              <input
+                id="grossWeight_display"
+                type="text"
+                readOnly
+                value={selectedProduct ? normalizeQuantity(bagCount || 0, "BAG", selectedProduct).toFixed(2) : ""}
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-muted cursor-not-allowed text-muted-foreground font-semibold"
+              />
+              <input
+                type="hidden"
+                name="grossWeight"
+                value={grossWeight}
+              />
+            </>
+          ) : (
+            <input
+              id="grossWeight"
+              type="number"
+              step="0.01"
+              required
+              value={grossWeight}
+              onChange={e => handleGrossWeightChange(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+            />
+          )}
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="bagCount" className="text-sm font-medium">Bag Count (Optional)</label>
+          <label htmlFor="bagCount" className="text-sm font-medium">
+            {unit === "BAG" ? "Bag Count (Required)" : (selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0 ? "Bag Count (Calculated)" : "Bag Count (Optional)")}
+          </label>
           <input
             id="bagCount"
             type="number"
+            required={unit === "BAG"}
+            readOnly={unit !== "BAG" && !!(selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0)}
+            placeholder={unit === "BAG" ? "Enter number of bags..." : (selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0 ? "Automatically calculated" : "e.g. 50")}
             value={bagCount}
-            onChange={e => setBagCount(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            onChange={e => handleBagCountChange(e.target.value)}
+            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${unit !== "BAG" && !!(selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0) ? "bg-muted cursor-not-allowed text-muted-foreground" : "bg-background"}`}
           />
         </div>
 

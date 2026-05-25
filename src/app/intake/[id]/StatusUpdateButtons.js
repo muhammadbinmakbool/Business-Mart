@@ -38,7 +38,8 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     bagCount: Number(bagCount) || 0,
     bardanaGramPerBag: Number(bardanaGramPerBag) || 0,
     khotRate: Number(khotRate) || 0,
-    khotRateUnit: khotRateUnit
+    khotRateUnit: khotRateUnit,
+    product: intake?.product
   });
 
   async function handleUpdate(status) {

@@ -6,7 +6,7 @@ import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getUnitsByCategory } from "@/lib/units";
+import { getUnitsByCategory, normalizeQuantity, convertFromBase } from "@/lib/units";
 import { getPreferredWeightUnit } from "@/lib/display-units";
 
 export default function IntakeForm({ suppliers, products }) {
@@ -16,6 +16,8 @@ export default function IntakeForm({ suppliers, products }) {
   const [isNewSupplier, setIsNewSupplier] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedUnit, setSelectedUnit] = useState("");
+  const [grossWeightVal, setGrossWeightVal] = useState("");
+  const [bagCountVal, setBagCountVal] = useState("");
 
   const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
   const compatibleUnits = selectedProduct ? getUnitsByCategory(selectedProduct.category) : [];
@@ -27,9 +29,53 @@ export default function IntakeForm({ suppliers, products }) {
       const units = getUnitsByCategory(prod.category);
       const prefUnit = getPreferredWeightUnit();
       const isPrefCompatible = units.some(u => u.id === prefUnit);
-      setSelectedUnit(isPrefCompatible ? prefUnit : (prod.primaryUnit || "KG"));
+      const defaultUnit = isPrefCompatible ? prefUnit : (prod.primaryUnit || "KG");
+      setSelectedUnit(defaultUnit);
+
+      const hasConversion = prod.unitConversion && Number(prod.unitConversion) > 0;
+      if (defaultUnit === "BAG") {
+        setGrossWeightVal(bagCountVal);
+      } else if (hasConversion && grossWeightVal) {
+        const weightInKg = normalizeQuantity(grossWeightVal, defaultUnit, prod);
+        const bags = convertFromBase(weightInKg, "BAG", prod);
+        const calculatedBags = Math.round(bags);
+        setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
+      }
     } else {
       setSelectedUnit("");
+      setGrossWeightVal("");
+      setBagCountVal("");
+    }
+  };
+
+  const handleGrossWeightChange = (val) => {
+    setGrossWeightVal(val);
+    const hasConversion = selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0;
+    if (hasConversion && (selectedUnit === "KG" || selectedUnit === "MAUND")) {
+      const weightInKg = normalizeQuantity(val, selectedUnit, selectedProduct);
+      const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
+      const calculatedBags = Math.round(bags);
+      setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
+    }
+  };
+
+  const handleUnitChange = (unit) => {
+    setSelectedUnit(unit);
+    const hasConversion = selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0;
+    if (unit === "BAG") {
+      setGrossWeightVal(bagCountVal);
+    } else if (hasConversion) {
+      const weightInKg = normalizeQuantity(grossWeightVal, unit, selectedProduct);
+      const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
+      const calculatedBags = Math.round(bags);
+      setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
+    }
+  };
+
+  const handleBagCountChange = (val) => {
+    setBagCountVal(val);
+    if (selectedUnit === "BAG") {
+      setGrossWeightVal(val);
     }
   };
 
@@ -49,6 +95,8 @@ export default function IntakeForm({ suppliers, products }) {
       formRef.current?.reset();
       setSelectedProductId("");
       setSelectedUnit("");
+      setGrossWeightVal("");
+      setBagCountVal("");
       supplierRef.current?.focus();
     }
   }
@@ -150,9 +198,7 @@ export default function IntakeForm({ suppliers, products }) {
               <option key={p.id} value={p.id} className="bg-background text-foreground">{p.name}</option>
             ))}
           </select>
-        </div>
-
-        {/* 3. Unit Selection */}
+        </div>         {/* 3. Unit Selection */}
         <div className="space-y-2">
           <label htmlFor="unit" className="text-sm font-medium">Measurement Unit</label>
           <select
@@ -161,8 +207,8 @@ export default function IntakeForm({ suppliers, products }) {
             required
             disabled={!selectedProductId}
             value={selectedUnit}
-            onChange={(e) => setSelectedUnit(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+            onChange={(e) => handleUnitChange(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 font-medium"
           >
             {compatibleUnits.map(u => (
               <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
@@ -173,27 +219,54 @@ export default function IntakeForm({ suppliers, products }) {
 
         {/* 4. Weight */}
         <div className="space-y-2">
-          <label htmlFor="grossWeight" className="text-sm font-medium">Gross Weight</label>
-          <input
-            id="grossWeight"
-            name="grossWeight"
-            type="number"
-            step="0.01"
-            required
-            placeholder="0.00"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+          <label htmlFor="grossWeight" className="text-sm font-medium">
+            Gross Weight {selectedUnit === "BAG" ? "(Calculated in KG)" : ""}
+          </label>
+          {selectedUnit === "BAG" ? (
+            <>
+              <input
+                id="grossWeight_display"
+                type="text"
+                readOnly
+                value={selectedProduct ? normalizeQuantity(bagCountVal || 0, "BAG", selectedProduct).toFixed(2) : ""}
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-muted cursor-not-allowed text-muted-foreground font-semibold"
+              />
+              <input
+                type="hidden"
+                name="grossWeight"
+                value={grossWeightVal}
+              />
+            </>
+          ) : (
+            <input
+              id="grossWeight"
+              name="grossWeight"
+              type="number"
+              step="0.01"
+              required
+              placeholder="0.00"
+              value={grossWeightVal}
+              onChange={(e) => handleGrossWeightChange(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          )}
         </div>
 
         {/* 5. Bag Count */}
         <div className="space-y-2">
-          <label htmlFor="bagCount" className="text-sm font-medium">Bag Count (Optional)</label>
+          <label htmlFor="bagCount" className="text-sm font-medium">
+            {selectedUnit === "BAG" ? "Bag Count (Required)" : (selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0 ? "Bag Count (Calculated)" : "Bag Count (Optional)")}
+          </label>
           <input
             id="bagCount"
             name="bagCount"
             type="number"
-            placeholder="e.g. 50"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            required={selectedUnit === "BAG"}
+            readOnly={selectedUnit !== "BAG" && !!(selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0)}
+            placeholder={selectedUnit === "BAG" ? "Enter number of bags..." : (selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0 ? "Automatically calculated" : "e.g. 50")}
+            value={bagCountVal}
+            onChange={(e) => handleBagCountChange(e.target.value)}
+            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${selectedUnit !== "BAG" && !!(selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0) ? "bg-muted cursor-not-allowed text-muted-foreground" : "bg-background"}`}
           />
         </div>
 

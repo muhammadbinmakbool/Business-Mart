@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
 import DeleteButton from "@/components/DeleteButton";
 import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
-import { convertRate } from "@/lib/units";
+import { convertRate, normalizeQuantity } from "@/lib/units";
 import PrintButtons from "@/print/components/PrintButtons";
 
 export default async function IntakeDetailsPage({ params: paramsPromise }) {
@@ -109,7 +109,17 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
               </div>
               <div className="bg-primary/5 p-4 rounded-lg space-y-1">
                 <span className="text-[10px] font-bold uppercase text-primary">Gross Weight</span>
-                <div className="text-2xl font-bold text-primary">{Number(intake.grossWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span></div>
+                <div className="text-2xl font-bold text-primary">
+                  {intake.unit === "BAG" ? (
+                    <>
+                      {Number(intake.normalizedWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">KG</span>
+                    </>
+                  ) : (
+                    <>
+                      {Number(intake.grossWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -120,7 +130,15 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
                   <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-xl space-y-1">
                     <span className="text-[10px] font-bold uppercase text-emerald-600">Net Weight</span>
                     <div className="text-xl font-bold text-emerald-700">
-                      {Number(intake.netWeight || 0).toLocaleString()} <span className="text-xs font-normal italic uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                      {intake.unit === "BAG" && intake.product ? (
+                        <>
+                          {normalizeQuantity(intake.netWeight || 0, "BAG", intake.product).toLocaleString()} <span className="text-xs font-normal italic uppercase font-mono">KG</span>
+                        </>
+                      ) : (
+                        <>
+                          {Number(intake.netWeight || 0).toLocaleString()} <span className="text-xs font-normal italic uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="bg-primary/5 border border-primary/10 p-4 rounded-xl space-y-1">

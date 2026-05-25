@@ -10,6 +10,7 @@ import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
 import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
+import { normalizeQuantity } from "@/lib/units";
 
 export default function IntakeListClient({ intakes = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -125,7 +126,15 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
                     <td className="px-4 py-3">{intake.product.name}</td>
                     <td className="px-4 py-3 text-right">{intake.bagCount || "-"}</td>
                     <td className="px-4 py-3 text-right font-semibold">
-                      {Number(intake.grossWeight).toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                      {intake.unit === "BAG" ? (
+                        <>
+                          {Number(intake.normalizedWeight).toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">KG</span>
+                        </>
+                      ) : (
+                        <>
+                          {Number(intake.grossWeight).toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                        </>
+                      )}
                     </td>
                     {showSoldColumns && (
                       <>
@@ -141,7 +150,15 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
                         <td className="px-4 py-3 text-right font-semibold text-emerald-600 whitespace-nowrap">
                           {intake.netWeight !== null ? (
                             <>
-                              {Number(intake.netWeight).toLocaleString()} <span className="text-[10px] uppercase text-muted-foreground">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                              {intake.unit === "BAG" && intake.product ? (
+                                <>
+                                  {normalizeQuantity(intake.netWeight, "BAG", intake.product).toLocaleString()} <span className="text-[10px] uppercase text-muted-foreground">KG</span>
+                                </>
+                              ) : (
+                                <>
+                                  {Number(intake.netWeight).toLocaleString()} <span className="text-[10px] uppercase text-muted-foreground">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                                </>
+                              )}
                             </>
                           ) : "-"}
                         </td>
