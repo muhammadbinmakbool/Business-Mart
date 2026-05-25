@@ -38,7 +38,7 @@ export default function IntakeForm({ suppliers, products }) {
       } else if (hasConversion && grossWeightVal) {
         const weightInKg = normalizeQuantity(grossWeightVal, defaultUnit, prod);
         const bags = convertFromBase(weightInKg, "BAG", prod);
-        const calculatedBags = Math.round(bags);
+        const calculatedBags = Math.ceil(bags);
         setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
       }
     } else {
@@ -54,7 +54,7 @@ export default function IntakeForm({ suppliers, products }) {
     if (hasConversion && (selectedUnit === "KG" || selectedUnit === "MAUND")) {
       const weightInKg = normalizeQuantity(val, selectedUnit, selectedProduct);
       const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
-      const calculatedBags = Math.round(bags);
+      const calculatedBags = Math.ceil(bags);
       setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
     }
   };
@@ -67,7 +67,7 @@ export default function IntakeForm({ suppliers, products }) {
     } else if (hasConversion) {
       const weightInKg = normalizeQuantity(grossWeightVal, unit, selectedProduct);
       const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
-      const calculatedBags = Math.round(bags);
+      const calculatedBags = Math.ceil(bags);
       setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
     }
   };
