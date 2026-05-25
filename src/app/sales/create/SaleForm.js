@@ -162,6 +162,10 @@ export default function SaleForm({ buyers, products, initialData = null }) {
         amount: 0 
       }]);
     }
+    setCurrentAdjustment(prev => ({
+      ...prev,
+      unit: getPreferredWeightUnit() || "KG"
+    }));
   }, []);
 
   // Handlers
@@ -231,7 +235,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
       }
     ]);
     setIsAdjustmentModalOpen(false);
-    setCurrentAdjustment({ adjustmentType: "Commission", method: "PERCENTAGE", value: "", direction: "ADD", unit: "KG" });
+    setCurrentAdjustment({ adjustmentType: "Commission", method: "PERCENTAGE", value: "", direction: "ADD", unit: getPreferredWeightUnit() || "KG" });
   };
 
   const removeAdjustment = (index) => {
@@ -790,7 +794,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                       setCurrentAdjustment({
                         ...currentAdjustment, 
                         method,
-                        unit: method === "PER_WEIGHT" ? "KG" : null
+                        unit: method === "PER_WEIGHT" ? (getPreferredWeightUnit() || "KG") : null
                       });
                     }}
                     className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"

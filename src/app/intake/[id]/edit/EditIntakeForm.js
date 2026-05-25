@@ -34,7 +34,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     if (!intake.unit) {
       setUnit(getPreferredWeightUnit());
     }
-    if (!intake.rateUnit) {
+    if (!intake.rateUnit || intake.status === "PENDING") {
       setRateUnit(getPreferredRateUnit());
     }
   }, [intake]);
