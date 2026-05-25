@@ -31,8 +31,16 @@ All calculations in forms, list tables, and detail screens are entirely registry
 The Intake Forms (`IntakeForm.js` and `EditIntakeForm.js`) operate in one of two dynamic modes based on the active **Measurement Unit** selection:
 
 ### Mode A: Physical Unit Selected (`KG` or `MAUND`)
-When the selected unit is a standard physical weight unit, the operator enters the **Gross Weight** value directly. The **Bag Count** is automatically calculated and locked to read-only:
+When the selected unit is a standard physical weight unit, the operator enters the **Gross Weight** value directly. For **Bag-based Products**, the **Bag Count** is automatically calculated and locked to read-only.
 
+#### 🔒 The Bag-based Product Constraint
+Auto-calculation and input-locking of the `Bag Count` are strictly restrained to products that meet both criteria:
+1. **`primaryUnit` is set to `"BAG"`**.
+2. **`unitConversion` (bag capacity) is defined and greater than zero**.
+
+If the product does not meet this constraint (e.g. standard bulk wheat/rice measured in bulk KGs or Maunds without a predefined bag size), the `Bag Count` field remains completely **editable and optional**, matching its legacy behavior.
+
+#### 🧮 Calculation Mechanism (when product is a Bag-based Product)
 1. **User input**: Operator enters `Gross Weight` (e.g., `400` KG).
 2. **Reactivity**: 
    - Normalizes the input weight to physical base KG:
