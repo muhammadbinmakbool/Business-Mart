@@ -34,6 +34,11 @@ If the intake's `SalesTrack` is already billed or included in a finalized invoic
 * **UI**: Hard block the action completely. Display an error explaining that the intake is already included in a finalized sale/invoice and instruct the user to remove it from the invoice first.
 * **Backend**: Throw a hard error in `IntakeService.updateIntake` to block status mutations, protecting ledger integrity and preventing orphaned invoice references.
 
+### Rule 3 — Supplier Settlement Reversion (Hard Block)
+If the intake is already included in a **Supplier Settlement (Supplier Invoice / Invoice Item)**:
+* **UI**: Hard block the action completely. Display a custom error modal indicating that the intake is settled with the supplier and instructing the user to edit or delete the associated Supplier Invoice to exclude this intake first.
+* **Backend**: Throw a hard error in `IntakeService.updateIntake` preventing the update and rolling back any other mutations to protect the settlement records.
+
 ---
 
 ## 🔧 Backend Implementation
@@ -43,8 +48,16 @@ If the intake's `SalesTrack` is already billed or included in a finalized invoic
 Mutating status away from `SOLD`/`CLEARED` is verified in the database transaction level inside [IntakeService.js](file:///d:/Projects/Next%20JS/src/modules/intake/services/IntakeService.js):
 
 ```javascript
-// Validation Rule: If transitioning away from SOLD or CLEARED to PENDING or CANCELLED, verify/delete unbilled SalesTrack
+// Validation Rule: If transitioning away from SOLD or CLEARED to PENDING or CANCELLED, verify/delete unbilled SalesTrack and block if included in Supplier Settlement
 if ((oldStatus === "SOLD" || oldStatus === "CLEARED") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
+  // Check for Supplier Settlement linkage
+  const supplierInvoiceItem = await tx.supplierInvoiceItem.findFirst({
+    where: { intakeTransactionId: current.id }
+  });
+  if (supplierInvoiceItem) {
+    throw new Error("Cannot change status because this intake is already included in a Supplier Settlement/Invoice. Please remove it from the supplier settlement first.");
+  }
+
   const existingTrack = await tx.salesTrack.findUnique({
     where: { intakeTransactionId: current.id }
   });
@@ -97,3 +110,11 @@ Managed in [EditIntakeForm.js](file:///d:/Projects/Next%20JS/src/app/intake/%5Bi
 4. Try to revert the intake's status back to `PENDING` or `CANCELLED`.
 5. Verify the blocking modal appears and prevents the operation.
 6. Verify the status remains `SOLD` and database data is unchanged.
+
+### Supplier Settlement Revert Checklist
+1. Create an intake.
+2. Mark it as `SOLD` or `CLEARED`.
+3. Open the Supplier Invoices module and generate a Supplier Settlement Invoice containing this intake.
+4. Try to revert the intake's status back to `PENDING` or `CANCELLED` (either via quick button or edit form).
+5. Verify the custom Supplier Settlement blocking modal appears and completely blocks the action.
+6. Verify the status remains unchanged in the database.
