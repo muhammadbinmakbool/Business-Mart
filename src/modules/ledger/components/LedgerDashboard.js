@@ -88,12 +88,12 @@ export default function LedgerDashboard({ summary, drift = null, isSavedSession 
           </div>
           <div className="mt-4 pt-3 border-t border-dashed border-muted/50 grid grid-cols-3 gap-1 text-[10px] text-muted-foreground">
             <div>
-              <span className="block font-semibold">Base:</span>
-              <span className="block font-medium truncate">{formatRs(supplier.gross)}</span>
+              <span className="block font-semibold">Final Total:</span>
+              <span className="block font-medium truncate">{formatRs(supplier.finalPayable)}</span>
             </div>
             <div>
               <span className="block font-semibold">Adjustments:</span>
-              <span className="block font-medium truncate">-{formatRs(supplier.deductions)}</span>
+              <span className="block font-medium truncate">+{formatRs(supplier.deductions)}</span>
             </div>
             <div>
               <span className="block font-semibold">Invoices:</span>
@@ -115,12 +115,12 @@ export default function LedgerDashboard({ summary, drift = null, isSavedSession 
           </div>
           <div className="mt-4 pt-3 border-t border-dashed border-muted/50 grid grid-cols-3 gap-1 text-[10px] text-muted-foreground">
             <div>
-              <span className="block font-semibold">Base:</span>
-              <span className="block font-medium truncate">{formatRs(buyer.base)}</span>
+              <span className="block font-semibold">Final Total:</span>
+              <span className="block font-medium truncate">{formatRs(buyer.final)}</span>
             </div>
             <div>
               <span className="block font-semibold">Adjustments:</span>
-              <span className="block font-medium truncate">{buyer.adjustments >= 0 ? "+" : ""}{formatRs(buyer.adjustments)}</span>
+              <span className="block font-medium truncate">{buyer.adjustments >= 0 ? "-" : ""}{formatRs(buyer.adjustments)}</span>
             </div>
             <div>
               <span className="block font-semibold">Invoices:</span>
