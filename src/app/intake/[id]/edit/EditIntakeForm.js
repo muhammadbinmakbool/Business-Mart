@@ -40,6 +40,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   }, [intake]);
 
   const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
+  const isBagProduct = selectedProduct?.primaryUnit === "BAG" && selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0;
   const compatibleUnits = selectedProduct ? getUnitsByCategory(selectedProduct.category) : [];
 
   const handleProductChange = (productId) => {
@@ -52,10 +53,10 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
       const defaultUnit = isPrefCompatible ? prefUnit : (prod.primaryUnit || "KG");
       setUnit(defaultUnit);
 
-      const hasConversion = prod.unitConversion && Number(prod.unitConversion) > 0;
+      const isProdBag = prod.primaryUnit === "BAG" && prod.unitConversion && Number(prod.unitConversion) > 0;
       if (defaultUnit === "BAG") {
         setGrossWeight(bagCount);
-      } else if (hasConversion && grossWeight) {
+      } else if (isProdBag && grossWeight) {
         const weightInKg = normalizeQuantity(grossWeight, defaultUnit, prod);
         const bags = convertFromBase(weightInKg, "BAG", prod);
         const calculatedBags = Math.ceil(bags);
@@ -70,8 +71,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
   const handleGrossWeightChange = (val) => {
     setGrossWeight(val);
-    const hasConversion = selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0;
-    if (hasConversion && (unit === "KG" || unit === "MAUND")) {
+    if (isBagProduct && (unit === "KG" || unit === "MAUND")) {
       const weightInKg = normalizeQuantity(val, unit, selectedProduct);
       const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
       const calculatedBags = Math.ceil(bags);
@@ -81,10 +81,9 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
   const handleUnitChange = (newUnit) => {
     setUnit(newUnit);
-    const hasConversion = selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0;
     if (newUnit === "BAG") {
       setGrossWeight(bagCount);
-    } else if (hasConversion) {
+    } else if (isBagProduct) {
       const weightInKg = normalizeQuantity(grossWeight, newUnit, selectedProduct);
       const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
       const calculatedBags = Math.ceil(bags);
@@ -229,17 +228,17 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
         <div className="space-y-2">
           <label htmlFor="bagCount" className="text-sm font-medium">
-            {unit === "BAG" ? "Bag Count (Required)" : (selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0 ? "Bag Count (Calculated)" : "Bag Count (Optional)")}
+            {unit === "BAG" ? "Bag Count (Required)" : (isBagProduct ? "Bag Count (Calculated)" : "Bag Count (Optional)")}
           </label>
           <input
             id="bagCount"
             type="number"
             required={unit === "BAG"}
-            readOnly={unit !== "BAG" && !!(selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0)}
-            placeholder={unit === "BAG" ? "Enter number of bags..." : (selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0 ? "Automatically calculated" : "e.g. 50")}
+            readOnly={unit !== "BAG" && isBagProduct}
+            placeholder={unit === "BAG" ? "Enter number of bags..." : (isBagProduct ? "Automatically calculated" : "e.g. 50")}
             value={bagCount}
             onChange={e => handleBagCountChange(e.target.value)}
-            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${unit !== "BAG" && !!(selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0) ? "bg-muted cursor-not-allowed text-muted-foreground" : "bg-background"}`}
+            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${unit !== "BAG" && isBagProduct ? "bg-muted cursor-not-allowed text-muted-foreground" : "bg-background"}`}
           />
         </div>
 
