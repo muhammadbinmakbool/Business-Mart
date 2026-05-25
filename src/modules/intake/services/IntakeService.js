@@ -173,7 +173,7 @@ export class IntakeService {
           entryDate: validated.entryDate,
           bagCount: validated.bagCount,
           grossWeight: validated.grossWeight,
-          unit: validated.unit,
+          unit: validated.unit !== undefined ? validated.unit : current.unit,
           normalizedWeight: newWeight,
           notes: validated.notes,
           status: newStatus,

@@ -9,11 +9,11 @@ export const intakeSchema = z.object({
   netWeight: z.coerce.number().optional().nullable(),
   Bardana: z.coerce.number().optional().nullable(),
   Khot: z.coerce.number().optional().nullable(),
-  unit: z.string().default("KG"),
+  unit: z.string().optional().nullable(),
   rate: z.coerce.number().optional().nullable(),
-  rateUnit: z.string().default("KG"),
+  rateUnit: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  status: z.string().default("PENDING"),
+  status: z.string().optional().nullable(),
 });
 
 export const advanceSchema = z.object({
