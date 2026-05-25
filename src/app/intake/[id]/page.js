@@ -38,14 +38,21 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
           </div>
         </div>
         
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/intake/${intake.id}/edit`}
-            className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent transition-colors"
-          >
-            <Edit2 className="h-4 w-4" />
-            Edit
-          </Link>
+        <div className="flex items-center gap-2">
+          {intake.status === "PENDING" && (
+            <Link
+              href={`/intake/${intake.id}/edit`}
+              className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent transition-colors"
+            >
+              <Edit2 className="h-4 w-4" />
+              Edit
+            </Link>
+          )}
+          <PrintButtons
+            type="intake"
+            data={intake}
+            filename={`Intake-${intake.intakeNumber || intake.id}`}
+          />
           <DeleteButton 
             id={intake.id} 
             deleteAction={deleteIntakeAction} 
@@ -54,7 +61,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
             buttonText="Delete"
           />
           <div className={cn(
-            "px-3 py-1 rounded-full text-xs font-bold uppercase border",
+            "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border",
             intake.status === "PENDING" ? "bg-amber-100 text-amber-700 border-amber-200" :
             intake.status === "SOLD" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
             intake.status === "CLEARED" ? "bg-blue-100 text-blue-700 border-blue-200" :
@@ -226,16 +233,6 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
           <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Status Lifecycle</h2>
             <StatusUpdateButtons intakeId={intake.id} currentStatus={intake.status} intake={intake} buyers={buyers} />
-          </div>
-
-          <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
-            <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Print / Share</h2>
-            <PrintButtons
-              type="intake"
-              data={intake}
-              filename={`Intake-${intake.intakeNumber || intake.id}`}
-              className="flex-col w-full !items-stretch"
-            />
           </div>
         </div>
       </div>
