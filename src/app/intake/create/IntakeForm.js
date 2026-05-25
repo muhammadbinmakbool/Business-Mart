@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getUnitsByCategory } from "@/lib/units";
+import { getPreferredWeightUnit } from "@/lib/display-units";
 
 export default function IntakeForm({ suppliers, products }) {
   const router = useRouter();
@@ -14,9 +15,23 @@ export default function IntakeForm({ suppliers, products }) {
   const supplierRef = useRef(null);
   const [isNewSupplier, setIsNewSupplier] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedUnit, setSelectedUnit] = useState("");
 
   const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
   const compatibleUnits = selectedProduct ? getUnitsByCategory(selectedProduct.category) : [];
+
+  const handleProductChange = (productId) => {
+    setSelectedProductId(productId);
+    const prod = products.find(p => p.id === parseInt(productId));
+    if (prod) {
+      const units = getUnitsByCategory(prod.category);
+      const prefUnit = getPreferredWeightUnit();
+      const isPrefCompatible = units.some(u => u.id === prefUnit);
+      setSelectedUnit(isPrefCompatible ? prefUnit : (prod.primaryUnit || "KG"));
+    } else {
+      setSelectedUnit("");
+    }
+  };
 
   async function handleSubmit(formData, shouldRedirect) {
     const result = await createIntakeAction(formData);
@@ -33,6 +48,7 @@ export default function IntakeForm({ suppliers, products }) {
     } else {
       formRef.current?.reset();
       setSelectedProductId("");
+      setSelectedUnit("");
       supplierRef.current?.focus();
     }
   }
@@ -126,7 +142,7 @@ export default function IntakeForm({ suppliers, products }) {
             name="productId"
             required
             value={selectedProductId}
-            onChange={(e) => setSelectedProductId(e.target.value)}
+            onChange={(e) => handleProductChange(e.target.value)}
             className="w-full rounded-md border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
           >
             <option value="" className="bg-background text-foreground">Select a product...</option>
@@ -144,6 +160,8 @@ export default function IntakeForm({ suppliers, products }) {
             name="unit"
             required
             disabled={!selectedProductId}
+            value={selectedUnit}
+            onChange={(e) => setSelectedUnit(e.target.value)}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
           >
             {compatibleUnits.map(u => (

@@ -8,6 +8,7 @@ import {
   Sliders,
   ShieldAlert
 } from "lucide-react";
+import DisplayUnitSettingsCard from "./DisplayUnitSettingsCard";
 
 export default function SettingsPage() {
   const templates = [
@@ -88,6 +89,9 @@ export default function SettingsPage() {
               Note: Branding settings are currently read-only and loaded from the print configuration module.
             </p>
           </div>
+
+          {/* Card 1.5: UI Display Unit Preferences */}
+          <DisplayUnitSettingsCard />
 
           {/* Card 2: Print Subsystem Customizer */}
           <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-6">

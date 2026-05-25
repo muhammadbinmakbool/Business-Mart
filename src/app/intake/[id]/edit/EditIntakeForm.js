@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getUnitsByCategory, calculateIntakeNetWeight } from "@/lib/units";
 import { Scale, User, DollarSign, Box } from "lucide-react";
+import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
 
 export default function EditIntakeForm({ intake, suppliers, products, buyers = [] }) {
   const router = useRouter();
@@ -28,6 +29,15 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   );
   const [khotRate, setKhotRate] = useState("0");
   const [khotRateUnit, setKhotRateUnit] = useState("KG");
+
+  React.useEffect(() => {
+    if (!intake.unit) {
+      setUnit(getPreferredWeightUnit());
+    }
+    if (!intake.rateUnit) {
+      setRateUnit(getPreferredRateUnit());
+    }
+  }, [intake]);
 
   // Real-time calculation logic
   const { grossWeightKg, bardanaKg, khotKg, netWeight } = calculateIntakeNetWeight({

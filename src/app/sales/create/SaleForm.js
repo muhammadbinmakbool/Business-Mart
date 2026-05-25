@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/financial";
 import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate, convertRate, convertFromBase } from "@/lib/units";
+import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
 import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
 
 export default function SaleForm({ buyers, products, initialData = null }) {
@@ -149,8 +150,30 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     updateTotals();
   }, [updateTotals]);
 
+  // Client-safe initial mount preference loader to prevent hydration mismatch
+  useEffect(() => {
+    if (!initialData && items.length === 1 && items[0].productId === "") {
+      setItems([{ 
+        productId: "", 
+        weight: "", 
+        rate: "", 
+        unit: getPreferredWeightUnit() || "KG", 
+        rateUnit: getPreferredRateUnit() || "KG", 
+        amount: 0 
+      }]);
+    }
+  }, []);
+
   // Handlers
-  const addItem = () => setItems([...items, { productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]);
+  const addItem = () => setItems([...items, { 
+    productId: "", 
+    weight: "", 
+    rate: "", 
+    unit: getPreferredWeightUnit() || "KG", 
+    rateUnit: getPreferredRateUnit() || "KG", 
+    amount: 0 
+  }]);
+
   const removeItem = (index) => {
     const itemToRemove = items[index];
     if (itemToRemove.salesTrackId) {
@@ -163,7 +186,14 @@ export default function SaleForm({ buyers, products, initialData = null }) {
       const newItems = items.filter((_, i) => i !== index);
       setItems(newItems);
     } else {
-      setItems([{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]);
+      setItems([{ 
+        productId: "", 
+        weight: "", 
+        rate: "", 
+        unit: getPreferredWeightUnit() || "KG", 
+        rateUnit: getPreferredRateUnit() || "KG", 
+        amount: 0 
+      }]);
     }
   };
 
@@ -175,8 +205,12 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     if (field === "productId") {
         const product = products.find(p => p.id === parseInt(value));
         if (product) {
-            newItems[index].unit = product.primaryUnit || "KG";
-            newItems[index].rateUnit = product.primaryUnit || "KG";
+            const compatible = getUnitsByCategory(product.category);
+            const prefWeight = getPreferredWeightUnit();
+            const prefRate = getPreferredRateUnit();
+
+            newItems[index].unit = compatible.some(u => u.id === prefWeight) ? prefWeight : (product.primaryUnit || "KG");
+            newItems[index].rateUnit = compatible.some(u => u.id === prefRate) ? prefRate : (product.primaryUnit || "KG");
         }
     }
     

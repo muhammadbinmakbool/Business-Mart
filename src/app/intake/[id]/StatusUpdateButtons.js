@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Clock, BadgeCheck, ShoppingBag, XCircle, X, Scale, User, DollarSign, Box } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { calculateIntakeNetWeight } from "@/lib/units";
+import { getPreferredRateUnit } from "@/lib/display-units";
 
 export default function StatusUpdateButtons({ intakeId, currentStatus, intake, buyers = [] }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,6 +20,12 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
   const [bardanaGramPerBag, setBardanaGramPerBag] = useState("150");
   const [khotRate, setKhotRate] = useState("0");
   const [khotRateUnit, setKhotRateUnit] = useState("KG");
+
+  React.useEffect(() => {
+    if (!intake?.rateUnit) {
+      setRateUnit(getPreferredRateUnit());
+    }
+  }, [intake]);
 
   // Real-time calculation using core registry helper
   const { grossWeightKg, bardanaKg, khotKg, netWeight } = calculateIntakeNetWeight({
