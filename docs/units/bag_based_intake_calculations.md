@@ -43,10 +43,14 @@ When the selected unit is a standard physical weight unit, the operator enters t
      ```javascript
      const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
      ```
-   - Rounds the resulting count to the nearest bag and updates the **Bag Count** state:
+   - **Ceiling Rounding Strategy (Exclusive UI Rule)**:
+     To ensure inventory accuracy and operational reliability, the system rounds up to the next full bag using the **ceiling method (`Math.ceil`)** rather than standard rounding:
      ```javascript
-     setBagCountVal(Math.round(bags).toString());
+     setBagCountVal(Math.ceil(bags).toString());
      ```
+     > [!IMPORTANT]
+     > This is the **only place in the entire application** where the ceiling method is applied to bag count calculations.
+     > **Rationale**: If the physical weight exceeds a bag boundary even by a fraction (e.g. `25 KG` on a product with a `20 KG` bag size = `1.25 bags`), it requires a minimum of **2 physical bags** (1 full bag of `20 KG` and a secondary partially filled bag of `5 KG`). For gross logistics and packaging tracking, this is counted as **2 bags**.
 3. **Input Lock**: The `Bag Count` input is marked as `readOnly={true}`.
 
 ---
