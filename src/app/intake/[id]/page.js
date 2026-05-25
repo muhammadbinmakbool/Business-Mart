@@ -1,15 +1,14 @@
 import React from "react";
 import Link from "next/link";
-import { ChevronLeft, Calendar, FileText, User, Package, Weight, Coins, CheckCircle, XCircle, Clock, Edit2 } from "lucide-react";
+import { Calendar, FileText, User, Package, Weight, Coins, CheckCircle, XCircle, Clock } from "lucide-react";
 import { IntakeService } from "@/modules/intake/services/IntakeService";
 import { PartyService } from "@/modules/parties/services/PartyService";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
-import DeleteButton from "@/components/DeleteButton";
 import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { convertRate, normalizeQuantity } from "@/lib/units";
-import PrintButtons from "@/print/components/PrintButtons";
+import ResponsiveHeader from "@/components/ResponsiveHeader";
 
 export default async function IntakeDetailsPage({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -24,42 +23,23 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/intake"
-            className="rounded-full p-2 hover:bg-accent transition-colors"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
+      <ResponsiveHeader
+        backUrl="/intake"
+        title={
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Intake {intake.intakeNumber}</h1>
             <p className="text-sm text-muted-foreground">Detailed arrival record and payments.</p>
           </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {intake.status === "PENDING" && (
-            <Link
-              href={`/intake/${intake.id}/edit`}
-              className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent transition-colors"
-            >
-              <Edit2 className="h-4 w-4" />
-              Edit
-            </Link>
-          )}
-          <PrintButtons
-            type="intake"
-            data={intake}
-            filename={`Intake-${intake.intakeNumber || intake.id}`}
-          />
-          <DeleteButton 
-            id={intake.id} 
-            deleteAction={deleteIntakeAction} 
-            redirectPath="/intake" 
-            label="Intake" 
-            buttonText="Delete"
-          />
+        }
+        editUrl={intake.status === "PENDING" ? `/intake/${intake.id}/edit` : null}
+        printType="intake"
+        printData={intake}
+        printFilename={`Intake-${intake.intakeNumber || intake.id}`}
+        deleteId={intake.id}
+        deleteAction={deleteIntakeAction}
+        deleteLabel="Intake"
+        deleteRedirect="/intake"
+        statusBadge={
           <div className={cn(
             "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border",
             intake.status === "PENDING" ? "bg-amber-100 text-amber-700 border-amber-200" :
@@ -69,8 +49,8 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
           )}>
             {intake.status}
           </div>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-6">

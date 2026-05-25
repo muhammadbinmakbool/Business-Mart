@@ -1,14 +1,13 @@
 import React from "react";
 import Link from "next/link";
-import { ChevronLeft, History, AlertCircle, Printer, Edit2 } from "lucide-react";
+import { History, AlertCircle } from "lucide-react";
 import { getSupplierInvoiceAction, deleteSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import StatusUpdater from "./StatusUpdater";
 import RegenerateButton from "./RegenerateButton";
 import { calculateSupplierDeductions } from "@/lib/financial";
-import PrintButtons from "@/print/components/PrintButtons";
-import DeleteButton from "@/components/DeleteButton";
+import ResponsiveHeader from "@/components/ResponsiveHeader";
 
 export default async function SupplierInvoiceDetailPage({ params }) {
   const { id } = await params;
@@ -70,14 +69,9 @@ export default async function SupplierInvoiceDetailPage({ params }) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/supplier-invoices"
-            className="rounded-full p-2 hover:bg-accent transition-colors"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
+      <ResponsiveHeader
+        backUrl="/supplier-invoices"
+        title={
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight">Settlement Invoice</h1>
@@ -85,39 +79,25 @@ export default async function SupplierInvoiceDetailPage({ params }) {
             </div>
             <p className="text-sm text-muted-foreground font-mono">{invoice.invoiceNumber}</p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {invoice.status === "PENDING" && (
-            <Link
-              href={`/supplier-invoices/${invoice.id}/edit`}
-              className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent transition-colors"
-            >
-              <Edit2 className="h-4 w-4" />
-              Edit
-            </Link>
-          )}
-          <PrintButtons
-            type="settlement"
-            data={{
-              invoice,
-              intakeBreakdowns,
-              summaryAdjustments
-            }}
-            filename={`Settlement-${invoice.invoiceNumber || invoice.id}`}
-          />
-          <DeleteButton 
-            id={invoice.id} 
-            deleteAction={deleteSupplierInvoiceAction} 
-            redirectPath="/supplier-invoices" 
-            label="Supplier Invoice" 
-            buttonText="Delete"
-          />
-          {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
+        }
+        editUrl={invoice.status === "PENDING" ? `/supplier-invoices/${invoice.id}/edit` : null}
+        printType="settlement"
+        printData={{
+          invoice,
+          intakeBreakdowns,
+          summaryAdjustments
+        }}
+        printFilename={`Settlement-${invoice.invoiceNumber || invoice.id}`}
+        deleteId={invoice.id}
+        deleteAction={deleteSupplierInvoiceAction}
+        deleteLabel="Supplier Invoice"
+        deleteRedirect="/supplier-invoices"
+        extraActions={
+          invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
             <RegenerateButton invoiceId={invoice.id} />
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
       {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">

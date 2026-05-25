@@ -2,25 +2,20 @@ import React from "react";
 import { SaleService } from "@/modules/sales/services/SaleService";
 import Link from "next/link";
 import { 
-  ChevronLeft, 
   ReceiptText, 
   User, 
   Calendar, 
   Package, 
   Scale, 
   Banknote,
-  Printer,
-  Download,
-  Edit2,
   History
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
 import RevertStatusButton from "./RevertStatusButton";
-import DeleteButton from "@/components/DeleteButton";
 import { deleteSaleAction, updateSaleStatusAction } from "@/modules/sales/controllers/saleActions";
-import PrintButtons from "@/print/components/PrintButtons";
+import ResponsiveHeader from "@/components/ResponsiveHeader";
 
 export default async function SaleDetailsPage({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -39,14 +34,9 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/sales"
-            className="rounded-full p-2 hover:bg-accent transition-colors"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
+      <ResponsiveHeader
+        backUrl="/sales"
+        title={
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl font-bold tracking-tight">Sale {sale.saleNumber}</h1>
@@ -64,35 +54,23 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
             </div>
             <p className="text-sm text-muted-foreground">Buyer invoice and transaction breakdown.</p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/sales/${sale.id}/edit`}
-            className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent transition-colors"
-          >
-            <Edit2 className="h-4 w-4" />
-            Edit
-          </Link>
-          <PrintButtons
-            type="sale"
-            data={sale}
-            filename={`Sale-${sale.saleNumber || sale.id}`}
-          />
-          <DeleteButton 
-            id={sale.id} 
-            deleteAction={deleteSaleAction} 
-            redirectPath="/sales" 
-            label="Sale Invoice" 
-            buttonText="Delete"
-          />
+        }
+        editUrl={sale.status === "PENDING" ? `/sales/${sale.id}/edit` : null}
+        printType="sale"
+        printData={sale}
+        printFilename={`Sale-${sale.saleNumber || sale.id}`}
+        deleteId={sale.id}
+        deleteAction={deleteSaleAction}
+        deleteLabel="Sale Invoice"
+        deleteRedirect="/sales"
+        extraActions={
           <StatusUpdateButtons 
             id={sale.id} 
             currentStatus={sale.status} 
             updateAction={updateSaleStatusAction} 
           />
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Transaction Data */}
