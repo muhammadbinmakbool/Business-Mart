@@ -106,3 +106,14 @@ export async function editSupplierInvoiceAction(formData) {
     return { success: false, error: error.message };
   }
 }
+
+export async function deleteSupplierInvoiceAction(invoiceId) {
+  try {
+    await SupplierInvoiceService.deleteInvoice(invoiceId);
+    revalidatePath("/supplier-invoices");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete supplier invoice:", error);
+    return { success: false, error: error.message };
+  }
+}

@@ -277,4 +277,33 @@ export class SupplierInvoiceService {
       return JSON.parse(JSON.stringify(newInvoice));
     });
   }
+
+  /**
+   * Safely deletes an invoice if it is currently PENDING.
+   */
+  static async deleteInvoice(invoiceId) {
+    const invoice = await SupplierInvoiceRepository.getById(invoiceId);
+    if (!invoice) throw new Error("Invoice not found");
+
+    if (invoice.status !== "PENDING") {
+      throw new Error("Only PENDING invoices can be deleted");
+    }
+
+    return prisma.$transaction(async (tx) => {
+      // 1. Disconnect any advances linked to this invoice
+      await tx.intakeAdvance.updateMany({
+        where: { supplierInvoiceId: parseInt(invoiceId) },
+        data: { supplierInvoiceId: null }
+      });
+
+      // 2. Delete the supplier invoice adjustments (cascaded by DB)
+      // 3. Delete the supplier invoice items (cascaded by DB)
+      // 4. Delete the supplier invoice itself
+      await tx.supplierInvoice.delete({
+        where: { id: parseInt(invoiceId) }
+      });
+
+      return { success: true };
+    });
+  }
 }

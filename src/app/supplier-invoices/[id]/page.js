@@ -1,13 +1,14 @@
 import React from "react";
 import Link from "next/link";
-import { ChevronLeft, History, AlertCircle, Printer, Edit } from "lucide-react";
-import { getSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
+import { ChevronLeft, History, AlertCircle, Printer, Edit2 } from "lucide-react";
+import { getSupplierInvoiceAction, deleteSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import StatusUpdater from "./StatusUpdater";
 import RegenerateButton from "./RegenerateButton";
 import { calculateSupplierDeductions } from "@/lib/financial";
 import PrintButtons from "@/print/components/PrintButtons";
+import DeleteButton from "@/components/DeleteButton";
 
 export default async function SupplierInvoiceDetailPage({ params }) {
   const { id } = await params;
@@ -87,6 +88,15 @@ export default async function SupplierInvoiceDetailPage({ params }) {
         </div>
 
         <div className="flex items-center gap-3">
+          {invoice.status === "PENDING" && (
+            <Link
+              href={`/supplier-invoices/${invoice.id}/edit`}
+              className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent transition-colors"
+            >
+              <Edit2 className="h-4 w-4" />
+              Edit
+            </Link>
+          )}
           <PrintButtons
             type="settlement"
             data={{
@@ -96,15 +106,13 @@ export default async function SupplierInvoiceDetailPage({ params }) {
             }}
             filename={`Settlement-${invoice.invoiceNumber || invoice.id}`}
           />
-          {invoice.status === "PENDING" && (
-            <Link
-              href={`/supplier-invoices/${invoice.id}/edit`}
-              className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold text-sm hover:bg-primary/95 transition-all shadow-lg shadow-primary/20"
-            >
-              <Edit className="h-4 w-4" />
-              Edit
-            </Link>
-          )}
+          <DeleteButton 
+            id={invoice.id} 
+            deleteAction={deleteSupplierInvoiceAction} 
+            redirectPath="/supplier-invoices" 
+            label="Supplier Invoice" 
+            buttonText="Delete"
+          />
           {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
             <RegenerateButton invoiceId={invoice.id} />
           )}
