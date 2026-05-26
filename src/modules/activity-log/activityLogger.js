@@ -1,7 +1,18 @@
 import { ActivityLogService } from "./services/ActivityLogService";
 
 const logQueue = [];
+const failedLogsBuffer = [];
+
+// Hardened Stability Limits
+const MAX_QUEUE_SIZE = 10000;
+const MAX_FAILED_BUFFER_SIZE = 500;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 200;
+
 let isProcessing = false;
+
+// Helper function to sleep (used for retry backoffs)
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function processQueue() {
   if (isProcessing || logQueue.length === 0) return;
@@ -10,11 +21,41 @@ async function processQueue() {
   try {
     while (logQueue.length > 0) {
       const nextLog = logQueue.shift();
-      try {
-        await ActivityLogService.createLog(nextLog);
-      } catch (error) {
-        // Individual item write failures must not halt the queue processing
-        console.error("ActivityLogger Background Worker failed to save log item:", error, nextLog);
+      let success = false;
+      let attempts = 0;
+
+      // Safe retry loop
+      while (attempts < MAX_RETRIES && !success) {
+        attempts++;
+        try {
+          await ActivityLogService.createLog(nextLog);
+          success = true;
+        } catch (error) {
+          console.error(
+            `ActivityLogger: Save attempt ${attempts}/${MAX_RETRIES} failed for entity ${nextLog.entityType} (ID: ${nextLog.entityId}):`,
+            error.message
+          );
+          
+          if (attempts < MAX_RETRIES) {
+            await delay(RETRY_DELAY_MS);
+          }
+        }
+      }
+
+      // Safe Dead-Letter buffer transition on permanent failure
+      if (!success) {
+        console.error("ActivityLogger: Log permanently failed to save. Offloading to dead-letter buffer:", nextLog);
+        
+        if (failedLogsBuffer.length >= MAX_FAILED_BUFFER_SIZE) {
+          // Drop oldest failed log to avoid memory growth leak
+          failedLogsBuffer.shift();
+        }
+        
+        failedLogsBuffer.push({
+          log: nextLog,
+          failedAt: new Date(),
+          totalAttempts: attempts
+        });
       }
     }
   } finally {
@@ -29,12 +70,16 @@ async function processQueue() {
  * 1. FIRE-AND-FORGET BACKGROUND QUEUE:
  *    To prevent audit logging latency from slowing down primary business operations,
  *    emitActivity pushes logs to a background FIFO queue and returns instantly without awaiting database writes.
- * 2. STRICT TRY-CATCH BOUNDARY:
+ * 2. MEMORY AND CRASH SAFETY HARDENING:
+ *    - Cap logQueue size to prevent Out-Of-Memory crashes under heavy operational bursts.
+ *    - Process exit hooks SIGTERM/SIGINT capture and attempt to flush remaining logQueue.
+ *    - Silent failure prevention via database save retry cycles and dead-letter queue buffering.
+ * 3. STRICT TRY-CATCH BOUNDARY:
  *    This function MUST NEVER propagate errors or trigger rollbacks of calling database transactions.
- * 3. NO BUSINESS LOGIC IN META:
+ * 4. NO BUSINESS LOGIC IN META:
  *    The `meta` payload is strictly READ-ONLY debugging context. No business calculations,
  *    inventory triggers, or ledger state mutations should ever depend on the contents of the `meta` field.
- * 4. STANDARDIZED ACTION VOCABULARY:
+ * 5. STANDARDIZED ACTION VOCABULARY:
  *    Always use the strict list of actions: CREATED, UPDATED, DELETED, COMPLETED, CANCELLED, ARCHIVED, SUPERSEDED, SOLD.
  * 
  * @param {Object} params
@@ -55,7 +100,17 @@ export async function emitActivity({
   userName = "system",
   meta = {}
 }) {
-  // 1. Queue the sanitized operational log entry
+  // 1. Queue memory growth safety cap check (Overflow handling)
+  if (logQueue.length >= MAX_QUEUE_SIZE) {
+    console.warn(
+      `ActivityLogger CRITICAL WARNING: In-memory queue limit of ${MAX_QUEUE_SIZE} hit. ` +
+      `Dropping log entry to protect server memory:`, 
+      { entityType, action, description }
+    );
+    return;
+  }
+
+  // 2. Queue the sanitized operational log entry
   logQueue.push({
     entityType,
     entityId: entityId ? parseInt(entityId) : null,
@@ -66,8 +121,35 @@ export async function emitActivity({
     meta
   });
 
-  // 2. Trigger background queue worker asynchronously without awaiting
+  // 3. Trigger background queue worker asynchronously without awaiting
   processQueue().catch(err => {
     console.error("ActivityLogger Background Queue Processor encountered critical failure:", err);
+  });
+}
+
+// Graceful Shutdown Handler
+async function gracefulShutdown() {
+  if (logQueue.length > 0) {
+    console.log(`ActivityLogger: Shutdown initiated. Processing remaining ${logQueue.length} logs before exit...`);
+    try {
+      // Force sequential database write of all remaining entries
+      await processQueue();
+      console.log("ActivityLogger: Graceful flush completed. All logs written to database.");
+    } catch (err) {
+      console.error("ActivityLogger: Graceful shutdown flush failed:", err);
+    }
+  }
+}
+
+// Register process exit listener hooks
+if (typeof process !== "undefined") {
+  process.once("SIGTERM", async () => {
+    await gracefulShutdown();
+    process.exit(0);
+  });
+  
+  process.once("SIGINT", async () => {
+    await gracefulShutdown();
+    process.exit(0);
   });
 }
