@@ -82,3 +82,24 @@ export function formatRateForInputUI(rate, product) {
     unit: targetUnit === "MAUND" ? "MND" : targetUnit
   };
 }
+
+/**
+ * Formats a Maund weight into a beautiful whole Maund and fractional Kg format (e.g. 40.5 Maund -> 40 MND 20 KG)
+ * only if there is a fractional part.
+ */
+export function formatMaundWeight(value, labelMaund = "MND", labelKg = "KG") {
+  const val = Number(value);
+  if (isNaN(val) || val <= 0) return `0 ${labelMaund}`;
+
+  const wholeMaunds = Math.floor(val);
+  const remainderKg = Math.round((val - wholeMaunds) * 40);
+
+  if (remainderKg === 0) {
+    return `${wholeMaunds} ${labelMaund}`;
+  }
+  if (remainderKg === 40) {
+    return `${wholeMaunds + 1} ${labelMaund}`;
+  }
+
+  return `${wholeMaunds} ${labelMaund} ${remainderKg} ${labelKg}`;
+}

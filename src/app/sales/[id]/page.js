@@ -16,6 +16,7 @@ import StatusUpdateButtons from "./StatusUpdateButtons";
 import RevertStatusButton from "./RevertStatusButton";
 import { deleteSaleAction, updateSaleStatusAction } from "@/modules/sales/controllers/saleActions";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
+import { formatMaundWeight } from "@/lib/display-units";
 
 export default async function SaleDetailsPage({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -96,7 +97,7 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
                     <tr key={item.id}>
                        <td className="px-6 py-4 font-semibold">{item.product.name}</td>
                        <td className="px-6 py-4 text-right font-mono text-xs">
-                         {item.weight.toLocaleString()} <span className="text-[10px] opacity-60 uppercase">{item.unit === "MAUND" ? "MND" : item.unit}</span>
+                         {item.unit === "MAUND" ? formatMaundWeight(item.weight, "MND", "KG") : `${item.weight.toLocaleString()} ${item.unit}`}
                        </td>
                        <td className="px-6 py-4 text-right font-mono text-xs">
                          Rs. {item.rate.toLocaleString()} / <span className="text-[10px] opacity-60 uppercase">{item.rateUnit === "MAUND" ? "MND" : item.rateUnit}</span>

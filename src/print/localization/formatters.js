@@ -23,6 +23,19 @@ export function formatCurrency(amount, locale = "en") {
  */
 export function formatWeight(weight, unit = "KG", locale = "en") {
   const num = typeof weight === "string" ? parseFloat(weight.replace(/,/g, "")) : weight;
+  
+  if ((unit === "MAUND" || unit === "MND") && !isNaN(num)) {
+    const wholeMaunds = Math.floor(num);
+    const remainderKg = Math.round((num - wholeMaunds) * 40);
+    
+    if (remainderKg > 0 && remainderKg < 40) {
+      if (locale === "ur") {
+        return `${wholeMaunds} من ${remainderKg} کلو`;
+      }
+      return `${wholeMaunds} MND ${remainderKg} KG`;
+    }
+  }
+
   const formattedWeight = isNaN(num) ? weight : Number(num).toLocaleString(locale === "ur" ? "ur-PK" : "en-US");
   
   let translatedUnit = unit;
