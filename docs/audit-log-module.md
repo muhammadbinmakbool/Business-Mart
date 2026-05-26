@@ -44,10 +44,14 @@ The **Activity Log Module** acts as an append-only, immutable telemetry layer. I
 ## ⚠️ Core Observability Rules
 
 ### 1. The Safety Boundary (`await emitActivity`)
-To protect against race conditions and process crashes, activity logs **must be awaited**. 
+To protect against race conditions and process crashes, activity logs **must be awaited** inside current service flows.
 However, logging failures must **never** cause the primary business transaction to fail or trigger rollbacks.
 * **Implementation:** Always execute `await emitActivity(...)` **outside/after** Prisma database transactions.
 * **Safety:** The `emitActivity` dispatcher wraps its database calls in an absolute `try/catch` block that intercepts and gracefully records errors to standard logs without throwing them up to calling business flows.
+
+> [!TIP]
+> **Long-Term Scalability Upgrade Path:**
+> Currently, calling `await emitActivity(...)` synchronously blocks service flows for index writing safety. If database latency increases in production, this should be upgraded to a **non-blocking asynchronous queue** (e.g., fire-and-forget or background queue pipelines like BullMQ/Redis) so that slow write speeds in the audit log table do not degrade ERP transaction throughput.
 
 ### 2. Read-Only Metadata (`meta`)
 The `meta` column in `ActivityLog` is stored as an `NVarChar(Max)` string under SQL Server (parsed automatically into objects on fetch).
@@ -58,6 +62,13 @@ The `meta` column in `ActivityLog` is stored as an `NVarChar(Max)` string under 
 To avoid vocabulary decay, the logger validates all inputs against standard enums:
 * **Entity Types:** `PRODUCT`, `PARTY`, `INTAKE`, `SALE`, `SETTLEMENT`, `SYSTEM`
 * **Actions:** `CREATED`, `UPDATED`, `DELETED`, `COMPLETED`, `CANCELLED`, `ARCHIVED`, `SUPERSEDED`, `SOLD`
+
+> [!WARNING]
+> **Preventing Action Explosion (Noisy Vocabulary):**
+> NEVER expand the `action` enum to include entity context (e.g., do not create `PRODUCT_UPDATED` or `PARTY_UPDATED`). Always keep `action` completely standardized (`UPDATED`, `CREATED`, etc.) and combine it with the `entityType` field to filter.
+> 
+> * **Correct:** `entityType: "PRODUCT", action: "UPDATED"`
+> * **Incorrect:** `entityType: "PRODUCT", action: "PRODUCT_UPDATED"`
 
 ---
 
