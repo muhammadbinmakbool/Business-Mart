@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { regenerateSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/Toast";
 import { RefreshCcw, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -16,10 +16,10 @@ export default function RegenerateButton({ invoiceId }) {
     setLoading(true);
     const result = await regenerateSupplierInvoiceAction(invoiceId);
     if (result.success) {
-      toast.success("New version generated successfully!");
+      showToast.success("New version generated successfully!");
       router.push(`/supplier-invoices/${result.data.id}`);
     } else {
-      toast.error(result.error);
+      showToast.error(result.error);
       setLoading(false);
     }
   };

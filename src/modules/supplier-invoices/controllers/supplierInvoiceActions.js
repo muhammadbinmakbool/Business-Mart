@@ -26,7 +26,7 @@ export async function regenerateSupplierInvoiceAction(invoiceId, adjustmentsByIn
     const newInvoice = await SupplierInvoiceService.regenerateInvoice(invoiceId, adjustmentsByIntake);
     revalidatePath(`/supplier-invoices/${invoiceId}`);
     revalidatePath("/supplier-invoices");
-    return { success: true, data: newInvoice };
+    return { success: true, data: JSON.parse(JSON.stringify(newInvoice)) };
   } catch (error) {
     console.error("Failed to regenerate supplier invoice:", error);
     return { success: false, error: error.message };
