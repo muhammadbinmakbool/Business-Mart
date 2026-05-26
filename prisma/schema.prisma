@@ -31,6 +31,8 @@ model Party {
   supplierInvoices   SupplierInvoice[]
   supplierTracks     SalesTrack[]        @relation("SupplierTrack")
   buyerTracks        SalesTrack[]        @relation("BuyerTrack")
+  payments           PartyPayment[]
+  allocations        PartyPaymentAllocation[]
 
 }
 
@@ -275,4 +277,41 @@ model ActivityLog {
   @@index([action])
   @@index([createdAt])
 }
+
+model PartyPayment {
+  id                  Int                      @id @default(autoincrement())
+  partyId             Int
+  paymentNumber       String                   @unique
+  paymentType         String                   // CASH_IN, CASH_OUT
+  paymentMethod       String?                  // CASH, BANK, JAZZCASH, EASYPAISA, CHEQUE
+  amount              Decimal                  @db.Decimal(18, 2)
+  directReferenceType String?                  // SALE, SETTLEMENT
+  directReferenceId   Int?
+  entryDate           DateTime                 @default(now())
+  notes               String?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  party               Party                    @relation(fields: [partyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  allocations         PartyPaymentAllocation[]
+
+  @@index([partyId])
+  @@index([paymentNumber])
+  @@index([createdAt])
+}
+
+model PartyPaymentAllocation {
+  id              Int          @id @default(autoincrement())
+  partyId         Int
+  paymentId       Int
+  referenceType   String       // SALE, SETTLEMENT
+  referenceId     Int
+  allocatedAmount Decimal      @db.Decimal(18, 2)
+  createdAt       DateTime     @default(now())
+  party           Party        @relation(fields: [partyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payment         PartyPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([partyId])
+  @@index([referenceType, referenceId])
+}
+
 

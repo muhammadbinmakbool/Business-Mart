@@ -19,6 +19,13 @@ export class PartyProfileService {
     const party = await prisma.party.findUnique({
       where: { id: pId },
       include: {
+        payments: {
+          orderBy: { entryDate: "desc" },
+          include: { allocations: true }
+        },
+        allocations: {
+          orderBy: { createdAt: "desc" }
+        },
         saleTransactions: {
           where: { isDeleted: false, status: { not: "CANCELLED" } },
           include: {
@@ -63,23 +70,28 @@ export class PartyProfileService {
     // ==========================================
     // 2. FINANCIAL AGGREGATION LAYER (Financial Truth)
     // ==========================================
-    // DEBITS calculation (Claims & Cash Paid out)
+    // Fetch Cash receipts and payouts
+    const totalCashIn = party.payments
+      .filter(p => p.paymentType === "CASH_IN")
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+
+    const totalCashOut = party.payments
+      .filter(p => p.paymentType === "CASH_OUT")
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+
+    // Sales (Debit obligations)
     const totalSales = party.saleTransactions.reduce(
       (sum, sale) => sum + Number(sale.finalAmount || 0),
       0
     );
 
+    // Intake Advances (Debit obligations)
     const totalAdvances = party.intakeAdvances.reduce(
       (sum, adv) => sum + Number(adv.amount || 0),
       0
     );
 
-    const totalPaidInvoices = party.supplierInvoices.reduce(
-      (sum, inv) => inv.status === "COMPLETED" ? sum + Number(inv.finalPayableAmount || 0) : sum,
-      0
-    );
-
-    const totalDebits = totalSales + totalAdvances + totalPaidInvoices;
+    const totalDebits = totalSales + totalAdvances + totalCashOut;
 
     // CREDITS calculation (Billed/Realized vs Pending/Estimated)
     const realizedCredit = party.supplierInvoices.reduce(
@@ -138,16 +150,23 @@ export class PartyProfileService {
     const totalCredits = realizedCredit + pendingCredit;
 
     // Derived Balances & Reconciliation Limits
-    const officialBalance = totalDebits - realizedCredit; // Financial truth (realized only)
-    const forecastBalance = totalDebits - totalCredits;   // Dynamic UI overlay containing pending credit
+    // Net buyer balance = Sales - CashIn
+    // Net supplier balance = (Advances + CashOut) - RealizedCredit
+    // Net overall balance combining BOTH roles
+    const officialBalance = (totalSales + totalAdvances + totalCashOut) - (totalCashIn + realizedCredit);
+    const forecastBalance = (totalSales + totalAdvances + totalCashOut) - (totalCashIn + realizedCredit + pendingCredit);
 
     // ==========================================
     // 3. TIMELINE BUILDER LAYER (Storytelling Log)
     // ==========================================
     const timelineEvents = [];
 
-    // Sales events
+    // Sales events enriched with allocation metadata
     party.saleTransactions.forEach(sale => {
+      const allocs = party.allocations.filter(a => a.referenceType === "SALE" && a.referenceId === sale.id);
+      const allocatedAmount = allocs.reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
+      const remainingAmount = Number(sale.finalAmount) - allocatedAmount;
+
       timelineEvents.push({
         id: `sale-${sale.id}`,
         date: new Date(sale.entryDate),
@@ -156,7 +175,11 @@ export class PartyProfileService {
         description: `Sale billing invoice processed`,
         debit: Number(sale.finalAmount),
         credit: 0,
-        status: sale.status
+        status: sale.status,
+        requiredAmount: Number(sale.finalAmount),
+        allocatedAmount,
+        remainingAmount,
+        clearingStatus: sale.status
       });
     });
 
@@ -170,28 +193,34 @@ export class PartyProfileService {
         description: adv.notes || `Cash advance payout recorded`,
         debit: Number(adv.amount),
         credit: 0,
-        status: "COMPLETED"
+        status: "COMPLETED",
+        requiredAmount: Number(adv.amount),
+        allocatedAmount: Number(adv.amount),
+        remainingAmount: 0,
+        clearingStatus: "CLEARED"
       });
     });
 
-    // Completed Settlement Payouts
-    party.supplierInvoices.forEach(inv => {
-      if (inv.status === "COMPLETED") {
-        timelineEvents.push({
-          id: `pay-${inv.id}`,
-          date: new Date(inv.updatedAt),
-          type: "CASH_OUT",
-          ref: `PAY-${inv.invoiceNumber}`,
-          description: `Settlement final payment paid out`,
-          debit: Number(inv.finalPayableAmount),
-          credit: 0,
-          status: "COMPLETED"
-        });
-      }
+    // Cash Payouts and Cash Receipts directly from PartyPayment
+    party.payments.forEach(pay => {
+      const isCashIn = pay.paymentType === "CASH_IN";
+      timelineEvents.push({
+        id: `pay-${pay.id}`,
+        date: new Date(pay.entryDate),
+        type: pay.paymentType,
+        ref: pay.paymentNumber,
+        description: pay.notes || `${isCashIn ? "Cash payment received" : "Cash payment paid out"} [${pay.paymentMethod}]`,
+        debit: isCashIn ? 0 : Number(pay.amount),
+        credit: isCashIn ? Number(pay.amount) : 0,
+        status: "COMPLETED",
+        requiredAmount: Number(pay.amount),
+        allocatedAmount: Number(pay.amount),
+        remainingAmount: 0,
+        clearingStatus: "CLEARED"
+      });
     });
 
     // Intake Credit Events
-    // Note: Billed portions are mapped to their invoice-item finalized amounts; unbilled use estimations.
     party.intakeTransactions.forEach(intake => {
       const activeBillingItem = intake.invoiceItems?.find(
         ii => ii.invoice && ii.invoice.status !== "SUPERSEDED"
@@ -223,7 +252,11 @@ export class PartyProfileService {
         description,
         debit: 0,
         credit: creditAmount,
-        status: isBilled ? "COMPLETED" : "PENDING"
+        status: isBilled ? "COMPLETED" : "PENDING",
+        requiredAmount: creditAmount,
+        allocatedAmount: isBilled ? creditAmount : 0,
+        remainingAmount: isBilled ? 0 : creditAmount,
+        clearingStatus: isBilled ? "CLEARED" : "PENDING"
       });
     });
 
@@ -256,7 +289,7 @@ export class PartyProfileService {
       summary: {
         totalSales,
         totalAdvances,
-        totalPaidInvoices,
+        totalPaidInvoices: totalCashOut, // Align paid invoices to physical CashOut payments
         totalDebits,
         realizedCredit,
         pendingCredit,
@@ -266,34 +299,63 @@ export class PartyProfileService {
       },
       timeline: timelineEvents,
       detailedViews: {
-        sales: party.saleTransactions.map(s => ({
-          id: s.id,
-          saleNumber: s.saleNumber,
-          entryDate: s.entryDate,
-          totalWeight: Number(s.totalWeight),
-          finalAmount: Number(s.finalAmount),
-          status: s.status,
-          notes: s.notes
-        })),
+        sales: party.saleTransactions.map(s => {
+          const allocs = party.allocations.filter(a => a.referenceType === "SALE" && a.referenceId === s.id);
+          const allocated = allocs.reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
+          return {
+            id: s.id,
+            saleNumber: s.saleNumber,
+            entryDate: s.entryDate,
+            totalWeight: Number(s.totalWeight),
+            finalAmount: Number(s.finalAmount),
+            allocatedAmount: allocated,
+            remainingAmount: Number(s.finalAmount) - allocated,
+            status: s.status,
+            notes: s.notes
+          };
+        }),
         intakes: {
           billed: billedIntakesList,
           unbilled: unbilledIntakesList
         },
-        settlements: party.supplierInvoices.map(inv => ({
-          id: inv.id,
-          invoiceNumber: inv.invoiceNumber,
-          entryDate: inv.entryDate,
-          totalGrossValue: Number(inv.totalGrossValue),
-          totalDeductions: Number(inv.totalDeductions),
-          totalAdvances: Number(inv.totalAdvances),
-          finalPayableAmount: Number(inv.finalPayableAmount),
-          status: inv.status
-        })),
+        settlements: party.supplierInvoices.map(inv => {
+          const allocs = party.allocations.filter(a => a.referenceType === "SETTLEMENT" && a.referenceId === inv.id);
+          const allocated = allocs.reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
+          return {
+            id: inv.id,
+            invoiceNumber: inv.invoiceNumber,
+            entryDate: inv.entryDate,
+            totalGrossValue: Number(inv.totalGrossValue),
+            totalDeductions: Number(inv.totalDeductions),
+            totalAdvances: Number(inv.totalAdvances),
+            finalPayableAmount: Number(inv.finalPayableAmount),
+            allocatedAmount: allocated,
+            remainingAmount: Number(inv.finalPayableAmount) - allocated,
+            status: inv.status
+          };
+        }),
         advances: party.intakeAdvances.map(a => ({
           id: a.id,
           amount: Number(a.amount),
           notes: a.notes,
           createdAt: a.createdAt
+        })),
+        payments: party.payments.map(p => ({
+          id: p.id,
+          paymentNumber: p.paymentNumber,
+          paymentType: p.paymentType,
+          paymentMethod: p.paymentMethod,
+          amount: Number(p.amount),
+          entryDate: p.entryDate,
+          notes: p.notes,
+          directReferenceType: p.directReferenceType,
+          directReferenceId: p.directReferenceId,
+          allocations: p.allocations.map(a => ({
+            id: a.id,
+            referenceType: a.referenceType,
+            referenceId: a.referenceId,
+            allocatedAmount: Number(a.allocatedAmount)
+          }))
         }))
       }
     };

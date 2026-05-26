@@ -25,7 +25,7 @@ export default function StatusUpdater({ id, currentStatus, disabled }) {
   const statuses = ["PENDING", "COMPLETED"];
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Update Status</div>
       <div className="flex gap-2 p-1 bg-muted/50 rounded-lg">
         {statuses.map(s => (
@@ -44,6 +44,17 @@ export default function StatusUpdater({ id, currentStatus, disabled }) {
           </button>
         ))}
       </div>
+      
+      {currentStatus === "COMPLETED" && (
+        <div className="text-[10px] text-emerald-700 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200/50 font-medium">
+          ⓘ Fully settled. A matched CASH OUT payment has been recorded in the Party Profile.
+        </div>
+      )}
+      {currentStatus === "PENDING" && (
+        <div className="text-[10px] text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200/50 font-medium">
+          ⓘ Uncleared. You can mark it as COMPLETED to automatically record payment and run chronological FIFO allocations.
+        </div>
+      )}
     </div>
   );
 }

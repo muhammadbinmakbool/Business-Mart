@@ -7,6 +7,7 @@ import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
 import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { PartySettlementService } from "../../parties/services/PartySettlementService";
 
 export class SaleService {
   /**
@@ -199,6 +200,9 @@ export class SaleService {
         finalAmount: Number(sale.finalAmount)
       }
     });
+
+    // Trigger chronological FIFO re-allocation for the buyer
+    await PartySettlementService.reallocateFIFO(sale.partyId, "CASH_IN");
 
     return sale;
   }
@@ -428,6 +432,9 @@ export class SaleService {
       }
     });
 
+    // Trigger chronological FIFO re-allocation for the buyer
+    await PartySettlementService.reallocateFIFO(updatedSale.partyId, "CASH_IN");
+
     return updatedSale;
   }
 
@@ -479,6 +486,9 @@ export class SaleService {
       }
     });
 
+    // Trigger chronological FIFO re-allocation for the buyer
+    await PartySettlementService.reallocateFIFO(updated.partyId, "CASH_IN");
+
     return updated;
   }
 
@@ -521,6 +531,9 @@ export class SaleService {
         finalAmount: Number(deleted.finalAmount)
       }
     });
+
+    // Trigger chronological FIFO re-allocation for the buyer
+    await PartySettlementService.reallocateFIFO(deleted.partyId, "CASH_IN");
 
     return deleted;
   }

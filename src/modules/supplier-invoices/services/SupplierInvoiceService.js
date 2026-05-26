@@ -3,6 +3,7 @@ import { calculateSupplierDeductions } from "@/lib/financial";
 import { prisma } from "@/lib/prisma";
 import { convertRate } from "@/lib/units";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { PartySettlementService } from "../../parties/services/PartySettlementService";
 
 export class SupplierInvoiceService {
   /**
@@ -81,6 +82,9 @@ export class SupplierInvoiceService {
         finalPayableAmount: Number(invoice.finalPayableAmount)
       }
     });
+
+    // Trigger chronological FIFO re-allocation for the supplier
+    await PartySettlementService.reallocateFIFO(invoice.partyId, "CASH_OUT");
 
     return JSON.parse(JSON.stringify(invoice));
   }
@@ -365,6 +369,9 @@ export class SupplierInvoiceService {
       }
     });
 
+    // Trigger chronological FIFO re-allocation for the supplier
+    await PartySettlementService.reallocateFIFO(newInvoice.partyId, "CASH_OUT");
+
     return JSON.parse(JSON.stringify(newInvoice));
   }
 
@@ -403,6 +410,9 @@ export class SupplierInvoiceService {
       description: `Supplier invoice ID ${invoiceId} (${invoice.invoiceNumber}) deleted`,
       meta: { supplierId: invoice.partyId, invoiceNumber: invoice.invoiceNumber }
     });
+
+    // Trigger chronological FIFO re-allocation for the supplier
+    await PartySettlementService.reallocateFIFO(invoice.partyId, "CASH_OUT");
 
     return result;
   }

@@ -20,7 +20,7 @@ To maintain perfect alignment with ledger expectations, the profile utilizes a s
 ```
                   +-------------------------------------------------+
                   |                   PARTY DEBITS                  |
-                  |  [Active Sales] + [Advances] + [Paid Settl.]   |
+                  |  [Active Sales] + [Advances] + [Paid Settl.]    |
                   +-----------------------+-------------------------+
                                           |
                                           v
