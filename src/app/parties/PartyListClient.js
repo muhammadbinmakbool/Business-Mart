@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Search, Edit2, Phone, MapPin } from "lucide-react";
+import { Plus, Search, Edit2, Phone, MapPin, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DeleteButton from "@/components/DeleteButton";
 import { deletePartyAction } from "@/modules/parties/controllers/partyActions";
@@ -78,10 +78,11 @@ export default function PartyListClient({ parties = [] }) {
           </div>
         ) : (
           filteredParties.map((party) => (
-            <div
+            <Link
+              href={`/parties/${party.id}`}
               key={party.id}
               className={cn(
-                "group relative rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md",
+                "group relative rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md cursor-pointer block",
                 !party.isActive && "opacity-60 grayscale-[0.5]"
               )}
             >
@@ -111,10 +112,19 @@ export default function PartyListClient({ parties = [] }) {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center">
+                <div className="flex items-center" onClick={(e) => e.preventDefault()}>
+                  <Link
+                    href={`/parties/${party.id}`}
+                    className="rounded-full p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                    title="View Profile"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Link>
                   <Link
                     href={`/parties/${party.id}/edit`}
                     className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                    onClick={(e) => e.stopPropagation()}
                   >
                     <Edit2 className="h-4 w-4" />
                   </Link>
@@ -132,7 +142,7 @@ export default function PartyListClient({ parties = [] }) {
                   Inactive
                 </div>
               )}
-            </div>
+            </Link>
           ))
         )}
       </div>
