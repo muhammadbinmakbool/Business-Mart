@@ -7,6 +7,7 @@ import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
 import { prisma } from "@/lib/prisma";
 import { convertRate } from "@/lib/units";
+import { createAppError } from "@/lib/errors/AppError";
 
 
 export class IntakeService {
@@ -158,7 +159,7 @@ export class IntakeService {
           where: { intakeTransactionId: current.id }
         });
         if (supplierInvoiceItem) {
-          throw new Error("Cannot change status because this intake is already included in a Supplier Settlement/Invoice. Please remove it from the supplier settlement first.");
+          throw createAppError("SETTLEMENT_LOCKED", "Cannot change status because this intake is already included in a Supplier Settlement/Invoice. Please remove it from the supplier settlement first.");
         }
 
         const existingTrack = await tx.salesTrack.findUnique({
@@ -166,7 +167,7 @@ export class IntakeService {
         });
         if (existingTrack) {
           if (existingTrack.isBilled || existingTrack.saleTransactionId !== null) {
-            throw new Error("Cannot change status because this intake's sales trace is already included in a Sales Invoice. Please remove it from the invoice first.");
+            throw createAppError("TRANSACTION_BILLED", "Cannot change status because this intake's sales trace is already included in a Sales Invoice. Please remove it from the invoice first.");
           }
           // If not billed, delete the SalesTrack record atomically
           await tx.salesTrack.delete({

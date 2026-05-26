@@ -8,6 +8,7 @@ import StatusUpdater from "./StatusUpdater";
 import RegenerateButton from "./RegenerateButton";
 import { calculateSupplierDeductions } from "@/lib/financial";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
+import Alert from "@/components/ui/Alert";
 
 export default async function SupplierInvoiceDetailPage({ params }) {
   const { id } = await params;
@@ -100,23 +101,20 @@ export default async function SupplierInvoiceDetailPage({ params }) {
       />
 
       {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-          <div className="flex-1">
-            <div className="font-bold text-amber-900">This invoice is outdated</div>
-            <div className="text-sm text-amber-700">Underlying intakes or advances have been modified. Consider regenerating a new version for accurate settlement.</div>
-          </div>
-        </div>
+        <Alert
+          type="warning"
+          title="This invoice is outdated"
+          message="Underlying intakes or advances have been modified. Consider regenerating a new version for accurate settlement."
+        />
       )}
 
       {invoice.status === "SUPERSEDED" && (
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start gap-3 text-slate-600">
-          <History className="h-5 w-5 mt-0.5" />
-          <div className="flex-1">
-            <div className="font-bold">Superseded Version</div>
-            <div className="text-sm">This is an older version of the settlement. A newer version exists.</div>
-          </div>
-        </div>
+        <Alert
+          type="info"
+          icon={History}
+          title="Superseded Version"
+          message="This is an older version of the settlement. A newer version exists."
+        />
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

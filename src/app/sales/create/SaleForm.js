@@ -11,10 +11,14 @@ import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/fi
 import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate, convertRate, convertFromBase } from "@/lib/units";
 import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
 import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
+import Alert from "@/components/ui/Alert";
+import Modal from "@/components/ui/Modal";
+import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 
 export default function SaleForm({ buyers, products, initialData = null }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
   
   // Form State
   const [partyId, setPartyId] = useState(initialData?.partyId?.toString() || "");
@@ -252,6 +256,16 @@ export default function SaleForm({ buyers, products, initialData = null }) {
       return toast.error("Please fill all item fields");
     }
 
+    if (items.some(i => Number(i.weight) <= 0 || Number(i.rate) <= 0)) {
+      setErrorModal({
+        isOpen: true,
+        title: "Invalid Negative Parameters",
+        message: "Weight, quantity, and rate parameters must be positive numbers greater than zero.",
+        type: "error"
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const data = {
@@ -286,7 +300,13 @@ export default function SaleForm({ buyers, products, initialData = null }) {
       }
 
       if (result.error) {
-        toast.error(result.error);
+        const presentation = getErrorPresentation(result);
+        setErrorModal({
+          isOpen: true,
+          title: presentation.title,
+          message: presentation.message,
+          type: presentation.type
+        });
       } else {
         toast.success(initialData ? "Invoice updated successfully" : "Sale invoice created successfully");
         
@@ -303,7 +323,12 @@ export default function SaleForm({ buyers, products, initialData = null }) {
         }
       }
     } catch (error) {
-      toast.error(initialData ? "Failed to update invoice" : "Failed to create sale");
+      setErrorModal({
+        isOpen: true,
+        title: "Unexpected Error Occurred",
+        message: error.message || "An unexpected error occurred while saving the sale invoice.",
+        type: "error"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -312,13 +337,11 @@ export default function SaleForm({ buyers, products, initialData = null }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       {initialData && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3 text-amber-800 animate-in fade-in slide-in-from-top-2 duration-300">
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-bold">Operational Warning</p>
-            <p>You are modifying a previously finalized invoice (<span className="font-mono font-bold uppercase">{initialData.saleNumber}</span>). All totals will be recalculated from source items and adjustments upon saving.</p>
-          </div>
-        </div>
+        <Alert
+          type="warning"
+          title="Operational Warning"
+          message={`You are modifying a previously finalized invoice (${initialData.saleNumber}). All totals will be recalculated from source items and adjustments upon saving.`}
+        />
       )}
 
       {/* 1. Header Section */}
@@ -758,104 +781,113 @@ export default function SaleForm({ buyers, products, initialData = null }) {
             </p>
           </div>
         </div>
-      </div>
+      </div>      {/* 5. Adjustment Modal */}
+      <Modal
+        isOpen={isAdjustmentModalOpen}
+        onClose={() => setIsAdjustmentModalOpen(false)}
+        title="Add Billing Adjustment"
+        type="info"
+        footer={null}
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Type</label>
+            <select 
+              value={currentAdjustment.adjustmentType}
+              onChange={e => setCurrentAdjustment({...currentAdjustment, adjustmentType: e.target.value})}
+              className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              {ADJUSTMENT_TYPES_BUYER.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
 
-      {/* 5. Adjustment Modal */}
-      {isAdjustmentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-card border w-full max-w-md rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="px-6 py-4 border-b flex items-center justify-between bg-muted/50">
-              <h3 className="font-bold">Add Billing Adjustment</h3>
-              <button onClick={() => setIsAdjustmentModalOpen(false)} className="p-1 hover:bg-background rounded-full transition-colors">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Type</label>
-                <select 
-                  value={currentAdjustment.adjustmentType}
-                  onChange={e => setCurrentAdjustment({...currentAdjustment, adjustmentType: e.target.value})}
-                  className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  {ADJUSTMENT_TYPES_BUYER.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Method</label>
-                  <select 
-                    value={currentAdjustment.method}
-                    onChange={e => {
-                      const method = e.target.value;
-                      setCurrentAdjustment({
-                        ...currentAdjustment, 
-                        method,
-                        unit: method === "PER_WEIGHT" ? (getPreferredWeightUnit() || "KG") : null
-                      });
-                    }}
-                    className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
-                  >
-                    <option value="PERCENTAGE">% Percentage</option>
-                    <option value="FIXED">Fixed Amount</option>
-                    <option value="PER_WEIGHT">Per Weight</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Direction</label>
-                  <select 
-                    value={currentAdjustment.direction}
-                    onChange={e => setCurrentAdjustment({...currentAdjustment, direction: e.target.value})}
-                    className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
-                  >
-                    <option value="ADD">Add (+)</option>
-                    <option value="SUBTRACT">Subtract (-)</option>
-                  </select>
-                </div>
-              </div>
-
-              {currentAdjustment.method === "PER_WEIGHT" && (
-                <div className="space-y-2 animate-in slide-in-from-top duration-100">
-                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Weight Unit</label>
-                  <select 
-                    value={currentAdjustment.unit || "KG"}
-                    onChange={e => setCurrentAdjustment({...currentAdjustment, unit: e.target.value})}
-                    className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-card-foreground"
-                  >
-                    <option value="KG">KG</option>
-                    <option value="MAUND">Maund</option>
-                    <option value="BAG">Bag</option>
-                  </select>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Value</label>
-                <input 
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={currentAdjustment.value}
-                  onChange={e => setCurrentAdjustment({...currentAdjustment, value: e.target.value})}
-                  className="w-full bg-background border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 font-mono text-lg"
-                  autoFocus
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={addAdjustment}
-                className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-bold mt-4 hover:opacity-90 transition-opacity"
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Method</label>
+              <select 
+                value={currentAdjustment.method}
+                onChange={e => {
+                  const method = e.target.value;
+                  setCurrentAdjustment({
+                    ...currentAdjustment, 
+                    method,
+                    unit: method === "PER_WEIGHT" ? (getPreferredWeightUnit() || "KG") : null
+                  });
+                }}
+                className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
               >
-                Add to Invoice
-              </button>
+                <option value="PERCENTAGE">% Percentage</option>
+                <option value="FIXED">Fixed Amount</option>
+                <option value="PER_WEIGHT">Per Weight</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Direction</label>
+              <select 
+                value={currentAdjustment.direction}
+                onChange={e => setCurrentAdjustment({...currentAdjustment, direction: e.target.value})}
+                className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                <option value="ADD">Add (+)</option>
+                <option value="SUBTRACT">Subtract (-)</option>
+              </select>
             </div>
           </div>
+
+          {currentAdjustment.method === "PER_WEIGHT" && (
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>
+              <select 
+                value={currentAdjustment.unit || "KG"}
+                onChange={e => setCurrentAdjustment({...currentAdjustment, unit: e.target.value})}
+                className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
+              >
+                {Object.keys(UNITS).map(u => (
+                  <option key={u} value={u}>{u}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Value</label>
+            <input 
+              type="number"
+              step="0.01"
+              placeholder="0.00"
+              value={currentAdjustment.value}
+              onChange={e => setCurrentAdjustment({...currentAdjustment, value: e.target.value})}
+              className="w-full bg-background border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 font-mono text-lg"
+              autoFocus
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={addAdjustment}
+            className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-bold mt-4 hover:opacity-90 transition-opacity"
+          >
+            Add to Invoice
+          </button>
         </div>
-      )}
+      </Modal>
+
+      {/* Structured Validation/Conflict Error Modal */}
+      <Modal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal({...errorModal, isOpen: false})}
+        title={errorModal.title}
+        type={errorModal.type}
+        confirmLabel="OK, Understood"
+        onConfirm={() => setErrorModal({...errorModal, isOpen: false})}
+        cancelLabel={null}
+      >
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {errorModal.message}
+        </p>
+      </Modal>
     </form>
   );
 }

@@ -5,6 +5,7 @@ import { calculateFinalTotal, calculateAdjustment, round, calculateTransactionTo
 import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
+import { createAppError } from "@/lib/errors/AppError";
 
 export class SaleService {
   /**
@@ -120,7 +121,7 @@ export class SaleService {
         const product = productMap.get(prodId);
         const currentQty = product ? Number(product.quantity) : 0;
         if (currentQty < requiredWeight) {
-          throw new Error(`INSUFFICIENT_STOCK: Product "${product?.name || prodId}" has insufficient stock. Available: ${currentQty} ${UnitService.getBaseUnit(product?.category || "WEIGHT")}`);
+          throw createAppError("INSUFFICIENT_STOCK", `Product "${product?.name || prodId}" has insufficient stock. Available: ${currentQty} ${UnitService.getBaseUnit(product?.category || "WEIGHT")}`);
         }
       }
 
@@ -326,7 +327,7 @@ export class SaleService {
           const product = productMap.get(productId);
           const currentQty = product ? Number(product.quantity) : 0;
           if (currentQty + delta < 0) {
-            throw new Error(`INSUFFICIENT_STOCK: Updating this sale requires an additional ${Math.abs(delta) - currentQty} KG of product "${product?.name || productId}".`);
+            throw createAppError("INSUFFICIENT_STOCK", `Updating this sale requires an additional ${Math.abs(delta) - currentQty} KG of product "${product?.name || productId}".`);
           }
         }
       }

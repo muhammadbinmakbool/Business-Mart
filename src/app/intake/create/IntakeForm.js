@@ -8,6 +8,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getUnitsByCategory, normalizeQuantity, convertFromBase } from "@/lib/units";
 import { getPreferredWeightUnit } from "@/lib/display-units";
+import Modal from "@/components/ui/Modal";
+import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 
 export default function IntakeForm({ suppliers, products }) {
   const router = useRouter();
@@ -18,6 +20,7 @@ export default function IntakeForm({ suppliers, products }) {
   const [selectedUnit, setSelectedUnit] = useState("");
   const [grossWeightVal, setGrossWeightVal] = useState("");
   const [bagCountVal, setBagCountVal] = useState("");
+  const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
 
   const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
   const isBagProduct = selectedProduct?.primaryUnit === "BAG" && selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0;
@@ -79,10 +82,29 @@ export default function IntakeForm({ suppliers, products }) {
   };
 
   async function handleSubmit(formData, shouldRedirect) {
+    const grossWeight = parseFloat(formData.get("grossWeight"));
+    const rate = formData.get("rate") ? parseFloat(formData.get("rate")) : null;
+
+    if (grossWeight <= 0 || (rate !== null && rate <= 0)) {
+      setErrorModal({
+        isOpen: true,
+        title: "Invalid Negative Parameters",
+        message: "Weight, quantity, and rate parameters must be positive numbers greater than zero.",
+        type: "error"
+      });
+      return;
+    }
+
     const result = await createIntakeAction(formData);
     
     if (result?.error) {
-      toast.error(result.error);
+      const presentation = getErrorPresentation(result);
+      setErrorModal({
+        isOpen: true,
+        title: presentation.title,
+        message: presentation.message,
+        type: presentation.type
+      });
       return;
     }
 
@@ -343,6 +365,21 @@ export default function IntakeForm({ suppliers, products }) {
           Complete Intake
         </button>
       </div>
+      
+      {/* Structured Validation/Conflict Error Modal */}
+      <Modal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal({...errorModal, isOpen: false})}
+        title={errorModal.title}
+        type={errorModal.type}
+        confirmLabel="OK, Understood"
+        onConfirm={() => setErrorModal({...errorModal, isOpen: false})}
+        cancelLabel={null}
+      >
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {errorModal.message}
+        </p>
+      </Modal>
     </form>
   );
 }
