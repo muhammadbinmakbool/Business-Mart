@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import { History, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { getSupplierInvoiceAction, deleteSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -112,7 +112,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
       {invoice.status === "SUPERSEDED" && (
         <Alert
           type="info"
-          icon={History}
+          icon="history"
           title="Superseded Version"
           message="This is an older version of the settlement. A newer version exists."
         />

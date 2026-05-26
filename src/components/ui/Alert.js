@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Info, AlertTriangle, AlertCircle, CheckCircle, X } from "lucide-react";
+import { Info, AlertTriangle, AlertCircle, CheckCircle, X, History } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const TYPE_CLASSES = {
@@ -16,6 +16,7 @@ const ICON_MAP = {
   warning: AlertTriangle,
   error: AlertCircle,
   success: CheckCircle,
+  history: History,
 };
 
 export default function Alert({
@@ -27,7 +28,9 @@ export default function Alert({
   className,
   children
 }) {
-  const IconComponent = CustomIcon || ICON_MAP[type] || Info;
+  const IconComponent = typeof CustomIcon === "string" 
+    ? (ICON_MAP[CustomIcon] || Info) 
+    : (CustomIcon || ICON_MAP[type] || Info);
 
   return (
     <div
