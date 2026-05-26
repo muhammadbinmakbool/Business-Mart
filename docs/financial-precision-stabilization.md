@@ -1,12 +1,12 @@
-# Business-Mart Developer Guide: Financial Engine Precision & Stabilization Architecture
+# Business-Mart Developer Guide: Financial Engine Precision & Display Architecture
 
-This document outlines the architectural guidelines, core files, and rules governing financial calculations and precision handling in Business Mart.
+This document outlines the architectural guidelines, core files, and rules governing financial calculations, precision handling, and unit formatting in Business Mart.
 
 ---
 
 ## 🎯 Core Goal
 
-The system maintains **strict infinite-precision internally** throughout all mathematical pipelines (conversions, adjustments, deductions, and base amounts) and delegates rounding exclusively to the **final output boundaries** (UI display templates, settlement PDF sheets, and reports).
+The system maintains **strict infinite-precision internally** throughout all mathematical pipelines (conversions, adjustments, deductions, and base amounts) and delegates rounding or display formatting exclusively to the **final output boundaries** (UI details pages, settlement PDF sheets, and reports).
 
 This design completely eliminates numerical drift and conversion errors across modules.
 
@@ -18,7 +18,11 @@ This design completely eliminates numerical drift and conversion errors across m
 src/
 ├── lib/
 │   ├── financial.js       # PURE Calculation Engine (NEVER performs rounding)
-│   └── precision.js       # Boundary Precision Layer (Handles display/output rounding)
+│   ├── precision.js       # Boundary Precision Layer (Handles display/output rounding)
+│   └── display-units.js   # UI Display formatting helpers (e.g. formatMaundWeight)
+├── print/
+│   └── localization/
+│       └── formatters.js  # Print/PDF formatting helpers (e.g. formatWeight)
 ```
 
 ---
@@ -66,6 +70,37 @@ const finalPayable = Precision.final(rawAmount); // Returns rounded integer
 
 ---
 
+### C. Display Unit Formatting Helpers
+
+When weights are displayed in **Maund (MND)**, decimals should not be shown. Instead, fractional Maunds are converted into the corresponding **Kg** remainder (where `1 Maund = 40 Kg`). 
+
+For example: **`40.5 Maund`** should be rendered as **`40 Maund 20 Kg`** (or `40 MND 20 KG`).
+
+#### 1. In UI Detail Templates (`src/lib/display-units.js`)
+Use the reusable `formatMaundWeight` presentational helper:
+
+```javascript
+import { formatMaundWeight } from "@/lib/display-units";
+
+// Returns "40 MND 20 KG"
+const weightLabel = formatMaundWeight(40.5, "MND", "KG");
+```
+
+#### 2. In Print/PDF Localization Formatter (`src/print/localization/formatters.js`)
+The `formatWeight` utility automatically handles fractional Maund decomposition for both English and Urdu locales:
+
+```javascript
+import { formatWeight } from "../localization/formatters";
+
+// English: "40 MND 20 KG"
+formatWeight(40.5, "MAUND", "en");
+
+// Urdu: "40 من 20 کلو"
+formatWeight(40.5, "MAUND", "ur");
+```
+
+---
+
 ## 3. Reference Workflow Spec
 
 ```mermaid
@@ -73,19 +108,6 @@ graph TD
     A[Inputs: Raw Rate, Unit, Weight] --> B(financial.js: Raw Calculations)
     B --> C{Output Boundary?}
     C -->|No: Next step / intermediate| B
-    C -->|Yes: Render UI / Settlement| D(precision.js: Final Rounding)
-    D --> E[Rendered Integer Output]
-```
-
-### Example Usage:
-```javascript
-import { calculateTransactionTotals } from "@/lib/financial";
-import { Precision } from "@/lib/precision";
-
-// 1. Calculate raw transaction values using the pure engine
-const rawTotals = calculateTransactionTotals(items, adjustments);
-
-// 2. Round at UI / display boundary
-const displayFinalAmount = Precision.final(rawTotals.finalAmount);
-const displayTotalWeightInKg = Precision.final(rawTotals.totalWeight);
+    C -->|Yes: Render UI / Settlement| D(display-units.js / formatters.js)
+    D --> E[Formated Whole Maund + Kg / Rounded Integer Output]
 ```
