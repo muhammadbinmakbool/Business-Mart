@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { Plus, Trash2, Calculator, ReceiptText, Loader2, PlusCircle, X, Save, AlertCircle } from "lucide-react";
 import { createSaleAction, updateSaleAction } from "@/modules/sales/controllers/saleActions";
 import { getUnbilledTracksAction } from "@/modules/sales/controllers/trackActions";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/financial";
@@ -76,7 +76,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
         setUnbilledTracks(filteredTracks);
         initialUnbilledTracksRef.current = result.data;
       } else {
-        toast.error("Failed to load available sold intakes: " + result.error);
+        showToast.error("Failed to load available sold intakes: " + result.error);
       }
     } catch (e) {
       console.error(e);
@@ -123,7 +123,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     }
 
     setUnbilledTracks(prev => prev.filter(t => t.id !== track.id));
-    toast.success(`Prefilled item from Intake ${track.intakeTransaction?.intakeNumber || ""}`);
+    showToast.success(`Prefilled item from Intake ${track.intakeTransaction?.intakeNumber || ""}`);
   };
 
   // Totals State
@@ -227,7 +227,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
 
   const addAdjustment = () => {
     if (!currentAdjustment.value || isNaN(currentAdjustment.value) || parseFloat(currentAdjustment.value) <= 0) {
-      toast.error("Please enter a valid positive numeric value");
+      showToast.error("Please enter a valid positive numeric value");
       return;
     }
     setAdjustments([
@@ -251,9 +251,9 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     e.preventDefault();
     if (isSubmitting) return;
 
-    if (!partyId) return toast.error("Please select a buyer");
+    if (!partyId) return showToast.error("Please select a buyer");
     if (items.some(i => !i.productId || !i.weight || !i.rate)) {
-      return toast.error("Please fill all item fields");
+      return showToast.error("Please fill all item fields");
     }
 
     if (items.some(i => Number(i.weight) <= 0 || Number(i.rate) <= 0)) {
@@ -308,7 +308,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
           type: presentation.type
         });
       } else {
-        toast.success(initialData ? "Invoice updated successfully" : "Sale invoice created successfully");
+        showToast.success(initialData ? "Invoice updated successfully" : "Sale invoice created successfully");
         
         if (e.nativeEvent.submitter?.name === "saveAndAnother" && !initialData) {
           // Reset form for next entry
@@ -316,7 +316,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
           setItems([{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]);
           setAdjustments([]);
           setNotes("");
-          toast.info("Form reset for next entry");
+          showToast.info("Form reset for next entry");
           document.querySelector('select')?.focus();
         } else {
           router.push(`/sales/${initialData?.id || result.id || ""}`);

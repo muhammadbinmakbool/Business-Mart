@@ -1,6 +1,6 @@
-# Business-Mart Developer Guide: Premium Reusable UI Components (Alert & Modal)
+# Business-Mart Developer Guide: Standardized UI & Error Propagation Architecture
 
-This guide documents the design specifications, usage conventions, and programmatic integrations for the reusable presentational **`<Alert />`** and **`<Modal />`** UI components. It describes how to employ these components dynamically across all application workflows to maintain a premium visual appearance.
+This document describes the design and usage of the decoupled, presentation-only component architecture and structured error mapping system introduced to standardize inventory checks, state transitions, and user notifications.
 
 ---
 
@@ -10,23 +10,76 @@ This guide documents the design specifications, usage conventions, and programma
 src/
 ├── components/
 │   └── ui/
-│       ├── Alert.js           # Reusable inline notice banner component
-│       └── Modal.js           # Reusable size-varied overlay dialog component
+│       ├── Alert.js           # Reusable presentational inline notifications
+│       ├── Modal.js           # Reusable size-varied and type-driven blocking viewport dialogs
+│       └── Toast.js           # Reusable premium HOC Toast component & showToast utility
 ├── lib/
 │   └── errors/
-│       ├── errorCodes.js      # Structured validation error registry
-│       ├── AppError.js        # Serializable error exception wrapper
-│       └── errorPresentation.js # Error-to-component UI mapping helper
+│       ├── errorCodes.js      # Centered error code and type registry
+│       ├── AppError.js        # Normalized serializable custom error class
+│       └── errorPresentation.js # Error code UI translation mapping helper
 ```
 
 ---
 
-## 2. Reusable Presentation Components
+## 2. Structured Error System
 
-All UI components are strictly presentational ("dumb" elements) and receive data via props. They never read state or check business rules directly, making them highly reusable across different contexts.
+The application uses an **Error-First Decoupled Architecture**. Business logic services and validation frameworks throw structured exceptions instead of raw, localized strings. This allows for translation readiness (e.g. Urdu), analytics telemetry, and deterministic UI rendering.
 
-### A. Reusable Inline Alerts (`<Alert />`)
-The `<Alert />` component is designed for displaying inline notifications, warnings, system updates, and successes. It has a modern glassmorphic background design, custom left-accent borders, and automatic iconography.
+### A. Centralized Error Codes (`errorCodes.js`)
+All errors are mapped to predefined keys with a standardized UX type (`error`, `warning`, `info`, `success`) and human-readable title:
+
+```javascript
+export const ERROR_CODES = {
+  INSUFFICIENT_STOCK: {
+    title: "Insufficient Stock Available",
+    type: "error"
+  },
+  TRANSACTION_BILLED: {
+    title: "Transaction Already Billed",
+    type: "error"
+  },
+  // ...
+};
+```
+
+### B. Throwing AppError in Services (`AppError.js`)
+When business rules are violated, use `createAppError(code, message)`:
+
+```javascript
+import { createAppError } from "@/lib/errors/AppError";
+
+if (stockBalance < requestedWeight) {
+  throw createAppError(
+    "INSUFFICIENT_STOCK",
+    `Cannot fulfill requested weight (${requestedWeight} KG). Only ${stockBalance} KG remaining in inventory.`
+  );
+}
+```
+
+### C. Client Action Handlers
+Server actions or controllers capture the thrown `AppError` and return it as a plain serializable JSON object:
+
+```javascript
+try {
+  // logic
+} catch (error) {
+  return {
+    error: error.message || "An error occurred",
+    code: error.code || "UNKNOWN_ERROR",
+    title: error.title
+  };
+}
+```
+
+---
+
+## 3. Reusable Presentation Components
+
+All UI components are strictly presentational ("dumb" elements) and receive data via props. They never read state or check business constraints directly.
+
+### A. Inline Alerts (`<Alert />`)
+A premium glassmorphic banner for inline, non-blocking page notices.
 
 ```javascript
 import Alert from "@/components/ui/Alert";
@@ -35,8 +88,8 @@ import { Sparkles } from "lucide-react";
 // Standard Usage
 <Alert
   type="warning"
-  title="Finalized Invoice Notice"
-  message="Modifying this invoice will trigger an atomic recalculation of all supplier item balances."
+  title="Operational Warning"
+  message="All totals will be recalculated from source items upon saving."
 />
 
 // Usage with Custom Icon overrides
@@ -48,7 +101,7 @@ import { Sparkles } from "lucide-react";
 />
 ```
 
-#### Supported Properties (Props):
+#### Properties (Props):
 | Prop Name | Type | Allowed Values | Description |
 | :--- | :--- | :--- | :--- |
 | `type` | String | `'info' \| 'warning' \| 'error' \| 'success'` | Dictates styling theme, backgrounds, borders, and default icons. |
@@ -59,53 +112,43 @@ import { Sparkles } from "lucide-react";
 
 ---
 
-### B. High-Order Presentational Modals (`<Modal />`)
-The `<Modal />` component is a high-order blocking dialog overlay. It manages keyboard `Escape` closing, overlay backdrop click-dismissals, body scroll locking, responsive spacing, and has built-in preset types and sizes.
-
-#### Standard Action Dialog Mode
-Suitable for prompt actions like delete confirmations, warning warnings, and status changes:
+### B. Blocking Dialog Modals (`<Modal />`)
+A blocking dialog viewport supporting multiple widths (`sm`, `md`, `lg`, `xl`, `full`) and styles:
 
 ```javascript
 import Modal from "@/components/ui/Modal";
 
+// Standard Action Dialog Mode
 <Modal
-  isOpen={isConfirmOpen}
-  onClose={() => setIsConfirmOpen(false)}
-  title="Revert Intake Status"
-  description="This action will restore active inventory"
-  type="warning"
-  confirmLabel="Revert Status"
-  onConfirm={handleRevertStatus}
+  isOpen={isOpen}
+  onClose={() => setIsOpen(false)}
+  title="Confirm Action"
+  description="Are you absolutely sure you want to proceed?"
+  type="danger"
+  confirmLabel="Delete Permanently"
+  onConfirm={handleDelete}
 >
-  <p className="text-sm text-muted-foreground">
-    Reverting this transaction will remove the active sale trace tied to buyer party.
-  </p>
+  <p className="text-sm">This action cannot be undone.</p>
 </Modal>
-```
 
-#### Pure Custom Composition Mode
-If you need custom forms, custom buttons, or complex views inside the modal, set `footer={null}` or pass a custom React Node into `footer`:
-
-```javascript
+// Pure Custom Composition Mode (footer overrides)
 <Modal
   isOpen={isCustomOpen}
   onClose={() => setIsCustomOpen(false)}
   title="Add Custom Billing Charge"
   type="info"
-  footer={null} // Disables default buttons to use the button inside the form below
+  footer={null} // Disables default buttons
 >
   <form onSubmit={handleCustomSubmit} className="space-y-4">
     <input type="text" placeholder="Charge Name" className="border p-2 rounded w-full" />
-    <input type="number" placeholder="Amount" className="border p-2 rounded w-full" />
-    
     <button type="submit" className="w-full bg-primary text-white py-2 rounded-lg font-bold">
-      Save Custom Charge
+      Save Charge
     </button>
   </form>
 </Modal>
 ```
 
-#### Supported Properties (Props):
+#### Properties (Props):
 | Prop Name | Type | Default | Allowed Values | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `isOpen` | Boolean | `false` | `true \| false` | Controls viewport rendering of the modal overlay. |
@@ -124,67 +167,45 @@ If you need custom forms, custom buttons, or complex views inside the modal, set
 
 ---
 
-## 3. Pairing Components with Structured Error Handling
-
-While these UI components are generic presentation blocks, they seamlessly pair with the **Structured Error Propagation System** to provide consistent user experiences during data validation or system conflicts.
-
-### A. Throwing Serializable Exceptions in Services
-Instead of raw strings, service engines throw structured `AppError` objects:
+### C. Reusable Centralized High-Order Toasts (`showToast`)
+Instead of using messy inline `toast` notifications, use the centralized, unified `showToast` utility. It outputs beautifully composed presentational cards utilizing Lucide icons, glassmorphism overlays, and modern slide-in animations.
 
 ```javascript
-import { createAppError } from "@/lib/errors/AppError";
+import { showToast } from "@/components/ui/Toast";
 
-if (stockQty < requestedQty) {
-  throw createAppError(
-    "INSUFFICIENT_STOCK",
-    `Cannot complete sale. Only ${stockQty} MAUNDS available in store.`
-  );
-}
+// Simple Usage
+showToast.success("Invoice saved successfully!");
+
+// Advanced Usage with Custom Header Title
+showToast.error("Failed to authenticate session", "Security Alert");
+showToast.warning("Low stock warning on Wheat bags", "Inventory Alert");
+showToast.info("System refresh will happen in 5 minutes", "Maintenance Notice");
 ```
 
-### B. Client Side Resolution and Dialog Display
-Client actions catch the server error, resolve it through the presentation mapper, and update the `<Modal />` properties dynamically:
+#### Unified API Methods:
+* `showToast.success(message, title)` - Emerald Success notification (displays for 3.5s).
+* `showToast.error(message, title)` - Rose Critical notification (displays for 4s).
+* `showToast.warning(message, title)` - Amber Warning notification (displays for 3.5s).
+* `showToast.info(message, title)` - Blue Informative notification (displays for 3s).
+
+---
+
+## 4. UI Resolution Mapping (`errorPresentation.js`)
+
+Decouple your forms and actions from hardcoded error strings. Resolve errors directly to UI configurations:
 
 ```javascript
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 
-export default function MyForm() {
-  const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
-
-  const onSubmit = async (data) => {
-    const result = await saveAction(data);
-    
-    if (result?.error) {
-      // Resolves exact title, message and type mapped to ERROR_CODES
-      const presentation = getErrorPresentation(result);
-      
-      setErrorModal({
-        isOpen: true,
-        title: presentation.title,
-        message: presentation.message,
-        type: presentation.type
-      });
-    }
-  };
-
-  return (
-    <>
-      <form onSubmit={onSubmit}>
-        {/* fields */}
-      </form>
-
-      <Modal
-        isOpen={errorModal.isOpen}
-        onClose={() => setErrorModal({ ...errorModal, isOpen: false })}
-        title={errorModal.title}
-        type={errorModal.type}
-        confirmLabel="OK, Understood"
-        onConfirm={() => setErrorModal({ ...errorModal, isOpen: false })}
-        cancelLabel={null}
-      >
-        <p className="text-sm text-muted-foreground">{errorModal.message}</p>
-      </Modal>
-    </>
-  );
-}
+const onSubmit = async (data) => {
+  const result = await saveAction(data);
+  if (result.error) {
+    const presentation = getErrorPresentation(result);
+    // presentation = { title, message, type }
+    setErrorModal({
+      isOpen: true,
+      ...presentation
+    });
+  }
+};
 ```

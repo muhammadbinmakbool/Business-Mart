@@ -3,7 +3,7 @@
 import React, { useRef, useState } from "react";
 
 import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getUnitsByCategory, normalizeQuantity, convertFromBase } from "@/lib/units";
@@ -108,7 +108,7 @@ export default function IntakeForm({ suppliers, products }) {
       return;
     }
 
-    toast.success("Intake recorded successfully");
+    showToast.success("Intake recorded successfully");
     
     if (shouldRedirect) {
       router.push("/intake");

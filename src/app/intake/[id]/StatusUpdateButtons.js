@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { updateIntakeStatusAction, sellIntakeAction } from "@/modules/intake/controllers/intakeActions";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/Toast";
 import { Clock, BadgeCheck, ShoppingBag, XCircle, X, Scale, User, DollarSign, Box } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { calculateIntakeNetWeight } from "@/lib/units";
@@ -84,9 +84,9 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     const result = await updateIntakeStatusAction(intakeId, status);
     setLoading(false);
     if (result?.error) {
-      toast.error(result.error);
+      showToast.error(result.error);
     } else {
-      toast.success(`Status updated to ${status}`);
+      showToast.success(`Status updated to ${status}`);
     }
   }
 
@@ -100,20 +100,20 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     setRevertStatusTarget(null);
 
     if (result?.error) {
-      toast.error(result.error);
+      showToast.error(result.error);
     } else {
-      toast.success(`Status updated to ${revertStatusTarget}`);
+      showToast.success(`Status updated to ${revertStatusTarget}`);
     }
   }
 
   async function handleSellSubmit(e) {
     e.preventDefault();
     if (!buyerPartyId) {
-      toast.error("Please select a buyer");
+      showToast.error("Please select a buyer");
       return;
     }
     if (!rate || Number(rate) <= 0) {
-      toast.error("Please enter a valid rate");
+      showToast.error("Please enter a valid rate");
       return;
     }
 
@@ -129,9 +129,9 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     setLoading(false);
 
     if (result?.error) {
-      toast.error(result.error);
+      showToast.error(result.error);
     } else {
-      toast.success("Intake successfully sold!");
+      showToast.success("Intake successfully sold!");
       setIsModalOpen(false);
     }
   }

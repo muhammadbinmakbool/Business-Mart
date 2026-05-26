@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Trash2, Loader2, X, Check } from "lucide-react";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -24,9 +24,9 @@ export default function DeleteButton({
     try {
       const result = await deleteAction(id);
       if (result?.error) {
-        toast.error(result.error);
+        showToast.error(result.error);
       } else {
-        toast.success(`${label} deleted successfully`);
+        showToast.success(`${label} deleted successfully`);
         if (redirectPath) {
           router.push(redirectPath);
         } else {
@@ -35,7 +35,7 @@ export default function DeleteButton({
         }
       }
     } catch (error) {
-      toast.error("An unexpected error occurred");
+      showToast.error("An unexpected error occurred");
     } finally {
       setIsDeleting(false);
       setShowConfirm(false);

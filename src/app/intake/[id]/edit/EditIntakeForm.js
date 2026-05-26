@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { updateIntakeAction } from "@/modules/intake/controllers/intakeActions";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getUnitsByCategory, calculateIntakeNetWeight, normalizeQuantity, convertFromBase } from "@/lib/units";
@@ -148,12 +148,12 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
     if (status === "SOLD") {
       if (!buyerPartyId) {
-        toast.error("Please select a buyer Party");
+        showToast.error("Please select a buyer Party");
         setIsSubmitting(false);
         return;
       }
       if (!rate || Number(rate) <= 0) {
-        toast.error("Please specify a valid Rate");
+        showToast.error("Please specify a valid Rate");
         setIsSubmitting(false);
         return;
       }
@@ -176,7 +176,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
         type: presentation.type
       });
     } else {
-      toast.success("Intake updated successfully");
+      showToast.success("Intake updated successfully");
       router.push(`/intake/${intake.id}`);
     }
   };
