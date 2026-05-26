@@ -89,29 +89,31 @@ function TimelineTable({ events }) {
           <tbody className="divide-y">
             {visible.map((evt) => {
               const isObligation = evt.type === "SALE" || evt.type === "INTAKE";
+              const isVoided = evt.status === "VOIDED";
               return (
-                <tr key={evt.id} className="hover:bg-muted/10 transition-colors">
+                <tr key={evt.id} className={cn("hover:bg-muted/10 transition-colors", isVoided && "opacity-50 line-through text-muted-foreground bg-rose-50/10")}>
                   <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                     {format(new Date(evt.date), "dd MMM yyyy")}
                   </td>
                   <td className="px-4 py-3">
                     <span className={cn(
-                      "px-2 py-0.5 rounded text-[9px] font-bold uppercase",
-                      evt.type === "SALE" ? "bg-emerald-100 text-emerald-700" :
-                      evt.type === "INTAKE" ? "bg-blue-100 text-blue-700" :
-                      evt.type === "CASH_IN" ? "bg-emerald-500/10 text-emerald-800" :
-                      evt.type === "CASH_OUT" ? "bg-amber-100 text-amber-700" :
-                      "bg-muted text-muted-foreground"
+                      "px-2 py-0.5 rounded text-[9px] font-bold uppercase border",
+                      isVoided ? "bg-rose-50 text-rose-600 border-rose-200" :
+                      evt.type === "SALE" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                      evt.type === "INTAKE" ? "bg-blue-100 text-blue-700 border-blue-200" :
+                      evt.type === "CASH_IN" ? "bg-emerald-500/10 text-emerald-800 border-emerald-500/20" :
+                      evt.type === "CASH_OUT" ? "bg-amber-100 text-amber-700 border-amber-200" :
+                      "bg-muted text-muted-foreground border-slate-200"
                     )}>
-                      {evt.type}
+                      {evt.type}{isVoided ? " (VOID)" : ""}
                     </span>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">{evt.ref}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs">
-                    {evt.debit > 0 ? <span className="text-emerald-600 font-semibold">{fmt(evt.debit)}</span> : <span className="opacity-30">—</span>}
+                    {evt.debit > 0 ? <span className={cn("text-emerald-600 font-semibold", isVoided && "line-through text-slate-400")}>{fmt(evt.debit)}</span> : <span className="opacity-30">—</span>}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-xs">
-                    {evt.credit > 0 ? <span className="text-rose-600 font-semibold">{fmt(evt.credit)}</span> : <span className="opacity-30">—</span>}
+                    {evt.credit > 0 ? <span className={cn("text-rose-600 font-semibold", isVoided && "line-through text-slate-400")}>{fmt(evt.credit)}</span> : <span className="opacity-30">—</span>}
                   </td>
                   <td className={cn("px-4 py-3 text-right font-mono text-xs font-bold", evt.runningBalance >= 0 ? "text-emerald-700" : "text-rose-700")}>
                     {fmt(Math.abs(evt.runningBalance))} {evt.runningBalance >= 0 ? "DR" : "CR"}
@@ -126,7 +128,7 @@ function TimelineTable({ events }) {
                     {isObligation ? `Rs. ${fmt(evt.remainingAmount)}` : <span className="opacity-30">—</span>}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {isObligation ? <StatusBadge status={evt.clearingStatus} /> : <span className="opacity-30">—</span>}
+                    {isObligation ? <StatusBadge status={evt.clearingStatus} /> : (isVoided ? <StatusBadge status="VOIDED" /> : <span className="opacity-30">—</span>)}
                   </td>
                 </tr>
               );
@@ -173,49 +175,63 @@ function DataTable({ columns, data, emptyMsg = "No records found." }) {
 
 function PaymentCard({ payment, partyId }) {
   const [deleting, setDeleting] = useState(false);
+  const isVoided = payment.status === "VOIDED";
   const totalAllocated = payment.allocations.reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
-  const unallocated = payment.amount - totalAllocated;
+  const unallocated = isVoided ? 0 : (payment.amount - totalAllocated);
 
   const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to delete payment ${payment.paymentNumber}? This will wipe and dynamically re-allocate all obligations!`)) return;
+    if (!confirm(`Are you sure you want to VOID payment ${payment.paymentNumber}? This will lock the payment as a historical audit record (VOIDED) and dynamically re-allocate remaining obligations!`)) return;
     setDeleting(true);
     const res = await deletePaymentAction(payment.id, partyId);
     if (!res.success) {
-      alert(`Error deleting payment: ${res.error}`);
+      alert(`Error voiding payment: ${res.error}`);
     }
     setDeleting(false);
   };
 
   return (
-    <div className="bg-card border rounded-2xl p-5 shadow-sm space-y-4 hover:border-slate-300 transition-colors">
+    <div className={cn(
+      "bg-card border rounded-2xl p-5 shadow-sm space-y-4 transition-all relative overflow-hidden",
+      isVoided ? "opacity-75 bg-slate-50/70 border-rose-200 hover:border-rose-200" : "hover:border-slate-300"
+    )}>
+      {isVoided && (
+        <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-rose-400 to-rose-500" />
+      )}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs font-bold text-slate-800">{payment.paymentNumber}</span>
+          <span className={cn("font-mono text-xs font-bold", isVoided ? "text-slate-400 line-through" : "text-slate-800")}>{payment.paymentNumber}</span>
           <span className={cn(
             "text-[9px] font-bold uppercase px-2 py-0.5 rounded border",
+            isVoided ? "bg-rose-50 text-rose-700 border-rose-200" :
             payment.paymentType === "CASH_IN" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
           )}>
-            {payment.paymentType === "CASH_IN" ? "CASH IN" : "CASH OUT"}
+            {isVoided ? "VOIDED" : (payment.paymentType === "CASH_IN" ? "CASH IN" : "CASH OUT")}
           </span>
           <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
             {payment.paymentMethod}
           </span>
         </div>
-        <button 
-          onClick={handleDelete}
-          disabled={deleting}
-          className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 disabled:opacity-50"
-        >
-          <Trash2 className="h-3 w-3" /> {deleting ? "Deleting..." : "Delete"}
-        </button>
+        {isVoided ? (
+          <span className="text-[10px] text-rose-500 font-bold italic tracking-wide">Voided/Historical</span>
+        ) : (
+          <button 
+            onClick={handleDelete}
+            disabled={deleting}
+            className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 disabled:opacity-50"
+          >
+            <Trash2 className="h-3 w-3" /> {deleting ? "Voiding..." : "Void"}
+          </button>
+        )}
       </div>
 
       <div className="flex items-baseline justify-between border-b pb-3">
         <div>
-          <span className="text-2xl font-black tracking-tight text-slate-900">Rs. {fmt(payment.amount)}</span>
+          <span className={cn("text-2xl font-black tracking-tight", isVoided ? "text-slate-400 line-through decoration-rose-400 decoration-2" : "text-slate-900")}>
+            Rs. {fmt(payment.amount)}
+          </span>
           <span className="text-[10px] text-muted-foreground ml-2">on {format(new Date(payment.entryDate), "dd MMM yyyy")}</span>
         </div>
-        {unallocated > 0 && (
+        {unallocated > 0 && !isVoided && (
           <span className="text-[9px] font-bold px-2.5 py-1 rounded bg-amber-500/10 text-amber-800 border border-amber-500/20 animate-pulse">
             Rs. {fmt(unallocated)} Unallocated (Advance)
           </span>
@@ -223,24 +239,40 @@ function PaymentCard({ payment, partyId }) {
       </div>
 
       {payment.notes && (
-        <div className="text-xs text-muted-foreground italic bg-muted/30 p-2.5 rounded-lg border border-slate-200/50">
+        <div className={cn(
+          "text-xs p-2.5 rounded-lg border",
+          isVoided ? "text-slate-400/80 bg-slate-100/50 border-slate-200/50 line-through" : "text-muted-foreground bg-muted/30 border-slate-200/50 italic"
+        )}>
           <span className="font-bold uppercase tracking-wider text-[8px] block opacity-75 not-italic mb-0.5 text-slate-500">Notes</span>
           {payment.notes}
         </div>
       )}
 
+      {isVoided && (
+        <div className="text-[10px] text-rose-600 bg-rose-50/50 border border-rose-100 p-2.5 rounded-lg font-medium">
+          ⚠️ This payment was voided and possesses zero active financial impact. However, its historical allocation snapshot remains frozen below for complete audit trail transparency.
+        </div>
+      )}
+
       <div className="space-y-2">
-        <h4 className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">FIFO Allocations Breakdown</h4>
+        <h4 className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">
+          {isVoided ? "Frozen Allocation Snapshot" : "FIFO Allocations Breakdown"}
+        </h4>
         {payment.allocations.length === 0 ? (
           <div className="text-xs text-muted-foreground italic pl-2 opacity-60">This payment has not cleared any invoices yet.</div>
         ) : (
-          <div className="divide-y text-xs pl-2 border-l-2 border-slate-200 space-y-1">
+          <div className={cn(
+            "divide-y text-xs pl-2 border-l-2 space-y-1",
+            isVoided ? "border-rose-200" : "border-slate-200"
+          )}>
             {payment.allocations.map(a => (
               <div key={a.id} className="flex justify-between items-center py-1.5 first:pt-0 last:pb-0">
-                <span className="text-slate-600">
-                  Cleared {a.referenceType === "SALE" ? "Sale Invoice" : "Settlement Payable"} <span className="font-mono font-bold text-slate-800">#{a.referenceId}</span>
+                <span className={cn(isVoided ? "text-slate-400 line-through" : "text-slate-600")}>
+                  Cleared {a.referenceType === "SALE" ? "Sale Invoice" : "Settlement Payable"} <span className="font-mono font-bold">#{a.referenceId}</span>
                 </span>
-                <span className="font-bold text-emerald-600 font-mono">Rs. {fmt(a.allocatedAmount)}</span>
+                <span className={cn("font-bold font-mono", isVoided ? "text-slate-400 line-through" : "text-emerald-600")}>
+                  Rs. {fmt(a.allocatedAmount)}
+                </span>
               </div>
             ))}
           </div>
@@ -393,6 +425,10 @@ function RecordPaymentForm({ party }) {
       >
         {submitting ? "Processing FIFO allocations..." : "Record & Allocate Payment"}
       </button>
+
+      <div className="text-[10px] text-muted-foreground bg-slate-50 border border-slate-200/50 p-2.5 rounded-lg text-center font-medium leading-relaxed">
+        ℹ️ **Operational Note:** Registering a payment here records a physical cash ledger event. To directly clear a specific invoice, toggle the invoice's status from its respective detail page, which automatically registers a synchronized direct audit payment.
+      </div>
     </form>
   );
 }

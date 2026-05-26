@@ -279,20 +279,21 @@ model ActivityLog {
 }
 
 model PartyPayment {
-  id                  Int                      @id @default(autoincrement())
-  partyId             Int
-  paymentNumber       String                   @unique
-  paymentType         String                   // CASH_IN, CASH_OUT
-  paymentMethod       String?                  // CASH, BANK, JAZZCASH, EASYPAISA, CHEQUE
-  amount              Decimal                  @db.Decimal(18, 2)
-  directReferenceType String?                  // SALE, SETTLEMENT
-  directReferenceId   Int?
-  entryDate           DateTime                 @default(now())
-  notes               String?
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
-  party               Party                    @relation(fields: [partyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  allocations         PartyPaymentAllocation[]
+  id            Int                      @id @default(autoincrement())
+  partyId       Int
+  paymentNumber String                   @unique
+  paymentType   String                   // CASH_IN, CASH_OUT
+  paymentMethod String?                  // CASH, BANK, JAZZCASH, EASYPAISA, CHEQUE
+  amount        Decimal                  @db.Decimal(18, 2)
+  sourceType    String                   @default("MANUAL") // MANUAL, DIRECT_SALE, DIRECT_SETTLEMENT, SYSTEM
+  sourceId      Int?
+  status        String                   @default("ACTIVE") // ACTIVE, VOIDED, REVERSED
+  entryDate     DateTime                 @default(now())
+  notes         String?
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  party         Party                    @relation(fields: [partyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  allocations   PartyPaymentAllocation[]
 
   @@index([partyId])
   @@index([paymentNumber])

@@ -5,6 +5,15 @@ import { SupplierInvoiceService } from "../services/SupplierInvoiceService";
 import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceRepository";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 
+function safeRevalidatePath(path) {
+  try {
+    revalidatePath(path);
+  } catch (e) {
+    // Suppress static generation store missing error in CLI/E2E test runs!
+  }
+}
+
+
 export async function generateSupplierInvoiceAction(formData) {
   try {
     const partyId = formData.get("partyId");
@@ -14,7 +23,7 @@ export async function generateSupplierInvoiceAction(formData) {
 
     const invoice = await SupplierInvoiceService.generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake);
     
-    revalidatePath("/supplier-invoices");
+    safeRevalidatePath("/supplier-invoices");
     return { success: true, data: invoice };
   } catch (error) {
     console.error("Failed to generate supplier invoice:", error);
@@ -25,8 +34,8 @@ export async function generateSupplierInvoiceAction(formData) {
 export async function regenerateSupplierInvoiceAction(invoiceId, adjustmentsByIntake = null) {
   try {
     const newInvoice = await SupplierInvoiceService.regenerateInvoice(invoiceId, adjustmentsByIntake);
-    revalidatePath(`/supplier-invoices/${invoiceId}`);
-    revalidatePath("/supplier-invoices");
+    safeRevalidatePath(`/supplier-invoices/${invoiceId}`);
+    safeRevalidatePath("/supplier-invoices");
     return { success: true, data: JSON.parse(JSON.stringify(newInvoice)) };
   } catch (error) {
     console.error("Failed to regenerate supplier invoice:", error);
@@ -66,11 +75,12 @@ export async function updateInvoiceStatusAction(id, status) {
     const { prisma } = await import("@/lib/prisma");
 
     if (status === "COMPLETED") {
-      // Look for existing direct payment
+      // Look for existing active direct payment
       const existingPay = await prisma.partyPayment.findFirst({
         where: {
-          directReferenceType: "SETTLEMENT",
-          directReferenceId: invoice.id
+          sourceType: "DIRECT_SETTLEMENT",
+          sourceId: invoice.id,
+          status: "ACTIVE"
         }
       });
       if (!existingPay) {
@@ -80,16 +90,17 @@ export async function updateInvoiceStatusAction(id, status) {
           amount: Number(invoice.finalPayableAmount),
           notes: `Auto-recorded payment upon marking Invoice #${invoice.invoiceNumber} as Paid`,
           paymentMethod: "CASH",
-          directReferenceType: "SETTLEMENT",
-          directReferenceId: invoice.id
+          sourceType: "DIRECT_SETTLEMENT",
+          sourceId: invoice.id
         });
       }
     } else if (status === "PENDING") {
-      // Reverting to pending, find and remove payment if it exists
+      // Reverting to pending, find and void active payment if it exists
       const existingPay = await prisma.partyPayment.findFirst({
         where: {
-          directReferenceType: "SETTLEMENT",
-          directReferenceId: invoice.id
+          sourceType: "DIRECT_SETTLEMENT",
+          sourceId: invoice.id,
+          status: "ACTIVE"
         }
       });
       if (existingPay) {
@@ -112,8 +123,8 @@ export async function updateInvoiceStatusAction(id, status) {
       }
     });
 
-    revalidatePath(`/supplier-invoices/${id}`);
-    revalidatePath("/supplier-invoices");
+    safeRevalidatePath(`/supplier-invoices/${id}`);
+    safeRevalidatePath("/supplier-invoices");
     return { success: true, data: JSON.parse(JSON.stringify(invoice)) };
   } catch (error) {
     return { success: false, error: error.message };
@@ -151,8 +162,8 @@ export async function editSupplierInvoiceAction(formData) {
 
     const newInvoice = await SupplierInvoiceService.editInvoice(invoiceId, intakeIds, advanceIds, adjustmentsByIntake);
     
-    revalidatePath(`/supplier-invoices/${invoiceId}`);
-    revalidatePath("/supplier-invoices");
+    safeRevalidatePath(`/supplier-invoices/${invoiceId}`);
+    safeRevalidatePath("/supplier-invoices");
     return { success: true, data: newInvoice };
   } catch (error) {
     console.error("Failed to edit supplier invoice:", error);
@@ -163,7 +174,7 @@ export async function editSupplierInvoiceAction(formData) {
 export async function deleteSupplierInvoiceAction(invoiceId) {
   try {
     await SupplierInvoiceService.deleteInvoice(invoiceId);
-    revalidatePath("/supplier-invoices");
+    safeRevalidatePath("/supplier-invoices");
     return { success: true };
   } catch (error) {
     console.error("Failed to delete supplier invoice:", error);

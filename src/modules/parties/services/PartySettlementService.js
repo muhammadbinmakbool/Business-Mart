@@ -14,6 +14,19 @@ export class PartySettlementService {
    * @param {string} [params.directReferenceType] - Optional direct target invoice type
    * @param {number} [params.directReferenceId] - Optional direct target invoice ID
    */
+  /**
+   * Records a new payment event (CASH_IN or CASH_OUT) and executes chronological FIFO allocation.
+   *
+   * @param {object} params
+   * @param {number} params.partyId - Target party ID
+   * @param {string} params.paymentType - CASH_IN (buyer) or CASH_OUT (supplier)
+   * @param {number} params.amount - Total payment amount
+   * @param {string} [params.paymentMethod] - CASH, BANK, JAZZCASH, EASYPAISA, CHEQUE
+   * @param {string} [params.notes] - Operational notes
+   * @param {Date} [params.entryDate] - Date of payment event
+   * @param {string} [params.sourceType] - Optional source mapping (MANUAL, DIRECT_SALE, DIRECT_SETTLEMENT, SYSTEM)
+   * @param {number} [params.sourceId] - Optional source target record ID
+   */
   static async recordPayment({
     partyId,
     paymentType,
@@ -21,8 +34,8 @@ export class PartySettlementService {
     paymentMethod = "CASH",
     notes = null,
     entryDate = new Date(),
-    directReferenceType = null,
-    directReferenceId = null
+    sourceType = "MANUAL",
+    sourceId = null
   }) {
     const pId = parseInt(partyId);
     const amt = parseFloat(amount);
@@ -54,8 +67,9 @@ export class PartySettlementService {
         amount: amt,
         notes,
         entryDate: new Date(entryDate),
-        directReferenceType,
-        directReferenceId: directReferenceId ? parseInt(directReferenceId) : null
+        sourceType,
+        sourceId: sourceId ? parseInt(sourceId) : null,
+        status: "ACTIVE"
       }
     });
 
@@ -67,7 +81,7 @@ export class PartySettlementService {
 
   /**
    * dynamic chronological FIFO re-allocation.
-   * Completely deletes current allocations for the party & type and rebuilds them.
+   * Wipes allocations belonging ONLY to ACTIVE payments of this party & type, keeping VOIDED ones frozen.
    * NEVER modifies the physical payments (historical truth).
    *
    * @param {number} partyId - Target party ID
@@ -77,17 +91,21 @@ export class PartySettlementService {
     const pId = parseInt(partyId);
     if (isNaN(pId)) throw new Error("Invalid Party ID");
 
-    // 1. Wipe existing allocations for this party & type
+    // 1. Wipe existing allocations belonging ONLY to ACTIVE payments for this party & type
+    // This freezes and locks the allocation history snapshot for VOIDED payments!
     await prisma.partyPaymentAllocation.deleteMany({
       where: {
         partyId: pId,
-        payment: { paymentType: type }
+        payment: {
+          paymentType: type,
+          status: "ACTIVE"
+        }
       }
     });
 
-    // 2. Fetch all payments (historical truth) for this party & type
+    // 2. Fetch all ACTIVE payments (historical truth) for this party & type to allocate
     const payments = await prisma.partyPayment.findMany({
-      where: { partyId: pId, paymentType: type },
+      where: { partyId: pId, paymentType: type, status: "ACTIVE" },
       orderBy: { entryDate: "asc" }
     });
 
@@ -105,17 +123,31 @@ export class PartySettlementService {
       });
     }
 
-    // Keep track of total allocated amount per obligation
-    const allocatedMap = new Map(); // obligationId -> allocatedAmount (Number)
-    obligations.forEach(o => allocatedMap.set(o.id, 0));
+    // Keep track of total allocated amount per obligation (including existing allocations from VOIDED / REVERSED payments)
+    const allocatedMap = new Map();
+    for (const o of obligations) {
+      // Find allocations from frozen VOIDED / REVERSED payments for this obligation
+      const frozenAllocs = await prisma.partyPaymentAllocation.findMany({
+        where: {
+          referenceType: type === "CASH_IN" ? "SALE" : "SETTLEMENT",
+          referenceId: o.id,
+          payment: {
+            status: { not: "ACTIVE" }
+          }
+        }
+      });
+      const frozenTotal = frozenAllocs.reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
+      allocatedMap.set(o.id, frozenTotal);
+    }
 
     // ==========================================
     // PHASE A: Allocate Direct Clearance Payments
     // ==========================================
     for (const payment of payments) {
-      if (payment.directReferenceId && payment.directReferenceType) {
-        const refId = parseInt(payment.directReferenceId);
-        const refType = payment.directReferenceType;
+      if (payment.sourceType === "DIRECT_SALE" || payment.sourceType === "DIRECT_SETTLEMENT") {
+        if (!payment.sourceId) continue;
+        const refId = payment.sourceId;
+        const refType = payment.sourceType === "DIRECT_SALE" ? "SALE" : "SETTLEMENT";
 
         // Verify obligation exists in our list
         const obligation = obligations.find(o => o.id === refId);
@@ -152,7 +184,7 @@ export class PartySettlementService {
     // ==========================================
     for (const payment of payments) {
       // Skip direct clearance payments in general FIFO allocations
-      if (payment.directReferenceId && payment.directReferenceType) {
+      if (payment.sourceType === "DIRECT_SALE" || payment.sourceType === "DIRECT_SETTLEMENT") {
         continue;
       }
 
@@ -283,13 +315,15 @@ export class PartySettlementService {
       paymentMethod,
       notes: defaultNotes,
       entryDate: new Date(),
-      directReferenceType: referenceType,
-      directReferenceId: refId
+      sourceType: referenceType === "SALE" ? "DIRECT_SALE" : "DIRECT_SETTLEMENT",
+      sourceId: refId
     });
   }
 
   /**
-   * Deletes a payment record and automatically triggers dynamic FIFO reallocation.
+   * Voids a payment record and automatically triggers dynamic FIFO reallocation.
+   * NEVER physically deletes the payment record, ensuring a permanent audit trail.
+   * Wipes allocations for ACTIVE payments, freezing this payment's snapshot.
    *
    * @param {number} paymentId - Payment ID
    */
@@ -300,10 +334,13 @@ export class PartySettlementService {
     const payment = await prisma.partyPayment.findUnique({ where: { id: pId } });
     if (!payment) throw new Error("Payment not found");
 
-    // Delete the payment (allocations cascade deleted in schema)
-    await prisma.partyPayment.delete({ where: { id: pId } });
+    // Mark status as VOIDED instead of physically deleting to preserve history!
+    await prisma.partyPayment.update({
+      where: { id: pId },
+      data: { status: "VOIDED" }
+    });
 
-    // Trigger FIFO re-allocation to repair remaining obligations
+    // Trigger FIFO re-allocation to repair remaining active payments allocations
     await this.reallocateFIFO(payment.partyId, payment.paymentType);
   }
 }
