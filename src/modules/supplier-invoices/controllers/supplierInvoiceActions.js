@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { SupplierInvoiceService } from "../services/SupplierInvoiceService";
 import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceRepository";
+import { emitActivity } from "@/modules/activity-log/activityLogger";
 
 export async function generateSupplierInvoiceAction(formData) {
   try {
@@ -59,6 +60,22 @@ export async function listSupplierInvoicesAction() {
 export async function updateInvoiceStatusAction(id, status) {
   try {
     const invoice = await SupplierInvoiceRepository.updateStatus(id, status);
+    
+    let action = "UPDATED";
+    if (status === "COMPLETED") action = "COMPLETED";
+
+    await emitActivity({
+      entityType: "SETTLEMENT",
+      entityId: invoice.id,
+      action,
+      description: `Supplier invoice ${invoice.invoiceNumber} status updated to ${status}`,
+      meta: {
+        supplierId: invoice.partyId,
+        status: invoice.status,
+        finalPayableAmount: Number(invoice.finalPayableAmount)
+      }
+    });
+
     revalidatePath(`/supplier-invoices/${id}`);
     revalidatePath("/supplier-invoices");
     return { success: true, data: JSON.parse(JSON.stringify(invoice)) };

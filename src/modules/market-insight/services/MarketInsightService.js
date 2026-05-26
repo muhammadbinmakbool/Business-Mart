@@ -1,6 +1,7 @@
 import { MarketInsightRepository } from "../repositories/MarketInsightRepository";
 import { marketInsightSchema } from "../validations/marketInsightSchema";
 import { prisma } from "@/lib/prisma";
+import { emitActivity } from "@/modules/activity-log/activityLogger";
 
 export class MarketInsightService {
   /**
@@ -29,7 +30,17 @@ export class MarketInsightService {
     });
 
     // 4. Save to database
-    return await MarketInsightRepository.create(validated);
+    const rateEntry = await MarketInsightRepository.create(validated);
+
+    await emitActivity({
+      entityType: "PRODUCT",
+      entityId: product.id,
+      action: "UPDATED",
+      description: `Rate updated for Product "${product.name}" to ${rateEntry.rate} per ${rateEntry.unit}`,
+      meta: { productId: product.id, rate: rateEntry.rate, unit: rateEntry.unit, source: rateEntry.source }
+    });
+
+    return rateEntry;
   }
 
   static async listRates(filter = "ACTIVE") {
@@ -37,7 +48,17 @@ export class MarketInsightService {
   }
 
   static async archiveRateEntry(id) {
-    return await MarketInsightRepository.archiveRate(id);
+    const rateEntry = await MarketInsightRepository.archiveRate(id);
+    if (rateEntry) {
+      await emitActivity({
+        entityType: "PRODUCT",
+        entityId: rateEntry.productId,
+        action: "ARCHIVED",
+        description: `Rate history entry ID ${id} archived`,
+        meta: { rateId: id, productId: rateEntry.productId }
+      });
+    }
+    return rateEntry;
   }
 
   static async getRateHistory(productId, period = "30d") {

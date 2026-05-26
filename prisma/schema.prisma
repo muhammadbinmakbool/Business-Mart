@@ -259,3 +259,20 @@ model ProductRate {
 
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  entityType  String   @db.NVarChar(100) // PRODUCT, PARTY, INTAKE, SALE, SETTLEMENT, SYSTEM
+  entityId    Int?
+  action      String   @db.NVarChar(100) // CREATED, UPDATED, DELETED, COMPLETED, CANCELLED, ARCHIVED, SUPERSEDED, SOLD
+  description String?  @db.NVarChar(Max)
+  userId      Int      @default(0)
+  userName    String?  @db.NVarChar(255)
+  meta        String?  @db.NVarChar(Max)
+  createdAt   DateTime @default(now())
+
+  @@index([entityType])
+  @@index([action])
+  @@index([createdAt])
+}
+

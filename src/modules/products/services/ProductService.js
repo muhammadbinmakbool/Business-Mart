@@ -1,5 +1,6 @@
 import { ProductRepository } from "../repositories/ProductRepository";
 import { productSchema } from "../validations/productSchema";
+import { emitActivity } from "@/modules/activity-log/activityLogger";
 
 export class ProductService {
   static async listProducts() {
@@ -16,18 +17,50 @@ export class ProductService {
 
   static async createProduct(data) {
     const validatedData = productSchema.parse(data);
-    return await ProductRepository.create(validatedData);
+    const product = await ProductRepository.create(validatedData);
+    await emitActivity({
+      entityType: "PRODUCT",
+      entityId: product.id,
+      action: "CREATED",
+      description: `Product "${product.name}" created`,
+      meta: { name: product.name, category: product.category, primaryUnit: product.primaryUnit }
+    });
+    return product;
   }
 
   static async updateProduct(id, data) {
     const validatedData = productSchema.parse(data);
-    return await ProductRepository.update(id, validatedData);
+    const product = await ProductRepository.update(id, validatedData);
+    await emitActivity({
+      entityType: "PRODUCT",
+      entityId: product.id,
+      action: "UPDATED",
+      description: `Product "${product.name}" updated`,
+      meta: { name: product.name, category: product.category, primaryUnit: product.primaryUnit }
+    });
+    return product;
   }
 
   static async toggleProductStatus(id, isActive) {
-    return await ProductRepository.toggleStatus(id, isActive);
+    const product = await ProductRepository.toggleStatus(id, isActive);
+    await emitActivity({
+      entityType: "PRODUCT",
+      entityId: product.id,
+      action: "UPDATED",
+      description: `Product "${product.name}" status toggled to ${isActive ? "Active" : "Inactive"}`,
+      meta: { name: product.name, isActive }
+    });
+    return product;
   }
   static async deleteProduct(id) {
-    return await ProductRepository.delete(id);
+    const product = await ProductRepository.delete(id);
+    await emitActivity({
+      entityType: "PRODUCT",
+      entityId: product.id,
+      action: "DELETED",
+      description: `Product "${product.name}" deleted`,
+      meta: { name: product.name }
+    });
+    return product;
   }
 }

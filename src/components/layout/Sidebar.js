@@ -14,7 +14,8 @@ import {
   TrendingUp, 
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  History
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ const menuItems = [
   { name: "Ledger", href: "/ledger", icon: BookOpen },
 
   { name: "Market Insight", href: "/market-insight", icon: TrendingUp },
+  { name: "Activity Log", href: "/activity", icon: History },
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 

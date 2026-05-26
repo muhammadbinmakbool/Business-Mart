@@ -6,6 +6,7 @@ import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
 import { createAppError } from "@/lib/errors/AppError";
+import { emitActivity } from "@/modules/activity-log/activityLogger";
 
 export class SaleService {
   /**
@@ -185,6 +186,21 @@ export class SaleService {
 
       return sale;
     });
+
+    await emitActivity({
+      entityType: "SALE",
+      entityId: sale.id,
+      action: "CREATED",
+      description: `Sale ${sale.saleNumber} created`,
+      meta: {
+        buyerId: sale.partyId,
+        productIds: sale.items.map(item => item.productId),
+        totalWeight: Number(sale.totalWeight),
+        finalAmount: Number(sale.finalAmount)
+      }
+    });
+
+    return sale;
   }
 
   static async updateSale(id, data) {
@@ -398,10 +414,25 @@ export class SaleService {
 
       return updatedSale;
     });
+
+    await emitActivity({
+      entityType: "SALE",
+      entityId: updatedSale.id,
+      action: "UPDATED",
+      description: `Sale ${updatedSale.saleNumber} updated`,
+      meta: {
+        buyerId: updatedSale.partyId,
+        productIds: updatedSale.items.map(item => item.productId),
+        totalWeight: Number(updatedSale.totalWeight),
+        finalAmount: Number(updatedSale.finalAmount)
+      }
+    });
+
+    return updatedSale;
   }
 
   static async updateStatus(id, status) {
-    return prisma.$transaction(async (tx) => {
+    const updated = await prisma.$transaction(async (tx) => {
       const sale = await tx.saleTransaction.findUnique({
         where: { id: parseInt(id) },
         include: { items: true }
@@ -431,10 +462,28 @@ export class SaleService {
         data: { status }
       });
     });
+
+    let action = "UPDATED";
+    if (status === "COMPLETED") action = "COMPLETED";
+    if (status === "CANCELLED") action = "CANCELLED";
+
+    await emitActivity({
+      entityType: "SALE",
+      entityId: updated.id,
+      action,
+      description: `Sale ${updated.saleNumber} status updated to ${status}`,
+      meta: {
+        buyerId: updated.partyId,
+        status: updated.status,
+        finalAmount: Number(updated.finalAmount)
+      }
+    });
+
+    return updated;
   }
 
   static async deleteSale(id) {
-    return prisma.$transaction(async (tx) => {
+    const deleted = await prisma.$transaction(async (tx) => {
       // 1. Get current sale with items
       const sale = await tx.saleTransaction.findUnique({
         where: { id: parseInt(id) },
@@ -461,6 +510,19 @@ export class SaleService {
         data: { isDeleted: true }
       });
     });
+
+    await emitActivity({
+      entityType: "SALE",
+      entityId: deleted.id,
+      action: "DELETED",
+      description: `Sale ${deleted.saleNumber} deleted (soft-delete)`,
+      meta: {
+        buyerId: deleted.partyId,
+        finalAmount: Number(deleted.finalAmount)
+      }
+    });
+
+    return deleted;
   }
 
   static async getSale(id) {

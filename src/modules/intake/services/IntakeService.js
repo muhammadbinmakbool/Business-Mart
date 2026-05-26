@@ -8,6 +8,7 @@ import { InventoryService } from "../../products/services/InventoryService";
 import { prisma } from "@/lib/prisma";
 import { convertRate } from "@/lib/units";
 import { createAppError } from "@/lib/errors/AppError";
+import { emitActivity } from "@/modules/activity-log/activityLogger";
 
 
 export class IntakeService {
@@ -131,6 +132,21 @@ export class IntakeService {
 
       return intake;
     });
+
+    await emitActivity({
+      entityType: "INTAKE",
+      entityId: intake.id,
+      action: "CREATED",
+      description: `Intake ${intake.intakeNumber} created for supplier`,
+      meta: {
+        productId: intake.productId,
+        weight: Number(intake.normalizedWeight),
+        bagCount: intake.bagCount,
+        supplierId: intake.partyId
+      }
+    });
+
+    return intake;
   }
 
   static async updateIntake(id, data) {
@@ -269,6 +285,22 @@ export class IntakeService {
 
       return updated;
     });
+
+    await emitActivity({
+      entityType: "INTAKE",
+      entityId: updated.id,
+      action: "UPDATED",
+      description: `Intake ${updated.intakeNumber} updated (Status: ${updated.status})`,
+      meta: {
+        productId: updated.productId,
+        weight: Number(updated.normalizedWeight),
+        bagCount: updated.bagCount,
+        supplierId: updated.partyId,
+        status: updated.status
+      }
+    });
+
+    return updated;
   }
 
 
@@ -377,6 +409,21 @@ export class IntakeService {
 
       return updatedIntake;
     });
+
+    await emitActivity({
+      entityType: "INTAKE",
+      entityId: updatedIntake.id,
+      action: "SOLD",
+      description: `Intake ${updatedIntake.intakeNumber} marked as SOLD`,
+      meta: {
+        productId: updatedIntake.productId,
+        weight: Number(updatedIntake.netWeight || updatedIntake.grossWeight),
+        supplierId: updatedIntake.partyId,
+        rate: Number(updatedIntake.rate)
+      }
+    });
+
+    return updatedIntake;
   }
 
 
@@ -403,6 +450,20 @@ export class IntakeService {
 
       return deleted;
     });
+
+    await emitActivity({
+      entityType: "INTAKE",
+      entityId: deleted.id,
+      action: "DELETED",
+      description: `Intake ${deleted.intakeNumber} deleted`,
+      meta: {
+        productId: deleted.productId,
+        weight: Number(deleted.normalizedWeight),
+        supplierId: deleted.partyId
+      }
+    });
+
+    return deleted;
   }
 }
 

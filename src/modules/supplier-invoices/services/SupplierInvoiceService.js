@@ -2,6 +2,7 @@ import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceReposi
 import { calculateSupplierDeductions } from "@/lib/financial";
 import { prisma } from "@/lib/prisma";
 import { convertRate } from "@/lib/units";
+import { emitActivity } from "@/modules/activity-log/activityLogger";
 
 export class SupplierInvoiceService {
   /**
@@ -68,6 +69,18 @@ export class SupplierInvoiceService {
       itemsData,
       advanceIds
     );
+
+    await emitActivity({
+      entityType: "SETTLEMENT",
+      entityId: invoice.id,
+      action: "CREATED",
+      description: `Supplier settlement ${invoice.invoiceNumber} generated`,
+      meta: {
+        supplierId: invoice.partyId,
+        totalGrossValue: Number(invoice.totalGrossValue),
+        finalPayableAmount: Number(invoice.finalPayableAmount)
+      }
+    });
 
     return JSON.parse(JSON.stringify(invoice));
   }
@@ -137,69 +150,84 @@ export class SupplierInvoiceService {
        };
      });
  
-     // 6. Execute atomic transaction
-     return prisma.$transaction(async (tx) => {
-       // Mark old invoice as SUPERSEDED and isOutdated
-       await tx.supplierInvoice.update({
-         where: { id: parseInt(oldInvoiceId) },
-         data: { status: "SUPERSEDED", isOutdated: true }
-       });
+      // 6. Execute atomic transaction
+      const newInvoice = await prisma.$transaction(async (tx) => {
+        // Mark old invoice as SUPERSEDED and isOutdated
+        await tx.supplierInvoice.update({
+          where: { id: parseInt(oldInvoiceId) },
+          data: { status: "SUPERSEDED", isOutdated: true }
+        });
  
-       // Create NEW version with a new invoice number but incremented version
-       const lastInvoice = await tx.supplierInvoice.findFirst({
-         orderBy: { id: "desc" },
-         select: { id: true }
-       });
-       const nextId = (lastInvoice?.id || 0) + 1;
-       const invoiceNumber = `SUP-${nextId.toString().padStart(6, "0")}`;
+        // Create new version
+        const newInvoice = await tx.supplierInvoice.create({
+          data: {
+            invoiceNumber: oldInvoice.invoiceNumber,
+            partyId: oldInvoice.partyId,
+            totalGrossValue,
+            totalDeductions,
+            totalAdvances,
+            finalPayableAmount,
+            status: "PENDING",
+            version: oldInvoice.version + 1,
+            lastCalculatedAt: new Date(),
+            items: {
+              create: itemsData.map(item => ({
+                intakeTransactionId: item.intakeTransactionId,
+                weight: item.weight,
+                rate: item.rate,
+                amount: item.amount,
+                adjustments: {
+                  create: item.adjustments.map(adj => ({
+                    adjustmentType: adj.adjustmentType,
+                    method: adj.method,
+                    value: adj.value,
+                    calculatedAmount: adj.calculatedAmount,
+                    direction: adj.direction,
+                    unit: adj.unit || null
+                  }))
+                }
+              }))
+            },
+            advances: {
+              connect: advanceIds.map(id => ({ id: parseInt(id) }))
+            }
+          },
+          include: {
+            items: {
+              include: {
+                intake: { include: { product: true } },
+                adjustments: true
+              }
+            },
+            advances: true,
+            party: true
+          }
+        });
  
-       const newInvoice = await tx.supplierInvoice.create({
-         data: {
-           invoiceNumber,
-           partyId: oldInvoice.partyId,
-           totalGrossValue,
-           totalDeductions,
-           totalAdvances,
-           finalPayableAmount,
-           status: "PENDING",
-           version: oldInvoice.version + 1,
-           lastCalculatedAt: new Date(),
-           items: {
-             create: itemsData.map(item => ({
-               weight: item.weight,
-               rate: item.rate,
-               amount: item.amount,
-               intake: { connect: { id: parseInt(item.intakeTransactionId) } },
-               adjustments: {
-                 create: (item.adjustments || []).map(adj => ({
-                   adjustmentType: adj.adjustmentType,
-                   method: adj.method,
-                   value: adj.value,
-                   calculatedAmount: adj.calculatedAmount,
-                   direction: adj.direction,
-                   unit: adj.unit || null
-                 }))
-               }
-             }))
-           },
-           advances: {
-             connect: advanceIds.map(id => ({ id: parseInt(id) }))
-           }
-         },
-         include: {
-           items: {
-             include: {
-               intake: { include: { product: true } },
-               adjustments: true
-             }
-           },
-           advances: true,
-           party: true
-         }
-       });
- 
-       return JSON.parse(JSON.stringify(newInvoice));
-     });
+        return newInvoice;
+      });
+
+      await emitActivity({
+        entityType: "SETTLEMENT",
+        entityId: parseInt(oldInvoiceId),
+        action: "SUPERSEDED",
+        description: `Supplier invoice ID ${oldInvoiceId} superseded by version ${newInvoice.version} (${newInvoice.invoiceNumber})`,
+        meta: { supersededById: newInvoice.id }
+      });
+
+      await emitActivity({
+        entityType: "SETTLEMENT",
+        entityId: newInvoice.id,
+        action: "CREATED",
+        description: `Supplier invoice ${newInvoice.invoiceNumber} generated via regeneration (v${newInvoice.version})`,
+        meta: {
+          supplierId: newInvoice.partyId,
+          totalGrossValue: Number(newInvoice.totalGrossValue),
+          finalPayableAmount: Number(newInvoice.finalPayableAmount)
+        }
+      });
+
+      return JSON.parse(JSON.stringify(newInvoice));
    }
 
   /**
@@ -213,7 +241,7 @@ export class SupplierInvoiceService {
       throw new Error("Only PENDING invoices can be edited");
     }
 
-    return prisma.$transaction(async (tx) => {
+    const newInvoice = await prisma.$transaction(async (tx) => {
       // 1. Mark old invoice as SUPERSEDED and isOutdated
       await tx.supplierInvoice.update({
         where: { id: parseInt(oldInvoiceId) },
@@ -314,8 +342,30 @@ export class SupplierInvoiceService {
         }
       });
 
-      return JSON.parse(JSON.stringify(newInvoice));
+      return newInvoice;
     });
+
+    await emitActivity({
+      entityType: "SETTLEMENT",
+      entityId: parseInt(oldInvoiceId),
+      action: "SUPERSEDED",
+      description: `Supplier invoice ID ${oldInvoiceId} superseded by version ${newInvoice.version} (${newInvoice.invoiceNumber}) via edit`,
+      meta: { supersededById: newInvoice.id }
+    });
+
+    await emitActivity({
+      entityType: "SETTLEMENT",
+      entityId: newInvoice.id,
+      action: "CREATED",
+      description: `Supplier invoice ${newInvoice.invoiceNumber} generated via edit (v${newInvoice.version})`,
+      meta: {
+        supplierId: newInvoice.partyId,
+        totalGrossValue: Number(newInvoice.totalGrossValue),
+        finalPayableAmount: Number(newInvoice.finalPayableAmount)
+      }
+    });
+
+    return JSON.parse(JSON.stringify(newInvoice));
   }
 
   /**
@@ -329,7 +379,7 @@ export class SupplierInvoiceService {
       throw new Error("Only PENDING invoices can be deleted");
     }
 
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
       // 1. Disconnect any advances linked to this invoice
       await tx.intakeAdvance.updateMany({
         where: { supplierInvoiceId: parseInt(invoiceId) },
@@ -345,5 +395,15 @@ export class SupplierInvoiceService {
 
       return { success: true };
     });
+
+    await emitActivity({
+      entityType: "SETTLEMENT",
+      entityId: parseInt(invoiceId),
+      action: "DELETED",
+      description: `Supplier invoice ID ${invoiceId} (${invoice.invoiceNumber}) deleted`,
+      meta: { supplierId: invoice.partyId, invoiceNumber: invoice.invoiceNumber }
+    });
+
+    return result;
   }
 }
