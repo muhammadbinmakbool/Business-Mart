@@ -1,5 +1,9 @@
 import { getConversionFactor, convertRate } from "./units";
 
+// WARNING:
+// This file must NEVER perform rounding.
+// Rounding is handled ONLY in precision layer at output boundary.
+
 /**
  * Financial Utilities
  * Centralized logic for all financial calculations in Business Mart.
@@ -9,6 +13,9 @@ import { getConversionFactor, convertRate } from "./units";
 /**
  * Rounds a number to a fixed number of decimal places.
  * Default is 2 decimal places for currency/weight.
+ * 
+ * NOTE: For compatibility with legacy UI consumers, this function is kept,
+ * but it is NEVER used inside calculations in financial.js.
  */
 export function round(value, decimals = 2) {
   const factor = Math.pow(10, decimals);
@@ -26,30 +33,30 @@ export function calculateAdjustment(method, value, { baseAmount = 0, totalWeight
   
   switch (method) {
     case "FIXED":
-      return round(val);
+      return val;
     case "PERCENTAGE":
-      return round((val / 100) * Number(baseAmount));
+      return (val / 100) * Number(baseAmount);
     case "PER_WEIGHT": {
       const adjUnit = adjustmentUnit || "KG";
       if (adjUnit === "BAG") {
-        return round(val * Number(bagCount));
+        return val * Number(bagCount);
       }
       // Convert weight in original unit (`unit`) to target unit (`adjUnit`)
       // 1. Convert to KG (base unit)
       const weightInKg = unit === "KG" ? Number(totalWeight) : Number(totalWeight) * getConversionFactor(unit, product);
       // 2. Convert to target unit
       const weightInTarget = adjUnit === "KG" ? weightInKg : weightInKg / getConversionFactor(adjUnit, product);
-      return round(val * weightInTarget);
+      return val * weightInTarget;
     }
     case "PER_BAG":
-      return round(val * Number(bagCount));
+      return val * Number(bagCount);
     case "WEIGHT_PER_BAG":
       // Deducts a certain weight per bag (in KG), then multiplies by rate.
       // We convert the deducted weight from KG to the target unit by dividing by the conversion factor.
       const totalDeductedWeight = val * Number(bagCount);
       const factor = getConversionFactor(unit, product);
       const convertedWeight = totalDeductedWeight / factor;
-      return round(convertedWeight * Number(rate));
+      return convertedWeight * Number(rate);
     default:
       return 0;
   }
@@ -79,9 +86,9 @@ export function calculateFinalTotal(baseAmount, adjustments = [], totalWeight = 
   }, 0);
 
   return {
-    baseAmount: round(base),
-    totalAdjustments: round(totalAdjustments),
-    finalAmount: round(base + totalAdjustments)
+    baseAmount: base,
+    totalAdjustments: totalAdjustments,
+    finalAmount: base + totalAdjustments
   };
 }
 
@@ -101,7 +108,7 @@ export function calculateTransactionTotals(items = [], adjustments = []) {
     const itemWeight = Number(item.normalizedWeight || 0);
     const itemRate = Number(item.normalizedRate || 0);
     
-    baseAmount += round(itemWeight * itemRate);
+    baseAmount += (itemWeight * itemRate);
     totalWeight += itemWeight;
 
     if (item.product) {
@@ -121,8 +128,8 @@ export function calculateTransactionTotals(items = [], adjustments = []) {
 
   return {
     ...result,
-    totalWeight: round(totalWeight),
-    totalBagCount: round(totalBagCount)
+    totalWeight: totalWeight,
+    totalBagCount: totalBagCount
   };
 }
 
@@ -171,17 +178,17 @@ export function calculateSupplierDeductions(intakes) {
 
     return {
       intakeId: intake.id,
-      gross: round(gross),
-      deductions: round(itemDeductions),
-      net: round(gross - itemDeductions),
+      gross: gross,
+      deductions: itemDeductions,
+      net: gross - itemDeductions,
       adjustments: calculatedAdjs
     };
   });
 
   return {
-    totalGrossValue: round(totalGrossValue),
-    totalDeductions: round(totalDeductions),
-    netValue: round(totalGrossValue - totalDeductions),
+    totalGrossValue: totalGrossValue,
+    totalDeductions: totalDeductions,
+    netValue: totalGrossValue - totalDeductions,
     intakeBreakdowns
   };
 }
