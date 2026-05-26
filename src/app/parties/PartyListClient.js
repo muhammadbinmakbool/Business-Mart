@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Search, Edit2, Phone, MapPin, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DeleteButton from "@/components/DeleteButton";
@@ -10,6 +11,7 @@ import StatusFilterTabs from "@/components/StatusFilterTabs";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 
 export default function PartyListClient({ parties = [] }) {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("ALL");
 
@@ -78,11 +80,11 @@ export default function PartyListClient({ parties = [] }) {
           </div>
         ) : (
           filteredParties.map((party) => (
-            <Link
-              href={`/parties/${party.id}`}
+            <div
               key={party.id}
+              onClick={() => router.push(`/parties/${party.id}`)}
               className={cn(
-                "group relative rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md cursor-pointer block",
+                "group relative rounded-xl border bg-card p-5 shadow-sm transition-all hover:shadow-md cursor-pointer",
                 !party.isActive && "opacity-60 grayscale-[0.5]"
               )}
             >
@@ -112,19 +114,19 @@ export default function PartyListClient({ parties = [] }) {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center" onClick={(e) => e.preventDefault()}>
+                <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                   <Link
                     href={`/parties/${party.id}`}
                     className="rounded-full p-2 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
                     title="View Profile"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); }}
                   >
                     <Eye className="h-4 w-4" />
                   </Link>
                   <Link
                     href={`/parties/${party.id}/edit`}
                     className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); }}
                   >
                     <Edit2 className="h-4 w-4" />
                   </Link>
@@ -142,7 +144,7 @@ export default function PartyListClient({ parties = [] }) {
                   Inactive
                 </div>
               )}
-            </Link>
+            </div>
           ))
         )}
       </div>
