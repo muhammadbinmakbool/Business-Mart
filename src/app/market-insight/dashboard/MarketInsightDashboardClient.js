@@ -447,16 +447,25 @@ export default function MarketInsightDashboardClient({
             </div>
 
             {/* Event Count Bars Chart */}
-            <div className="h-[180px] w-full flex items-end justify-between gap-1 bg-slate-50 dark:bg-slate-950/30 rounded-lg p-3 border border-slate-200 dark:border-slate-900">
+            <div className={`h-[180px] w-full flex items-end justify-between bg-slate-50 dark:bg-slate-950/30 rounded-lg p-3 border border-slate-200 dark:border-slate-900 overflow-hidden ${
+              analyticsData.length > 30 ? "gap-[1px]" : analyticsData.length > 7 ? "gap-0.5" : "gap-1"
+            }`}>
               {analyticsData.map((d, i) => {
                 const intakeHeight = (d.intakesCount / activityMax) * 100;
                 const saleHeight = (d.salesCount / activityMax) * 100;
                 
-                // Show X labels on first/mid/last index
-                const showX = i === 0 || i === analyticsData.length - 1 || (analyticsData.length < 15 && i % 3 === 0);
+                // Show X labels at clean dynamic intervals based on range length
+                let showX = false;
+                if (analyticsData.length <= 7) {
+                  showX = true;
+                } else if (analyticsData.length <= 30) {
+                  showX = i % 5 === 0 || i === analyticsData.length - 1;
+                } else {
+                  showX = i % 15 === 0 || i === analyticsData.length - 1;
+                }
 
                 return (
-                  <div key={i} className="flex-1 flex flex-col items-center h-full group relative">
+                  <div key={i} className="flex-1 flex flex-col items-center h-full group relative min-w-0">
                     {/* Hover tooltip */}
                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-slate-900 border border-slate-800 rounded px-2 py-1 text-[9px] font-mono text-slate-100 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap shadow-lg">
                       <div className="font-bold border-b border-slate-800 pb-0.5 mb-0.5">{d.label}</div>
@@ -464,21 +473,24 @@ export default function MarketInsightDashboardClient({
                       <div className="text-violet-400">Sales: {d.salesCount}</div>
                     </div>
 
-                    <div className="flex-1 w-full flex items-end justify-center gap-0.5 relative">
+                    <div className="flex-1 w-full flex items-end justify-center relative min-w-0">
                       <div 
                         style={{ height: `${intakeHeight}%` }} 
-                        className="w-1.5 bg-sky-500/80 hover:bg-sky-400 rounded-t transition-all"
+                        className="flex-1 bg-sky-500/80 hover:bg-sky-400 rounded-t transition-all"
                       />
+                      <div className={analyticsData.length > 30 ? "w-[1px] shrink-0" : "w-0.5 shrink-0"} />
                       <div 
                         style={{ height: `${saleHeight}%` }} 
-                        className="w-1.5 bg-violet-500/80 hover:bg-violet-400 rounded-t transition-all"
+                        className="flex-1 bg-violet-500/80 hover:bg-violet-400 rounded-t transition-all"
                       />
                     </div>
-                    {showX && (
-                      <span className="text-[8px] text-slate-600 font-mono mt-1 select-none">
-                        {d.label.split(" ")[1]}
-                      </span>
-                    )}
+                    <div className="h-3 flex items-center justify-center mt-1 select-none w-full shrink-0">
+                      {showX && (
+                        <span className="text-[8px] text-slate-600 dark:text-slate-500 font-mono whitespace-nowrap font-semibold">
+                          {d.label.split(" ")[1] || d.label}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
