@@ -111,3 +111,14 @@ graph TD
     C -->|Yes: Render UI / Settlement| D(display-units.js / formatters.js)
     D --> E[Formated Whole Maund + Kg / Rounded Integer Output]
 ```
+### Example Usage:
+```javascript
+import { calculateTransactionTotals } from "@/lib/financial";
+import { Precision } from "@/lib/precision";
+
+// 1. Calculate raw transaction values using the pure engine
+const rawTotals = calculateTransactionTotals(items, adjustments);
+
+// 2. Round at UI / display boundary
+const displayFinalAmount = Precision.final(rawTotals.finalAmount);
+const displayTotalWeightInKg = Precision.final(rawTotals.totalWeight);

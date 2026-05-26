@@ -121,7 +121,11 @@ export class SupplierInvoiceRepository {
     const latestIntakeUpdate = maxIntakeUpdate._max.updatedAt || new Date(0);
     const latestAdvanceUpdate = maxAdvanceUpdate._max.updatedAt || new Date(0);
     
-    const stale = latestIntakeUpdate > invoice.lastCalculatedAt || latestAdvanceUpdate > invoice.lastCalculatedAt;
+    // Use a 5-second safety buffer to prevent database transaction latency and @updatedAt write timing offsets
+    // from triggering instant false-positive staleness right after invoice creation.
+    const bufferMs = 5000;
+    const thresholdDate = new Date(invoice.lastCalculatedAt.getTime() + bufferMs);
+    const stale = latestIntakeUpdate > thresholdDate || latestAdvanceUpdate > thresholdDate;
     
     if (stale && !invoice.isOutdated) {
       await prisma.supplierInvoice.update({
