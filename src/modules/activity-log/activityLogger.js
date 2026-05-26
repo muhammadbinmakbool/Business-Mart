@@ -1,16 +1,40 @@
 import { ActivityLogService } from "./services/ActivityLogService";
 
+const logQueue = [];
+let isProcessing = false;
+
+async function processQueue() {
+  if (isProcessing || logQueue.length === 0) return;
+  isProcessing = true;
+
+  try {
+    while (logQueue.length > 0) {
+      const nextLog = logQueue.shift();
+      try {
+        await ActivityLogService.createLog(nextLog);
+      } catch (error) {
+        // Individual item write failures must not halt the queue processing
+        console.error("ActivityLogger Background Worker failed to save log item:", error, nextLog);
+      }
+    }
+  } finally {
+    isProcessing = false;
+  }
+}
+
 /**
  * Domain Event Dispatcher for Audit/Telemetry Logging.
  * 
  * CRITICAL ARCHITECTURAL RULES:
- * 1. STRICT TRY-CATCH BOUNDARY:
+ * 1. FIRE-AND-FORGET BACKGROUND QUEUE:
+ *    To prevent audit logging latency from slowing down primary business operations,
+ *    emitActivity pushes logs to a background FIFO queue and returns instantly without awaiting database writes.
+ * 2. STRICT TRY-CATCH BOUNDARY:
  *    This function MUST NEVER propagate errors or trigger rollbacks of calling database transactions.
- *    It must always be run outside/after core transaction blocks when possible.
- * 2. NO BUSINESS LOGIC IN META:
+ * 3. NO BUSINESS LOGIC IN META:
  *    The `meta` payload is strictly READ-ONLY debugging context. No business calculations,
  *    inventory triggers, or ledger state mutations should ever depend on the contents of the `meta` field.
- * 3. STANDARDIZED ACTION VOCABULARY:
+ * 4. STANDARDIZED ACTION VOCABULARY:
  *    Always use the strict list of actions: CREATED, UPDATED, DELETED, COMPLETED, CANCELLED, ARCHIVED, SUPERSEDED, SOLD.
  * 
  * @param {Object} params
@@ -31,18 +55,19 @@ export async function emitActivity({
   userName = "system",
   meta = {}
 }) {
-  try {
-    await ActivityLogService.createLog({
-      entityType,
-      entityId: entityId ? parseInt(entityId) : null,
-      action,
-      description,
-      userId,
-      userName,
-      meta
-    });
-  } catch (error) {
-    // Graceful error logging to ensure logging failures never block the parent business transaction
-    console.error("ActivityLogger Safety Boundary (gracefully caught):", error);
-  }
+  // 1. Queue the sanitized operational log entry
+  logQueue.push({
+    entityType,
+    entityId: entityId ? parseInt(entityId) : null,
+    action,
+    description,
+    userId,
+    userName,
+    meta
+  });
+
+  // 2. Trigger background queue worker asynchronously without awaiting
+  processQueue().catch(err => {
+    console.error("ActivityLogger Background Queue Processor encountered critical failure:", err);
+  });
 }
