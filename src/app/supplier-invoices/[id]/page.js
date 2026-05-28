@@ -132,62 +132,54 @@ export default async function SupplierInvoiceDetailPage({ params }) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: Invoiced Items details (Larger Space, grow dynamically) */}
-        <div className="lg:col-span-2 rounded-xl border bg-card shadow-sm overflow-hidden h-fit">
-          <div className="px-4 py-4 bg-muted/30 border-b flex items-center justify-between">
-            <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Invoiced Items</h3>
-            <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase font-black">V{invoice.version}</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-muted/10">
-                <tr className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
-                  <th className="px-4 py-3">Product</th>
-                  <th className="px-4 py-3 text-right">Weight</th>
-                  <th className="px-4 py-3 text-right">Rate</th>
-                  <th className="px-4 py-3 text-right">Gross</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {invoice.items.map(item => (
-                  <tr key={item.id} className="border-t hover:bg-muted/5 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="font-semibold text-foreground">{item.intake.product.name}</div>
-                      <div className="text-[9px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-[10px]">
-                      {item.intake.unit === "MAUND" ? formatMaundWeight(item.weight, "MND", "KG") : `${Number(item.weight)} ${item.intake.unit || "KG"}`}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-[10px]">Rs. {Number(item.rate)}</td>
-                    <td className="px-4 py-3 text-right font-bold text-foreground">Rs. {Number(item.amount).toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-4 py-4 bg-muted/5 border-t flex justify-between items-center text-xs">
-            <div>
-              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Invoice #</span>
-              <span className="font-mono font-bold text-[10px] text-primary">{invoice.invoiceNumber}</span>
-            </div>
-            <div className="text-right">
-              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Gross Total</span>
-              <span className="font-bold text-sm text-foreground">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Column 2: Single Unified Sidebar (Calculations & Clearance Card) */}
-        <div className="lg:col-span-1">
-          <SupplierPaymentCard invoice={invoice} />
-        </div>
-      </div>
-
-      {/* Symmetrical Lower Details Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        {/* Left Side: Adjustments Summary Table */}
+        {/* Left Column: Invoiced Items & Billing Adjustments Summary stacked naturally (lg:col-span-2) */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Billing Adjustments Card */}
+          {/* 1. Invoiced Items card (dynamic height h-fit) */}
+          <div className="lg:col-span-2 rounded-xl border bg-card shadow-sm overflow-hidden h-fit">
+            <div className="px-4 py-4 bg-muted/30 border-b flex items-center justify-between">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Invoiced Items</h3>
+              <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase font-black">V{invoice.version}</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-muted/10">
+                  <tr className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
+                    <th className="px-4 py-3">Product</th>
+                    <th className="px-4 py-3 text-right">Weight</th>
+                    <th className="px-4 py-3 text-right">Rate</th>
+                    <th className="px-4 py-3 text-right">Gross</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {invoice.items.map(item => (
+                    <tr key={item.id} className="border-t hover:bg-muted/5 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="font-semibold text-foreground">{item.intake.product.name}</div>
+                        <div className="text-[9px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-[10px]">
+                        {item.intake.unit === "MAUND" ? formatMaundWeight(item.weight, "MND", "KG") : `${Number(item.weight)} ${item.intake.unit || "KG"}`}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-[10px]">Rs. {Number(item.rate)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-foreground">Rs. {Number(item.amount).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 py-4 bg-muted/5 border-t flex justify-between items-center text-xs">
+              <div>
+                <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Invoice #</span>
+                <span className="font-mono font-bold text-[10px] text-primary">{invoice.invoiceNumber}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Gross Total</span>
+                <span className="font-bold text-sm text-foreground">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Billing Adjustments Card */}
           <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
             <div className="p-4 border-b bg-muted/30 font-bold uppercase text-[10px] tracking-wider text-muted-foreground flex justify-between items-center">
               <span>Billing Adjustments Summary</span>
@@ -239,8 +231,12 @@ export default async function SupplierInvoiceDetailPage({ params }) {
           </div>
         </div>
 
-        {/* Right Side: Advances & Meta */}
-        <div className="space-y-6">
+        {/* Right Column: Unified Sidebar Card & Advances/Meta stacked naturally (lg:col-span-1) */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* 1. Unified Sidebar Card */}
+          <SupplierPaymentCard invoice={invoice} />
+
+          {/* 2. Advances Adjusted Card */}
           <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
             <div className="p-4 border-b bg-muted/30 font-bold uppercase text-[10px] tracking-wider text-muted-foreground">Advances Adjusted</div>
             <div className="p-4">
@@ -262,6 +258,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
             </div>
           </div>
 
+          {/* 3. Snapshots Version & Meta Info Card */}
           <div className="rounded-xl border bg-muted/20 p-4 text-[10px] space-y-2 text-muted-foreground">
              <div className="flex justify-between">
                 <span>Created At</span>

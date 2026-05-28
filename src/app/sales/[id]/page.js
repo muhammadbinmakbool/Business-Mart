@@ -76,60 +76,53 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: Invoice Details & Items (Larger Space, grow dynamically) */}
-        <div className="lg:col-span-2 rounded-2xl border bg-card shadow-sm overflow-hidden h-fit">
-          <div className="px-5 py-4 bg-muted/30 border-b flex items-center justify-between">
-            <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Invoiced Items</h3>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-muted/10 text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
-                  <th className="px-4 py-3">Product</th>
-                  <th className="px-4 py-3 text-right">Weight</th>
-                  <th className="px-4 py-3 text-right">Rate</th>
-                  <th className="px-4 py-3 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {sale.items.map((item) => (
-                  <tr key={item.id} className="hover:bg-muted/5 transition-colors">
-                    <td className="px-4 py-3 font-semibold text-foreground">{item.product.name}</td>
-                    <td className="px-4 py-3 text-right font-mono text-[10px]">
-                      {item.unit === "MAUND" ? formatMaundWeight(item.weight, "MND", "KG") : `${item.weight.toLocaleString()} ${item.unit}`}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-[10px]">
-                      Rs. {item.rate.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-foreground">Rs. {item.amount.toLocaleString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="px-5 py-4 bg-muted/5 border-t flex justify-between items-center text-xs">
-            <div>
-              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Net Weight</span>
-              <span className="font-bold text-sm">{sale.totalWeight.toLocaleString()} KG</span>
-            </div>
-            <div className="text-right">
-              <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Base Amount</span>
-              <span className="font-bold text-sm text-foreground">Rs. {sale.baseAmount.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Column 2: Single Unified Sidebar (Calculations & Clearance Card) */}
-        <div className="lg:col-span-1">
-          <SalePaymentCard sale={sale} />
-        </div>
-      </div>
-
-      {/* Lower Details Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-        {/* Left Side: Detailed Adjustments */}
+        {/* Left Column: Invoiced Items & Billing Adjustments stacked naturally (lg:col-span-2) */}
         <div className="lg:col-span-2 space-y-6">
+          {/* 1. Invoiced Items Card (dynamic height h-fit) */}
+          <div className="rounded-2xl border bg-card shadow-sm overflow-hidden h-fit">
+            <div className="px-5 py-4 bg-muted/30 border-b flex items-center justify-between">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Invoiced Items</h3>
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-muted/10 text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
+                    <th className="px-4 py-3">Product</th>
+                    <th className="px-4 py-3 text-right">Weight</th>
+                    <th className="px-4 py-3 text-right">Rate</th>
+                    <th className="px-4 py-3 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {sale.items.map((item) => (
+                    <tr key={item.id} className="hover:bg-muted/5 transition-colors">
+                      <td className="px-4 py-3 font-semibold text-foreground">{item.product.name}</td>
+                      <td className="px-4 py-3 text-right font-mono text-[10px]">
+                        {item.unit === "MAUND" ? formatMaundWeight(item.weight, "MND", "KG") : `${item.weight.toLocaleString()} ${item.unit}`}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-[10px]">
+                        Rs. {item.rate.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-foreground">Rs. {item.amount.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-5 py-4 bg-muted/5 border-t flex justify-between items-center text-xs">
+              <div>
+                <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Net Weight</span>
+                <span className="font-bold text-sm">{sale.totalWeight.toLocaleString()} KG</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Base Amount</span>
+                <span className="font-bold text-sm text-foreground">Rs. {sale.baseAmount.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Detailed Adjustments Card */}
           <div className="rounded-2xl border bg-card shadow-sm overflow-hidden">
             <div className="px-6 py-4 bg-muted/30 border-b flex items-center justify-between">
               <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Billing Adjustments</h3>
@@ -192,8 +185,12 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
           </div>
         </div>
 
-        {/* Right Side: Buyer Info Details, Notes & History */}
-        <div className="space-y-6">
+        {/* Right Column: Unified Sidebar Card & Notes/History stacked naturally (lg:col-span-1) */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* 1. Unified Sidebar Card */}
+          <SalePaymentCard sale={sale} />
+
+          {/* 2. Notes Card (if present) */}
           {sale.notes && (
             <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-3">
               <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Notes</h3>
@@ -203,6 +200,7 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
             </div>
           )}
 
+          {/* 3. Activity History Card (if present) */}
           {sale.changeLog && sale.changeLog.length > 0 && (
             <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-4">
               <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground border-b pb-3 flex items-center gap-2">
