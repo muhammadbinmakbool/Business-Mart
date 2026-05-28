@@ -194,7 +194,7 @@ function QuickPaymentForm({ party }) {
         const count = res.data.allocations.length;
         if (count > 0) {
           const detail = res.data.allocations.map(a => `• Invoice #${a.invoiceNumber} cleared Rs. ${fmt(a.allocated)} (New status: ${a.paymentStatus})`).join("\n");
-          alert(`Success! Sequentially cleared ${count} oldest invoice(s):\n\n${detail}\n\nUnallocated excess amount: Rs. ${fmt(res.data.unallocatedAmount)}`);
+          alert(`Success! Sequentially cleared ${count} invoice(s):\n\n${detail}\n\nUnallocated excess amount: Rs. ${fmt(res.data.unallocatedAmount)}`);
         } else {
           alert(`Success! Payment of Rs. ${fmt(amt)} applied. No active unpaid invoices found. Unallocated amount: Rs. ${fmt(res.data.unallocatedAmount)}`);
         }
@@ -282,11 +282,11 @@ function QuickPaymentForm({ party }) {
         disabled={submitting}
         className="w-full bg-primary text-primary-foreground font-black text-xs uppercase tracking-wider py-3 rounded-xl border border-primary/20 hover:bg-primary/95 transition-all disabled:opacity-50 shadow-lg shadow-primary/10"
       >
-        {submitting ? "Clearing Oldest Invoices (FIFO)..." : "Apply Quick Payment"}
+        {submitting ? "Clearing Outstanding Invoices..." : "Apply Quick Payment"}
       </button>
 
       <div className="text-[9px] text-muted-foreground bg-slate-50 border border-slate-200/50 p-2.5 rounded-lg text-center font-medium leading-relaxed">
-        ℹ️ **Sequential Clearing Enabled:** Applying a payment here automatically allocates funds to this party's oldest pending invoices first using direct invoice updates. Fully paid items transition to **CLEARED**, while partially cleared ones update to **PARTIAL**.
+        ℹ️ **Sequential Clearing Enabled:** Applying a payment here automatically allocates funds to this party's outstanding invoices sequentially. Fully paid items transition to **CLEARED**, while partially cleared ones update to **PARTIAL**.
       </div>
     </form>
   );
@@ -328,7 +328,7 @@ export default function PartyProfileClient({ profile }) {
 
   const tabs = [
     { key: "overview", label: "Overview" },
-    { key: "payments", label: "Quick FIFO Clearing" },
+    { key: "payments", label: "Quick Payment" },
     { key: "sales", label: "Sales Invoices", count: detailedViews.sales.length },
     { key: "settlements", label: "Supplier Settlements", count: detailedViews.settlements.length },
     { key: "advances", label: "Cash Advances", count: detailedViews.advances.length },
@@ -435,10 +435,10 @@ export default function PartyProfileClient({ profile }) {
               <div className="rounded-2xl border p-6 space-y-4 bg-muted/10 border-dashed">
                 <div className="flex items-center gap-3">
                   <Scale className="h-6 w-6 text-primary" />
-                  <h3 className="font-bold text-base">Direct Chronological Clearance (FIFO)</h3>
+                  <h3 className="font-bold text-base">Sequential Direct Clearance</h3>
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  Grain market transactions are cleared sequentially. Invoices are sorted by **Entry Date ASC** and payments are automatically forward-filled. 
+                  Grain market transactions are cleared sequentially. Outstanding invoices are sorted chronologically and payments are automatically allocated.
                 </p>
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div className="bg-white border rounded-xl p-4 text-center">
@@ -459,7 +459,7 @@ export default function PartyProfileClient({ profile }) {
                   <Banknote className="h-5 w-5 text-primary animate-pulse" />
                   <div>
                     <h3 className="font-bold text-sm">Quick Payment Entry</h3>
-                    <p className="text-[10px] text-muted-foreground">Auto-clears oldest outstanding bills</p>
+                    <p className="text-[10px] text-muted-foreground">Auto-clears outstanding invoices sequentially</p>
                   </div>
                 </div>
                 <QuickPaymentForm party={party} />

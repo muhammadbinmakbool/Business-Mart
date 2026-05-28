@@ -258,6 +258,9 @@ export default async function SupplierInvoiceDetailPage({ params }) {
         </div>
 
         <div className="space-y-6">
+          {/* Clearance Status Card */}
+          <SupplierPaymentCard invoice={invoice} />
+
           <div className="rounded-xl border bg-card p-6 shadow-sm space-y-6">
             <div className="space-y-1">
               <h3 className="text-sm font-bold uppercase text-muted-foreground tracking-widest">Supplier</h3>
@@ -288,9 +291,6 @@ export default async function SupplierInvoiceDetailPage({ params }) {
               <StatusUpdater id={invoice.id} currentStatus={invoice.status} disabled={invoice.status === "SUPERSEDED"} />
             </div>
           </div>
-
-          {/* Clearance Status Card */}
-          <SupplierPaymentCard invoice={invoice} />
           
           <div className="rounded-xl border bg-muted/20 p-4 text-xs space-y-2 text-muted-foreground">
              <div className="flex justify-between">

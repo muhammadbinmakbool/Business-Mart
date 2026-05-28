@@ -22,7 +22,9 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
 
   const filteredInvoices = useMemo(() => {
     return dateFilteredInvoices.filter((invoice) => {
-      if (activeTab !== "ALL" && invoice.status !== activeTab) {
+      if (activeTab === "ALL") {
+        if (invoice.status === "SUPERSEDED") return false;
+      } else if (invoice.status !== activeTab) {
         return false;
       }
       if (searchQuery.trim() === "") return true;
@@ -35,10 +37,15 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
 
   // Pre-calculate fields for sorting
   const mappedInvoices = useMemo(() => {
-    return filteredInvoices.map((invoice) => ({
-      ...invoice,
-      supplierName: invoice.party?.name || "",
-    }));
+    return filteredInvoices.map((invoice) => {
+      const total = Number(invoice.finalPayableAmount);
+      const paid = Number(invoice.paidAmount || 0);
+      return {
+        ...invoice,
+        supplierName: invoice.party?.name || "",
+        remaining: Math.max(0, total - paid)
+      };
+    });
   }, [filteredInvoices]);
 
   const {
@@ -49,7 +56,7 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
   } = useTableSorting(mappedInvoices, "entryDate", "desc");
 
   const tabs = [
-    { key: "ALL", label: "All", count: dateFilteredInvoices.length },
+    { key: "ALL", label: "All", count: dateFilteredInvoices.filter(i => i.status !== "SUPERSEDED").length },
     { key: "PENDING", label: "Pending", count: dateFilteredInvoices.filter(i => i.status === "PENDING").length },
     { key: "PARTIAL", label: "Partial", count: dateFilteredInvoices.filter(i => i.status === "PARTIAL").length },
     { key: "CLEARED", label: "Cleared", count: dateFilteredInvoices.filter(i => i.status === "CLEARED").length },
@@ -126,6 +133,17 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
                 >
                   Final Total
                 </SortableHeader>
+                {activeTab === "PARTIAL" && (
+                  <SortableHeader
+                    field="remaining"
+                    currentSortField={sortField}
+                    currentSortDirection={sortDirection}
+                    onRequestSort={requestSort}
+                    className="text-right"
+                  >
+                    Remaining
+                  </SortableHeader>
+                )}
                 <SortableHeader
                   field="version"
                   currentSortField={sortField}
@@ -150,7 +168,7 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
             <tbody>
               {sortedInvoices.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground italic">
+                  <td colSpan={activeTab === "PARTIAL" ? 8 : 7} className="px-4 py-12 text-center text-muted-foreground italic">
                     No settlement invoices found.
                   </td>
                 </tr>
@@ -180,6 +198,11 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
                     <td className="px-4 py-3 text-right font-bold text-lg">
                       Rs. {Number(invoice.finalPayableAmount).toLocaleString()}
                     </td>
+                    {activeTab === "PARTIAL" && (
+                      <td className="px-4 py-3 text-right font-semibold text-rose-600 font-mono">
+                        Rs. {Number(invoice.remaining).toLocaleString()}
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-center">
                       <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-[10px] font-bold">
                         V{invoice.version}

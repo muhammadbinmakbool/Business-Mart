@@ -188,6 +188,9 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
 
         {/* Right Column: Party Info & Total */}
         <div className="space-y-8">
+           {/* Clearance Status Card */}
+           <SalePaymentCard sale={sale} />
+
            {/* Final Total Card */}
            <div className="rounded-2xl bg-primary p-8 text-primary-foreground shadow-lg shadow-primary/20 relative overflow-hidden">
               <ReceiptText className="absolute -right-4 -bottom-4 h-32 w-32 opacity-10 rotate-12" />
@@ -209,9 +212,6 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
                 </div>
               </div>
            </div>
-
-           {/* Clearance Status Card */}
-           <SalePaymentCard sale={sale} />
 
            {/* Buyer Info */}
            <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-6">

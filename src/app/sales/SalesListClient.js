@@ -41,10 +41,13 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
     return filteredSales.map((sale) => {
       const singleItem = sale.items?.length === 1 ? sale.items[0] : null;
       const rateVal = singleItem ? Number(singleItem.rate || 0) : 0;
+      const total = Number(sale.finalAmount);
+      const paid = Number(sale.paidAmount || 0);
       return {
         ...sale,
         buyerName: sale.party?.name || "",
         displayRate: rateVal,
+        remaining: Math.max(0, total - paid)
       };
     });
   }, [filteredSales]);
@@ -143,7 +146,7 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
                 >
                   Rate (Rs.)
                 </SortableHeader>
-                <SortableHeader
+                 <SortableHeader
                   field="finalAmount"
                   currentSortField={sortField}
                   currentSortDirection={sortDirection}
@@ -152,6 +155,17 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
                 >
                   Final Amount
                 </SortableHeader>
+                {activeTab === "PARTIAL" && (
+                  <SortableHeader
+                    field="remaining"
+                    currentSortField={sortField}
+                    currentSortDirection={sortDirection}
+                    onRequestSort={requestSort}
+                    className="text-right"
+                  >
+                    Remaining
+                  </SortableHeader>
+                )}
                 <SortableHeader
                   field="status"
                   currentSortField={sortField}
@@ -167,7 +181,7 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
             <tbody className="divide-y">
               {sortedSales.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground italic">
+                  <td colSpan={activeTab === "PARTIAL" ? 9 : 8} className="px-4 py-12 text-center text-muted-foreground italic">
                     No sale transactions found.
                   </td>
                 </tr>
@@ -200,6 +214,11 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
                     <td className="px-4 py-3.5 text-right font-bold text-base">
                       Rs. {sale.finalAmount.toLocaleString()}
                     </td>
+                    {activeTab === "PARTIAL" && (
+                      <td className="px-4 py-3.5 text-right font-semibold text-rose-600 font-mono text-xs">
+                        Rs. {Number(sale.remaining).toLocaleString()}
+                      </td>
+                    )}
                     <td className="px-4 py-3.5 text-center">
                       <span
                         className={cn(
