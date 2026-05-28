@@ -215,12 +215,21 @@ export class IntakeService {
       if (hasWeightChange) {
         const oldGross = Number(current.grossWeight);
         const newGross = Number(validated.grossWeight);
+        const soldWeight = oldGross - (current.remainingWeight !== null ? Number(current.remainingWeight) : oldGross);
+
+        if (newGross < soldWeight) {
+          throw new Error(`Gross weight cannot be less than the already sold weight of ${soldWeight} ${current.unit || "KG"}.`);
+        }
+
         if (current.status === "PENDING") {
           newRemainingWeight = newGross;
         } else {
           const delta = newGross - oldGross;
           newRemainingWeight = Math.max(0, newRemainingWeight + delta);
         }
+
+        // Recalculate status dynamically if the weight shift changes the intake state
+        newStatus = calculateIntakeState({ grossWeight: newGross, remainingWeight: newRemainingWeight });
       }
 
       // Calculate converted rates based on the units used!
