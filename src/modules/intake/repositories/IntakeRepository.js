@@ -74,12 +74,33 @@ export class IntakeRepository {
     return prisma.intakeTransaction.findMany({
       where: {
         partyId: parseInt(partyId),
-        invoiceItems: { none: { invoice: { status: { not: "SUPERSEDED" } } } },
-        status: { in: ["SOLD", "PARTIAL"] }
+        status: { in: ["SOLD", "PARTIAL"] },
+        OR: [
+          {
+            invoiceItems: {
+              none: {
+                invoice: {
+                  status: { not: "SUPERSEDED" }
+                }
+              }
+            }
+          },
+          {
+            salesTracks: {
+              some: {
+                isSettled: false
+              }
+            }
+          }
+        ]
       },
       include: { 
         product: true,
-        salesTracks: true
+        salesTracks: {
+          where: {
+            isSettled: false
+          }
+        }
       }
     });
   }

@@ -142,7 +142,12 @@ export function calculateSupplierDeductions(intakes) {
   let totalDeductions = 0;
 
   const intakeBreakdowns = intakes.map(intake => {
-    const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+    let billingWeight = 0;
+    if (intake.salesTracks && intake.salesTracks.length > 0) {
+      billingWeight = intake.salesTracks.reduce((sum, track) => sum + Number(track.quantity || 0), 0);
+    } else {
+      billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+    }
     const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
     
     // Derive sold values from SalesTrack.baseAmount when sales tracks are available

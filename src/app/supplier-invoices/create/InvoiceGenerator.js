@@ -25,6 +25,21 @@ import { ADJUSTMENT_TYPES_SUPPLIER } from "@/lib/constants";
 export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
   const router = useRouter();
   const [step, setStep] = useState(initialInvoice ? 2 : 1);
+
+  const getIntakeDisplayRate = (intake) => {
+    let displayRate = Number(intake.rate || 0);
+    let displayRateUnit = intake.rateUnit || "KG";
+
+    if ((!displayRate || displayRate === 0) && intake.salesTracks && intake.salesTracks.length > 0) {
+      const gross = intake.salesTracks.reduce((sum, track) => sum + Number(track.baseAmount || 0), 0);
+      const weightVal = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+      if (weightVal > 0) {
+        displayRate = gross / weightVal;
+        displayRateUnit = intake.salesTracks[0].rateUnit || intake.rateUnit || "KG";
+      }
+    }
+    return { rate: displayRate, rateUnit: displayRateUnit };
+  };
   const [selectedParty, setSelectedParty] = useState(null);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState({ intakes: [], advances: [] });
@@ -324,7 +339,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                         <>{Number(i.grossWeight).toLocaleString()} {i.unit || "KG"}</>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">Rs. {Number(i.rate)} / {i.rateUnit === "MAUND" ? "Maund" : (i.rateUnit || "KG")}</div>
+                    <div className="text-xs text-muted-foreground">Rs. {Number(getIntakeDisplayRate(i).rate).toLocaleString()} / {getIntakeDisplayRate(i).rateUnit === "MAUND" ? "Maund" : (getIntakeDisplayRate(i).rateUnit || "KG")}</div>
                   </div>
                 </div>
               ))}
@@ -418,7 +433,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                           </span>
                           <h4 className="font-bold text-sm mt-1">{intake.product.name}</h4>
                           <div className="text-[10px] text-muted-foreground mt-0.5">
-                            {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} {intake.unit || "KG"} @ Rs. {Number(intake.rate)}/{intake.rateUnit === "MAUND" ? "Maund" : (intake.rateUnit || "KG")}
+                            {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} {intake.unit || "KG"} @ Rs. {Number(getIntakeDisplayRate(intake).rate).toLocaleString()}/{getIntakeDisplayRate(intake).rateUnit === "MAUND" ? "Maund" : (getIntakeDisplayRate(intake).rateUnit || "KG")}
                           </div>
                         </div>
                         <div className="text-right">

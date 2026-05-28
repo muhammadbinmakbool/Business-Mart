@@ -153,6 +153,7 @@ model SalesTrack {
 
   buyingRate          Decimal?  @db.Decimal(18, 2)
   sellingRate         Decimal?  @db.Decimal(18, 2)
+  rateUnit            String?   @default("KG")
 
   netWeight           Decimal?  @db.Decimal(18, 2)
   baseAmount          Decimal?  @db.Decimal(18, 2)

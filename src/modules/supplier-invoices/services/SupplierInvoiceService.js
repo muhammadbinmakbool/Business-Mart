@@ -35,7 +35,12 @@ export class SupplierInvoiceService {
 
     // 3. Prepare immutable snapshots for items with nested adjustments
     const itemsData = intakes.map(intake => {
-      const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+      let billingWeight = 0;
+      if (intake.salesTracks && intake.salesTracks.length > 0) {
+        billingWeight = intake.salesTracks.reduce((sum, track) => sum + Number(track.quantity || 0), 0);
+      } else {
+        billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+      }
       const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
       const rate = actualRate ? Number(actualRate) : 0;
       
@@ -137,7 +142,12 @@ export class SupplierInvoiceService {
  
      // 5. Prepare item snapshots
       const itemsData = intakes.map(intake => {
-        const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+        let billingWeight = 0;
+        if (intake.salesTracks && intake.salesTracks.length > 0) {
+          billingWeight = intake.salesTracks.reduce((sum, track) => sum + Number(track.quantity || 0), 0);
+        } else {
+          billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+        }
         const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
         const rate = actualRate ? Number(actualRate) : 0;
         
@@ -278,7 +288,12 @@ export class SupplierInvoiceService {
 
       // 4. Prepare item snapshots
       const itemsData = intakes.map(intake => {
-        const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+        let billingWeight = 0;
+        if (intake.salesTracks && intake.salesTracks.length > 0) {
+          billingWeight = intake.salesTracks.reduce((sum, track) => sum + Number(track.quantity || 0), 0);
+        } else {
+          billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+        }
         const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
         const rate = actualRate ? Number(actualRate) : 0;
         
@@ -349,6 +364,30 @@ export class SupplierInvoiceService {
         }
       });
 
+      // Reset old sales tracks to unsettled
+      const oldIntakeIds = oldInvoice.items.map(item => item.intakeTransactionId);
+      await tx.salesTrack.updateMany({
+        where: {
+          intakeTransactionId: { in: oldIntakeIds },
+          isSettled: true
+        },
+        data: {
+          isSettled: false
+        }
+      });
+
+      // Mark new sales tracks as settled
+      const newIntakeIdsParsed = newIntakeIds.map(id => parseInt(id));
+      await tx.salesTrack.updateMany({
+        where: {
+          intakeTransactionId: { in: newIntakeIdsParsed },
+          isSettled: false
+        },
+        data: {
+          isSettled: true
+        }
+      });
+
       return newInvoice;
     });
 
@@ -396,6 +435,18 @@ export class SupplierInvoiceService {
       // 2. Delete the supplier invoice adjustments (cascaded by DB)
       // 3. Delete the supplier invoice items (cascaded by DB)
       // 4. Delete the supplier invoice itself
+      // Reset old sales tracks to unsettled
+      const oldIntakeIds = invoice.items.map(item => item.intakeTransactionId);
+      await tx.salesTrack.updateMany({
+        where: {
+          intakeTransactionId: { in: oldIntakeIds },
+          isSettled: true
+        },
+        data: {
+          isSettled: false
+        }
+      });
+
       await tx.supplierInvoice.delete({
         where: { id: parseInt(invoiceId) }
       });

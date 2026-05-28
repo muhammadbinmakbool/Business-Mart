@@ -445,6 +445,7 @@ export class IntakeService {
         quantity: netWeight,
         buyingRate: finalSalesTrackRate,
         sellingRate: finalSalesTrackRate,
+        rateUnit: rateUnit,
         netWeight: netWeight,
         baseAmount: baseAmount,
         notes: `Intake ${intake.intakeNumber} marked as ${newStatus}`

@@ -182,7 +182,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
                           {Number(track.quantity).toLocaleString()} <span className="text-xs font-normal uppercase italic">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Rs. {Number(track.sellingRate).toLocaleString()} / {intake.rateUnit || "KG"}
+                          Rs. {Number(track.sellingRate).toLocaleString()} / {track.rateUnit === "MAUND" ? "MND" : (track.rateUnit || "KG")}
                         </div>
                         <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
                           Rs. {Number(track.baseAmount).toLocaleString()}

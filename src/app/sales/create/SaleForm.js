@@ -97,7 +97,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     const hasOnlyEmptyRow = items.length === 1 && !items[0].productId && !items[0].weight && !items[0].rate;
     
     const originalUnit = track.intakeTransaction?.unit || "KG";
-    const originalRateUnit = track.intakeTransaction?.rateUnit || "KG";
+    const originalRateUnit = track.rateUnit || track.intakeTransaction?.rateUnit || "KG";
     const product = products.find(p => p.id === track.productId);
     
     // Use original rate and weight directly (no back-conversion needed)
@@ -463,7 +463,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {unbilledTracks.map((track) => {
                   const originalUnit = track.intakeTransaction?.unit || "KG";
-                  const originalRateUnit = track.intakeTransaction?.rateUnit || "KG";
+                  const originalRateUnit = track.rateUnit || track.intakeTransaction?.rateUnit || "KG";
                   const product = products.find(p => p.id === track.productId);
                   const displayRate = track.sellingRate || track.buyingRate || 0;
                   const displayWeight = track.netWeight !== null && track.netWeight !== undefined

@@ -44,7 +44,7 @@ export class SupplierInvoiceRepository {
 
   static async createWithItems(invoiceData, itemsData, advanceIds) {
     return prisma.$transaction(async (tx) => {
-      return tx.supplierInvoice.create({
+      const invoice = await tx.supplierInvoice.create({
         data: {
           ...invoiceData,
           items: {
@@ -80,6 +80,19 @@ export class SupplierInvoiceRepository {
           party: true
         }
       });
+
+      const intakeIds = itemsData.map(item => parseInt(item.intakeTransactionId));
+      await tx.salesTrack.updateMany({
+        where: {
+          intakeTransactionId: { in: intakeIds },
+          isSettled: false
+        },
+        data: {
+          isSettled: true
+        }
+      });
+
+      return invoice;
     });
   }
 
