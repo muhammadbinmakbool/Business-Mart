@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { calculateInvoiceClearingState } from "@/lib/financial";
 
 export class PartyInvoiceClearingService {
   /**
@@ -56,8 +57,9 @@ export class PartyInvoiceClearingService {
           const newPaid = currentPaid + allocated;
           remainingPayment -= allocated;
 
-          const newPaymentStatus = newPaid >= total ? "CLEARED" : "PARTIAL";
-          const newOverallStatus = newPaid >= total ? "COMPLETED" : "PENDING";
+          const clearingState = calculateInvoiceClearingState(total, newPaid);
+          const newPaymentStatus = clearingState.paymentStatus;
+          const newOverallStatus = clearingState.isCleared ? "CLEARED" : "PENDING";
 
           await tx.saleTransaction.update({
             where: { id: sale.id },
@@ -105,8 +107,9 @@ export class PartyInvoiceClearingService {
           const newPaid = currentPaid + allocated;
           remainingPayment -= allocated;
 
-          const newPaymentStatus = newPaid >= total ? "CLEARED" : "PARTIAL";
-          const newOverallStatus = newPaid >= total ? "COMPLETED" : "PENDING";
+          const clearingState = calculateInvoiceClearingState(total, newPaid);
+          const newPaymentStatus = clearingState.paymentStatus;
+          const newOverallStatus = clearingState.isCleared ? "CLEARED" : "PENDING";
 
           await tx.supplierInvoice.update({
             where: { id: inv.id },

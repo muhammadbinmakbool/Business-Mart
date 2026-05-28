@@ -1,4 +1,5 @@
 import { getConversionFactor, convertRate } from "./units";
+import { PAYMENT_STATUS } from "./constants";
 
 // WARNING:
 // This file must NEVER perform rounding.
@@ -199,4 +200,42 @@ export function roundWeight(weight) {
 
 export function roundRate(rate) {
   return round(rate, 2);
+}
+
+/**
+ * Single Source of Truth for Invoicing Payments & Clearing Math.
+ * Determines the clearing state, remaining amount, and clearance status.
+ *
+ * @param {number|Decimal} totalAmount - Invoice total gross or net final amount
+ * @param {number|Decimal} paidAmount - Total amount paid/allocated so far
+ * @returns {{
+ *   total: number,
+ *   paid: number,
+ *   remaining: number,
+ *   paymentStatus: string,
+ *   isCleared: boolean
+ * }}
+ */
+export function calculateInvoiceClearingState(totalAmount, paidAmount) {
+  const total = Number(totalAmount || 0);
+  const paid = Number(paidAmount || 0);
+  const remaining = Math.max(0, total - paid);
+  
+  let paymentStatus = PAYMENT_STATUS.PENDING;
+  let isCleared = false;
+  
+  if (paid >= total) {
+    paymentStatus = PAYMENT_STATUS.CLEARED;
+    isCleared = true;
+  } else if (paid > 0) {
+    paymentStatus = PAYMENT_STATUS.PARTIAL;
+  }
+  
+  return {
+    total,
+    paid,
+    remaining,
+    paymentStatus,
+    isCleared
+  };
 }

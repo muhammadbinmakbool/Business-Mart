@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { SupplierInvoiceService } from "../services/SupplierInvoiceService";
 import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceRepository";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { calculateInvoiceClearingState } from "@/lib/financial";
 
 function safeRevalidatePath(path) {
   try {
@@ -79,12 +80,12 @@ export async function updateInvoiceStatusAction(id, status) {
     }
 
     let paidAmount = 0;
-    let paymentStatus = "PENDING";
-
-    if (status === "COMPLETED") {
+    if (status === "CLEARED") {
       paidAmount = Number(currentInvoice.finalPayableAmount);
-      paymentStatus = "CLEARED";
     }
+
+    const clearingState = calculateInvoiceClearingState(currentInvoice.finalPayableAmount, paidAmount);
+    const paymentStatus = clearingState.paymentStatus;
 
     const invoice = await prisma.supplierInvoice.update({
       where: { id: parseInt(id) },
@@ -96,7 +97,7 @@ export async function updateInvoiceStatusAction(id, status) {
     });
 
     let action = "UPDATED";
-    if (status === "COMPLETED") action = "COMPLETED";
+    if (status === "CLEARED") action = "CLEARED";
 
     await emitActivity({
       entityType: "SETTLEMENT",

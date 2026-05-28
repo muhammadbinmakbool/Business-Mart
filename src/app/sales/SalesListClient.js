@@ -59,7 +59,8 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
   const tabs = [
     { key: "ALL", label: "All", count: dateFilteredSales.length },
     { key: "PENDING", label: "Pending", count: dateFilteredSales.filter(s => s.status === "PENDING").length },
-    { key: "COMPLETED", label: "Completed", count: dateFilteredSales.filter(s => s.status === "COMPLETED").length },
+    { key: "PARTIAL", label: "Partial", count: dateFilteredSales.filter(s => s.status === "PARTIAL").length },
+    { key: "CLEARED", label: "Cleared", count: dateFilteredSales.filter(s => s.status === "CLEARED").length },
     { key: "CANCELLED", label: "Cancelled", count: dateFilteredSales.filter(s => s.status === "CANCELLED").length },
   ];
 
@@ -205,7 +206,9 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
                           "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
                           sale.status === "PENDING"
                             ? "bg-amber-100 text-amber-700 border-amber-200"
-                            : sale.status === "COMPLETED"
+                            : sale.status === "PARTIAL"
+                            ? "bg-blue-100 text-blue-700 border-blue-200"
+                            : sale.status === "CLEARED"
                             ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                             : "bg-rose-100 text-rose-700 border-rose-200"
                         )}

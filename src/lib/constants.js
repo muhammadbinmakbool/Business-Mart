@@ -35,3 +35,16 @@ export const ADJUSTMENT_TYPES_SUPPLIER = [
   "Loading"
 ];
 
+export const INVOICE_STATUS = {
+  PENDING: "PENDING",
+  CLEARED: "CLEARED", // Renamed from COMPLETED for better domain vocabulary
+  CANCELLED: "CANCELLED",
+  SUPERSEDED: "SUPERSEDED",
+};
+
+export const PAYMENT_STATUS = {
+  PENDING: "PENDING",
+  PARTIAL: "PARTIAL",
+  CLEARED: "CLEARED",
+};
+

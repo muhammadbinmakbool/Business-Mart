@@ -51,7 +51,8 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
   const tabs = [
     { key: "ALL", label: "All", count: dateFilteredInvoices.length },
     { key: "PENDING", label: "Pending", count: dateFilteredInvoices.filter(i => i.status === "PENDING").length },
-    { key: "COMPLETED", label: "Completed", count: dateFilteredInvoices.filter(i => i.status === "COMPLETED").length },
+    { key: "PARTIAL", label: "Partial", count: dateFilteredInvoices.filter(i => i.status === "PARTIAL").length },
+    { key: "CLEARED", label: "Cleared", count: dateFilteredInvoices.filter(i => i.status === "CLEARED").length },
     { key: "SUPERSEDED", label: "Superseded", count: dateFilteredInvoices.filter(i => i.status === "SUPERSEDED").length },
   ];
 
@@ -190,7 +191,9 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
                           "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
                           invoice.status === "PENDING"
                             ? "bg-amber-100 text-amber-700 border-amber-200"
-                            : invoice.status === "COMPLETED"
+                            : invoice.status === "PARTIAL"
+                            ? "bg-blue-100 text-blue-700 border-blue-200"
+                            : invoice.status === "CLEARED"
                             ? "bg-emerald-100 text-emerald-700 border-emerald-200"
                             : "bg-slate-100 text-slate-700 border-slate-200"
                         )}

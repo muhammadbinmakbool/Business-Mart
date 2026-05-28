@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { calculateInvoiceClearingState } from "@/lib/financial";
 
 export class PartyProfileService {
   /**
@@ -33,27 +34,23 @@ export class PartyProfileService {
 
     // Buyer side: Sales obligations
     const sales = party.saleTransactions.map(s => {
-      const finalAmount = Number(s.finalAmount || 0);
-      const paidAmount = Number(s.paidAmount || 0);
-      const remainingAmount = Math.max(0, finalAmount - paidAmount);
+      const clearing = calculateInvoiceClearingState(s.finalAmount, s.paidAmount);
       return {
         id: s.id,
         saleNumber: s.saleNumber,
         entryDate: s.entryDate,
         totalWeight: Number(s.totalWeight || 0),
-        finalAmount,
-        allocatedAmount: paidAmount, // Map to allocatedAmount to preserve UI prop bindings!
-        remainingAmount,
-        status: s.paymentStatus, // Use paymentStatus for payment tags (PENDING, PARTIAL, CLEARED)
+        finalAmount: clearing.total,
+        allocatedAmount: clearing.paid,
+        remainingAmount: clearing.remaining,
+        status: clearing.paymentStatus,
         notes: s.notes
       };
     });
 
     // Supplier side: Settlement obligations
     const settlements = party.supplierInvoices.map(inv => {
-      const finalPayable = Number(inv.finalPayableAmount || 0);
-      const paidAmount = Number(inv.paidAmount || 0);
-      const remainingAmount = Math.max(0, finalPayable - paidAmount);
+      const clearing = calculateInvoiceClearingState(inv.finalPayableAmount, inv.paidAmount);
       return {
         id: inv.id,
         invoiceNumber: inv.invoiceNumber,
@@ -61,10 +58,10 @@ export class PartyProfileService {
         totalGrossValue: Number(inv.totalGrossValue || 0),
         totalDeductions: Number(inv.totalDeductions || 0),
         totalAdvances: Number(inv.totalAdvances || 0),
-        finalPayableAmount: finalPayable,
-        allocatedAmount: paidAmount, // Map to allocatedAmount to preserve UI prop bindings!
-        remainingAmount,
-        status: inv.paymentStatus // Use paymentStatus for payment tags (PENDING, PARTIAL, CLEARED)
+        finalPayableAmount: clearing.total,
+        allocatedAmount: clearing.paid,
+        remainingAmount: clearing.remaining,
+        status: clearing.paymentStatus
       };
     });
 

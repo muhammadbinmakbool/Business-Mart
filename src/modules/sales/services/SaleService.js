@@ -1,7 +1,7 @@
 import { SaleRepository } from "../repositories/SaleRepository";
 import { prisma } from "@/lib/prisma";
 import { PartyService } from "../../parties/services/PartyService";
-import { calculateFinalTotal, calculateAdjustment, round, calculateTransactionTotals } from "@/lib/financial";
+import { calculateFinalTotal, calculateAdjustment, round, calculateTransactionTotals, calculateInvoiceClearingState } from "@/lib/financial";
 import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
@@ -457,14 +457,28 @@ export class SaleService {
       // Delegate to InventoryService (no-op under intake-driven model)
       await InventoryService.handleSaleStatusUpdated(sale.items, oldStatus, newStatus, tx);
 
+      let paidAmount = sale.paidAmount;
+      if (newStatus === "CLEARED") {
+        paidAmount = sale.finalAmount;
+      } else if (newStatus === "PENDING") {
+        paidAmount = 0;
+      }
+
+      const clearingState = calculateInvoiceClearingState(sale.finalAmount, paidAmount);
+      const paymentStatus = clearingState.paymentStatus;
+
       return tx.saleTransaction.update({
         where: { id: parseInt(id) },
-        data: { status }
+        data: { 
+          status,
+          paidAmount,
+          paymentStatus
+        }
       });
     });
 
     let action = "UPDATED";
-    if (status === "COMPLETED") action = "COMPLETED";
+    if (status === "CLEARED") action = "CLEARED";
     if (status === "CANCELLED") action = "CANCELLED";
 
     await emitActivity({
