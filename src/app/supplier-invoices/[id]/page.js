@@ -132,96 +132,54 @@ export default async function SupplierInvoiceDetailPage({ params }) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: Invoiced Items details (Larger Space) */}
-        <div className="lg:col-span-2 rounded-xl border bg-card shadow-sm overflow-hidden flex flex-col justify-between h-full min-h-[440px]">
-          <div>
-            <div className="px-4 py-3 bg-muted/30 border-b flex items-center justify-between">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Invoiced Items</h3>
-              <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase font-black">V{invoice.version}</span>
-            </div>
-            <div className="overflow-y-auto max-h-[300px] scrollbar-thin">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead className="bg-muted/10">
-                  <tr className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
-                    <th className="px-4 py-2">Product</th>
-                    <th className="px-4 py-2 text-right">Weight</th>
-                    <th className="px-4 py-2 text-right">Rate</th>
-                    <th className="px-4 py-2 text-right">Gross</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {invoice.items.map(item => (
-                    <tr key={item.id} className="border-t">
-                      <td className="px-4 py-2">
-                        <div className="font-semibold text-foreground">{item.intake.product.name}</div>
-                        <div className="text-[9px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
-                      </td>
-                      <td className="px-4 py-2 text-right font-mono text-[10px]">
-                        {item.intake.unit === "MAUND" ? formatMaundWeight(item.weight, "MND", "KG") : `${Number(item.weight)} ${item.intake.unit || "KG"}`}
-                      </td>
-                      <td className="px-4 py-2 text-right font-mono text-[10px]">Rs. {Number(item.rate)}</td>
-                      <td className="px-4 py-2 text-right font-bold text-foreground">Rs. {Number(item.amount).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {/* Column 1: Invoiced Items details (Larger Space, grow dynamically) */}
+        <div className="lg:col-span-2 rounded-xl border bg-card shadow-sm overflow-hidden h-fit">
+          <div className="px-4 py-4 bg-muted/30 border-b flex items-center justify-between">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Invoiced Items</h3>
+            <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase font-black">V{invoice.version}</span>
           </div>
-          <div className="px-4 py-3 bg-muted/5 border-t flex justify-between items-center text-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-muted/10">
+                <tr className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
+                  <th className="px-4 py-3">Product</th>
+                  <th className="px-4 py-3 text-right">Weight</th>
+                  <th className="px-4 py-3 text-right">Rate</th>
+                  <th className="px-4 py-3 text-right">Gross</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {invoice.items.map(item => (
+                  <tr key={item.id} className="border-t hover:bg-muted/5 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="font-semibold text-foreground">{item.intake.product.name}</div>
+                      <div className="text-[9px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-[10px]">
+                      {item.intake.unit === "MAUND" ? formatMaundWeight(item.weight, "MND", "KG") : `${Number(item.weight)} ${item.intake.unit || "KG"}`}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-[10px]">Rs. {Number(item.rate)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-foreground">Rs. {Number(item.amount).toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-4 py-4 bg-muted/5 border-t flex justify-between items-center text-xs">
             <div>
               <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Invoice #</span>
               <span className="font-mono font-bold text-[10px] text-primary">{invoice.invoiceNumber}</span>
             </div>
             <div className="text-right">
               <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Gross Total</span>
-              <span className="font-bold">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
+              <span className="font-bold text-sm text-foreground">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
             </div>
           </div>
         </div>
 
-        {/* Column 2: Unified Sidebar (Amount Calculation & Clearance Card) */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Amount Calculation & Supplier Card */}
-          <div className="rounded-xl border bg-card shadow-sm overflow-hidden flex flex-col justify-between h-auto">
-            <div className="bg-primary p-6 text-primary-foreground relative overflow-hidden flex-1 flex flex-col justify-between min-h-[160px]">
-              <ReceiptText className="absolute -right-4 -bottom-4 h-24 w-24 opacity-10 rotate-12" />
-              <div className="relative z-10">
-                <span className="text-[9px] uppercase font-bold opacity-60 tracking-widest block">Final Payable Total</span>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-xs opacity-80">Rs.</span>
-                  <h2 className="text-3xl font-black tracking-tighter">{Number(invoice.finalPayableAmount).toLocaleString()}</h2>
-                </div>
-              </div>
-              <div className="relative z-10 pt-4 border-t border-white/20 mt-4 text-[11px] space-y-1">
-                <div className="flex justify-between items-center opacity-85">
-                  <span>Gross Value</span>
-                  <span className="font-semibold">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center opacity-85">
-                  <span>Deductions</span>
-                  <span className="font-semibold text-rose-300">- Rs. {Number(invoice.totalDeductions).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center opacity-85">
-                  <span>Advances Adjusted</span>
-                  <span className="font-semibold text-rose-300">- Rs. {Number(invoice.totalAdvances).toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 bg-card flex items-center gap-3 border-t">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <User className="h-4 w-4 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <div className="font-bold text-xs truncate">{invoice.party.name}</div>
-                <div className="text-[10px] text-muted-foreground leading-none">{format(new Date(invoice.createdAt), "dd MMM yyyy")}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Clearance Card */}
-          <div>
-            <SupplierPaymentCard invoice={invoice} />
-          </div>
+        {/* Column 2: Single Unified Sidebar (Calculations & Clearance Card) */}
+        <div className="lg:col-span-1">
+          <SupplierPaymentCard invoice={invoice} />
         </div>
       </div>
 

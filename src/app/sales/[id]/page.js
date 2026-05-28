@@ -76,91 +76,53 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: Invoice Details & Items (Larger Space) */}
-        <div className="lg:col-span-2 rounded-2xl border bg-card shadow-sm overflow-hidden flex flex-col justify-between h-full min-h-[440px]">
-          <div>
-            <div className="px-5 py-3.5 bg-muted/30 border-b flex items-center justify-between">
-              <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Invoiced Items</h3>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div className="overflow-y-auto max-h-[300px] scrollbar-thin">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-muted/10 text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
-                    <th className="px-4 py-2">Product</th>
-                    <th className="px-4 py-2 text-right">Weight</th>
-                    <th className="px-4 py-2 text-right">Rate</th>
-                    <th className="px-4 py-2 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {sale.items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="px-4 py-2.5 font-semibold text-foreground">{item.product.name}</td>
-                      <td className="px-4 py-2.5 text-right font-mono text-[10px]">
-                        {item.unit === "MAUND" ? formatMaundWeight(item.weight, "MND", "KG") : `${item.weight.toLocaleString()} ${item.unit}`}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-[10px]">
-                        Rs. {item.rate.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-bold text-foreground">Rs. {item.amount.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        {/* Column 1: Invoice Details & Items (Larger Space, grow dynamically) */}
+        <div className="lg:col-span-2 rounded-2xl border bg-card shadow-sm overflow-hidden h-fit">
+          <div className="px-5 py-4 bg-muted/30 border-b flex items-center justify-between">
+            <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Invoiced Items</h3>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </div>
-          <div className="px-4 py-3 bg-muted/5 border-t flex justify-between items-center text-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-muted/10 text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
+                  <th className="px-4 py-3">Product</th>
+                  <th className="px-4 py-3 text-right">Weight</th>
+                  <th className="px-4 py-3 text-right">Rate</th>
+                  <th className="px-4 py-3 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {sale.items.map((item) => (
+                  <tr key={item.id} className="hover:bg-muted/5 transition-colors">
+                    <td className="px-4 py-3 font-semibold text-foreground">{item.product.name}</td>
+                    <td className="px-4 py-3 text-right font-mono text-[10px]">
+                      {item.unit === "MAUND" ? formatMaundWeight(item.weight, "MND", "KG") : `${item.weight.toLocaleString()} ${item.unit}`}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-[10px]">
+                      Rs. {item.rate.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-foreground">Rs. {item.amount.toLocaleString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="px-5 py-4 bg-muted/5 border-t flex justify-between items-center text-xs">
             <div>
               <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Net Weight</span>
-              <span className="font-bold">{sale.totalWeight.toLocaleString()} KG</span>
+              <span className="font-bold text-sm">{sale.totalWeight.toLocaleString()} KG</span>
             </div>
             <div className="text-right">
               <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Base Amount</span>
-              <span className="font-bold">Rs. {sale.baseAmount.toLocaleString()}</span>
+              <span className="font-bold text-sm text-foreground">Rs. {sale.baseAmount.toLocaleString()}</span>
             </div>
           </div>
         </div>
 
-        {/* Column 2: Unified Sidebar (Amount Calculation + Clearance Card) */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Amount Calculation Card */}
-          <div className="rounded-2xl border bg-card shadow-sm overflow-hidden flex flex-col justify-between h-auto">
-            <div className="bg-primary p-6 text-primary-foreground relative overflow-hidden flex-1 flex flex-col justify-between min-h-[160px]">
-              <ReceiptText className="absolute -right-4 -bottom-4 h-24 w-24 opacity-10 rotate-12" />
-              <div className="relative z-10">
-                <span className="text-[9px] uppercase font-bold opacity-60 tracking-widest block">Final Invoice Total</span>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-xs opacity-80">Rs.</span>
-                  <h2 className="text-3xl font-black tracking-tighter">{sale.finalAmount.toLocaleString()}</h2>
-                </div>
-              </div>
-              <div className="relative z-10 pt-4 border-t border-white/20 mt-4 text-[11px] space-y-1">
-                <div className="flex justify-between items-center opacity-85">
-                  <span>Base Gross Amount</span>
-                  <span className="font-semibold">Rs. {sale.baseAmount.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center opacity-85">
-                  <span>Total Adjustments</span>
-                  <span className="font-semibold">{sale.totalAdjustments >= 0 ? "+" : ""} Rs. {sale.totalAdjustments.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-            <div className="p-4 bg-card flex items-center gap-3 border-t">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <User className="h-4 w-4 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <div className="font-bold text-xs truncate">{sale.party.name}</div>
-                <div className="text-[10px] text-muted-foreground leading-none">{format(new Date(sale.entryDate), "dd MMM yyyy")}</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Clearance Card */}
-          <div>
-            <SalePaymentCard sale={sale} />
-          </div>
+        {/* Column 2: Single Unified Sidebar (Calculations & Clearance Card) */}
+        <div className="lg:col-span-1">
+          <SalePaymentCard sale={sale} />
         </div>
       </div>
 
