@@ -67,7 +67,8 @@ export class IntakeService {
           totalGrossValue: Number(ii.invoice.totalGrossValue),
           totalDeductions: Number(ii.invoice.totalDeductions),
           totalAdvances: Number(ii.invoice.totalAdvances),
-          finalPayableAmount: Number(ii.invoice.finalPayableAmount)
+          finalPayableAmount: Number(ii.invoice.finalPayableAmount),
+          paidAmount: Number(ii.invoice.paidAmount)
         } : null
       })),
       salesTracks: intake.salesTracks?.map(st => ({
