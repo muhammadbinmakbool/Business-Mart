@@ -639,7 +639,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
               <div className="space-y-3 font-medium text-sm">
                 <div className="flex justify-between items-center">
                   <span className="opacity-80">Total Intakes</span>
-                  <span>{activeIntakes.length}</span>
+                  <span>{decomposedActiveIntakes.length}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="opacity-80">Base Amount</span>
