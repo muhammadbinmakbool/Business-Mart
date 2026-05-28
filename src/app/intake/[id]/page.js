@@ -43,6 +43,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
           <div className={cn(
             "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border",
             intake.status === "PENDING" ? "bg-amber-100 text-amber-700 border-amber-200" :
+            intake.status === "PARTIAL" ? "bg-purple-100 text-purple-700 border-purple-200" :
             intake.status === "SOLD" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
             intake.status === "CLEARED" ? "bg-blue-100 text-blue-700 border-blue-200" :
             "bg-rose-100 text-rose-700 border-rose-200"
@@ -89,7 +90,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
               </div>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-2 pt-4 border-t">
+            <div className="grid gap-6 sm:grid-cols-3 pt-4 border-t">
               <div className="bg-muted/30 p-4 rounded-lg space-y-1">
                 <span className="text-[10px] font-bold uppercase text-muted-foreground">Quantity</span>
                 <div className="text-2xl font-bold">{intake.bagCount || 0} <span className="text-sm font-normal text-muted-foreground italic">Bags</span></div>
@@ -108,7 +109,30 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
                   )}
                 </div>
               </div>
+              {intake.remainingWeight !== null && intake.remainingWeight !== undefined && (
+                <div className="bg-purple-500/5 border border-purple-500/10 p-4 rounded-lg space-y-1">
+                  <span className="text-[10px] font-bold uppercase text-purple-600">Remaining Weight</span>
+                  <div className="text-2xl font-bold text-purple-700">
+                    {Number(intake.remainingWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {intake.remainingWeight !== null && intake.remainingWeight !== undefined && Number(intake.remainingWeight) < Number(intake.grossWeight) && (
+              <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl flex items-center justify-between text-xs pt-3 mt-4">
+                <div className="space-y-0.5">
+                  <div className="font-bold text-amber-800 uppercase tracking-widest text-[9px]">Sold Consumption Breakdown</div>
+                  <div className="text-muted-foreground">
+                    Sold: <span className="font-bold text-amber-950">{(Number(intake.grossWeight) - Number(intake.remainingWeight)).toLocaleString()} {intake.unit}</span> 
+                    {" "}({(((Number(intake.grossWeight) - Number(intake.remainingWeight)) / Number(intake.grossWeight)) * 100).toFixed(1)}%)
+                  </div>
+                </div>
+                <div className="font-bold text-amber-900 bg-amber-500/10 px-2 py-0.5 rounded uppercase text-[10px]">
+                  {intake.status}
+                </div>
+              </div>
+            )}
 
             {(intake.status === "SOLD" || intake.status === "CLEARED") && (
               <div className="pt-6 border-t space-y-4">
