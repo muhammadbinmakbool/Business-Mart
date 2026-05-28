@@ -1,6 +1,7 @@
 "use server";
 
 import { PartyService } from "../services/PartyService";
+import { PartyProfileService } from "../services/PartyProfileService";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -59,5 +60,15 @@ export async function deletePartyAction(id) {
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to delete party" };
+  }
+}
+
+export async function applyPartyPaymentAction(partyId, amount, type) {
+  try {
+    const result = await PartyProfileService.applyQuickPayment(partyId, amount, type);
+    revalidatePath(`/parties/${partyId}`);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message || "Failed to apply payment" };
   }
 }
