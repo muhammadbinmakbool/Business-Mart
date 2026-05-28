@@ -79,6 +79,15 @@ export default async function SupplierInvoiceDetailPage({ params }) {
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight">Settlement Invoice</h1>
               <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-[10px] font-bold">V{invoice.version}</span>
+              <span className={cn(
+                "px-2.5 py-0.5 rounded text-[10px] font-bold uppercase",
+                invoice.status === "CLEARED" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                invoice.status === "SUPERSEDED" ? "bg-rose-50 text-rose-700 border border-rose-200" :
+                invoice.status === "PARTIAL" ? "bg-blue-50 text-blue-700 border border-blue-200" :
+                "bg-amber-50 text-amber-700 border border-amber-200"
+              )}>
+                {invoice.status}
+              </span>
             </div>
             <p className="text-sm text-muted-foreground font-mono">{invoice.invoiceNumber}</p>
           </div>
@@ -96,9 +105,12 @@ export default async function SupplierInvoiceDetailPage({ params }) {
         deleteLabel="Supplier Invoice"
         deleteRedirect="/supplier-invoices"
         extraActions={
-          invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
-            <RegenerateButton invoiceId={invoice.id} />
-          )
+          <div className="flex items-center gap-2">
+            {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
+              <RegenerateButton invoiceId={invoice.id} />
+            )}
+            <StatusUpdater id={invoice.id} currentStatus={invoice.status} disabled={invoice.status === "SUPERSEDED"} />
+          </div>
         }
       />
 
@@ -193,18 +205,13 @@ export default async function SupplierInvoiceDetailPage({ params }) {
               </div>
             </div>
           </div>
-          <div className="p-4 bg-card flex items-center justify-between border-t gap-2">
-            <div className="flex items-center gap-3">
-              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                <User className="h-4 w-4 text-primary" />
-              </div>
-              <div className="min-w-0">
-                <div className="font-bold text-xs truncate">{invoice.party.name}</div>
-                <div className="text-[10px] text-muted-foreground leading-none">{format(new Date(invoice.createdAt), "dd MMM yyyy")}</div>
-              </div>
+          <div className="p-4 bg-card flex items-center gap-3 border-t">
+            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <User className="h-4 w-4 text-primary" />
             </div>
-            <div>
-              <StatusUpdater id={invoice.id} currentStatus={invoice.status} disabled={invoice.status === "SUPERSEDED"} />
+            <div className="min-w-0">
+              <div className="font-bold text-xs truncate">{invoice.party.name}</div>
+              <div className="text-[10px] text-muted-foreground leading-none">{format(new Date(invoice.createdAt), "dd MMM yyyy")}</div>
             </div>
           </div>
         </div>

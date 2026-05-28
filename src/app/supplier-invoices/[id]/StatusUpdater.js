@@ -3,57 +3,76 @@
 import React, { useState } from "react";
 import { updateInvoiceStatusAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { CheckCircle, Clock, MoreVertical, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function StatusUpdater({ id, currentStatus, disabled }) {
-  const [loading, setLoading] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
-  const handleStatusChange = async (newStatus) => {
-    if (disabled || currentStatus === newStatus) return;
+  async function handleUpdate(status) {
+    if (disabled || status === currentStatus) return;
     
-    setLoading(true);
-    const result = await updateInvoiceStatusAction(id, newStatus);
-    if (result.success) {
-      toast.success(`Status updated to ${newStatus}`);
-    } else {
-      toast.error(result.error);
+    setIsUpdating(true);
+    setIsOpen(false);
+    try {
+      const result = await updateInvoiceStatusAction(id, status);
+      if (result?.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(`Status updated to ${status}`);
+      }
+    } catch (error) {
+      toast.error("Failed to update status");
+    } finally {
+      setIsUpdating(false);
     }
-    setLoading(false);
-  };
+  }
 
-  const statuses = ["PENDING", "CLEARED"];
+  const statuses = [
+    { label: "Pending", value: "PENDING", icon: Clock, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200" },
+    { label: "Cleared", value: "CLEARED", icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200" },
+  ];
 
   return (
-    <div className="space-y-3">
-      <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Update Status</div>
-      <div className="flex gap-2 p-1 bg-muted/50 rounded-lg">
-        {statuses.map(s => (
-          <button
-            key={s}
-            disabled={disabled || loading}
-            onClick={() => handleStatusChange(s)}
-            className={cn(
-              "flex-1 px-3 py-1.5 rounded-md text-xs font-bold transition-all",
-              currentStatus === s 
-                ? "bg-white shadow-sm text-primary" 
-                : "text-muted-foreground hover:bg-muted"
-            )}
-          >
-            {loading && currentStatus !== s ? <Loader2 className="h-3 w-3 animate-spin mx-auto" /> : s}
-          </button>
-        ))}
-      </div>
-      
-      {currentStatus === "CLEARED" && (
-        <div className="text-[10px] text-emerald-700 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200/50 font-medium">
-          ⓘ Fully settled. A matched CASH OUT payment has been recorded in the Party Profile.
-        </div>
-      )}
-      {currentStatus === "PENDING" && (
-        <div className="text-[10px] text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200/50 font-medium">
-          ⓘ Uncleared. You can mark it as CLEARED to automatically record payment and run chronological FIFO allocations.
-        </div>
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        disabled={disabled || isUpdating}
+        className="flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-medium hover:bg-accent transition-colors disabled:opacity-50"
+      >
+        {isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+        Change Status
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+          <div className="absolute right-0 mt-2 w-48 bg-card border rounded-xl shadow-xl z-20 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+            <div className="p-1">
+              {statuses.map((status) => {
+                const Icon = status.icon;
+                const isActive = currentStatus === status.value;
+                return (
+                  <button
+                    key={status.value}
+                    onClick={() => handleUpdate(status.value)}
+                    disabled={isActive}
+                    className={cn(
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-xs font-bold uppercase transition-all",
+                      isActive 
+                        ? `${status.bg} ${status.color} ${status.border} border`
+                        : "hover:bg-accent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Icon className={cn("h-4 w-4", isActive ? status.color : "opacity-40")} />
+                    {status.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
