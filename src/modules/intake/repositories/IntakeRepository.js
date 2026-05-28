@@ -28,7 +28,8 @@ export class IntakeRepository {
         },
         salesTracks: {
           include: {
-            buyer: true
+            buyer: true,
+            saleTransaction: true
           }
         }
       }
@@ -76,7 +77,10 @@ export class IntakeRepository {
         invoiceItems: { none: { invoice: { status: { not: "SUPERSEDED" } } } },
         status: { in: ["SOLD", "PARTIAL"] }
       },
-      include: { product: true }
+      include: { 
+        product: true,
+        salesTracks: true
+      }
     });
   }
 

@@ -119,6 +119,23 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
               )}
             </div>
 
+            {(Number(intake.Bardana || 0) > 0 || Number(intake.Khot || 0) > 0) && (
+              <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t">
+                {Number(intake.Bardana || 0) > 0 && (
+                  <div className="bg-muted/40 p-4 rounded-xl flex justify-between items-center text-sm border border-muted-foreground/10">
+                    <span className="font-semibold text-muted-foreground">Total Bardana Weight</span>
+                    <span className="font-bold">{Number(intake.Bardana || 0).toLocaleString()} KG</span>
+                  </div>
+                )}
+                {Number(intake.Khot || 0) > 0 && (
+                  <div className="bg-muted/40 p-4 rounded-xl flex justify-between items-center text-sm border border-muted-foreground/10">
+                    <span className="font-semibold text-muted-foreground">Total Khot Refraction</span>
+                    <span className="font-bold">{Number(intake.Khot || 0).toLocaleString()} KG</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {intake.remainingWeight !== null && intake.remainingWeight !== undefined && Number(intake.remainingWeight) < Number(intake.grossWeight) && (
               <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl flex items-center justify-between text-xs pt-3 mt-4">
                 <div className="space-y-0.5">
@@ -134,65 +151,44 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
               </div>
             )}
 
-            {(intake.status === "SOLD" || intake.status === "CLEARED") && (
+            {/* Sales Breakdown Section */}
+            {intake.salesTracks && intake.salesTracks.length > 0 && (
               <div className="pt-6 border-t space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Sale & Billing Details</h3>
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <div className="bg-emerald-500/5 border border-emerald-500/10 p-4 rounded-xl space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-emerald-600">Net Weight</span>
-                    <div className="text-xl font-bold text-emerald-700">
-                      {intake.unit === "BAG" && intake.product ? (
-                        <>
-                          {normalizeQuantity(intake.netWeight || 0, "BAG", intake.product).toLocaleString()} <span className="text-xs font-normal italic uppercase font-mono">KG</span>
-                        </>
-                      ) : (
-                        <>
-                          {Number(intake.netWeight || 0).toLocaleString()} <span className="text-xs font-normal italic uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
-                        </>
-                      )}
+                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                  <FileText className="h-4.5 w-4.5 text-primary" />
+                  Sales Breakdown
+                </h3>
+                <div className="space-y-3">
+                  {intake.salesTracks.map((track) => (
+                    <div key={track.id} className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="space-y-1">
+                        <div className="font-semibold text-blue-950 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                          {track.buyer?.name || "Unknown Buyer"}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Sold on: {format(new Date(track.createdAt), "dd MMM yyyy, hh:mm a")}
+                        </div>
+                        {track.saleTransaction && (
+                          <div className="text-xs font-semibold text-primary mt-1">
+                            Invoice: <Link href={`/sales/${track.saleTransaction.id}`} className="hover:underline text-blue-700">{track.saleTransaction.saleNumber}</Link>
+                          </div>
+                        )}
+                      </div>
+                      <div className="sm:text-right flex sm:flex-col justify-between items-center sm:items-end gap-2 border-t sm:border-0 pt-2 sm:pt-0">
+                        <div className="font-bold text-blue-900">
+                          {Number(track.quantity).toLocaleString()} <span className="text-xs font-normal uppercase italic">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Rs. {Number(track.sellingRate).toLocaleString()} / {intake.rateUnit || "KG"}
+                        </div>
+                        <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                          Rs. {Number(track.baseAmount).toLocaleString()}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="bg-primary/5 border border-primary/10 p-4 rounded-xl space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-primary">Selling Rate</span>
-                    <div className="text-xl font-bold text-primary">
-                      Rs. {Number(intake.rate || 0).toLocaleString()} <span className="text-xs font-normal italic">/ {intake.rateUnit === "MAUND" ? "MND" : "KG"}</span>
-                    </div>
-                  </div>
-                  <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-amber-600">Initial Total Amount</span>
-                    <div className="text-xl font-bold text-amber-700">
-                      Rs. {(() => {
-                        const billingWeight = Number(intake.netWeight || intake.grossWeight || 0);
-                        const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
-                        return (billingWeight * Number(actualRate || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                      })()}
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="bg-muted/40 p-4 rounded-xl flex justify-between items-center text-sm border border-muted-foreground/10">
-                    <span className="font-semibold text-muted-foreground">Total Bardana Weight</span>
-                    <span className="font-bold">{Number(intake.Bardana || 0).toLocaleString()} KG</span>
-                  </div>
-                  <div className="bg-muted/40 p-4 rounded-xl flex justify-between items-center text-sm border border-muted-foreground/10">
-                    <span className="font-semibold text-muted-foreground">Total Khot Refraction</span>
-                    <span className="font-bold">{Number(intake.Khot || 0).toLocaleString()} KG</span>
-                  </div>
-                </div>
-
-                {intake.salesTracks && intake.salesTracks[0] && (
-                  <div className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-xl flex items-center justify-between text-sm">
-                    <div className="space-y-0.5">
-                      <div className="font-semibold text-blue-800">Buyer Party Link</div>
-                      <div className="text-xs text-muted-foreground">Linked buyer: <span className="font-bold text-blue-900">{intake.salesTracks[0].buyer.name}</span></div>
-                    </div>
-                    <div className="text-right">
-                      <div className="font-bold text-blue-900">{Number(intake.salesTracks[0].quantity).toLocaleString()} {intake.unit}</div>
-                      <div className="text-xs text-muted-foreground">Rs. {Number(intake.salesTracks[0].sellingRate).toLocaleString()} / {intake.rateUnit || "KG"}</div>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 

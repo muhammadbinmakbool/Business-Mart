@@ -14,7 +14,7 @@ export class SupplierInvoiceService {
     const [intakes, advances] = await Promise.all([
       prisma.intakeTransaction.findMany({
         where: { id: { in: intakeIds.map(id => parseInt(id)) } },
-        include: { product: true }
+        include: { product: true, salesTracks: true }
       }),
       prisma.intakeAdvance.findMany({
         where: { id: { in: advanceIds.map(id => parseInt(id)) } }
@@ -41,12 +41,14 @@ export class SupplierInvoiceService {
       
       const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
       const itemAdjustments = breakdown ? breakdown.adjustments : [];
+      const grossAmount = breakdown ? breakdown.gross : (billingWeight * rate);
+      const averageRate = billingWeight > 0 ? (grossAmount / billingWeight) : rate;
 
       return {
         intakeTransactionId: intake.id,
         weight: billingWeight,
-        rate: rate,
-        amount: billingWeight * rate,
+        rate: averageRate,
+        amount: grossAmount,
         adjustments: itemAdjustments
       };
     });
@@ -101,7 +103,7 @@ export class SupplierInvoiceService {
      const [intakes, advances] = await Promise.all([
        prisma.intakeTransaction.findMany({
          where: { id: { in: intakeIds } },
-         include: { product: true }
+         include: { product: true, salesTracks: true }
        }),
        prisma.intakeAdvance.findMany({
          where: { id: { in: advanceIds } }
@@ -134,22 +136,24 @@ export class SupplierInvoiceService {
      const finalPayableAmount = netValue - totalAdvances;
  
      // 5. Prepare item snapshots
-     const itemsData = intakes.map(intake => {
-       const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
-       const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
-       const rate = actualRate ? Number(actualRate) : 0;
-       
-       const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
-       const itemAdjustments = breakdown ? breakdown.adjustments : [];
- 
-       return {
-         intakeTransactionId: intake.id,
-         weight: billingWeight,
-         rate: rate,
-         amount: billingWeight * rate,
-         adjustments: itemAdjustments
-       };
-     });
+      const itemsData = intakes.map(intake => {
+        const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+        const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+        const rate = actualRate ? Number(actualRate) : 0;
+        
+        const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
+        const itemAdjustments = breakdown ? breakdown.adjustments : [];
+        const grossAmount = breakdown ? breakdown.gross : (billingWeight * rate);
+        const averageRate = billingWeight > 0 ? (grossAmount / billingWeight) : rate;
+
+        return {
+          intakeTransactionId: intake.id,
+          weight: billingWeight,
+          rate: averageRate,
+          amount: grossAmount,
+          adjustments: itemAdjustments
+        };
+      });
  
       // 6. Execute atomic transaction
       const newInvoice = await prisma.$transaction(async (tx) => {
@@ -253,7 +257,7 @@ export class SupplierInvoiceService {
       const [intakes, advances] = await Promise.all([
         tx.intakeTransaction.findMany({
           where: { id: { in: newIntakeIds.map(id => parseInt(id)) } },
-          include: { product: true }
+          include: { product: true, salesTracks: true }
         }),
         tx.intakeAdvance.findMany({
           where: { id: { in: newAdvanceIds.map(id => parseInt(id)) } }
@@ -280,12 +284,14 @@ export class SupplierInvoiceService {
         
         const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
         const itemAdjustments = breakdown ? breakdown.adjustments : [];
+        const grossAmount = breakdown ? breakdown.gross : (billingWeight * rate);
+        const averageRate = billingWeight > 0 ? (grossAmount / billingWeight) : rate;
 
         return {
           intakeTransactionId: intake.id,
           weight: billingWeight,
-          rate: rate,
-          amount: billingWeight * rate,
+          rate: averageRate,
+          amount: grossAmount,
           adjustments: itemAdjustments
         };
       });

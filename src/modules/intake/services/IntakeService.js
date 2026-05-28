@@ -422,19 +422,13 @@ export class IntakeService {
           Bardana: Number(intake.Bardana || 0) + Bardana,
           Khot: Number(intake.Khot || 0) + Khot,
           netWeight: Number(intake.netWeight || 0) + netWeight,
-          rate: rate,
-          rateUnit: rateUnit,
         }
       });
 
       // 2.5 Delegate inventory update — intake is updated
       await InventoryService.handleIntakeSold(intake.productId, tx);
 
-      // 3. Upsert SalesTrack
-      const existingTrack = await tx.salesTrack.findFirst({
-        where: { intakeTransactionId: intakeId }
-      });
-
+      // 3. Create unique SalesTrack record for this partial sale portion
       const quantityInKg = UnitService.getNormalizedQuantity(netWeight, intake.unit, intake.product);
       const baseAmount = netWeight * convertRate(rate, rateUnit, intake.unit, intake.product);
 
@@ -443,24 +437,17 @@ export class IntakeService {
         supplierPartyId: intake.partyId,
         buyerPartyId,
         productId: intake.productId,
-        quantity: existingTrack ? Number(existingTrack.quantity) + netWeight : netWeight,
+        quantity: netWeight,
         buyingRate: finalSalesTrackRate,
         sellingRate: finalSalesTrackRate,
-        netWeight: existingTrack ? Number(existingTrack.netWeight || 0) + netWeight : netWeight,
-        baseAmount: existingTrack ? Number(existingTrack.baseAmount || 0) + baseAmount : baseAmount,
+        netWeight: netWeight,
+        baseAmount: baseAmount,
         notes: `Intake ${intake.intakeNumber} marked as ${newStatus}`
       };
 
-      if (existingTrack) {
-        await tx.salesTrack.update({
-          where: { id: existingTrack.id },
-          data: trackData
-        });
-      } else {
-        await tx.salesTrack.create({
-          data: trackData
-        });
-      }
+      await tx.salesTrack.create({
+        data: trackData
+      });
 
       return updatedIntake;
     });
