@@ -64,6 +64,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
   const [showBilledBlockModal, setShowBilledBlockModal] = useState(false);
   const [showSupplierBlockModal, setShowSupplierBlockModal] = useState(false);
 
+  const salesTrack = intake?.salesTracks?.find(t => t.isBilled || t.saleTransactionId !== null) || intake?.salesTracks?.[0];
   const hasSalesTrack = intake?.salesTracks && intake.salesTracks.length > 0;
   const isBilled = intake?.salesTracks ? intake.salesTracks.some(t => t.isBilled || t.saleTransactionId !== null) : false;
 
