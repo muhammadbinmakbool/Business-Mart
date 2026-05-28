@@ -543,4 +543,56 @@ export class SaleService {
     const sale = await SaleRepository.getById(id);
     return JSON.parse(JSON.stringify(sale));
   }
+
+  static async recordPayment(id, amount) {
+    const saleId = parseInt(id);
+    const amt = Number(amount);
+    if (isNaN(saleId)) throw new Error("Invalid Sale ID");
+    if (isNaN(amt) || amt <= 0) throw new Error("Payment amount must be greater than zero");
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const sale = await tx.saleTransaction.findUnique({
+        where: { id: saleId }
+      });
+
+      if (!sale) throw new Error("Sale transaction not found");
+      if (sale.status === "CANCELLED") throw new Error("Cannot record payment on a cancelled invoice");
+
+      const total = Number(sale.finalAmount);
+      const currentPaid = Number(sale.paidAmount || 0);
+      const remaining = Math.max(0, total - currentPaid);
+
+      if (amt > remaining) {
+        throw new Error(`Payment amount Rs. ${amt} exceeds the remaining balance of Rs. ${remaining}`);
+      }
+
+      const newPaid = currentPaid + amt;
+      const clearingState = calculateInvoiceClearingState(total, newPaid);
+      
+      return tx.saleTransaction.update({
+        where: { id: saleId },
+        data: {
+          paidAmount: newPaid,
+          paymentStatus: clearingState.paymentStatus,
+          status: clearingState.paymentStatus
+        }
+      });
+    });
+
+    await emitActivity({
+      entityType: "SALE",
+      entityId: updated.id,
+      action: updated.status === "CLEARED" ? "CLEARED" : "UPDATED",
+      description: `Recorded partial payment of Rs. ${amt.toLocaleString()} on Sale ${updated.saleNumber}. Total paid: Rs. ${Number(updated.paidAmount).toLocaleString()}`,
+      meta: {
+        buyerId: updated.partyId,
+        paymentAmount: amt,
+        paidAmount: Number(updated.paidAmount),
+        paymentStatus: updated.paymentStatus
+      }
+    });
+
+    return updated;
+  }
 }
+

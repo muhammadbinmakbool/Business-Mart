@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
 import RevertStatusButton from "./RevertStatusButton";
+import SalePaymentCard from "./SalePaymentCard";
 import { deleteSaleAction, updateSaleStatusAction } from "@/modules/sales/controllers/saleActions";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { formatMaundWeight } from "@/lib/display-units";
@@ -208,6 +209,9 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
                 </div>
               </div>
            </div>
+
+           {/* Clearance Status Card */}
+           <SalePaymentCard sale={sale} />
 
            {/* Buyer Info */}
            <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-6">

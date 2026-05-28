@@ -1,8 +1,9 @@
 import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceRepository";
-import { calculateSupplierDeductions } from "@/lib/financial";
+import { calculateSupplierDeductions, calculateInvoiceClearingState } from "@/lib/financial";
 import { prisma } from "@/lib/prisma";
 import { convertRate } from "@/lib/units";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
+
 
 export class SupplierInvoiceService {
   /**
@@ -406,4 +407,57 @@ export class SupplierInvoiceService {
 
     return result;
   }
+
+  static async recordPayment(id, amount) {
+    const invoiceId = parseInt(id);
+    const amt = Number(amount);
+    if (isNaN(invoiceId)) throw new Error("Invalid Supplier Invoice ID");
+    if (isNaN(amt) || amt <= 0) throw new Error("Payment amount must be greater than zero");
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const invoice = await tx.supplierInvoice.findUnique({
+        where: { id: invoiceId }
+      });
+
+      if (!invoice) throw new Error("Supplier invoice not found");
+      if (invoice.status === "SUPERSEDED") throw new Error("Cannot record payment on a superseded invoice");
+      if (invoice.status === "CANCELLED") throw new Error("Cannot record payment on a cancelled invoice");
+
+      const total = Number(invoice.finalPayableAmount);
+      const currentPaid = Number(invoice.paidAmount || 0);
+      const remaining = Math.max(0, total - currentPaid);
+
+      if (amt > remaining) {
+        throw new Error(`Payment amount Rs. ${amt} exceeds the remaining balance of Rs. ${remaining}`);
+      }
+
+      const newPaid = currentPaid + amt;
+      const clearingState = calculateInvoiceClearingState(total, newPaid);
+      
+      return tx.supplierInvoice.update({
+        where: { id: invoiceId },
+        data: {
+          paidAmount: newPaid,
+          paymentStatus: clearingState.paymentStatus,
+          status: clearingState.paymentStatus
+        }
+      });
+    });
+
+    await emitActivity({
+      entityType: "SETTLEMENT",
+      entityId: updated.id,
+      action: updated.status === "CLEARED" ? "CLEARED" : "UPDATED",
+      description: `Recorded partial payment of Rs. ${amt.toLocaleString()} on Supplier Invoice ${updated.invoiceNumber}. Total paid: Rs. ${Number(updated.paidAmount).toLocaleString()}`,
+      meta: {
+        supplierId: updated.partyId,
+        paymentAmount: amt,
+        paidAmount: Number(updated.paidAmount),
+        paymentStatus: updated.paymentStatus
+      }
+    });
+
+    return updated;
+  }
 }
+

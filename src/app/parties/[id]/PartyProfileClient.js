@@ -2,10 +2,9 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, Phone, MapPin, TrendingUp, TrendingDown, Wallet, Receipt, Package, Banknote, Scale, ChevronDown, ChevronUp, Clock, Plus, Check } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, TrendingUp, TrendingDown, Wallet, Receipt, Package, ChevronDown, ChevronUp, Clock, Plus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { applyPartyPaymentAction } from "@/modules/parties/controllers/partyActions";
 
 const fmt = (v) => Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
@@ -166,130 +165,6 @@ function DataTable({ columns, data, emptyMsg = "No records found." }) {
   );
 }
 
-function QuickPaymentForm({ party }) {
-  const [paymentType, setPaymentType] = useState(
-    party.partyType === "SUPPLIER" ? "CASH_OUT" : "CASH_IN"
-  );
-  const [amount, setAmount] = useState("");
-  const [notes, setNotes] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    const amt = parseFloat(amount);
-    if (isNaN(amt) || amt <= 0) {
-      setError("Please enter a valid amount greater than 0");
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const res = await applyPartyPaymentAction(party.id, amt, paymentType);
-      if (res.success) {
-        setAmount("");
-        setNotes("");
-        const count = res.data.allocations.length;
-        if (count > 0) {
-          const detail = res.data.allocations.map(a => `• Invoice #${a.invoiceNumber} cleared Rs. ${fmt(a.allocated)} (New status: ${a.paymentStatus})`).join("\n");
-          alert(`Success! Auto-cleared ${count} oldest invoice(s):\n\n${detail}\n\nUnallocated excess amount: Rs. ${fmt(res.data.unallocatedAmount)}`);
-        } else {
-          alert(`Success! Payment of Rs. ${fmt(amt)} applied. No active unpaid invoices found. Unallocated amount: Rs. ${fmt(res.data.unallocatedAmount)}`);
-        }
-        window.location.reload();
-      } else {
-        setError(res.error || "Failed to apply payment");
-      }
-    } catch (err) {
-      setError(err.message || "An unexpected error occurred");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {error && (
-        <div className="p-3 bg-rose-50 text-rose-700 text-xs rounded-xl border border-rose-200 font-semibold text-center">
-          {error}
-        </div>
-      )}
-
-      <div className="space-y-1">
-        <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block font-black">Payment Direction</label>
-        {party.partyType === "BOTH" ? (
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setPaymentType("CASH_IN")}
-              className={cn(
-                "py-2 text-xs font-bold rounded-xl border transition-all",
-                paymentType === "CASH_IN" 
-                  ? "bg-emerald-600 border-emerald-700 text-white shadow-md shadow-emerald-600/10" 
-                  : "bg-muted text-muted-foreground hover:bg-slate-200"
-              )}
-            >
-              CASH IN (Collection)
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentType("CASH_OUT")}
-              className={cn(
-                "py-2 text-xs font-bold rounded-xl border transition-all",
-                paymentType === "CASH_OUT" 
-                  ? "bg-amber-600 border-amber-700 text-white shadow-md shadow-amber-600/10" 
-                  : "bg-muted text-muted-foreground hover:bg-slate-200"
-              )}
-            >
-              CASH OUT (Payout)
-            </button>
-          </div>
-        ) : (
-          <div className="py-2.5 px-3 rounded-xl bg-muted border border-slate-200 font-bold text-xs">
-            {paymentType === "CASH_IN" ? "CASH IN (Receivable Collection from Buyer)" : "CASH OUT (Settlement Payout to Supplier)"}
-          </div>
-        )}
-      </div>
-
-      <div className="space-y-1">
-        <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block font-black">Amount to Clear (Rs.)</label>
-        <input
-          type="number"
-          step="0.01"
-          required
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="0.00"
-          className="w-full bg-slate-50 border rounded-xl py-2 px-3 text-sm font-semibold tracking-tight focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white"
-        />
-      </div>
-
-      <div className="space-y-1">
-        <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block font-black">Notes / Description (Optional)</label>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="e.g. Cleared pending sales, custom discount applied..."
-          rows={3}
-          className="w-full bg-slate-50 border rounded-xl py-2 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white"
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={submitting}
-        className="w-full bg-primary text-primary-foreground font-black text-xs uppercase tracking-wider py-3 rounded-xl border border-primary/20 hover:bg-primary/95 transition-all disabled:opacity-50 shadow-lg shadow-primary/10"
-      >
-        {submitting ? "Clearing Oldest Invoices (FIFO)..." : "Apply Quick Payment"}
-      </button>
-
-      <div className="text-[9px] text-muted-foreground bg-slate-50 border border-slate-200/50 p-2.5 rounded-lg text-center font-medium leading-relaxed">
-        ℹ️ **FIFO Rule Enabled:** Applying a payment here automatically allocates funds to this party's oldest pending invoices first. Fully paid items transition to **CLEARED**, while partially cleared ones update to **PARTIAL**.
-      </div>
-    </form>
-  );
-}
 
 export default function PartyProfileClient({ profile }) {
   const { party, summary, timeline, detailedViews } = profile;
@@ -325,7 +200,6 @@ export default function PartyProfileClient({ profile }) {
 
   const tabs = [
     { key: "overview", label: "Overview" },
-    { key: "payments", label: "Quick FIFO Clearing" },
     { key: "sales", label: "Sales Invoices", count: detailedViews.sales.length },
     { key: "settlements", label: "Supplier Settlements", count: detailedViews.settlements.length },
     { key: "advances", label: "Cash Advances", count: detailedViews.advances.length },
@@ -422,45 +296,6 @@ export default function PartyProfileClient({ profile }) {
               </div>
               <div className="p-0">
                 <TimelineTable events={timeline} />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {activeTab === "payments" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-4">
-              <div className="rounded-2xl border p-6 space-y-4 bg-muted/10 border-dashed">
-                <div className="flex items-center gap-3">
-                  <Scale className="h-6 w-6 text-primary" />
-                  <h3 className="font-bold text-base">Direct Chronological Clearance (FIFO)</h3>
-                </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  Grain market transactions are cleared sequentially. Invoices are sorted by **Entry Date ASC** and payments are automatically forward-filled. 
-                </p>
-                <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div className="bg-white border rounded-xl p-4 text-center">
-                    <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground block">Active Sales Pending</span>
-                    <span className="text-lg font-black text-amber-600 mt-1 block">Rs. {fmt(summary.totalSalesRemaining)}</span>
-                  </div>
-                  <div className="bg-white border rounded-xl p-4 text-center">
-                    <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground block">Active Settlements Pending</span>
-                    <span className="text-lg font-black text-rose-600 mt-1 block">Rs. {fmt(summary.totalSupplierRemaining)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <div className="sticky top-6 bg-card border border-primary/10 rounded-2xl p-6 shadow-md space-y-4 bg-white/80 backdrop-blur-md">
-                <div className="flex items-center gap-2 border-b pb-3">
-                  <Banknote className="h-5 w-5 text-primary animate-pulse" />
-                  <div>
-                    <h3 className="font-bold text-sm">Quick Payment Entry</h3>
-                    <p className="text-[10px] text-muted-foreground">Auto-clears oldest outstanding bills</p>
-                  </div>
-                </div>
-                <QuickPaymentForm party={party} />
               </div>
             </div>
           </div>

@@ -83,3 +83,15 @@ export async function getAvailableStockAction(productId) {
     return { success: false, error: error.message };
   }
 }
+
+export async function recordSalePaymentAction(id, amount) {
+  try {
+    const sale = await SaleService.recordPayment(id, amount);
+    revalidatePath(`/sales/${id}`);
+    revalidatePath("/sales");
+    return { success: true, data: JSON.parse(JSON.stringify(sale)) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+

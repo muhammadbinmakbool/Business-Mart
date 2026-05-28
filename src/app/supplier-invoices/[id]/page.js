@@ -6,6 +6,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import StatusUpdater from "./StatusUpdater";
 import RegenerateButton from "./RegenerateButton";
+import SupplierPaymentCard from "./SupplierPaymentCard";
 import { calculateSupplierDeductions } from "@/lib/financial";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import Alert from "@/components/ui/Alert";
@@ -287,6 +288,9 @@ export default async function SupplierInvoiceDetailPage({ params }) {
               <StatusUpdater id={invoice.id} currentStatus={invoice.status} disabled={invoice.status === "SUPERSEDED"} />
             </div>
           </div>
+
+          {/* Clearance Status Card */}
+          <SupplierPaymentCard invoice={invoice} />
           
           <div className="rounded-xl border bg-muted/20 p-4 text-xs space-y-2 text-muted-foreground">
              <div className="flex justify-between">

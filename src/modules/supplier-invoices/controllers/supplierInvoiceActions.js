@@ -169,3 +169,15 @@ export async function deleteSupplierInvoiceAction(invoiceId) {
     return { success: false, error: error.message };
   }
 }
+
+export async function recordSupplierPaymentAction(id, amount) {
+  try {
+    const invoice = await SupplierInvoiceService.recordPayment(id, amount);
+    safeRevalidatePath(`/supplier-invoices/${id}`);
+    safeRevalidatePath("/supplier-invoices");
+    return { success: true, data: JSON.parse(JSON.stringify(invoice)) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
