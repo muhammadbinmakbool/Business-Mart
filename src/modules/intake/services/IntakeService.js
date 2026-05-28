@@ -170,7 +170,7 @@ export class IntakeService {
 
       // 2. Determine new values
       const newProductId = validated.productId ? parseInt(validated.productId) : oldProductId;
-      const newStatus = validated.status || oldStatus;
+      let newStatus = validated.status || oldStatus;
 
       // Validation Rule: If transitioning away from SOLD or CLEARED to PENDING or CANCELLED, verify/delete unbilled SalesTrack and block if included in Supplier Settlement
       if ((oldStatus === "SOLD" || oldStatus === "CLEARED") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
