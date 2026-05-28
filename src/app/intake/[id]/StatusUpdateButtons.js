@@ -29,7 +29,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     : Number(intake?.grossWeight || 0);
 
   React.useEffect(() => {
-    if (!intake || intake.status === "PENDING") {
+    if (!intake || intake.status === "PENDING" || intake.status === "PARTIAL") {
       setRateUnit(getPreferredRateUnit());
       setKhotRateUnit(getPreferredWeightUnit());
     } else {
