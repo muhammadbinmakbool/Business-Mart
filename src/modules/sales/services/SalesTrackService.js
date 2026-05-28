@@ -120,6 +120,7 @@ export class SalesTrackService {
       sellingRate: track.sellingRate ? Number(track.sellingRate) : null,
       netWeight: track.netWeight ? Number(track.netWeight) : null,
       baseAmount: track.baseAmount ? Number(track.baseAmount) : null,
+      rateUnit: track.rateUnit || "KG",
       isBilled: track.isBilled,
       isSettled: track.isSettled,
       notes: track.notes,
