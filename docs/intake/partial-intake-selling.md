@@ -8,15 +8,16 @@ This developer guide documents the architecture, database mutations, core state 
 
 The system maintains a lightweight **intake-centric inventory model** without full ERP drift (no intake version chains, complex batch allocation engines, child splitting, or traceability tree hierarchy). 
 
-Instead, it tracks the lifecycle of an intake using a simple **`remainingWeight`** field:
-*   **Default Behavior**: An intake is sold fully in one step. Remaining weight becomes `0`, and status transitions to `SOLD`.
-*   **Optional Partial Selling**: An operator can sell a custom quantity of an intake. The remaining weight decrements, the status transitions to `PARTIAL`, and a buyer `SalesTrack` (sales trace) is recorded for the sold portion. Subsequent partial sales consume the rest until remaining weight reaches `0` and status becomes `SOLD`.
+### 🛡️ Separation of Inventory Truth vs. Sales Truth (Stabilization Patch)
+To ensure absolute mathematical consistency in billing, invoicing, and history, the architecture enforces a strict boundary between inventory and sales records:
+1. **IntakeTransaction = Inventory State ONLY**: It is the absolute source of truth for physical arrival parameters (`grossWeight`, `remainingWeight`, and `status`). Its `rate` is **never overwritten** during sales and represents intake-side default rate information only.
+2. **SalesTrack = Sales Truth**: It is the **only** source of truth for sales parameters. Each partial or full sale portion creates a distinct `SalesTrack` record, storing who bought (`buyerPartyId`), at what rate (`sellingRate`), what quantity (`quantity`), the sold date (`createdAt`), and the linked sale invoice if billed.
 
 ---
 
 ## 📊 Database Schema Updates
 
-The `IntakeTransaction` model in [schema.prisma](file:///d:/Projects/Next%20JS/prisma/schema.prisma) includes a nullable `remainingWeight` field to track consumption:
+The `IntakeTransaction` and `SalesTrack` models in [schema.prisma](file:///d:/Projects/Next%20JS/prisma/schema.prisma) are configured for a 1-to-many relationship (removing the `@unique` constraint from `intakeTransactionId`):
 
 ```prisma
 model IntakeTransaction {
@@ -27,10 +28,17 @@ model IntakeTransaction {
   remainingWeight Decimal?              @db.Decimal(18, 2) // <-- tracks active weight in inventory
   status          String                // PENDING, PARTIAL, SOLD, CLEARED, CANCELLED
   // ...
+  salesTracks     SalesTrack[]          // <-- 1-to-many relationship
+}
+
+model SalesTrack {
+  id                  Int       @id @default(autoincrement())
+  intakeTransactionId Int?      // <-- Removed @unique to support multiple partial sales tracks
+  // ...
 }
 ```
 
-*   **Migration Path**: Existing records are fully backfilled so that `remainingWeight = grossWeight` for all `PENDING` intakes (and initialized to `0` or appropriate decimals for historical `SOLD` ones).
+*   **Migration Path**: Existing records are fully backfilled so that `remainingWeight = grossWeight` for all `PENDING` intakes (and initialized to `0` or appropriate decimals for historical `SOLD` ones). The unique index on `intakeTransactionId` in the DB has been dropped.
 
 ---
 
@@ -80,8 +88,6 @@ await tx.intakeTransaction.update({
   data: {
     status: nextStatus,
     remainingWeight: newRemaining,
-    rate: rate,
-    rateUnit: rateUnit,
     Bardana: Decimal.add(current.Bardana || 0, new Decimal(Bardana)),
     Khot: Decimal.add(current.Khot || 0, new Decimal(Khot)),
     netWeight: Decimal.add(current.netWeight || 0, new Decimal(netWeight))
@@ -107,6 +113,12 @@ for (const intake of activeIntakes) {
   totalStockKg = totalStockKg.plus(new Decimal(normalized));
 }
 ```
+
+### 3. Supplier Settlement Calculations (`SupplierInvoiceService`)
+To generate correct financial settlements when multiple partial sales occur at different rates:
+*   **Supplier Invoice Item Amount**: Rather than calculating the amount using the intake-level rate, the system aggregates the actual sold values from `SalesTrack` records: `grossAmount = SUM(SalesTrack.baseAmount)`.
+*   **Supplier Invoice Item Rate**: Shows the calculated average rate of all sales tracks for the intake: `averageRate = grossAmount / netWeight` (falls back to the original rate if not sold).
+*   This allows a `10 MND` intake sold as `5 MND @ Rs. 4,000` + `5 MND @ Rs. 4,500` to correctly yield a total gross value of `Rs. 42,500` without any weighted-average rate rewrites.
 
 ---
 
