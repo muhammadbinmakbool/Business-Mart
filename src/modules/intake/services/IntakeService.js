@@ -235,7 +235,7 @@ export class IntakeService {
         }
 
         // Recalculate status dynamically if the weight shift changes the intake state
-        newStatus = calculateIntakeState({ grossWeight: newGross, remainingWeight: newRemainingWeight });
+        newStatus = calculateIntakeState({ grossWeight: newGross, remainingWeight: newRemainingWeight }).status;
       }
 
       // Calculate converted rates based on the units used!
