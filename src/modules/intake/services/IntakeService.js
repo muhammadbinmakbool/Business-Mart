@@ -173,8 +173,8 @@ export class IntakeService {
       const newProductId = validated.productId ? parseInt(validated.productId) : oldProductId;
       let newStatus = validated.status || oldStatus;
 
-      // Validation Rule: If transitioning away from SOLD or CLEARED to PENDING or CANCELLED, verify/delete unbilled SalesTrack and block if included in Supplier Settlement
-      if ((oldStatus === "SOLD" || oldStatus === "CLEARED") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
+      // Validation Rule: If transitioning away from SOLD, CLEARED, or PARTIAL to PENDING or CANCELLED, verify/delete unbilled SalesTrack and block if included in Supplier Settlement
+      if ((oldStatus === "SOLD" || oldStatus === "CLEARED" || oldStatus === "PARTIAL") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
         // Check for Supplier Settlement linkage
         const supplierInvoiceItem = await tx.supplierInvoiceItem.findFirst({
           where: { intakeTransactionId: current.id }
@@ -183,18 +183,23 @@ export class IntakeService {
           throw createAppError("SETTLEMENT_LOCKED", "Cannot change status because this intake is already included in a Supplier Settlement/Invoice. Please remove it from the supplier settlement first.");
         }
 
-        const existingTrack = await tx.salesTrack.findUnique({
+        const existingTracks = await tx.salesTrack.findMany({
           where: { intakeTransactionId: current.id }
         });
-        if (existingTrack) {
-          if (existingTrack.isBilled || existingTrack.saleTransactionId !== null) {
+
+        if (existingTracks.length > 0) {
+          const billedTrack = existingTracks.find(t => t.isBilled || t.saleTransactionId !== null);
+          if (billedTrack) {
             throw createAppError("TRANSACTION_BILLED", "Cannot change status because this intake's sales trace is already included in a Sales Invoice. Please remove it from the invoice first.");
           }
-          // If not billed, delete the SalesTrack record atomically
-          await tx.salesTrack.delete({
-            where: { id: existingTrack.id }
+          // If not billed, delete all SalesTrack records atomically
+          await tx.salesTrack.deleteMany({
+            where: { intakeTransactionId: current.id }
           });
         }
+
+        // Reset remainingWeight to full grossWeight when reverting to PENDING/CANCELLED
+        newRemainingWeight = Number(validated.grossWeight !== undefined ? validated.grossWeight : current.grossWeight);
       }
 
       // Recalculate normalized weight if weight, unit, or product changed
