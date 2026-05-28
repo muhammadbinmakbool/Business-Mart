@@ -106,6 +106,8 @@ model SaleTransaction {
   totalAdjustments Decimal                 @db.Decimal(18, 2)
   finalAmount      Decimal                 @db.Decimal(18, 2)
   status           String                  @default("PENDING")
+  paidAmount       Decimal                 @default(0) @db.Decimal(18, 2)
+  paymentStatus    String                  @default("PENDING") // PENDING | PARTIAL | CLEARED
   notes            String?
   isDeleted        Boolean                 @default(false)
   changeLog        String?                 @db.NVarChar(Max)
@@ -196,6 +198,8 @@ model SupplierInvoice {
   totalAdvances      Decimal                     @db.Decimal(18, 2)
   finalPayableAmount Decimal                     @db.Decimal(18, 2)
   status             String                      @default("PENDING") // PENDING | COMPLETED | SUPERSEDED
+  paidAmount         Decimal                     @default(0) @db.Decimal(18, 2)
+  paymentStatus      String                      @default("PENDING") // PENDING | PARTIAL | CLEARED
   isOutdated         Boolean                     @default(false)
   version            Int                         @default(1)
   lastCalculatedAt   DateTime                    @default(now())

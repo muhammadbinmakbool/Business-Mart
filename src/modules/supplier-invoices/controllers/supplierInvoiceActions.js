@@ -68,45 +68,32 @@ export async function listSupplierInvoicesAction() {
 
 export async function updateInvoiceStatusAction(id, status) {
   try {
-    const invoice = await SupplierInvoiceRepository.updateStatus(id, status);
-    
-    // Unify status update with allocation layer payments
-    const { PartySettlementService } = await import("@/modules/parties/services/PartySettlementService");
     const { prisma } = await import("@/lib/prisma");
 
-    if (status === "COMPLETED") {
-      // Look for existing active direct payment
-      const existingPay = await prisma.partyPayment.findFirst({
-        where: {
-          sourceType: "DIRECT_SETTLEMENT",
-          sourceId: invoice.id,
-          status: "ACTIVE"
-        }
-      });
-      if (!existingPay) {
-        await PartySettlementService.recordPayment({
-          partyId: invoice.partyId,
-          paymentType: "CASH_OUT",
-          amount: Number(invoice.finalPayableAmount),
-          notes: `Auto-recorded payment upon marking Invoice #${invoice.invoiceNumber} as Paid`,
-          paymentMethod: "CASH",
-          sourceType: "DIRECT_SETTLEMENT",
-          sourceId: invoice.id
-        });
-      }
-    } else if (status === "PENDING") {
-      // Reverting to pending, find and void active payment if it exists
-      const existingPay = await prisma.partyPayment.findFirst({
-        where: {
-          sourceType: "DIRECT_SETTLEMENT",
-          sourceId: invoice.id,
-          status: "ACTIVE"
-        }
-      });
-      if (existingPay) {
-        await PartySettlementService.deletePayment(existingPay.id);
-      }
+    const currentInvoice = await prisma.supplierInvoice.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!currentInvoice) {
+      throw new Error("Invoice not found");
     }
+
+    let paidAmount = 0;
+    let paymentStatus = "PENDING";
+
+    if (status === "COMPLETED") {
+      paidAmount = Number(currentInvoice.finalPayableAmount);
+      paymentStatus = "CLEARED";
+    }
+
+    const invoice = await prisma.supplierInvoice.update({
+      where: { id: parseInt(id) },
+      data: {
+        status,
+        paidAmount,
+        paymentStatus
+      }
+    });
 
     let action = "UPDATED";
     if (status === "COMPLETED") action = "COMPLETED";

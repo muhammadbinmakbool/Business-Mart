@@ -1,12 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { convertRate } from "@/lib/units";
-import { RateResolutionService } from "@/modules/products/services/RateResolutionService";
 
 export class PartyProfileService {
   /**
-   * Unified profile intelligence retrieval method.
-   * Compiles the dynamic financial overview, detailed transaction tables,
-   * check-and-balance reconciliation data, and chronological timeline.
+   * Simplified profile retrieval method.
+   * Compiles simple invoice-based financial statistics, chronological event timelines,
+   * and clean outstanding balances without complex ledger simulations.
    * 
    * @param {number|string} partyId - The unique ID of the target party
    */
@@ -14,360 +12,180 @@ export class PartyProfileService {
     const pId = parseInt(partyId);
     if (isNaN(pId)) throw new Error("Invalid Party ID provided");
 
-    // Initialize session-scoped product rate resolution cache to prevent N+1 query loops!
-    RateResolutionService.startSession();
-
-    try {
-      // ==========================================
-      // 1. DATA FETCH LAYER (Atomic and optimized)
-      // ==========================================
-      const party = await prisma.party.findUnique({
-        where: { id: pId },
-        include: {
-          payments: {
-            orderBy: { entryDate: "desc" },
-            include: { allocations: true }
-          },
-          allocations: {
-            orderBy: { createdAt: "desc" }
-          },
-          saleTransactions: {
-            where: { isDeleted: false, status: { not: "CANCELLED" } },
-            include: {
-              adjustments: true,
-              items: { include: { product: true } }
-            },
-            orderBy: { entryDate: "desc" }
-          },
-          intakeTransactions: {
-            where: { status: { not: "CANCELLED" } },
-            include: {
-              product: true,
-              invoiceItems: {
-                include: {
-                  invoice: true
-                }
-              }
-            },
-            orderBy: { entryDate: "desc" }
-          },
-          intakeAdvances: {
-            orderBy: { createdAt: "desc" }
-          },
-          supplierInvoices: {
-            where: { status: { not: "SUPERSEDED" } },
-            include: {
-              items: {
-                include: {
-                  adjustments: true,
-                  intake: { include: { product: true } }
-                }
-              },
-              advances: true
-            },
-            orderBy: { entryDate: "desc" }
-          }
-        }
-      });
-
-      if (!party) return null;
-
-      // ==========================================
-      // 2. FINANCIAL AGGREGATION LAYER (Financial Truth)
-      // ==========================================
-      // Fetch Cash receipts and payouts (ACTIVE status ONLY!)
-      const totalCashIn = party.payments
-        .filter(p => p.paymentType === "CASH_IN" && p.status === "ACTIVE")
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-
-      const totalCashOut = party.payments
-        .filter(p => p.paymentType === "CASH_OUT" && p.status === "ACTIVE")
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-
-      // Sales (Debit obligations)
-      const totalSales = party.saleTransactions.reduce(
-        (sum, sale) => sum + Number(sale.finalAmount || 0),
-        0
-      );
-
-      // Intake Advances (Debit obligations)
-      const totalAdvances = party.intakeAdvances.reduce(
-        (sum, adv) => sum + Number(adv.amount || 0),
-        0
-      );
-
-      const totalDebits = totalSales + totalAdvances + totalCashOut;
-
-      // CREDITS calculation (Billed/Realized vs Pending/Estimated)
-      const realizedCredit = party.supplierInvoices.reduce(
-        (sum, inv) => sum + Number(inv.totalGrossValue || 0) - Number(inv.totalDeductions || 0),
-        0
-      );
-
-      // Unbilled Intakes (Pending Credit)
-      let pendingCredit = 0;
-      const unbilledIntakesList = [];
-      const billedIntakesList = [];
-
-      for (const intake of party.intakeTransactions) {
-        // Check if this intake has any active billing item
-        const activeBillingItem = intake.invoiceItems?.find(
-          ii => ii.invoice && ii.invoice.status !== "SUPERSEDED"
-        );
-
-        const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined
-          ? Number(intake.netWeight)
-          : Number(intake.grossWeight);
-
-        // Resolve rate fallbacks using RateResolutionService (caching resolved product rates)
-        let rate = intake.rate ? Number(intake.rate) : 0;
-        if (!rate) {
-          rate = await RateResolutionService.resolveRate(intake.productId);
-        }
-        
-        const actualRate = convertRate(rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
-        const estimatedValue = billingWeight * Number(actualRate || 0);
-
-        if (activeBillingItem) {
-          // Record as billed intake
-          billedIntakesList.push({
-            id: intake.id,
-            intakeNumber: intake.intakeNumber,
-            entryDate: intake.entryDate,
-            product: intake.product?.name || "Unknown Product",
-            weight: Number(activeBillingItem.weight),
-            rate: Number(activeBillingItem.rate),
-            finalValue: Number(activeBillingItem.amount),
-            invoiceNumber: activeBillingItem.invoice.invoiceNumber,
-            status: "BILLED"
-          });
-        } else {
-          // Record as unbilled intake (pending credit)
-          pendingCredit += estimatedValue;
-          unbilledIntakesList.push({
-            id: intake.id,
-            intakeNumber: intake.intakeNumber,
-            entryDate: intake.entryDate,
-            product: intake.product?.name || "Unknown Product",
-            weight: billingWeight,
-            rate: rate,
-            estimatedValue: estimatedValue,
-            status: "PENDING"
-          });
+    const party = await prisma.party.findUnique({
+      where: { id: pId },
+      include: {
+        saleTransactions: {
+          where: { isDeleted: false, status: { not: "CANCELLED" } },
+          orderBy: { entryDate: "desc" }
+        },
+        intakeAdvances: {
+          orderBy: { createdAt: "desc" }
+        },
+        supplierInvoices: {
+          where: { status: { not: "SUPERSEDED" } },
+          orderBy: { entryDate: "desc" }
         }
       }
+    });
 
-      const totalCredits = realizedCredit + pendingCredit;
+    if (!party) return null;
 
-      // Derived Balances & Reconciliation Limits
-      const officialBalance = (totalSales + totalAdvances + totalCashOut) - (totalCashIn + realizedCredit);
-      const forecastBalance = (totalSales + totalAdvances + totalCashOut) - (totalCashIn + realizedCredit + pendingCredit);
-
-      // ==========================================
-      // 3. TIMELINE BUILDER LAYER (Storytelling Log)
-      // ==========================================
-      const timelineEvents = [];
-
-      // Sales events enriched with allocation metadata
-      party.saleTransactions.forEach(sale => {
-        const allocs = party.allocations.filter(a => a.referenceType === "SALE" && a.referenceId === sale.id);
-        const allocatedAmount = allocs.reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
-        const remainingAmount = Number(sale.finalAmount) - allocatedAmount;
-
-        timelineEvents.push({
-          id: `sale-${sale.id}`,
-          date: new Date(sale.entryDate),
-          type: "SALE",
-          ref: sale.saleNumber,
-          description: `Sale billing invoice processed`,
-          debit: Number(sale.finalAmount),
-          credit: 0,
-          status: sale.status,
-          requiredAmount: Number(sale.finalAmount),
-          allocatedAmount,
-          remainingAmount,
-          clearingStatus: sale.status
-        });
-      });
-
-      // Advance Payouts
-      party.intakeAdvances.forEach(adv => {
-        timelineEvents.push({
-          id: `adv-${adv.id}`,
-          date: new Date(adv.createdAt),
-          type: "CASH_OUT",
-          ref: `ADV-${adv.id}`,
-          description: adv.notes || `Cash advance payout recorded`,
-          debit: Number(adv.amount),
-          credit: 0,
-          status: "COMPLETED",
-          requiredAmount: Number(adv.amount),
-          allocatedAmount: Number(adv.amount),
-          remainingAmount: 0,
-          clearingStatus: "CLEARED"
-        });
-      });
-
-      // Cash Payouts and Cash Receipts directly from PartyPayment
-      party.payments.forEach(pay => {
-        const isCashIn = pay.paymentType === "CASH_IN";
-        const isVoided = pay.status === "VOIDED" || pay.status === "REVERSED";
-        timelineEvents.push({
-          id: `pay-${pay.id}`,
-          date: new Date(pay.entryDate),
-          type: pay.paymentType,
-          ref: pay.paymentNumber,
-          description: pay.notes || `${isCashIn ? "Cash payment received" : "Cash payment paid out"} [${pay.paymentMethod}]${isVoided ? " (VOIDED)" : ""}`,
-          debit: isVoided ? 0 : (isCashIn ? 0 : Number(pay.amount)),
-          credit: isVoided ? 0 : (isCashIn ? Number(pay.amount) : 0),
-          status: isVoided ? "VOIDED" : "COMPLETED",
-          requiredAmount: Number(pay.amount),
-          allocatedAmount: isVoided ? 0 : Number(pay.amount),
-          remainingAmount: 0,
-          clearingStatus: isVoided ? "VOIDED" : "CLEARED"
-        });
-      });
-
-      // Intake Credit Events
-      party.intakeTransactions.forEach(intake => {
-        const activeBillingItem = intake.invoiceItems?.find(
-          ii => ii.invoice && ii.invoice.status !== "SUPERSEDED"
-        );
-
-        let creditAmount = 0;
-        let isBilled = false;
-        let description = "";
-
-        if (activeBillingItem) {
-          creditAmount = Number(activeBillingItem.amount);
-          isBilled = true;
-          description = `Goods intake (Billed via ${activeBillingItem.invoice.invoiceNumber})`;
-        } else {
-          // Look up rate solved by async logic earlier
-          const unbilledInfo = unbilledIntakesList.find(u => u.id === intake.id);
-          creditAmount = unbilledInfo ? unbilledInfo.estimatedValue : 0;
-          description = `Goods intake (Estimated, Pending Settlement)`;
-        }
-
-        timelineEvents.push({
-          id: `intake-${intake.id}`,
-          date: new Date(intake.entryDate),
-          type: "INTAKE",
-          ref: intake.intakeNumber,
-          description,
-          debit: 0,
-          credit: creditAmount,
-          status: isBilled ? "COMPLETED" : "PENDING",
-          requiredAmount: creditAmount,
-          allocatedAmount: isBilled ? creditAmount : 0,
-          remainingAmount: isBilled ? 0 : creditAmount,
-          clearingStatus: isBilled ? "CLEARED" : "PENDING"
-        });
-      });
-
-      // Sort ascending to compute chronological running balance
-      timelineEvents.sort((a, b) => a.date - b.date);
-
-      let runningTotal = 0;
-      timelineEvents.forEach(evt => {
-        runningTotal += evt.debit - evt.credit;
-        evt.runningBalance = runningTotal;
-      });
-
-      // Sort descending for direct timeline visual feed
-      timelineEvents.sort((a, b) => b.date - a.date);
-
-      // ==========================================
-      // 4. RETURN DESERIALIZED DATA FOR VIEW LAYER
-      // ==========================================
+    // Buyer side: Sales obligations
+    const sales = party.saleTransactions.map(s => {
+      const finalAmount = Number(s.finalAmount || 0);
+      const paidAmount = Number(s.paidAmount || 0);
+      const remainingAmount = Math.max(0, finalAmount - paidAmount);
       return {
-        party: {
-          id: party.id,
-          name: party.name,
-          partyType: party.partyType,
-          phoneNumber: party.phoneNumber,
-          address: party.address,
-          notes: party.notes,
-          isActive: party.isActive,
-          createdAt: party.createdAt
-        },
-        summary: {
-          totalSales,
-          totalAdvances,
-          totalPaidInvoices: totalCashOut, // Align paid invoices to physical CashOut payments
-          totalDebits,
-          realizedCredit,
-          pendingCredit,
-          totalCredits,
-          officialBalance,
-          forecastBalance
-        },
-        timeline: timelineEvents,
-        detailedViews: {
-          sales: party.saleTransactions.map(s => {
-            const allocs = party.allocations.filter(a => a.referenceType === "SALE" && a.referenceId === s.id);
-            const allocated = allocs.reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
-            return {
-              id: s.id,
-              saleNumber: s.saleNumber,
-              entryDate: s.entryDate,
-              totalWeight: Number(s.totalWeight),
-              finalAmount: Number(s.finalAmount),
-              allocatedAmount: allocated,
-              remainingAmount: Number(s.finalAmount) - allocated,
-              status: s.status,
-              notes: s.notes
-            };
-          }),
-          intakes: {
-            billed: billedIntakesList,
-            unbilled: unbilledIntakesList
-          },
-          settlements: party.supplierInvoices.map(inv => {
-            const allocs = party.allocations.filter(a => a.referenceType === "SETTLEMENT" && a.referenceId === inv.id);
-            const allocated = allocs.reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
-            return {
-              id: inv.id,
-              invoiceNumber: inv.invoiceNumber,
-              entryDate: inv.entryDate,
-              totalGrossValue: Number(inv.totalGrossValue),
-              totalDeductions: Number(inv.totalDeductions),
-              totalAdvances: Number(inv.totalAdvances),
-              finalPayableAmount: Number(inv.finalPayableAmount),
-              allocatedAmount: allocated,
-              remainingAmount: Number(inv.finalPayableAmount) - allocated,
-              status: inv.status
-            };
-          }),
-          advances: party.intakeAdvances.map(a => ({
-            id: a.id,
-            amount: Number(a.amount),
-            notes: a.notes,
-            createdAt: a.createdAt
-          })),
-          payments: party.payments.map(p => ({
-            id: p.id,
-            paymentNumber: p.paymentNumber,
-            paymentType: p.paymentType,
-            paymentMethod: p.paymentMethod,
-            amount: Number(p.amount),
-            entryDate: p.entryDate,
-            notes: p.notes,
-            status: p.status,
-            sourceType: p.sourceType,
-            sourceId: p.sourceId,
-            allocations: p.allocations.map(a => ({
-              id: a.id,
-              referenceType: a.referenceType,
-              referenceId: a.referenceId,
-              allocatedAmount: Number(a.allocatedAmount)
-            }))
-          }))
-        }
+        id: s.id,
+        saleNumber: s.saleNumber,
+        entryDate: s.entryDate,
+        totalWeight: Number(s.totalWeight || 0),
+        finalAmount,
+        allocatedAmount: paidAmount, // Map to allocatedAmount to preserve UI prop bindings!
+        remainingAmount,
+        status: s.paymentStatus, // Use paymentStatus for payment tags (PENDING, PARTIAL, CLEARED)
+        notes: s.notes
       };
-    } finally {
-      // Release caching session in RateResolutionService to prevent memory leaks!
-      RateResolutionService.endSession();
-    }
+    });
+
+    // Supplier side: Settlement obligations
+    const settlements = party.supplierInvoices.map(inv => {
+      const finalPayable = Number(inv.finalPayableAmount || 0);
+      const paidAmount = Number(inv.paidAmount || 0);
+      const remainingAmount = Math.max(0, finalPayable - paidAmount);
+      return {
+        id: inv.id,
+        invoiceNumber: inv.invoiceNumber,
+        entryDate: inv.entryDate,
+        totalGrossValue: Number(inv.totalGrossValue || 0),
+        totalDeductions: Number(inv.totalDeductions || 0),
+        totalAdvances: Number(inv.totalAdvances || 0),
+        finalPayableAmount: finalPayable,
+        allocatedAmount: paidAmount, // Map to allocatedAmount to preserve UI prop bindings!
+        remainingAmount,
+        status: inv.paymentStatus // Use paymentStatus for payment tags (PENDING, PARTIAL, CLEARED)
+      };
+    });
+
+    const advances = party.intakeAdvances.map(a => ({
+      id: a.id,
+      amount: Number(a.amount || 0),
+      notes: a.notes,
+      createdAt: a.createdAt
+    }));
+
+    // Financial Sums
+    const totalSales = sales.reduce((sum, s) => sum + s.finalAmount, 0);
+    const totalSalesPaid = sales.reduce((sum, s) => sum + s.allocatedAmount, 0);
+    const totalSalesRemaining = sales.reduce((sum, s) => sum + s.remainingAmount, 0);
+
+    const totalAdvances = advances.reduce((sum, a) => sum + a.amount, 0);
+
+    const totalSupplierPayable = settlements.reduce((sum, s) => sum + s.finalPayableAmount, 0);
+    const totalSupplierPaid = settlements.reduce((sum, s) => sum + s.allocatedAmount, 0);
+    const totalSupplierRemaining = settlements.reduce((sum, s) => sum + s.remainingAmount, 0);
+
+    // net official balance: (Outstanding Sales Debt + Advances DR) - (Outstanding Supplier Payable)
+    // If positive: Party owes us money (DR)
+    // If negative: We owe party money (CR)
+    const officialBalance = (totalSalesRemaining + totalAdvances) - totalSupplierRemaining;
+
+    // Timeline Events: compiles chronological list of business transactions
+    const timelineEvents = [];
+
+    // Sales events
+    sales.forEach(sale => {
+      timelineEvents.push({
+        id: `sale-${sale.id}`,
+        date: new Date(sale.entryDate),
+        type: "SALE",
+        ref: sale.saleNumber,
+        description: `Sale invoice processed`,
+        debit: sale.finalAmount,
+        credit: 0,
+        requiredAmount: sale.finalAmount,
+        allocatedAmount: sale.allocatedAmount,
+        remainingAmount: sale.remainingAmount,
+        clearingStatus: sale.status
+      });
+    });
+
+    // Supplier Invoices
+    settlements.forEach(inv => {
+      timelineEvents.push({
+        id: `sup-${inv.id}`,
+        date: new Date(inv.entryDate),
+        type: "SUPPLIER_INVOICE",
+        ref: inv.invoiceNumber,
+        description: `Supplier invoice generated`,
+        debit: 0,
+        credit: inv.finalPayableAmount,
+        requiredAmount: inv.finalPayableAmount,
+        allocatedAmount: inv.allocatedAmount,
+        remainingAmount: inv.remainingAmount,
+        clearingStatus: inv.status
+      });
+    });
+
+    // Advances
+    advances.forEach(adv => {
+      timelineEvents.push({
+        id: `adv-${adv.id}`,
+        date: new Date(adv.createdAt),
+        type: "CASH_OUT",
+        ref: `ADV-${adv.id}`,
+        description: adv.notes || `Cash advance payout recorded`,
+        debit: adv.amount,
+        credit: 0,
+        requiredAmount: adv.amount,
+        allocatedAmount: adv.amount,
+        remainingAmount: 0,
+        clearingStatus: "CLEARED"
+      });
+    });
+
+    // Chronological order sorting
+    timelineEvents.sort((a, b) => a.date - b.date);
+
+    let runningTotal = 0;
+    timelineEvents.forEach(evt => {
+      runningTotal += evt.debit - evt.credit;
+      evt.runningBalance = runningTotal;
+    });
+
+    // Descending for latest display first
+    timelineEvents.sort((a, b) => b.date - a.date);
+
+    return {
+      party: {
+        id: party.id,
+        name: party.name,
+        partyType: party.partyType,
+        phoneNumber: party.phoneNumber,
+        address: party.address,
+        notes: party.notes,
+        isActive: party.isActive,
+        createdAt: party.createdAt
+      },
+      summary: {
+        totalSales,
+        totalSalesPaid,
+        totalSalesRemaining,
+        totalAdvances,
+        totalSupplierPayable,
+        totalSupplierPaid,
+        totalSupplierRemaining,
+        officialBalance,
+        forecastBalance: officialBalance // Matches official balance under simplified model
+      },
+      timeline: timelineEvents,
+      detailedViews: {
+        sales,
+        settlements,
+        advances,
+        payments: [] // Legacy payment list kept empty to preserve interface compliance without errors
+      }
+    };
   }
 }

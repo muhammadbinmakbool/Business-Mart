@@ -2,10 +2,10 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, Phone, MapPin, TrendingUp, TrendingDown, Wallet, Receipt, Package, Banknote, Scale, ChevronDown, ChevronUp, Clock, Trash2, Plus, Check } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, TrendingUp, TrendingDown, Wallet, Receipt, Package, Banknote, Scale, ChevronDown, ChevronUp, Clock, Plus, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { recordPaymentAction, deletePaymentAction } from "./settlementActions";
+import { applyPartyPaymentAction } from "@/modules/parties/controllers/partyActions";
 
 const fmt = (v) => Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
@@ -46,11 +46,10 @@ function TabButton({ active, label, count, onClick }) {
 
 function StatusBadge({ status }) {
   const map = {
-    PENDING: "bg-amber-100 text-amber-700 border-amber-200",
-    PARTIAL: "bg-blue-100 text-blue-700 border-blue-200",
+    PENDING: "bg-slate-100 text-slate-700 border-slate-200",
+    PARTIAL: "bg-amber-100 text-amber-700 border-amber-200",
     CLEARED: "bg-emerald-100 text-emerald-700 border-emerald-200",
     COMPLETED: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    BILLED: "bg-blue-100 text-blue-700 border-blue-200",
     CANCELLED: "bg-rose-100 text-rose-700 border-rose-200",
   };
   return (
@@ -79,56 +78,50 @@ function TimelineTable({ events }) {
               <th className="px-4 py-3 text-left">Reference</th>
               <th className="px-4 py-3 text-right">Debit (DR)</th>
               <th className="px-4 py-3 text-right">Credit (CR)</th>
-              <th className="px-4 py-3 text-right">Balance</th>
-              <th className="px-4 py-3 text-right">Required</th>
-              <th className="px-4 py-3 text-right">Allocated</th>
+              <th className="px-4 py-3 text-right">Running Balance</th>
+              <th className="px-4 py-3 text-right">Paid Amount</th>
               <th className="px-4 py-3 text-right">Remaining</th>
-              <th className="px-4 py-3 text-center">Clearing</th>
+              <th className="px-4 py-3 text-center">Clearing Status</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {visible.map((evt) => {
-              const isObligation = evt.type === "SALE" || evt.type === "INTAKE";
-              const isVoided = evt.status === "VOIDED";
+              const isSale = evt.type === "SALE";
+              const isSup = evt.type === "SUPPLIER_INVOICE";
+              const isObligation = isSale || isSup;
               return (
-                <tr key={evt.id} className={cn("hover:bg-muted/10 transition-colors", isVoided && "opacity-50 line-through text-muted-foreground bg-rose-50/10")}>
+                <tr key={evt.id} className="hover:bg-muted/10 transition-colors">
                   <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
                     {format(new Date(evt.date), "dd MMM yyyy")}
                   </td>
                   <td className="px-4 py-3">
                     <span className={cn(
                       "px-2 py-0.5 rounded text-[9px] font-bold uppercase border",
-                      isVoided ? "bg-rose-50 text-rose-600 border-rose-200" :
-                      evt.type === "SALE" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-                      evt.type === "INTAKE" ? "bg-blue-100 text-blue-700 border-blue-200" :
-                      evt.type === "CASH_IN" ? "bg-emerald-500/10 text-emerald-800 border-emerald-500/20" :
-                      evt.type === "CASH_OUT" ? "bg-amber-100 text-amber-700 border-amber-200" :
-                      "bg-muted text-muted-foreground border-slate-200"
+                      isSale ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                      isSup ? "bg-rose-100 text-rose-700 border-rose-200" :
+                      "bg-blue-100 text-blue-700 border-blue-200"
                     )}>
-                      {evt.type}{isVoided ? " (VOID)" : ""}
+                      {evt.type}
                     </span>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">{evt.ref}</td>
                   <td className="px-4 py-3 text-right font-mono text-xs">
-                    {evt.debit > 0 ? <span className={cn("text-emerald-600 font-semibold", isVoided && "line-through text-slate-400")}>{fmt(evt.debit)}</span> : <span className="opacity-30">—</span>}
+                    {evt.debit > 0 ? <span className="text-emerald-600 font-semibold">{fmt(evt.debit)}</span> : <span className="opacity-30">—</span>}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-xs">
-                    {evt.credit > 0 ? <span className={cn("text-rose-600 font-semibold", isVoided && "line-through text-slate-400")}>{fmt(evt.credit)}</span> : <span className="opacity-30">—</span>}
+                    {evt.credit > 0 ? <span className="text-rose-600 font-semibold">{fmt(evt.credit)}</span> : <span className="opacity-30">—</span>}
                   </td>
                   <td className={cn("px-4 py-3 text-right font-mono text-xs font-bold", evt.runningBalance >= 0 ? "text-emerald-700" : "text-rose-700")}>
                     {fmt(Math.abs(evt.runningBalance))} {evt.runningBalance >= 0 ? "DR" : "CR"}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-xs">
-                    {isObligation ? <span className="text-slate-600">Rs. {fmt(evt.requiredAmount)}</span> : <span className="opacity-30">—</span>}
-                  </td>
-                  <td className="px-4 py-3 text-right font-mono text-xs">
-                    {isObligation ? <span className="text-emerald-600 font-medium">Rs. {fmt(evt.allocatedAmount)}</span> : <span className="opacity-30">—</span>}
+                    {isObligation ? <span className="text-emerald-600">Rs. {fmt(evt.allocatedAmount)}</span> : <span className="opacity-30">—</span>}
                   </td>
                   <td className={cn("px-4 py-3 text-right font-mono text-xs font-semibold", evt.remainingAmount > 0 ? "text-rose-600" : "text-slate-400 opacity-40")}>
                     {isObligation ? `Rs. ${fmt(evt.remainingAmount)}` : <span className="opacity-30">—</span>}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {isObligation ? <StatusBadge status={evt.clearingStatus} /> : (isVoided ? <StatusBadge status="VOIDED" /> : <span className="opacity-30">—</span>)}
+                    {isObligation ? <StatusBadge status={evt.clearingStatus} /> : <span className="opacity-30">—</span>}
                   </td>
                 </tr>
               );
@@ -173,123 +166,12 @@ function DataTable({ columns, data, emptyMsg = "No records found." }) {
   );
 }
 
-function PaymentCard({ payment, partyId }) {
-  const [deleting, setDeleting] = useState(false);
-  const isVoided = payment.status === "VOIDED";
-  const totalAllocated = payment.allocations.reduce((sum, a) => sum + Number(a.allocatedAmount), 0);
-  const unallocated = isVoided ? 0 : (payment.amount - totalAllocated);
-
-  const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to VOID payment ${payment.paymentNumber}? This will lock the payment as a historical audit record (VOIDED) and dynamically re-allocate remaining obligations!`)) return;
-    setDeleting(true);
-    const res = await deletePaymentAction(payment.id, partyId);
-    if (!res.success) {
-      alert(`Error voiding payment: ${res.error}`);
-    }
-    setDeleting(false);
-  };
-
-  return (
-    <div className={cn(
-      "bg-card border rounded-2xl p-5 shadow-sm space-y-4 transition-all relative overflow-hidden",
-      isVoided ? "opacity-75 bg-slate-50/70 border-rose-200 hover:border-rose-200" : "hover:border-slate-300"
-    )}>
-      {isVoided && (
-        <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-rose-400 to-rose-500" />
-      )}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className={cn("font-mono text-xs font-bold", isVoided ? "text-slate-400 line-through" : "text-slate-800")}>{payment.paymentNumber}</span>
-          <span className={cn(
-            "text-[9px] font-bold uppercase px-2 py-0.5 rounded border",
-            isVoided ? "bg-rose-50 text-rose-700 border-rose-200" :
-            payment.paymentType === "CASH_IN" ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
-          )}>
-            {isVoided ? "VOIDED" : (payment.paymentType === "CASH_IN" ? "CASH IN" : "CASH OUT")}
-          </span>
-          <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-            {payment.paymentMethod}
-          </span>
-        </div>
-        {isVoided ? (
-          <span className="text-[10px] text-rose-500 font-bold italic tracking-wide">Voided/Historical</span>
-        ) : (
-          <button 
-            onClick={handleDelete}
-            disabled={deleting}
-            className="text-xs text-rose-600 hover:text-rose-700 font-semibold flex items-center gap-1 disabled:opacity-50"
-          >
-            <Trash2 className="h-3 w-3" /> {deleting ? "Voiding..." : "Void"}
-          </button>
-        )}
-      </div>
-
-      <div className="flex items-baseline justify-between border-b pb-3">
-        <div>
-          <span className={cn("text-2xl font-black tracking-tight", isVoided ? "text-slate-400 line-through decoration-rose-400 decoration-2" : "text-slate-900")}>
-            Rs. {fmt(payment.amount)}
-          </span>
-          <span className="text-[10px] text-muted-foreground ml-2">on {format(new Date(payment.entryDate), "dd MMM yyyy")}</span>
-        </div>
-        {unallocated > 0 && !isVoided && (
-          <span className="text-[9px] font-bold px-2.5 py-1 rounded bg-amber-500/10 text-amber-800 border border-amber-500/20 animate-pulse">
-            Rs. {fmt(unallocated)} Unallocated (Advance)
-          </span>
-        )}
-      </div>
-
-      {payment.notes && (
-        <div className={cn(
-          "text-xs p-2.5 rounded-lg border",
-          isVoided ? "text-slate-400/80 bg-slate-100/50 border-slate-200/50 line-through" : "text-muted-foreground bg-muted/30 border-slate-200/50 italic"
-        )}>
-          <span className="font-bold uppercase tracking-wider text-[8px] block opacity-75 not-italic mb-0.5 text-slate-500">Notes</span>
-          {payment.notes}
-        </div>
-      )}
-
-      {isVoided && (
-        <div className="text-[10px] text-rose-600 bg-rose-50/50 border border-rose-100 p-2.5 rounded-lg font-medium">
-          ⚠️ This payment was voided and possesses zero active financial impact. However, its historical allocation snapshot remains frozen below for complete audit trail transparency.
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <h4 className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">
-          {isVoided ? "Frozen Allocation Snapshot" : "FIFO Allocations Breakdown"}
-        </h4>
-        {payment.allocations.length === 0 ? (
-          <div className="text-xs text-muted-foreground italic pl-2 opacity-60">This payment has not cleared any invoices yet.</div>
-        ) : (
-          <div className={cn(
-            "divide-y text-xs pl-2 border-l-2 space-y-1",
-            isVoided ? "border-rose-200" : "border-slate-200"
-          )}>
-            {payment.allocations.map(a => (
-              <div key={a.id} className="flex justify-between items-center py-1.5 first:pt-0 last:pb-0">
-                <span className={cn(isVoided ? "text-slate-400 line-through" : "text-slate-600")}>
-                  Cleared {a.referenceType === "SALE" ? "Sale Invoice" : "Settlement Payable"} <span className="font-mono font-bold">#{a.referenceId}</span>
-                </span>
-                <span className={cn("font-bold font-mono", isVoided ? "text-slate-400 line-through" : "text-emerald-600")}>
-                  Rs. {fmt(a.allocatedAmount)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RecordPaymentForm({ party }) {
+function QuickPaymentForm({ party }) {
   const [paymentType, setPaymentType] = useState(
-    party.partyType === "BUYER" ? "CASH_IN" : "CASH_OUT"
+    party.partyType === "SUPPLIER" ? "CASH_OUT" : "CASH_IN"
   );
   const [amount, setAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("CASH");
   const [notes, setNotes] = useState("");
-  const [entryDate, setEntryDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -303,35 +185,39 @@ function RecordPaymentForm({ party }) {
     }
 
     setSubmitting(true);
-    const res = await recordPaymentAction({
-      partyId: party.id,
-      paymentType,
-      amount: amt,
-      paymentMethod,
-      notes: notes || null,
-      entryDate: new Date(entryDate)
-    });
-
-    if (res.success) {
-      setAmount("");
-      setNotes("");
-      alert("Payment recorded successfully! The FIFO engine has dynamically cleared obligations.");
-    } else {
-      setError(res.error || "Failed to record payment");
+    try {
+      const res = await applyPartyPaymentAction(party.id, amt, paymentType);
+      if (res.success) {
+        setAmount("");
+        setNotes("");
+        const count = res.data.allocations.length;
+        if (count > 0) {
+          const detail = res.data.allocations.map(a => `• Invoice #${a.invoiceNumber} cleared Rs. ${fmt(a.allocated)} (New status: ${a.paymentStatus})`).join("\n");
+          alert(`Success! Auto-cleared ${count} oldest invoice(s):\n\n${detail}\n\nUnallocated excess amount: Rs. ${fmt(res.data.unallocatedAmount)}`);
+        } else {
+          alert(`Success! Payment of Rs. ${fmt(amt)} applied. No active unpaid invoices found. Unallocated amount: Rs. ${fmt(res.data.unallocatedAmount)}`);
+        }
+        window.location.reload();
+      } else {
+        setError(res.error || "Failed to apply payment");
+      }
+    } catch (err) {
+      setError(err.message || "An unexpected error occurred");
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="p-3 bg-rose-50 text-rose-700 text-xs rounded-xl border border-rose-200 font-semibold">
+        <div className="p-3 bg-rose-50 text-rose-700 text-xs rounded-xl border border-rose-200 font-semibold text-center">
           {error}
         </div>
       )}
 
       <div className="space-y-1">
-        <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">Payment Type</label>
+        <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block font-black">Payment Direction</label>
         {party.partyType === "BOTH" ? (
           <div className="grid grid-cols-2 gap-2">
             <button
@@ -361,13 +247,13 @@ function RecordPaymentForm({ party }) {
           </div>
         ) : (
           <div className="py-2.5 px-3 rounded-xl bg-muted border border-slate-200 font-bold text-xs">
-            {paymentType === "CASH_IN" ? "CASH IN (Receivable Collection)" : "CASH OUT (Supplier Payout)"}
+            {paymentType === "CASH_IN" ? "CASH IN (Receivable Collection from Buyer)" : "CASH OUT (Settlement Payout to Supplier)"}
           </div>
         )}
       </div>
 
       <div className="space-y-1">
-        <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">Amount (Rs.)</label>
+        <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block font-black">Amount to Clear (Rs.)</label>
         <input
           type="number"
           step="0.01"
@@ -379,40 +265,12 @@ function RecordPaymentForm({ party }) {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">Method</label>
-          <select
-            value={paymentMethod}
-            onChange={(e) => setPaymentMethod(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold focus:outline-none focus:bg-white"
-          >
-            <option value="CASH">CASH</option>
-            <option value="BANK">BANK TRANSFER</option>
-            <option value="JAZZCASH">JAZZCASH</option>
-            <option value="EASYPAISA">EASYPAISA</option>
-            <option value="CHEQUE">CHEQUE</option>
-          </select>
-        </div>
-
-        <div className="space-y-1">
-          <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">Date</label>
-          <input
-            type="date"
-            required
-            value={entryDate}
-            onChange={(e) => setEntryDate(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold focus:outline-none focus:bg-white"
-          />
-        </div>
-      </div>
-
       <div className="space-y-1">
-        <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block">Notes / Description</label>
+        <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block font-black">Notes / Description (Optional)</label>
         <textarea
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="e.g. Cleared pending sales, online bank transfer..."
+          placeholder="e.g. Cleared pending sales, custom discount applied..."
           rows={3}
           className="w-full bg-slate-50 border rounded-xl py-2 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white"
         />
@@ -423,11 +281,11 @@ function RecordPaymentForm({ party }) {
         disabled={submitting}
         className="w-full bg-primary text-primary-foreground font-black text-xs uppercase tracking-wider py-3 rounded-xl border border-primary/20 hover:bg-primary/95 transition-all disabled:opacity-50 shadow-lg shadow-primary/10"
       >
-        {submitting ? "Processing FIFO allocations..." : "Record & Allocate Payment"}
+        {submitting ? "Clearing Oldest Invoices (FIFO)..." : "Apply Quick Payment"}
       </button>
 
-      <div className="text-[10px] text-muted-foreground bg-slate-50 border border-slate-200/50 p-2.5 rounded-lg text-center font-medium leading-relaxed">
-        ℹ️ **Operational Note:** Registering a payment here records a physical cash ledger event. To directly clear a specific invoice, toggle the invoice's status from its respective detail page, which automatically registers a synchronized direct audit payment.
+      <div className="text-[9px] text-muted-foreground bg-slate-50 border border-slate-200/50 p-2.5 rounded-lg text-center font-medium leading-relaxed">
+        ℹ️ **FIFO Rule Enabled:** Applying a payment here automatically allocates funds to this party's oldest pending invoices first. Fully paid items transition to **CLEARED**, while partially cleared ones update to **PARTIAL**.
       </div>
     </form>
   );
@@ -437,32 +295,13 @@ export default function PartyProfileClient({ profile }) {
   const { party, summary, timeline, detailedViews } = profile;
   const [activeTab, setActiveTab] = useState("overview");
 
-  const allIntakes = useMemo(() => [
-    ...detailedViews.intakes.billed.map(i => ({ ...i, creditType: "REALIZED" })),
-    ...detailedViews.intakes.unbilled.map(i => ({ ...i, creditType: "PENDING" }))
-  ], [detailedViews.intakes]);
-
   const salesCols = [
     { key: "saleNumber", label: "Invoice #" },
     { key: "entryDate", label: "Date", render: r => format(new Date(r.entryDate), "dd MMM yyyy") },
     { key: "totalWeight", label: "Weight", align: "right", mono: true, render: r => `${fmt(r.totalWeight)} KG` },
     { key: "finalAmount", label: "Amount", align: "right", mono: true, render: r => `Rs. ${fmt(r.finalAmount)}` },
-    { key: "allocatedAmount", label: "Allocated", align: "right", mono: true, render: r => `Rs. ${fmt(r.allocatedAmount)}` },
+    { key: "allocatedAmount", label: "Paid Amount", align: "right", mono: true, render: r => `Rs. ${fmt(r.allocatedAmount)}` },
     { key: "remainingAmount", label: "Remaining", align: "right", mono: true, render: r => `Rs. ${fmt(r.remainingAmount)}` },
-    { key: "status", label: "Status", render: r => <StatusBadge status={r.status} /> },
-  ];
-
-  const intakeCols = [
-    { key: "intakeNumber", label: "Intake #" },
-    { key: "entryDate", label: "Date", render: r => format(new Date(r.entryDate), "dd MMM yyyy") },
-    { key: "product", label: "Product" },
-    { key: "weight", label: "Weight", align: "right", mono: true, render: r => `${fmt(r.weight)} KG` },
-    { key: "value", label: "Value", align: "right", mono: true, render: r => `Rs. ${fmt(r.finalValue || r.estimatedValue)}` },
-    { key: "creditType", label: "Credit Type", render: r => (
-      <span className={cn("px-2 py-0.5 rounded text-[9px] font-bold uppercase", r.creditType === "REALIZED" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
-        {r.creditType}
-      </span>
-    )},
     { key: "status", label: "Status", render: r => <StatusBadge status={r.status} /> },
   ];
 
@@ -472,7 +311,7 @@ export default function PartyProfileClient({ profile }) {
     { key: "totalGrossValue", label: "Gross", align: "right", mono: true, render: r => `Rs. ${fmt(r.totalGrossValue)}` },
     { key: "totalDeductions", label: "Deductions", align: "right", mono: true, render: r => `Rs. ${fmt(r.totalDeductions)}` },
     { key: "finalPayableAmount", label: "Payable", align: "right", mono: true, render: r => `Rs. ${fmt(r.finalPayableAmount)}` },
-    { key: "allocatedAmount", label: "Allocated", align: "right", mono: true, render: r => `Rs. ${fmt(r.allocatedAmount)}` },
+    { key: "allocatedAmount", label: "Paid Amount", align: "right", mono: true, render: r => `Rs. ${fmt(r.allocatedAmount)}` },
     { key: "remainingAmount", label: "Remaining", align: "right", mono: true, render: r => `Rs. ${fmt(r.remainingAmount)}` },
     { key: "status", label: "Status", render: r => <StatusBadge status={r.status} /> },
   ];
@@ -486,11 +325,10 @@ export default function PartyProfileClient({ profile }) {
 
   const tabs = [
     { key: "overview", label: "Overview" },
-    { key: "payments", label: "Payments & Clearing", count: detailedViews.payments?.length || 0 },
-    { key: "sales", label: "Sales", count: detailedViews.sales.length },
-    { key: "intakes", label: "Intakes", count: allIntakes.length },
-    { key: "settlements", label: "Settlements", count: detailedViews.settlements.length },
-    { key: "advances", label: "Advances", count: detailedViews.advances.length },
+    { key: "payments", label: "Quick FIFO Clearing" },
+    { key: "sales", label: "Sales Invoices", count: detailedViews.sales.length },
+    { key: "settlements", label: "Supplier Settlements", count: detailedViews.settlements.length },
+    { key: "advances", label: "Cash Advances", count: detailedViews.advances.length },
   ];
 
   return (
@@ -518,66 +356,58 @@ export default function PartyProfileClient({ profile }) {
             </div>
           </div>
         </div>
-        {/* Net Balance Badge */}
+
+        {/* Net Outstanding Balance */}
         <div className={cn(
           "rounded-2xl px-6 py-4 text-center shadow-lg transition-all",
           summary.officialBalance >= 0 ? "bg-emerald-600 text-white shadow-emerald-600/20" : "bg-rose-600 text-white shadow-rose-600/20"
         )}>
-          <div className="text-[10px] uppercase font-bold opacity-70 tracking-widest">Official Balance</div>
+          <div className="text-[10px] uppercase font-bold opacity-70 tracking-widest">Net Outstanding Balance</div>
           <div className="text-2xl font-black mt-1">Rs. {fmt(Math.abs(summary.officialBalance))}</div>
-          <div className="text-xs font-bold mt-0.5 opacity-80">{summary.officialBalance >= 0 ? "DEBIT (DR)" : "CREDIT (CR)"}</div>
+          <div className="text-xs font-bold mt-0.5 opacity-80">
+            {summary.officialBalance >= 0 ? "DEBIT (Party owes us)" : "CREDIT (We owe Supplier)"}
+          </div>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <SummaryCard label="Total Sales" value={summary.totalSales} icon={Receipt} color="emerald" sub="Debit (DR)" />
-        <SummaryCard label="Cash Advances" value={summary.totalAdvances} icon={Banknote} color="amber" sub="Debit (DR)" />
-        <SummaryCard label="Paid Payments" value={summary.totalPaidInvoices} icon={Wallet} color="blue" sub="Cash Out (DR)" />
-        <SummaryCard label="Realized Credit" value={summary.realizedCredit} icon={Package} color="rose" sub="Billed Intakes (CR)" />
-        <SummaryCard label="Pending Credit" value={summary.pendingCredit} icon={Clock} color="violet" sub="Unbilled (CR) — Forecast Only" />
-        <SummaryCard label="Total Debits" value={summary.totalDebits} icon={TrendingUp} color="primary" sub="All DR combined" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <SummaryCard label="Total Buyer Sales" value={summary.totalSales} icon={Receipt} color="emerald" sub="Sales registered" />
+        <SummaryCard label="Remaining Sales Debt" value={summary.totalSalesRemaining} icon={TrendingUp} color="amber" sub="Unpaid Buyer Balances" />
+        <SummaryCard label="Supplier Settlements" value={summary.totalSupplierPayable} icon={Package} color="rose" sub="Billed Settlements" />
+        <SummaryCard label="Remaining Payables" value={summary.totalSupplierRemaining} icon={TrendingDown} color="blue" sub="Unpaid Supplier Balances" />
       </div>
 
-      {/* Check & Balance Reconciliation */}
+      {/* Overview stats reconciliation block */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border bg-card p-6 space-y-4 shadow-sm">
-          <h3 className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Official Reconciliation (Realized Only)</h3>
+          <h3 className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest font-black">Buyer Account Standing</h3>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Total Debit</span><span className="font-bold text-emerald-700">Rs. {fmt(summary.totalDebits)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Realized Credit</span><span className="font-bold text-rose-700">Rs. {fmt(summary.realizedCredit)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Sales Billing</span><span className="font-bold text-slate-800">Rs. {fmt(summary.totalSales)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Paid by Buyer</span><span className="font-bold text-emerald-600">Rs. {fmt(summary.totalSalesPaid)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Cash Advances Issued</span><span className="font-bold text-amber-600">Rs. {fmt(summary.totalAdvances)}</span></div>
             <div className="border-t pt-2 flex justify-between font-bold">
-              <span>Difference</span>
-              <span className={summary.officialBalance === 0 ? "text-emerald-600" : "text-amber-600"}>
-                Rs. {fmt(Math.abs(summary.officialBalance))} {summary.officialBalance >= 0 ? "DR" : "CR"}
-              </span>
+              <span>Outstanding Debt</span>
+              <span className="text-amber-600 font-mono">Rs. {fmt(summary.totalSalesRemaining + summary.totalAdvances)}</span>
             </div>
-          </div>
-          <div className={cn("text-center text-xs font-bold py-1.5 rounded-lg", summary.officialBalance === 0 ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700")}>
-            {summary.officialBalance === 0 ? "✓ BALANCED" : "⚠ UNBALANCED"}
           </div>
         </div>
 
         <div className="rounded-xl border bg-card p-6 space-y-4 shadow-sm border-dashed">
-          <h3 className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Forecast Balance (Incl. Pending — UI Only)</h3>
+          <h3 className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest font-black">Supplier Account Standing</h3>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Total Debit</span><span className="font-bold text-emerald-700">Rs. {fmt(summary.totalDebits)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Total Credit (Realized + Pending)</span><span className="font-bold text-rose-700">Rs. {fmt(summary.totalCredits)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Supplier Invoices</span><span className="font-bold text-slate-800">Rs. {fmt(summary.totalSupplierPayable)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Paid to Supplier</span><span className="font-bold text-emerald-600">Rs. {fmt(summary.totalSupplierPaid)}</span></div>
             <div className="border-t pt-2 flex justify-between font-bold">
-              <span>Estimated Difference</span>
-              <span className={summary.forecastBalance === 0 ? "text-emerald-600" : "text-amber-600"}>
-                Rs. {fmt(Math.abs(summary.forecastBalance))} {summary.forecastBalance >= 0 ? "DR" : "CR"}
-              </span>
+              <span>Outstanding Payable</span>
+              <span className="text-rose-600 font-mono">Rs. {fmt(summary.totalSupplierRemaining)}</span>
             </div>
-          </div>
-          <div className="text-center text-[10px] font-medium text-muted-foreground py-1.5 rounded-lg bg-muted/50">
-            ⓘ Forecast only — not accounting-grade
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex gap-2 overflow-x-auto pb-1 border-b">
         {tabs.map(t => <TabButton key={t.key} active={activeTab === t.key} label={t.label} count={t.count} onClick={() => setActiveTab(t.key)} />)}
       </div>
 
@@ -586,64 +416,58 @@ export default function PartyProfileClient({ profile }) {
         {activeTab === "overview" && (
           <div className="space-y-6">
             <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-              <div className="px-6 py-4 bg-muted/30 border-b">
-                <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Unified Transaction Timeline</h3>
+              <div className="px-6 py-4 bg-muted/30 border-b flex justify-between items-center">
+                <h3 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Chronological Invoice Log</h3>
+                <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded border font-semibold">Realized Transactions</span>
               </div>
               <div className="p-0">
                 <TimelineTable events={timeline} />
               </div>
-            </div>
-
-            {/* Scale Limit Scoring Reserved Panel */}
-            <div className="rounded-xl border border-dashed bg-muted/10 p-8 text-center space-y-2">
-              <Scale className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-              <div className="text-sm font-semibold text-muted-foreground/50">Credit Limits • Risk Scoring • Payment Delay Analytics</div>
-              <div className="text-[10px] text-muted-foreground/40">Coming soon — reserved placeholder</div>
             </div>
           </div>
         )}
 
         {activeTab === "payments" && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Left Column: Payments History */}
             <div className="lg:col-span-2 space-y-4">
-              <h3 className="text-sm uppercase tracking-wider font-bold text-muted-foreground flex items-center gap-2">
-                <Clock className="h-4 w-4" /> Physical Payments & Allocations Ledger
-              </h3>
-              
-              {detailedViews.payments?.length === 0 ? (
-                <div className="py-16 text-center border border-dashed rounded-2xl bg-muted/10 text-muted-foreground italic text-sm">
-                  No physical payments have been registered for this party yet.
+              <div className="rounded-2xl border p-6 space-y-4 bg-muted/10 border-dashed">
+                <div className="flex items-center gap-3">
+                  <Scale className="h-6 w-6 text-primary" />
+                  <h3 className="font-bold text-base">Direct Chronological Clearance (FIFO)</h3>
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {detailedViews.payments?.map(p => (
-                    <PaymentCard key={p.id} payment={p} partyId={party.id} />
-                  ))}
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Grain market transactions are cleared sequentially. Invoices are sorted by **Entry Date ASC** and payments are automatically forward-filled. 
+                </p>
+                <div className="grid grid-cols-2 gap-4 pt-2">
+                  <div className="bg-white border rounded-xl p-4 text-center">
+                    <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground block">Active Sales Pending</span>
+                    <span className="text-lg font-black text-amber-600 mt-1 block">Rs. {fmt(summary.totalSalesRemaining)}</span>
+                  </div>
+                  <div className="bg-white border rounded-xl p-4 text-center">
+                    <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground block">Active Settlements Pending</span>
+                    <span className="text-lg font-black text-rose-600 mt-1 block">Rs. {fmt(summary.totalSupplierRemaining)}</span>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
 
-            {/* Right Column: Record Payment Form */}
             <div>
               <div className="sticky top-6 bg-card border border-primary/10 rounded-2xl p-6 shadow-md space-y-4 bg-white/80 backdrop-blur-md">
                 <div className="flex items-center gap-2 border-b pb-3">
-                  <Banknote className="h-5 w-5 text-primary animate-bounce" />
+                  <Banknote className="h-5 w-5 text-primary animate-pulse" />
                   <div>
-                    <h3 className="font-bold text-sm">Record Party Payment</h3>
-                    <p className="text-[10px] text-muted-foreground">FIFO Settlement Engine will auto-allocate</p>
+                    <h3 className="font-bold text-sm">Quick Payment Entry</h3>
+                    <p className="text-[10px] text-muted-foreground">Auto-clears oldest outstanding bills</p>
                   </div>
                 </div>
-                
-                <RecordPaymentForm party={party} />
+                <QuickPaymentForm party={party} />
               </div>
             </div>
           </div>
         )}
 
-        {activeTab === "sales" && <DataTable columns={salesCols} data={detailedViews.sales} emptyMsg="No sales recorded for this party." />}
-        {activeTab === "intakes" && <DataTable columns={intakeCols} data={allIntakes} emptyMsg="No intakes recorded for this party." />}
-        {activeTab === "settlements" && <DataTable columns={settlementCols} data={detailedViews.settlements} emptyMsg="No settlements generated for this party." />}
+        {activeTab === "sales" && <DataTable columns={salesCols} data={detailedViews.sales} emptyMsg="No sales invoices found for this party." />}
+        {activeTab === "settlements" && <DataTable columns={settlementCols} data={detailedViews.settlements} emptyMsg="No supplier settlement invoices found." />}
         {activeTab === "advances" && <DataTable columns={advanceCols} data={detailedViews.advances} emptyMsg="No advances recorded for this party." />}
       </div>
     </div>
