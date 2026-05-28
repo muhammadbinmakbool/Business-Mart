@@ -302,6 +302,7 @@ export class IntakeService {
           quantity: weightForTotal,
           buyingRate: finalSalesTrackRate,
           sellingRate: finalSalesTrackRate,
+          rateUnit: finalSupplierRateUnit,
           netWeight: updated.netWeight !== null && updated.netWeight !== undefined ? Number(updated.netWeight) : null,
           baseAmount: baseAmount,
           notes: `Intake ${updated.intakeNumber} updated and marked as SOLD`
