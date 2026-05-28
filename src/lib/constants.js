@@ -6,6 +6,7 @@ export const PARTY_TYPES = {
 
 export const INTAKE_STATUS = {
   PENDING: "PENDING",
+  PARTIAL: "PARTIAL",
   SOLD: "SOLD",
   CLEARED: "CLEARED",
   CANCELLED: "CANCELLED",

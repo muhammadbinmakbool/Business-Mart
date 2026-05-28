@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { UnitService } from "./UnitService";
 
 /**
  * ══════════════════════════════════════════════════════════════════════════════
@@ -8,6 +9,7 @@ import { prisma } from "@/lib/prisma";
  * INVENTORY PHILOSOPHY:
  *   Physical inventory is controlled exclusively through the Intake lifecycle.
  *   - PENDING intake  = stock physically available in the warehouse.
+ *   - PARTIAL intake  = stock partially consumed, remaining is physically available.
  *   - SOLD intake     = stock allocated/sold — removed from available inventory.
  *   - CANCELLED intake= excluded from inventory entirely.
  *
@@ -16,11 +18,8 @@ import { prisma } from "@/lib/prisma";
  *   at billing/sales stage.
  *
  * STOCK CALCULATION:
- *   Product.quantity = SUM(normalizedWeight) of all IntakeTransactions
- *                      WHERE productId matches AND status = "PENDING"
- *
- *   normalizedWeight is derived from grossWeight (the raw arriving weight),
- *   NOT from netWeight (which is a billing/settlement value after deductions).
+ *   Product.quantity = SUM(normalized remaining weight) of all IntakeTransactions
+ *                      WHERE productId matches AND status in ["PENDING", "PARTIAL"]
  *
  * This is the ONLY service that should modify Product.quantity.
  * IntakeService and SaleService delegate all stock mutations here.
@@ -34,30 +33,35 @@ export class InventoryService {
 
   /**
    * Recalculates and sets the Product.quantity for a single product.
-   * Stock = SUM(normalizedWeight) of PENDING intakes for this product.
+   * Stock = SUM(normalized remaining weight) of active intakes for this product.
    *
    * @param {number} productId - The product ID to recalculate.
    * @param {object} [tx=prisma] - Prisma transaction client (or default prisma).
    */
   static async recalculateProductStock(productId, tx = prisma) {
-    const result = await tx.intakeTransaction.aggregate({
+    const activeIntakes = await tx.intakeTransaction.findMany({
       where: {
         productId: parseInt(productId),
-        status: "PENDING",
+        status: { in: ["PENDING", "PARTIAL"] },
       },
-      _sum: {
-        normalizedWeight: true,
-      },
+      include: {
+        product: true
+      }
     });
 
-    const newQuantity = Number(result._sum.normalizedWeight || 0);
+    let totalNormalizedRemaining = 0;
+    for (const intake of activeIntakes) {
+      const remaining = Number(intake.remainingWeight !== null && intake.remainingWeight !== undefined ? intake.remainingWeight : intake.grossWeight);
+      const normalizedRemaining = UnitService.getNormalizedQuantity(remaining, intake.unit, intake.product);
+      totalNormalizedRemaining += normalizedRemaining;
+    }
 
     await tx.product.update({
       where: { id: parseInt(productId) },
-      data: { quantity: newQuantity },
+      data: { quantity: totalNormalizedRemaining },
     });
 
-    return newQuantity;
+    return totalNormalizedRemaining;
   }
 
   /**

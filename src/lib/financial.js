@@ -1,5 +1,5 @@
 import { getConversionFactor, convertRate } from "./units";
-import { PAYMENT_STATUS } from "./constants";
+import { PAYMENT_STATUS, INTAKE_STATUS } from "./constants";
 
 // WARNING:
 // This file must NEVER perform rounding.
@@ -90,6 +90,34 @@ export function calculateFinalTotal(baseAmount, adjustments = [], totalWeight = 
     baseAmount: base,
     totalAdjustments: totalAdjustments,
     finalAmount: base + totalAdjustments
+  };
+}
+
+/**
+ * Calculates the operational state of a single intake.
+ * Rules:
+ * - remaining == grossWeight -> PENDING
+ * - remaining <= 0           -> SOLD
+ * - 0 < remaining < grossWeight -> PARTIAL
+ */
+export function calculateIntakeState({ grossWeight, remainingWeight }) {
+  const gross = Number(grossWeight || 0);
+  const remaining = Number(remainingWeight === null || remainingWeight === undefined ? gross : remainingWeight);
+
+  const soldWeight = Math.max(0, gross - remaining);
+  const soldPercentage = gross > 0 ? (soldWeight / gross) * 100 : 0;
+
+  let status = INTAKE_STATUS.PENDING;
+  if (remaining <= 0) {
+    status = INTAKE_STATUS.SOLD;
+  } else if (remaining < gross) {
+    status = INTAKE_STATUS.PARTIAL;
+  }
+
+  return {
+    soldWeight,
+    soldPercentage,
+    status
   };
 }
 

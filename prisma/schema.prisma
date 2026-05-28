@@ -68,6 +68,7 @@ model IntakeTransaction {
   Bardana          Decimal?              @db.Decimal(18, 2)
   Khot             Decimal?              @db.Decimal(18, 2)
   netWeight        Decimal?              @db.Decimal(18, 2)
+  remainingWeight  Decimal?              @db.Decimal(18, 2)
   notes            String?
   status           String                @default("PENDING")
   createdAt        DateTime              @default(now())

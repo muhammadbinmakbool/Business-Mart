@@ -21,6 +21,12 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
   const [bardanaGramPerBag, setBardanaGramPerBag] = useState("150");
   const [khotRate, setKhotRate] = useState("0");
   const [khotRateUnit, setKhotRateUnit] = useState("KG");
+  const [isPartialSale, setIsPartialSale] = useState(false);
+  const [soldQuantity, setSoldQuantity] = useState("");
+
+  const maxRemaining = intake?.remainingWeight !== null && intake?.remainingWeight !== undefined 
+    ? Number(intake.remainingWeight) 
+    : Number(intake?.grossWeight || 0);
 
   React.useEffect(() => {
     if (!intake || intake.status === "PENDING") {
@@ -32,9 +38,18 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     }
   }, [intake]);
 
+  React.useEffect(() => {
+    if (intake) {
+      const remaining = intake.remainingWeight !== null && intake.remainingWeight !== undefined ? Number(intake.remainingWeight) : Number(intake.grossWeight || 0);
+      setSoldQuantity(remaining.toString());
+    }
+  }, [intake, isModalOpen]);
+
+  const activeGrossWeight = isPartialSale ? (Number(soldQuantity) || 0) : maxRemaining;
+
   // Real-time calculation using core registry helper
   const { grossWeightKg, bardanaKg, khotKg, netWeightKg, netWeight } = calculateIntakeNetWeight({
-    grossWeight: intake?.grossWeight || 0,
+    grossWeight: activeGrossWeight,
     unit: intake?.unit || "KG",
     bagCount: Number(bagCount) || 0,
     bardanaGramPerBag: Number(bardanaGramPerBag) || 0,
@@ -117,6 +132,18 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
       return;
     }
 
+    if (isPartialSale) {
+      const soldVal = Number(soldQuantity);
+      if (isNaN(soldVal) || soldVal <= 0) {
+        showToast.error("Please enter a valid sold quantity");
+        return;
+      }
+      if (soldVal > maxRemaining) {
+        showToast.error(`Sold quantity cannot exceed remaining weight (${maxRemaining})`);
+        return;
+      }
+    }
+
     setLoading(true);
     const result = await sellIntakeAction(intakeId, {
       buyerPartyId: parseInt(buyerPartyId),
@@ -124,15 +151,19 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
       rateUnit,
       Bardana: bardanaKg,
       Khot: khotKg,
-      netWeight: netWeight
+      netWeight: netWeight,
+      isPartialSale,
+      soldQuantity: isPartialSale ? Number(soldQuantity) : maxRemaining
     });
-    setLoading(false);
+    setLoading(true);
 
     if (result?.error) {
       showToast.error(result.error);
+      setLoading(false);
     } else {
       showToast.success("Intake successfully sold!");
       setIsModalOpen(false);
+      setLoading(false);
     }
   }
 
@@ -256,6 +287,51 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                     <option key={b.id} value={b.id}>{b.name} ({b.phoneNumber})</option>
                   ))}
                 </select>
+              </div>
+
+              {/* Optional Partial Sale Toggle */}
+              <div className="bg-muted/30 p-4 rounded-xl border border-border/60 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <label className="text-sm font-bold text-foreground">Partial Sale</label>
+                    <p className="text-xs text-muted-foreground">Sell a fraction of the remaining intake</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={isPartialSale}
+                    onChange={(e) => {
+                      setIsPartialSale(e.target.checked);
+                      if (!e.target.checked) {
+                        setSoldQuantity(maxRemaining.toString());
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer animate-none"
+                  />
+                </div>
+
+                {isPartialSale && (
+                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
+                        <Scale className="h-3.5 w-3.5" /> Sold Quantity ({intake?.unit})
+                      </label>
+                      <span className="text-[10px] font-semibold text-amber-600 font-mono">
+                        Max Available: {maxRemaining.toLocaleString()} {intake?.unit}
+                      </span>
+                    </div>
+                    <input
+                      required
+                      type="number"
+                      step="0.01"
+                      placeholder={`Enter weight in ${intake?.unit}...`}
+                      value={soldQuantity}
+                      onChange={e => setSoldQuantity(e.target.value)}
+                      max={maxRemaining}
+                      min={0.01}
+                      className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Selling Rate */}

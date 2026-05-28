@@ -26,8 +26,12 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
   const filteredIntakes = useMemo(() => {
     return dateFilteredIntakes.filter((intake) => {
       // Status Filter
-      if (activeTab !== "ALL" && intake.status !== activeTab) {
-        return false;
+      if (activeTab !== "ALL") {
+        if (activeTab === "SOLD") {
+          if (intake.status !== "SOLD" && intake.status !== "PARTIAL") return false;
+        } else if (intake.status !== activeTab) {
+          return false;
+        }
       }
 
       // Search Query Filter
@@ -57,7 +61,7 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
   const tabs = [
     { key: "ALL", label: "All", count: dateFilteredIntakes.length },
     { key: "PENDING", label: "Pending", count: dateFilteredIntakes.filter(i => i.status === "PENDING").length },
-    { key: "SOLD", label: "Sold", count: dateFilteredIntakes.filter(i => i.status === "SOLD").length },
+    { key: "SOLD", label: "Sold", count: dateFilteredIntakes.filter(i => i.status === "SOLD" || i.status === "PARTIAL").length },
     { key: "CLEARED", label: "Cleared", count: dateFilteredIntakes.filter(i => i.status === "CLEARED").length },
     { key: "CANCELLED", label: "Cancelled", count: dateFilteredIntakes.filter(i => i.status === "CANCELLED").length },
   ];
@@ -171,6 +175,7 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
                       <span className={cn(
                         "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
                         intake.status === "PENDING" ? "bg-amber-100 text-amber-700 border-amber-200" :
+                        intake.status === "PARTIAL" ? "bg-purple-100 text-purple-700 border-purple-200" :
                         intake.status === "SOLD" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
                         intake.status === "CLEARED" ? "bg-blue-100 text-blue-700 border-blue-200" :
                         "bg-rose-100 text-rose-700 border-rose-200"

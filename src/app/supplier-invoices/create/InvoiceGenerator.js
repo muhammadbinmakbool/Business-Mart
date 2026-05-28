@@ -304,11 +304,26 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                     {selectedIntakes.includes(i.id) && <Check className="h-3 w-3 text-white" />}
                   </div>
                   <div className="flex-1">
-                    <div className="font-mono text-xs font-bold text-primary">{i.intakeNumber}</div>
-                    <div className="font-medium">{i.product.name}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="font-mono text-xs font-bold text-primary">{i.intakeNumber}</div>
+                      {i.status === "PARTIAL" && (
+                        <span className="inline-flex items-center rounded-full px-1.5 py-0.2 text-[8px] font-black uppercase border bg-purple-100 text-purple-700 border-purple-200 tracking-wider">
+                          PARTIAL
+                        </span>
+                      )}
+                    </div>
+                    <div className="font-medium text-sm">{i.product.name}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-lg">{Number(i.grossWeight)} {i.unit || "KG"}</div>
+                    <div className="font-bold text-base font-mono">
+                      {i.status === "PARTIAL" ? (
+                        <>
+                          {Number(i.remainingWeight).toLocaleString()} <span className="text-[10px] text-muted-foreground font-normal lowercase">({Number(i.grossWeight).toLocaleString()} gross) {i.unit || "KG"}</span>
+                        </>
+                      ) : (
+                        <>{Number(i.grossWeight).toLocaleString()} {i.unit || "KG"}</>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">Rs. {Number(i.rate)} / {i.rateUnit === "MAUND" ? "Maund" : (i.rateUnit || "KG")}</div>
                   </div>
                 </div>

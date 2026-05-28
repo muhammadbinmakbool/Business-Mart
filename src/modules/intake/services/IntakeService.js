@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { convertRate } from "@/lib/units";
 import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { calculateIntakeState } from "@/lib/financial";
 
 
 export class IntakeService {
@@ -17,6 +18,7 @@ export class IntakeService {
     return intakes.map(intake => ({
       ...intake,
       grossWeight: Number(intake.grossWeight),
+      remainingWeight: intake.remainingWeight !== null && intake.remainingWeight !== undefined ? Number(intake.remainingWeight) : null,
       netWeight: intake.netWeight ? Number(intake.netWeight) : null,
       Bardana: intake.Bardana ? Number(intake.Bardana) : null,
       Khot: intake.Khot ? Number(intake.Khot) : null,
@@ -39,6 +41,7 @@ export class IntakeService {
     return {
       ...intake,
       grossWeight: Number(intake.grossWeight),
+      remainingWeight: intake.remainingWeight !== null && intake.remainingWeight !== undefined ? Number(intake.remainingWeight) : null,
       netWeight: intake.netWeight ? Number(intake.netWeight) : null,
       Bardana: intake.Bardana ? Number(intake.Bardana) : null,
       Khot: intake.Khot ? Number(intake.Khot) : null,
@@ -110,6 +113,7 @@ export class IntakeService {
       const intake = await tx.intakeTransaction.create({
         data: {
           grossWeight: validated.grossWeight,
+          remainingWeight: validated.grossWeight,
           netWeight: validated.netWeight ?? null,
           Bardana: validated.Bardana ?? null,
           Khot: validated.Khot ?? null,
@@ -206,6 +210,19 @@ export class IntakeService {
         newWeight = UnitService.getNormalizedQuantity(rawWeight, unit, product);
       }
 
+      // Recalculate remainingWeight safely if grossWeight changed
+      let newRemainingWeight = current.remainingWeight !== null ? Number(current.remainingWeight) : Number(current.grossWeight);
+      if (hasWeightChange) {
+        const oldGross = Number(current.grossWeight);
+        const newGross = Number(validated.grossWeight);
+        if (current.status === "PENDING") {
+          newRemainingWeight = newGross;
+        } else {
+          const delta = newGross - oldGross;
+          newRemainingWeight = Math.max(0, newRemainingWeight + delta);
+        }
+      }
+
       // Calculate converted rates based on the units used!
       const finalSupplierRate = validated.rate !== undefined && validated.rate !== null
         ? validated.rate
@@ -227,6 +244,7 @@ export class IntakeService {
           entryDate: validated.entryDate,
           bagCount: validated.bagCount,
           grossWeight: validated.grossWeight,
+          remainingWeight: newRemainingWeight,
           unit: validated.unit !== undefined ? validated.unit : current.unit,
           normalizedWeight: newWeight,
           notes: validated.notes,
@@ -325,6 +343,7 @@ export class IntakeService {
     return intakes.map(intake => ({
       ...intake,
       grossWeight: Number(intake.grossWeight),
+      remainingWeight: intake.remainingWeight !== null && intake.remainingWeight !== undefined ? Number(intake.remainingWeight) : null,
       netWeight: intake.netWeight ? Number(intake.netWeight) : null,
       Bardana: intake.Bardana ? Number(intake.Bardana) : null,
       Khot: intake.Khot ? Number(intake.Khot) : null,
@@ -348,13 +367,38 @@ export class IntakeService {
     const Khot = Number(data.Khot) || 0;
     const netWeight = Number(data.netWeight) || 0;
 
-    return prisma.$transaction(async (tx) => {
+    const isPartial = !!data.isPartialSale;
+
+    const updatedIntake = await prisma.$transaction(async (tx) => {
       // 1. Get the current intake record
       const intake = await tx.intakeTransaction.findUnique({
         where: { id: intakeId },
         include: { product: true }
       });
       if (!intake) throw new Error("Intake transaction not found");
+
+      if (intake.status === "CANCELLED") {
+        throw new Error("Cannot sell a cancelled intake");
+      }
+      if (intake.status === "SOLD") {
+        throw new Error("This intake is already fully sold");
+      }
+
+      const defaultSellWeight = intake.remainingWeight !== null ? Number(intake.remainingWeight) : Number(intake.grossWeight);
+      const soldQty = isPartial ? Number(data.soldQuantity) : defaultSellWeight;
+
+      if (isNaN(soldQty) || soldQty <= 0) {
+        throw new Error("Sold quantity must be greater than zero");
+      }
+      if (soldQty > defaultSellWeight) {
+        throw new Error(`Sold quantity ${soldQty} exceeds remaining weight ${defaultSellWeight}`);
+      }
+
+      const newRemainingWeight = defaultSellWeight - soldQty;
+      const { status: newStatus } = calculateIntakeState({
+        grossWeight: Number(intake.grossWeight),
+        remainingWeight: newRemainingWeight
+      });
 
       // Calculate converted rates!
       const finalSalesTrackRate = rate;
@@ -363,16 +407,17 @@ export class IntakeService {
       const updatedIntake = await tx.intakeTransaction.update({
         where: { id: intakeId },
         data: {
-          status: "SOLD",
-          Bardana,
-          Khot,
-          netWeight,
+          status: newStatus,
+          remainingWeight: newRemainingWeight,
+          Bardana: Number(intake.Bardana || 0) + Bardana,
+          Khot: Number(intake.Khot || 0) + Khot,
+          netWeight: Number(intake.netWeight || 0) + netWeight,
           rate: rate,
           rateUnit: rateUnit,
         }
       });
 
-      // 2.5 Delegate inventory update — intake is no longer PENDING
+      // 2.5 Delegate inventory update — intake is updated
       await InventoryService.handleIntakeSold(intake.productId, tx);
 
       // 3. Upsert SalesTrack
@@ -388,12 +433,12 @@ export class IntakeService {
         supplierPartyId: intake.partyId,
         buyerPartyId,
         productId: intake.productId,
-        quantity: netWeight,
+        quantity: existingTrack ? Number(existingTrack.quantity) + netWeight : netWeight,
         buyingRate: finalSalesTrackRate,
         sellingRate: finalSalesTrackRate,
-        netWeight,
-        baseAmount,
-        notes: `Intake ${intake.intakeNumber} marked as SOLD`
+        netWeight: existingTrack ? Number(existingTrack.netWeight || 0) + netWeight : netWeight,
+        baseAmount: existingTrack ? Number(existingTrack.baseAmount || 0) + baseAmount : baseAmount,
+        notes: `Intake ${intake.intakeNumber} marked as ${newStatus}`
       };
 
       if (existingTrack) {
@@ -413,13 +458,14 @@ export class IntakeService {
     await emitActivity({
       entityType: "INTAKE",
       entityId: updatedIntake.id,
-      action: "SOLD",
-      description: `Intake ${updatedIntake.intakeNumber} marked as SOLD`,
+      action: updatedIntake.status === "SOLD" ? "SOLD" : "PARTIALLY_SOLD",
+      description: `Intake ${updatedIntake.intakeNumber} marked as ${updatedIntake.status}`,
       meta: {
         productId: updatedIntake.productId,
         weight: Number(updatedIntake.netWeight || updatedIntake.grossWeight),
         supplierId: updatedIntake.partyId,
-        rate: Number(updatedIntake.rate)
+        rate: Number(updatedIntake.rate),
+        remainingWeight: Number(updatedIntake.remainingWeight)
       }
     });
 
