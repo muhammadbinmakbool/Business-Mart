@@ -102,7 +102,7 @@ export class IntakeService {
     
     const normalizedWeight = UnitService.getNormalizedQuantity(validated.grossWeight, validated.unit || "KG", product);
     
-    return prisma.$transaction(async (tx) => {
+    const intake = await prisma.$transaction(async (tx) => {
       // 1. Get next number
       const lastEntry = await tx.intakeTransaction.findFirst({
         orderBy: { id: "desc" }
@@ -111,7 +111,7 @@ export class IntakeService {
       const nextNumber = `INT-${nextId.toString().padStart(6, "0")}`;
 
       // 2. Create Intake Transaction
-      const intake = await tx.intakeTransaction.create({
+      const record = await tx.intakeTransaction.create({
         data: {
           grossWeight: validated.grossWeight,
           remainingWeight: validated.grossWeight,
@@ -135,7 +135,7 @@ export class IntakeService {
       // 3. Delegate inventory update to InventoryService
       await InventoryService.handleIntakeCreated(parseInt(validated.productId), tx);
 
-      return intake;
+      return record;
     });
 
     await emitActivity({
@@ -476,7 +476,7 @@ export class IntakeService {
 
 
   static async deleteIntake(id) {
-    return prisma.$transaction(async (tx) => {
+    const deleted = await prisma.$transaction(async (tx) => {
       const intake = await tx.intakeTransaction.findUnique({
         where: { id: parseInt(id) }
       });
@@ -489,14 +489,14 @@ export class IntakeService {
         where: { intakeTransactionId: parseInt(id) }
       });
       
-      const deleted = await tx.intakeTransaction.delete({
+      const record = await tx.intakeTransaction.delete({
         where: { id: parseInt(id) }
       });
 
       // Delegate inventory recalculation after deleting the intake record
       await InventoryService.handleIntakeDeleted(productId, tx);
 
-      return deleted;
+      return record;
     });
 
     await emitActivity({
