@@ -64,9 +64,8 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
   const [showBilledBlockModal, setShowBilledBlockModal] = useState(false);
   const [showSupplierBlockModal, setShowSupplierBlockModal] = useState(false);
 
-  const salesTrack = intake?.salesTracks?.[0];
-  const hasSalesTrack = !!salesTrack;
-  const isBilled = salesTrack ? (salesTrack.isBilled || salesTrack.saleTransactionId !== null) : false;
+  const hasSalesTrack = intake?.salesTracks && intake.salesTracks.length > 0;
+  const isBilled = intake?.salesTracks ? intake.salesTracks.some(t => t.isBilled || t.saleTransactionId !== null) : false;
 
   const supplierInvoiceItem = intake?.invoiceItems?.[0];
   const hasSupplierInvoice = !!supplierInvoiceItem;
@@ -77,8 +76,8 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
       return;
     }
 
-    // Check if we are reverting status away from SOLD or CLEARED to PENDING or CANCELLED
-    if ((currentStatus === "SOLD" || currentStatus === "CLEARED") && (status === "PENDING" || status === "CANCELLED")) {
+    // Check if we are reverting status away from SOLD, CLEARED, or PARTIAL to PENDING or CANCELLED
+    if ((currentStatus === "SOLD" || currentStatus === "CLEARED" || currentStatus === "PARTIAL") && (status === "PENDING" || status === "CANCELLED")) {
       if (hasSupplierInvoice) {
         setShowSupplierBlockModal(true);
         return;

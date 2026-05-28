@@ -172,6 +172,7 @@ export class IntakeService {
       // 2. Determine new values
       const newProductId = validated.productId ? parseInt(validated.productId) : oldProductId;
       let newStatus = validated.status || oldStatus;
+      let newRemainingWeight;
 
       // Validation Rule: If transitioning away from SOLD, CLEARED, or PARTIAL to PENDING or CANCELLED, verify/delete unbilled SalesTrack and block if included in Supplier Settlement
       if ((oldStatus === "SOLD" || oldStatus === "CLEARED" || oldStatus === "PARTIAL") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
@@ -217,7 +218,9 @@ export class IntakeService {
       }
 
       // Recalculate remainingWeight safely if grossWeight changed
-      let newRemainingWeight = current.remainingWeight !== null ? Number(current.remainingWeight) : Number(current.grossWeight);
+      if (newRemainingWeight === undefined) {
+        newRemainingWeight = current.remainingWeight !== null ? Number(current.remainingWeight) : Number(current.grossWeight);
+      }
       if (hasWeightChange) {
         const oldGross = Number(current.grossWeight);
         const newGross = Number(validated.grossWeight);
