@@ -132,14 +132,14 @@ export default async function SupplierInvoiceDetailPage({ params }) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Column 1: Invoiced Items details */}
-        <div className="rounded-xl border bg-card shadow-sm overflow-hidden flex flex-col justify-between h-full min-h-[320px]">
+        {/* Column 1: Invoiced Items details (Larger Space) */}
+        <div className="lg:col-span-2 rounded-xl border bg-card shadow-sm overflow-hidden flex flex-col justify-between h-full min-h-[440px]">
           <div>
             <div className="px-4 py-3 bg-muted/30 border-b flex items-center justify-between">
               <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Invoiced Items</h3>
               <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase font-black">V{invoice.version}</span>
             </div>
-            <div className="overflow-y-auto max-h-[180px] scrollbar-thin">
+            <div className="overflow-y-auto max-h-[300px] scrollbar-thin">
               <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-muted/10">
                   <tr className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
@@ -179,46 +179,49 @@ export default async function SupplierInvoiceDetailPage({ params }) {
           </div>
         </div>
 
-        {/* Column 2: Amount Calculation & Supplier Card */}
-        <div className="rounded-xl border bg-card shadow-sm overflow-hidden flex flex-col justify-between h-full min-h-[320px]">
-          <div className="bg-primary p-6 text-primary-foreground relative overflow-hidden flex-1 flex flex-col justify-between">
-            <ReceiptText className="absolute -right-4 -bottom-4 h-24 w-24 opacity-10 rotate-12" />
-            <div className="relative z-10">
-              <span className="text-[9px] uppercase font-bold opacity-60 tracking-widest block">Final Payable Total</span>
-              <div className="mt-1 flex items-baseline gap-1.5">
-                <span className="text-xs opacity-80">Rs.</span>
-                <h2 className="text-3xl font-black tracking-tighter">{Number(invoice.finalPayableAmount).toLocaleString()}</h2>
+        {/* Column 2: Unified Sidebar (Amount Calculation & Clearance Card) */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Amount Calculation & Supplier Card */}
+          <div className="rounded-xl border bg-card shadow-sm overflow-hidden flex flex-col justify-between h-auto">
+            <div className="bg-primary p-6 text-primary-foreground relative overflow-hidden flex-1 flex flex-col justify-between min-h-[160px]">
+              <ReceiptText className="absolute -right-4 -bottom-4 h-24 w-24 opacity-10 rotate-12" />
+              <div className="relative z-10">
+                <span className="text-[9px] uppercase font-bold opacity-60 tracking-widest block">Final Payable Total</span>
+                <div className="mt-1 flex items-baseline gap-1.5">
+                  <span className="text-xs opacity-80">Rs.</span>
+                  <h2 className="text-3xl font-black tracking-tighter">{Number(invoice.finalPayableAmount).toLocaleString()}</h2>
+                </div>
+              </div>
+              <div className="relative z-10 pt-4 border-t border-white/20 mt-4 text-[11px] space-y-1">
+                <div className="flex justify-between items-center opacity-85">
+                  <span>Gross Value</span>
+                  <span className="font-semibold">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center opacity-85">
+                  <span>Deductions</span>
+                  <span className="font-semibold text-rose-300">- Rs. {Number(invoice.totalDeductions).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center opacity-85">
+                  <span>Advances Adjusted</span>
+                  <span className="font-semibold text-rose-300">- Rs. {Number(invoice.totalAdvances).toLocaleString()}</span>
+                </div>
               </div>
             </div>
-            <div className="relative z-10 pt-4 border-t border-white/20 mt-4 text-[11px] space-y-1">
-              <div className="flex justify-between items-center opacity-85">
-                <span>Gross Value</span>
-                <span className="font-semibold">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
+            <div className="p-4 bg-card flex items-center gap-3 border-t">
+              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <User className="h-4 w-4 text-primary" />
               </div>
-              <div className="flex justify-between items-center opacity-85">
-                <span>Deductions</span>
-                <span className="font-semibold text-rose-300">- Rs. {Number(invoice.totalDeductions).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between items-center opacity-85">
-                <span>Advances Adjusted</span>
-                <span className="font-semibold text-rose-300">- Rs. {Number(invoice.totalAdvances).toLocaleString()}</span>
+              <div className="min-w-0">
+                <div className="font-bold text-xs truncate">{invoice.party.name}</div>
+                <div className="text-[10px] text-muted-foreground leading-none">{format(new Date(invoice.createdAt), "dd MMM yyyy")}</div>
               </div>
             </div>
           </div>
-          <div className="p-4 bg-card flex items-center gap-3 border-t">
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-              <User className="h-4 w-4 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <div className="font-bold text-xs truncate">{invoice.party.name}</div>
-              <div className="text-[10px] text-muted-foreground leading-none">{format(new Date(invoice.createdAt), "dd MMM yyyy")}</div>
-            </div>
-          </div>
-        </div>
 
-        {/* Column 3: Clearance Card */}
-        <div>
-          <SupplierPaymentCard invoice={invoice} />
+          {/* Clearance Card */}
+          <div>
+            <SupplierPaymentCard invoice={invoice} />
+          </div>
         </div>
       </div>
 
