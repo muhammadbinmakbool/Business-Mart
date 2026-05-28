@@ -12,14 +12,16 @@ import ResponsiveHeader from "@/components/ResponsiveHeader";
 
 export default async function IntakeDetailsPage({ params: paramsPromise }) {
   const params = await paramsPromise;
-  const intake = await IntakeService.getIntake(params.id);
+  const rawIntake = await IntakeService.getIntake(params.id);
+
+  if (!rawIntake) {
+    return <div className="p-8 text-center">Intake transaction not found.</div>;
+  }
+
+  const intake = JSON.parse(JSON.stringify(rawIntake));
 
   const parties = await PartyService.listParties();
   const buyers = parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH"));
-
-  if (!intake) {
-    return <div className="p-8 text-center">Intake transaction not found.</div>;
-  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
