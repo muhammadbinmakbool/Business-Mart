@@ -63,12 +63,20 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
   useEffect(() => {
     if (initialInvoice) {
       setSelectedParty(initialInvoice.party);
-      setSelectedIntakes(initialInvoice.items.map(item => item.intakeTransactionId));
-      setSelectedAdvances(initialInvoice.advances.map(a => a.id));
       
+      const initialSelected = [];
       const initialAdjustments = {};
-      initialInvoice.items.forEach(item => {
-        initialAdjustments[item.intakeTransactionId] = (item.adjustments || []).map(adj => ({
+      
+      initialInvoice.items.forEach((item, idx) => {
+        const matchingTrack = (item.intake?.salesTracks || []).find(t => 
+          Number(t.quantity) === Number(item.weight) && Number(t.sellingRate) === Number(item.rate)
+        );
+        const virtualId = matchingTrack 
+          ? `${item.intakeTransactionId}-track-${matchingTrack.id}`
+          : `${item.intakeTransactionId}-fallback-${idx}`;
+        
+        initialSelected.push(virtualId);
+        initialAdjustments[virtualId] = (item.adjustments || []).map(adj => ({
           adjustmentType: adj.adjustmentType,
           method: adj.method,
           value: Number(adj.value),
@@ -76,7 +84,10 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
           unit: adj.unit || null
         }));
       });
+      
+      setSelectedIntakes(initialSelected);
       setAdjustmentsByIntake(initialAdjustments);
+      setSelectedAdvances(initialInvoice.advances.map(a => a.id));
       
       // Fetch other available uninvoiced intakes/advances
       fetchEditData(initialInvoice.party.id, initialInvoice);
@@ -88,13 +99,36 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
     const result = await getUninvoicedDataAction(partyId);
     if (result.success) {
       // Intakes: merge current invoice items (with details) + any other uninvoiced intakes
-      const linkedIntakes = initial.items.map(item => ({
-        ...item.intake,
-        grossWeight: Number(item.weight),
-        rate: Number(item.rate),
-      }));
+      const linkedIntakes = initial.items.map((item, idx) => {
+        const matchingTrack = (item.intake?.salesTracks || []).find(t => 
+          Number(t.quantity) === Number(item.weight) && Number(t.sellingRate) === Number(item.rate)
+        );
+        const virtualId = matchingTrack 
+          ? `${item.intakeTransactionId}-track-${matchingTrack.id}`
+          : `${item.intakeTransactionId}-fallback-${idx}`;
 
-      // Find unique intakes combining both list
+        return {
+          ...item.intake,
+          virtualId,
+          grossWeight: Number(item.weight),
+          netWeight: Number(item.weight),
+          rate: Number(item.rate),
+          rateUnit: item.intake.rateUnit || "KG",
+          buyerName: matchingTrack?.buyerName || null,
+          salesTracks: [
+            {
+              id: matchingTrack?.id || 9999 + idx,
+              quantity: Number(item.weight),
+              netWeight: Number(item.weight),
+              sellingRate: Number(item.rate),
+              rateUnit: item.intake.rateUnit || "KG",
+              buyerName: matchingTrack?.buyerName || null
+            }
+          ]
+        };
+      });
+
+      // Find unique intakes combining both lists (group by base ID to avoid duplicate loading of the raw intake)
       const combinedIntakes = [...linkedIntakes];
       result.data.intakes.forEach(i => {
         if (!combinedIntakes.some(ci => ci.id === i.id)) {
@@ -132,7 +166,20 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
     const result = await getUninvoicedDataAction(partyId);
     if (result.success) {
       setData(result.data);
-      setSelectedIntakes(result.data.intakes.map(i => i.id));
+      
+      const initialSelected = [];
+      result.data.intakes.forEach(intake => {
+        const tracksToSettle = (intake.salesTracks || []).filter(t => !t.isSettled);
+        if (tracksToSettle.length > 0) {
+          tracksToSettle.forEach(track => {
+            initialSelected.push(`${intake.id}-track-${track.id}`);
+          });
+        } else {
+          initialSelected.push(String(intake.id));
+        }
+      });
+      
+      setSelectedIntakes(initialSelected);
       setSelectedAdvances(result.data.advances.map(a => a.id));
       setAdjustmentsByIntake({}); // Reset on party change
     } else {
@@ -141,9 +188,9 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
     setLoading(false);
   };
 
-  const handleToggleIntake = (id) => {
+  const handleToggleIntake = (virtualId) => {
     setSelectedIntakes(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      prev.includes(virtualId) ? prev.filter(i => i !== virtualId) : [...prev, virtualId]
     );
   };
 
@@ -199,13 +246,47 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
   };
 
   // Calculations
-  const activeIntakes = data.intakes.filter(i => selectedIntakes.includes(i.id));
+  const allSelectableIntakes = [];
+  data.intakes.forEach(intake => {
+    if (intake.virtualId) {
+      allSelectableIntakes.push(intake);
+    } else {
+      const tracksToSettle = (intake.salesTracks || []).filter(t => !t.isSettled);
+      const isPartial = !!((intake.salesTracks || []).length > 1 || intake.status === "PARTIAL" || (intake.remainingWeight && Number(intake.remainingWeight) > 0));
+      
+      if (tracksToSettle.length > 0) {
+        tracksToSettle.forEach(track => {
+          allSelectableIntakes.push({
+            ...intake,
+            virtualId: `${intake.id}-track-${track.id}`,
+            grossWeight: Number(track.quantity),
+            netWeight: Number(track.netWeight || track.quantity),
+            rate: Number(track.sellingRate),
+            rateUnit: track.rateUnit || "KG",
+            buyerName: track.buyerName || track.buyer?.name || null,
+            salesTracks: [track],
+            isPartial
+          });
+        });
+      } else {
+        allSelectableIntakes.push({
+          ...intake,
+          virtualId: String(intake.id),
+          rate: intake.rate ? Number(intake.rate) : 0,
+          rateUnit: intake.rateUnit || "KG",
+          isPartial
+        });
+      }
+    }
+  });
+
+  const decomposedActiveIntakes = allSelectableIntakes.filter(i => selectedIntakes.includes(i.virtualId));
   const activeAdvances = data.advances.filter(a => selectedAdvances.includes(a.id));
 
   // Map local adjustmentsByIntake into active intakes object array
-  const intakesWithAdjustments = activeIntakes.map(intake => ({
+  const intakesWithAdjustments = decomposedActiveIntakes.map(intake => ({
     ...intake,
-    adjustments: adjustmentsByIntake[intake.id] || []
+    adjustments: adjustmentsByIntake[intake.virtualId] || adjustmentsByIntake[intake.id] || []
   }));
 
   const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakesWithAdjustments);
@@ -303,46 +384,48 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
             </div>
           ) : (
             <div className="grid gap-3">
-              {data.intakes.map(i => (
-                <div 
-                  key={i.id}
-                  onClick={() => handleToggleIntake(i.id)}
-                  className={cn(
-                    "flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all",
-                    selectedIntakes.includes(i.id) ? "border-primary bg-primary/5" : "bg-card hover:bg-muted/50"
-                  )}
-                >
-                  <div className={cn(
-                    "h-5 w-5 rounded border flex items-center justify-center transition-colors",
-                    selectedIntakes.includes(i.id) ? "bg-primary border-primary" : "border-muted-foreground/30"
-                  )}>
-                    {selectedIntakes.includes(i.id) && <Check className="h-3 w-3 text-white" />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="font-mono text-xs font-bold text-primary">{i.intakeNumber}</div>
-                      {i.status === "PARTIAL" && (
-                        <span className="inline-flex items-center rounded-full px-1.5 py-0.2 text-[8px] font-black uppercase border bg-purple-100 text-purple-700 border-purple-200 tracking-wider">
-                          PARTIAL
-                        </span>
-                      )}
+              {allSelectableIntakes.map(i => {
+                const isSelected = selectedIntakes.includes(i.virtualId);
+                return (
+                  <div 
+                    key={i.virtualId}
+                    onClick={() => handleToggleIntake(i.virtualId)}
+                    className={cn(
+                      "flex items-center gap-4 p-4 rounded-xl border cursor-pointer transition-all",
+                      isSelected ? "border-primary bg-primary/5" : "bg-card hover:bg-muted/50"
+                    )}
+                  >
+                    <div className={cn(
+                      "h-5 w-5 rounded border flex items-center justify-center transition-colors",
+                      isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"
+                    )}>
+                      {isSelected && <Check className="h-3 w-3 text-white" />}
                     </div>
-                    <div className="font-medium text-sm">{i.product.name}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="font-bold text-base font-mono">
-                      {i.status === "PARTIAL" ? (
-                        <>
-                          {Number(i.remainingWeight).toLocaleString()} <span className="text-[10px] text-muted-foreground font-normal lowercase">({Number(i.grossWeight).toLocaleString()} gross) {i.unit || "KG"}</span>
-                        </>
-                      ) : (
-                        <>{Number(i.grossWeight).toLocaleString()} {i.unit || "KG"}</>
-                      )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="font-mono text-xs font-bold text-primary">{i.intakeNumber}</div>
+                        {i.isPartial && (
+                          <span className="inline-flex items-center rounded-full px-1.5 py-0.2 text-[8px] font-black uppercase border bg-purple-100 text-purple-700 border-purple-200 tracking-wider">
+                            PARTIAL
+                          </span>
+                        )}
+                        {i.buyerName && (
+                          <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                            • {i.buyerName}
+                          </span>
+                        )}
+                      </div>
+                      <div className="font-medium text-sm">{i.product.name}</div>
                     </div>
-                    <div className="text-xs text-muted-foreground">Rs. {Number(getIntakeDisplayRate(i).rate).toLocaleString()} / {getIntakeDisplayRate(i).rateUnit === "MAUND" ? "Maund" : (getIntakeDisplayRate(i).rateUnit || "KG")}</div>
+                    <div className="text-right">
+                      <div className="font-bold text-base font-mono">
+                        {Number(i.netWeight || i.grossWeight).toLocaleString()} {i.unit || "KG"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">Rs. {Number(i.rate).toLocaleString()} / {i.rateUnit === "MAUND" ? "Maund" : (i.rateUnit || "KG")}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -416,8 +499,8 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                 </h3>
               </div>
               <div className="p-6 space-y-4">
-                {activeIntakes.map(intake => {
-                  const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id) || {
+                {intakesWithAdjustments.map(intake => {
+                  const breakdown = intakeBreakdowns.find(b => b.intakeId === (intake.virtualId || intake.id)) || {
                     gross: 0,
                     deductions: 0,
                     net: 0,
@@ -425,12 +508,19 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                   };
                   const weight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
                   return (
-                    <div key={intake.id} className="p-4 border rounded-xl space-y-4 bg-muted/10 relative group/card">
+                    <div key={intake.virtualId || intake.id} className="p-4 border rounded-xl space-y-4 bg-muted/10 relative group/card">
                       <div className="flex justify-between items-start">
                         <div>
-                          <span className="font-mono text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded">
-                            {intake.intakeNumber}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded">
+                              {intake.intakeNumber}
+                            </span>
+                            {intake.buyerName && (
+                              <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">
+                                • {intake.buyerName}
+                              </span>
+                            )}
+                          </div>
                           <h4 className="font-bold text-sm mt-1">{intake.product.name}</h4>
                           <div className="text-[10px] text-muted-foreground mt-0.5">
                             {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} {intake.unit || "KG"} @ Rs. {Number(getIntakeDisplayRate(intake).rate).toLocaleString()}/{getIntakeDisplayRate(intake).rateUnit === "MAUND" ? "Maund" : (getIntakeDisplayRate(intake).rateUnit || "KG")}
@@ -449,7 +539,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                           <button
                             type="button"
                             onClick={() => {
-                              setActiveIntakeForAdjustment(intake.id);
+                              setActiveIntakeForAdjustment(intake.virtualId || intake.id);
                               setCurrentAdjustment(prev => ({
                                 ...prev,
                                 unit: intake.unit || "KG"
@@ -488,7 +578,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                                   </span>
                                   <button
                                     type="button"
-                                    onClick={() => removeAdjustment(intake.id, idx)}
+                                    onClick={() => removeAdjustment(intake.virtualId || intake.id, idx)}
                                     className="text-muted-foreground hover:text-rose-600 transition-colors p-0.5"
                                   >
                                     <Trash2 className="h-3.5 w-3.5" />
@@ -505,7 +595,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                       </div>
 
                       <div className="border-t pt-3 flex justify-between items-center bg-primary/5 -mx-4 -mb-4 px-4 py-2.5 rounded-b-xl">
-                        <span className="text-xs font-bold text-primary">Net Intake Value</span>
+                        <span className="text-xs font-bold text-primary">Portion Net Value</span>
                         <span className="font-black text-sm text-primary">Rs. {breakdown.net.toLocaleString()}</span>
                       </div>
                     </div>

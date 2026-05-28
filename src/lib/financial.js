@@ -193,7 +193,7 @@ export function calculateSupplierDeductions(intakes) {
     totalDeductions += itemDeductions;
 
     return {
-      intakeId: intake.id,
+      intakeId: intake.virtualId || intake.id,
       gross: gross,
       deductions: itemDeductions,
       net: gross - itemDeductions,

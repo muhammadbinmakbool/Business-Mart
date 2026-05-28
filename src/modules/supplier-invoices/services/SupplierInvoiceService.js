@@ -11,10 +11,23 @@ export class SupplierInvoiceService {
    */
   static async generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake = {}) {
     // 1. Fetch live data for event records
+    const parsedIntakeIds = Array.from(new Set(intakeIds.map(id => {
+      const str = String(id);
+      if (str.includes("-track-")) {
+        return parseInt(str.split("-track-")[0]);
+      }
+      return parseInt(str);
+    })));
+
     const [intakes, advances] = await Promise.all([
       prisma.intakeTransaction.findMany({
-        where: { id: { in: intakeIds.map(id => parseInt(id)) } },
-        include: { product: true, salesTracks: true }
+        where: { id: { in: parsedIntakeIds } },
+        include: { 
+          product: true,
+          salesTracks: {
+            where: { isSettled: false }
+          }
+        }
       }),
       prisma.intakeAdvance.findMany({
         where: { id: { in: advanceIds.map(id => parseInt(id)) } }
@@ -23,10 +36,36 @@ export class SupplierInvoiceService {
 
     if (intakes.length === 0) throw new Error("No intakes selected");
 
-    // 2. Map adjustments to intakes and compute totals via centralized financial logic
-    const intakesWithAdjustments = intakes.map(intake => ({
+    // 2. Decompose intakes into separate portion rows
+    const decomposedIntakes = [];
+    intakes.forEach(intake => {
+      const tracksToSettle = (intake.salesTracks || []).filter(t => !t.isSettled);
+      if (tracksToSettle.length > 0) {
+        tracksToSettle.forEach(track => {
+          const virtualId = `${intake.id}-track-${track.id}`;
+          if (intakeIds.includes(virtualId)) {
+            decomposedIntakes.push({
+              ...intake,
+              virtualId,
+              grossWeight: Number(track.quantity),
+              netWeight: Number(track.netWeight || track.quantity),
+              rate: Number(track.sellingRate),
+              rateUnit: track.rateUnit || "KG",
+              salesTracks: [track]
+            });
+          }
+        });
+      } else {
+        if (intakeIds.includes(String(intake.id))) {
+          decomposedIntakes.push(intake);
+        }
+      }
+    });
+
+    // 2.5 Map adjustments to decomposed intakes and compute totals via centralized financial logic
+    const intakesWithAdjustments = decomposedIntakes.map(intake => ({
       ...intake,
-      adjustments: adjustmentsByIntake[intake.id] || []
+      adjustments: adjustmentsByIntake[intake.virtualId] || adjustmentsByIntake[intake.id] || []
     }));
 
     const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakesWithAdjustments);
@@ -34,7 +73,7 @@ export class SupplierInvoiceService {
     const finalPayableAmount = netValue - totalAdvances;
 
     // 3. Prepare immutable snapshots for items with nested adjustments
-    const itemsData = intakes.map(intake => {
+    const itemsData = decomposedIntakes.map(intake => {
       let billingWeight = 0;
       if (intake.salesTracks && intake.salesTracks.length > 0) {
         billingWeight = intake.salesTracks.reduce((sum, track) => sum + Number(track.quantity || 0), 0);
@@ -44,7 +83,7 @@ export class SupplierInvoiceService {
       const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
       const rate = actualRate ? Number(actualRate) : 0;
       
-      const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
+      const breakdown = intakeBreakdowns.find(b => b.intakeId === (intake.virtualId || intake.id));
       const itemAdjustments = breakdown ? breakdown.adjustments : [];
       const grossAmount = breakdown ? breakdown.gross : (billingWeight * rate);
       const averageRate = billingWeight > 0 ? (grossAmount / billingWeight) : rate;
@@ -61,6 +100,10 @@ export class SupplierInvoiceService {
     // 4. Sequence number
     const invoiceNumber = await SupplierInvoiceRepository.getNextInvoiceNumber();
 
+    const selectedTrackIds = intakeIds
+      .filter(id => String(id).includes("-track-"))
+      .map(id => parseInt(String(id).split("-track-")[1]));
+
     // 5. Create derived document record
     const invoice = await SupplierInvoiceRepository.createWithItems(
       {
@@ -75,7 +118,8 @@ export class SupplierInvoiceService {
         lastCalculatedAt: new Date()
       },
       itemsData,
-      advanceIds
+      advanceIds,
+      selectedTrackIds
     );
 
     await emitActivity({
@@ -104,123 +148,171 @@ export class SupplierInvoiceService {
      const intakeIds = oldInvoice.items.map(i => i.intakeTransactionId);
      const advanceIds = oldInvoice.advances.map(a => a.id);
  
-     // 2. Fetch fresh event records
-     const [intakes, advances] = await Promise.all([
-       prisma.intakeTransaction.findMany({
-         where: { id: { in: intakeIds } },
-         include: { product: true, salesTracks: true }
-       }),
-       prisma.intakeAdvance.findMany({
-         where: { id: { in: advanceIds } }
-       })
-     ]);
- 
-     // 3. Resolve adjustments to use (fall back to old invoice adjustments if none provided)
-     let adjustmentsToUse = {};
-     if (adjustmentsByIntake && Object.keys(adjustmentsByIntake).length > 0) {
-       adjustmentsToUse = adjustmentsByIntake;
-     } else {
-       oldInvoice.items.forEach(item => {
-         adjustmentsToUse[item.intakeTransactionId] = (item.adjustments || []).map(adj => ({
-           adjustmentType: adj.adjustmentType,
-           method: adj.method,
-           value: Number(adj.value),
-           direction: adj.direction
-         }));
+     // 2. Execute atomic transaction to guarantee state consistency
+     const newInvoice = await prisma.$transaction(async (tx) => {
+       // Mark old invoice as SUPERSEDED and isOutdated
+       await tx.supplierInvoice.update({
+         where: { id: parseInt(oldInvoiceId) },
+         data: { status: "SUPERSEDED", isOutdated: true }
        });
-     }
  
-     // 4. Map adjustments and recalculate
-     const intakesWithAdjustments = intakes.map(intake => ({
-       ...intake,
-       adjustments: adjustmentsToUse[intake.id] || []
-     }));
+       // Reset old sales tracks to unsettled so they can be re-fetched and re-settled!
+       await tx.salesTrack.updateMany({
+         where: {
+           intakeTransactionId: { in: intakeIds },
+           isSettled: true
+         },
+         data: {
+           isSettled: false
+         }
+       });
  
-     const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakesWithAdjustments);
-     const totalAdvances = advances.reduce((sum, adv) => sum + Number(adv.amount), 0);
-     const finalPayableAmount = netValue - totalAdvances;
+       // Fetch fresh records inside transaction!
+       const [intakes, advances] = await Promise.all([
+         tx.intakeTransaction.findMany({
+           where: { id: { in: intakeIds } },
+           include: { 
+             product: true,
+             salesTracks: {
+               where: { isSettled: false }
+             }
+           }
+         }),
+         tx.intakeAdvance.findMany({
+           where: { id: { in: advanceIds } }
+         })
+       ]);
  
-     // 5. Prepare item snapshots
-      const itemsData = intakes.map(intake => {
-        let billingWeight = 0;
-        if (intake.salesTracks && intake.salesTracks.length > 0) {
-          billingWeight = intake.salesTracks.reduce((sum, track) => sum + Number(track.quantity || 0), 0);
-        } else {
-          billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
-        }
-        const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
-        const rate = actualRate ? Number(actualRate) : 0;
-        
-        const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
-        const itemAdjustments = breakdown ? breakdown.adjustments : [];
-        const grossAmount = breakdown ? breakdown.gross : (billingWeight * rate);
-        const averageRate = billingWeight > 0 ? (grossAmount / billingWeight) : rate;
-
-        return {
-          intakeTransactionId: intake.id,
-          weight: billingWeight,
-          rate: averageRate,
-          amount: grossAmount,
-          adjustments: itemAdjustments
-        };
-      });
+       // Resolve adjustments to use (fall back to old invoice adjustments if none provided)
+       let adjustmentsToUse = {};
+       if (adjustmentsByIntake && Object.keys(adjustmentsByIntake).length > 0) {
+         adjustmentsToUse = adjustmentsByIntake;
+       } else {
+         oldInvoice.items.forEach(item => {
+           adjustmentsToUse[item.intakeTransactionId] = (item.adjustments || []).map(adj => ({
+             adjustmentType: adj.adjustmentType,
+             method: adj.method,
+             value: Number(adj.value),
+             direction: adj.direction
+           }));
+         });
+       }
  
-      // 6. Execute atomic transaction
-      const newInvoice = await prisma.$transaction(async (tx) => {
-        // Mark old invoice as SUPERSEDED and isOutdated
-        await tx.supplierInvoice.update({
-          where: { id: parseInt(oldInvoiceId) },
-          data: { status: "SUPERSEDED", isOutdated: true }
-        });
+       // Decompose intakes into separate portion rows
+       const decomposedIntakes = [];
+       intakes.forEach(intake => {
+         const tracksToSettle = (intake.salesTracks || []).filter(t => !t.isSettled);
+         if (tracksToSettle.length > 0) {
+           tracksToSettle.forEach(track => {
+             decomposedIntakes.push({
+               ...intake,
+               virtualId: `${intake.id}-track-${track.id}`,
+               grossWeight: Number(track.quantity),
+               netWeight: Number(track.netWeight || track.quantity),
+               rate: Number(track.sellingRate),
+               rateUnit: track.rateUnit || "KG",
+               salesTracks: [track]
+             });
+           });
+         } else {
+           decomposedIntakes.push(intake);
+         }
+       });
  
-        // Create new version
-        const newInvoice = await tx.supplierInvoice.create({
-          data: {
-            invoiceNumber: oldInvoice.invoiceNumber,
-            partyId: oldInvoice.partyId,
-            totalGrossValue,
-            totalDeductions,
-            totalAdvances,
-            finalPayableAmount,
-            status: "PENDING",
-            version: oldInvoice.version + 1,
-            lastCalculatedAt: new Date(),
-            items: {
-              create: itemsData.map(item => ({
-                intakeTransactionId: item.intakeTransactionId,
-                weight: item.weight,
-                rate: item.rate,
-                amount: item.amount,
-                adjustments: {
-                  create: item.adjustments.map(adj => ({
-                    adjustmentType: adj.adjustmentType,
-                    method: adj.method,
-                    value: adj.value,
-                    calculatedAmount: adj.calculatedAmount,
-                    direction: adj.direction,
-                    unit: adj.unit || null
-                  }))
-                }
-              }))
-            },
-            advances: {
-              connect: advanceIds.map(id => ({ id: parseInt(id) }))
-            }
-          },
-          include: {
-            items: {
-              include: {
-                intake: { include: { product: true } },
-                adjustments: true
-              }
-            },
-            advances: true,
-            party: true
-          }
-        });
+       // Map adjustments and recalculate
+       const intakesWithAdjustments = decomposedIntakes.map(intake => ({
+         ...intake,
+         adjustments: adjustmentsToUse[intake.virtualId] || adjustmentsToUse[intake.id] || []
+       }));
  
-        return newInvoice;
-      });
+       const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakesWithAdjustments);
+       const totalAdvances = advances.reduce((sum, adv) => sum + Number(adv.amount), 0);
+       const finalPayableAmount = netValue - totalAdvances;
+ 
+       // Prepare item snapshots
+       const itemsData = decomposedIntakes.map(intake => {
+         let billingWeight = 0;
+         if (intake.salesTracks && intake.salesTracks.length > 0) {
+           billingWeight = intake.salesTracks.reduce((sum, track) => sum + Number(track.quantity || 0), 0);
+         } else {
+           billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
+         }
+         const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+         const rate = actualRate ? Number(actualRate) : 0;
+         
+         const breakdown = intakeBreakdowns.find(b => b.intakeId === (intake.virtualId || intake.id));
+         const itemAdjustments = breakdown ? breakdown.adjustments : [];
+         const grossAmount = breakdown ? breakdown.gross : (billingWeight * rate);
+         const averageRate = billingWeight > 0 ? (grossAmount / billingWeight) : rate;
+ 
+         return {
+           intakeTransactionId: intake.id,
+           weight: billingWeight,
+           rate: averageRate,
+           amount: grossAmount,
+           adjustments: itemAdjustments
+         };
+       });
+ 
+       // Create new version
+       const newInvoice = await tx.supplierInvoice.create({
+         data: {
+           invoiceNumber: oldInvoice.invoiceNumber,
+           partyId: oldInvoice.partyId,
+           totalGrossValue,
+           totalDeductions,
+           totalAdvances,
+           finalPayableAmount,
+           status: "PENDING",
+           version: oldInvoice.version + 1,
+           lastCalculatedAt: new Date(),
+           items: {
+             create: itemsData.map(item => ({
+               weight: item.weight,
+               rate: item.rate,
+               amount: item.amount,
+               intake: { connect: { id: parseInt(item.intakeTransactionId) } },
+               adjustments: {
+                 create: (item.adjustments || []).map(adj => ({
+                   adjustmentType: adj.adjustmentType,
+                   method: adj.method,
+                   value: adj.value,
+                   calculatedAmount: adj.calculatedAmount,
+                   direction: adj.direction,
+                   unit: adj.unit || null
+                 }))
+               }
+             }))
+           },
+           advances: {
+             connect: advanceIds.map(id => ({ id: parseInt(id) }))
+           }
+         },
+         include: {
+           items: {
+             include: {
+               intake: { include: { product: true } },
+               adjustments: true
+             }
+           },
+           advances: true,
+           party: true
+         }
+       });
+ 
+       // Mark sales tracks as settled
+       await tx.salesTrack.updateMany({
+         where: {
+           intakeTransactionId: { in: intakeIds },
+           isSettled: false
+         },
+         data: {
+           isSettled: true
+         }
+       });
+ 
+       return newInvoice;
+     });
 
       await emitActivity({
         entityType: "SETTLEMENT",
@@ -263,11 +355,36 @@ export class SupplierInvoiceService {
         data: { status: "SUPERSEDED", isOutdated: true }
       });
 
+      // 1.5 Reset old sales tracks to unsettled so they can be re-fetched if selected
+      const oldIntakeIds = oldInvoice.items.map(item => item.intakeTransactionId);
+      await tx.salesTrack.updateMany({
+        where: {
+          intakeTransactionId: { in: oldIntakeIds },
+          isSettled: true
+        },
+        data: {
+          isSettled: false
+        }
+      });
+
       // 2. Fetch fresh event records
+      const parsedNewIntakeIds = Array.from(new Set(newIntakeIds.map(id => {
+        const str = String(id);
+        if (str.includes("-track-")) {
+          return parseInt(str.split("-track-")[0]);
+        }
+        return parseInt(str);
+      })));
+
       const [intakes, advances] = await Promise.all([
         tx.intakeTransaction.findMany({
-          where: { id: { in: newIntakeIds.map(id => parseInt(id)) } },
-          include: { product: true, salesTracks: true }
+          where: { id: { in: parsedNewIntakeIds } },
+          include: { 
+            product: true,
+            salesTracks: {
+              where: { isSettled: false }
+            }
+          }
         }),
         tx.intakeAdvance.findMany({
           where: { id: { in: newAdvanceIds.map(id => parseInt(id)) } }
@@ -276,10 +393,36 @@ export class SupplierInvoiceService {
 
       if (intakes.length === 0) throw new Error("No intakes selected");
 
+      // Decompose intakes into separate portion rows
+      const decomposedIntakes = [];
+      intakes.forEach(intake => {
+        const tracksToSettle = (intake.salesTracks || []).filter(t => !t.isSettled);
+        if (tracksToSettle.length > 0) {
+          tracksToSettle.forEach(track => {
+            const virtualId = `${intake.id}-track-${track.id}`;
+            if (newIntakeIds.includes(virtualId)) {
+              decomposedIntakes.push({
+                ...intake,
+                virtualId,
+                grossWeight: Number(track.quantity),
+                netWeight: Number(track.netWeight || track.quantity),
+                rate: Number(track.sellingRate),
+                rateUnit: track.rateUnit || "KG",
+                salesTracks: [track]
+              });
+            }
+          });
+        } else {
+          if (newIntakeIds.includes(String(intake.id))) {
+            decomposedIntakes.push(intake);
+          }
+        }
+      });
+
       // 3. Map adjustments and recalculate
-      const intakesWithAdjustments = intakes.map(intake => ({
+      const intakesWithAdjustments = decomposedIntakes.map(intake => ({
         ...intake,
-        adjustments: newAdjustmentsByIntake[intake.id] || []
+        adjustments: newAdjustmentsByIntake[intake.virtualId] || newAdjustmentsByIntake[intake.id] || []
       }));
 
       const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(intakesWithAdjustments);
@@ -287,7 +430,7 @@ export class SupplierInvoiceService {
       const finalPayableAmount = netValue - totalAdvances;
 
       // 4. Prepare item snapshots
-      const itemsData = intakes.map(intake => {
+      const itemsData = decomposedIntakes.map(intake => {
         let billingWeight = 0;
         if (intake.salesTracks && intake.salesTracks.length > 0) {
           billingWeight = intake.salesTracks.reduce((sum, track) => sum + Number(track.quantity || 0), 0);
@@ -297,7 +440,7 @@ export class SupplierInvoiceService {
         const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
         const rate = actualRate ? Number(actualRate) : 0;
         
-        const breakdown = intakeBreakdowns.find(b => b.intakeId === intake.id);
+        const breakdown = intakeBreakdowns.find(b => b.intakeId === (intake.virtualId || intake.id));
         const itemAdjustments = breakdown ? breakdown.adjustments : [];
         const grossAmount = breakdown ? breakdown.gross : (billingWeight * rate);
         const averageRate = billingWeight > 0 ? (grossAmount / billingWeight) : rate;
@@ -364,29 +507,32 @@ export class SupplierInvoiceService {
         }
       });
 
-      // Reset old sales tracks to unsettled
-      const oldIntakeIds = oldInvoice.items.map(item => item.intakeTransactionId);
-      await tx.salesTrack.updateMany({
-        where: {
-          intakeTransactionId: { in: oldIntakeIds },
-          isSettled: true
-        },
-        data: {
-          isSettled: false
-        }
-      });
-
       // Mark new sales tracks as settled
-      const newIntakeIdsParsed = newIntakeIds.map(id => parseInt(id));
-      await tx.salesTrack.updateMany({
-        where: {
-          intakeTransactionId: { in: newIntakeIdsParsed },
-          isSettled: false
-        },
-        data: {
-          isSettled: true
-        }
-      });
+      const newSelectedTrackIds = newIntakeIds
+        .filter(id => String(id).includes("-track-"))
+        .map(id => parseInt(String(id).split("-track-")[1]));
+
+      if (newSelectedTrackIds.length > 0) {
+        await tx.salesTrack.updateMany({
+          where: {
+            id: { in: newSelectedTrackIds }
+          },
+          data: {
+            isSettled: true
+          }
+        });
+      } else {
+        const newIntakeIdsParsed = newIntakeIds.map(id => parseInt(id));
+        await tx.salesTrack.updateMany({
+          where: {
+            intakeTransactionId: { in: newIntakeIdsParsed },
+            isSettled: false
+          },
+          data: {
+            isSettled: true
+          }
+        });
+      }
 
       return newInvoice;
     });

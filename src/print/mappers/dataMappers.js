@@ -112,7 +112,7 @@ export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summar
     },
     
     items: (invoice.items || []).map(item => {
-      const breakdown = intakeBreakdowns.find(b => b.intakeId === item.intakeTransactionId) || {
+      const breakdown = intakeBreakdowns.find(b => b.intakeId === item.id) || {
         net: Number(item.amount),
         adjustments: []
       };

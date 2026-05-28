@@ -114,11 +114,10 @@ for (const intake of activeIntakes) {
 }
 ```
 
-### 3. Supplier Settlement Calculations (`SupplierInvoiceService`)
-To generate correct financial settlements when multiple partial sales occur at different rates:
-*   **Supplier Invoice Item Amount**: Rather than calculating the amount using the intake-level rate, the system aggregates the actual sold values from `SalesTrack` records: `grossAmount = SUM(SalesTrack.baseAmount)`.
-*   **Supplier Invoice Item Rate**: Shows the calculated average rate of all sales tracks for the intake: `averageRate = grossAmount / netWeight` (falls back to the original rate if not sold).
-*   This allows a `10 MND` intake sold as `5 MND @ Rs. 4,000` + `5 MND @ Rs. 4,500` to correctly yield a total gross value of `Rs. 42,500` without any weighted-average rate rewrites.
+### 3. Supplier Settlement Calculations (`SupplierInvoiceService` & Print Subsytem)
+To generate correct financial settlements when multiple partial sales occur at different rates, the system implements **Atomic Decomposed Portion Settlements**:
+*   **Unique Item Calculation Snapshots**: To prevent deductions and net amounts from averaging/aggregating over the same intake ID, the detail and printing subsystems (`[id]/page.js` and `dataMappers.js`) compute breakdowns using the unique `item.id` as the lookup key instead of the intake transaction ID. This ensures each portion has separate, clear deduction line-items.
+*   **Selective `isSettled` State Updates**: During invoice creation and editing, only the specifically selected portion track IDs (`selectedTrackIds`) are marked as `isSettled = true`. Any unselected or remaining portion tracks of the same intake remain open (`isSettled = false`) and pending for subsequent settlements.
 
 ---
 
@@ -136,11 +135,11 @@ Located in [IntakeListClient.js](file:///d:/Projects/Next%20JS/src/app/intake/In
 *   Renders a distinct, custom **`PARTIAL`** status badge with high-contrast purple theme.
 *   Groups partially sold intakes within the **"Sold"** tab counts and filter views to prevent cluttered dashboard navigation.
 
-### 3. Supplier Settlement Picker (`InvoiceGenerator.js`)
+### 3. Supplier Settlement Decomposed Selector (`InvoiceGenerator.js`)
 Located in [InvoiceGenerator.js](file:///d:/Projects/Next%20JS/src/app/supplier-invoices/create/InvoiceGenerator.js):
-*   Renders the uninvoiced selector showing both fully sold and partially sold intakes eligible for invoicing.
-*   Renders **`PARTIAL`** status tags next to partial intakes.
-*   Visually displays the ratio of remaining weight to gross weight (e.g., `500 (1,000 gross) KG`) for full clarity during clearing.
+*   **Virtualized Portions List**: The picker decomposes any partially sold intakes into individual **selectable portion cards** (indexed via a structured virtual ID string `${intake.id}-track-${track.id}`).
+*   **Pristine UI Labels**: Renders the new **`PARTIAL`** badge exclusively for actual split/portion rows (with double negation check `!!isPartial` to avoid React co-evaluation text artifacts). Generic default strings (like `"PORTION SALE"`) are completely eliminated, falling back to clean `null` representation unless a specific buyer name is defined.
+*   **Draft Reconstruction**: Reconstructs simulated portions during edit-mode draft parsing to support a unified, symmetric rendering path between creation and edits.
 
 ---
 

@@ -32,7 +32,10 @@ export class SupplierInvoiceRepository {
         items: { 
           include: { 
             intake: { 
-              include: { product: true } 
+              include: { 
+                product: true,
+                salesTracks: true
+              } 
             },
             adjustments: true
           } 
@@ -42,7 +45,7 @@ export class SupplierInvoiceRepository {
     });
   }
 
-  static async createWithItems(invoiceData, itemsData, advanceIds) {
+  static async createWithItems(invoiceData, itemsData, advanceIds, selectedTrackIds = []) {
     return prisma.$transaction(async (tx) => {
       const invoice = await tx.supplierInvoice.create({
         data: {
@@ -81,16 +84,27 @@ export class SupplierInvoiceRepository {
         }
       });
 
-      const intakeIds = itemsData.map(item => parseInt(item.intakeTransactionId));
-      await tx.salesTrack.updateMany({
-        where: {
-          intakeTransactionId: { in: intakeIds },
-          isSettled: false
-        },
-        data: {
-          isSettled: true
-        }
-      });
+      if (selectedTrackIds && selectedTrackIds.length > 0) {
+        await tx.salesTrack.updateMany({
+          where: {
+            id: { in: selectedTrackIds }
+          },
+          data: {
+            isSettled: true
+          }
+        });
+      } else {
+        const intakeIds = itemsData.map(item => parseInt(item.intakeTransactionId));
+        await tx.salesTrack.updateMany({
+          where: {
+            intakeTransactionId: { in: intakeIds },
+            isSettled: false
+          },
+          data: {
+            isSettled: true
+          }
+        });
+      }
 
       return invoice;
     });

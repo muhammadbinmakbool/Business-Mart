@@ -33,7 +33,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
   const { intakeBreakdowns } = calculateSupplierDeductions(
     invoice.items.map(item => ({
       ...item.intake,
-      id: item.intakeTransactionId,
+      id: item.id,
       netWeight: Number(item.weight),
       rate: Number(item.rate),
       adjustments: (item.adjustments || []).map(adj => ({

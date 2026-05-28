@@ -96,11 +96,7 @@ export class IntakeRepository {
       },
       include: { 
         product: true,
-        salesTracks: {
-          where: {
-            isSettled: false
-          }
-        }
+        salesTracks: true
       }
     });
   }
