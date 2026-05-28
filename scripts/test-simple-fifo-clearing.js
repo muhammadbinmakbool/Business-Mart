@@ -30,7 +30,7 @@ async function runTest() {
       baseAmount: 10000,
       totalAdjustments: 0,
       finalAmount: 10000,
-      status: "COMPLETED",
+      status: "PENDING",
       paymentStatus: "PENDING"
     }
   });
@@ -44,7 +44,7 @@ async function runTest() {
       baseAmount: 5000,
       totalAdjustments: 0,
       finalAmount: 5000,
-      status: "COMPLETED",
+      status: "PENDING",
       paymentStatus: "PENDING"
     }
   });
@@ -65,15 +65,15 @@ async function runTest() {
 
   console.log("\nAsserting database state...");
   
-  if (Number(updatedSale1.paidAmount) !== 10000 || updatedSale1.paymentStatus !== "CLEARED") {
-    throw new Error(`Sale 1 FIFO failed! Expected Rs. 10000 & CLEARED. Got Rs. ${updatedSale1.paidAmount} & ${updatedSale1.paymentStatus}`);
+  if (Number(updatedSale1.paidAmount) !== 10000 || updatedSale1.paymentStatus !== "CLEARED" || updatedSale1.status !== "COMPLETED") {
+    throw new Error(`Sale 1 FIFO failed! Expected Rs. 10000, CLEARED, status COMPLETED. Got Rs. ${updatedSale1.paidAmount}, ${updatedSale1.paymentStatus}, status ${updatedSale1.status}`);
   }
-  console.log("✔ PASS: Sale 1 is CLEARED (Rs. 10,000 / 10,000 paid)");
+  console.log("✔ PASS: Sale 1 is CLEARED & status updated to COMPLETED (Rs. 10,000 / 10,000 paid)");
 
-  if (Number(updatedSale2.paidAmount) !== 2000 || updatedSale2.paymentStatus !== "PARTIAL") {
-    throw new Error(`Sale 2 FIFO failed! Expected Rs. 2000 & PARTIAL. Got Rs. ${updatedSale2.paidAmount} & ${updatedSale2.paymentStatus}`);
+  if (Number(updatedSale2.paidAmount) !== 2000 || updatedSale2.paymentStatus !== "PARTIAL" || updatedSale2.status !== "PENDING") {
+    throw new Error(`Sale 2 FIFO failed! Expected Rs. 2000, PARTIAL, status PENDING. Got Rs. ${updatedSale2.paidAmount}, ${updatedSale2.paymentStatus}, status ${updatedSale2.status}`);
   }
-  console.log("✔ PASS: Sale 2 is PARTIAL (Rs. 2,000 / 5,000 paid)");
+  console.log("✔ PASS: Sale 2 is PARTIAL & status remains PENDING (Rs. 2,000 / 5,000 paid)");
 
   if (Number(result.unallocatedAmount) !== 0) {
     throw new Error(`Unallocated excess failed! Expected Rs. 0. Got Rs. ${result.unallocatedAmount}`);

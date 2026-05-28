@@ -57,12 +57,14 @@ export class PartyInvoiceClearingService {
           remainingPayment -= allocated;
 
           const newPaymentStatus = newPaid >= total ? "CLEARED" : "PARTIAL";
+          const newOverallStatus = newPaid >= total ? "COMPLETED" : "PENDING";
 
           await tx.saleTransaction.update({
             where: { id: sale.id },
             data: {
               paidAmount: newPaid,
-              paymentStatus: newPaymentStatus
+              paymentStatus: newPaymentStatus,
+              status: newOverallStatus
             }
           });
 
@@ -104,12 +106,14 @@ export class PartyInvoiceClearingService {
           remainingPayment -= allocated;
 
           const newPaymentStatus = newPaid >= total ? "CLEARED" : "PARTIAL";
+          const newOverallStatus = newPaid >= total ? "COMPLETED" : "PENDING";
 
           await tx.supplierInvoice.update({
             where: { id: inv.id },
             data: {
               paidAmount: newPaid,
-              paymentStatus: newPaymentStatus
+              paymentStatus: newPaymentStatus,
+              status: newOverallStatus
             }
           });
 
