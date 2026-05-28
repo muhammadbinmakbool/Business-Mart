@@ -71,7 +71,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
   });
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-20">
+    <div className="max-w-5xl mx-auto space-y-8 pb-20">
       <ResponsiveHeader
         backUrl="/supplier-invoices"
         title={
@@ -132,7 +132,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Invoiced Items & Billing Adjustments Summary stacked naturally (lg:col-span-2) */}
+        {/* Left Column: Invoiced Items, Billing Adjustments Summary & Advances stacked naturally (lg:col-span-2) */}
         <div className="lg:col-span-2 space-y-6">
           {/* 1. Invoiced Items card (dynamic height h-fit) */}
           <div className="lg:col-span-2 rounded-xl border bg-card shadow-sm overflow-hidden h-fit">
@@ -229,16 +229,12 @@ export default async function SupplierInvoiceDetailPage({ params }) {
               )}
             </div>
           </div>
-        </div>
 
-        {/* Right Column: Unified Sidebar Card & Advances/Meta stacked naturally (lg:col-span-1) */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* 1. Unified Sidebar Card */}
-          <SupplierPaymentCard invoice={invoice} />
-
-          {/* 2. Advances Adjusted Card */}
+          {/* 3. Advances Adjusted Card */}
           <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-            <div className="p-4 border-b bg-muted/30 font-bold uppercase text-[10px] tracking-wider text-muted-foreground">Advances Adjusted</div>
+            <div className="p-4 border-b bg-muted/30 font-bold uppercase text-[10px] tracking-wider text-muted-foreground flex justify-between items-center">
+              <span>Advances Adjusted</span>
+            </div>
             <div className="p-4">
               {invoice.advances.length === 0 ? (
                 <div className="text-sm text-muted-foreground italic">No advances adjusted in this invoice.</div>
@@ -257,8 +253,14 @@ export default async function SupplierInvoiceDetailPage({ params }) {
               )}
             </div>
           </div>
+        </div>
 
-          {/* 3. Snapshots Version & Meta Info Card */}
+        {/* Right Column: Unified Sidebar Card & Meta Info stacked naturally (lg:col-span-1) */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* 1. Unified Sidebar Card */}
+          <SupplierPaymentCard invoice={invoice} />
+
+          {/* 2. Snapshots Version & Meta Info Card */}
           <div className="rounded-xl border bg-muted/20 p-4 text-[10px] space-y-2 text-muted-foreground">
              <div className="flex justify-between">
                 <span>Created At</span>
