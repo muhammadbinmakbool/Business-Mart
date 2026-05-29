@@ -2,6 +2,7 @@
 
 import { IntakeService } from "../services/IntakeService";
 import { revalidatePath } from "next/cache";
+import { DEFAULT_UNIT } from "@/lib/units";
 
 export async function createIntakeAction(formData) {
   const data = {
@@ -10,7 +11,7 @@ export async function createIntakeAction(formData) {
     entryDate: formData.get("entryDate"),
     bagCount: formData.get("bagCount") || null,
     grossWeight: formData.get("grossWeight"),
-    unit: formData.get("unit") || "KG",
+    unit: formData.get("unit") || DEFAULT_UNIT,
     notes: formData.get("notes") || "",
     newPartyData: formData.get("partyId") === "new" ? {
       name: formData.get("newName"),
@@ -71,12 +72,12 @@ export async function updateIntakeAction(id, formData) {
     entryDate: formData.get("entryDate"),
     bagCount: formData.get("bagCount") || null,
     grossWeight: formData.get("grossWeight"),
-    unit: formData.get("unit") || "KG",
+    unit: formData.get("unit") || DEFAULT_UNIT,
     notes: formData.get("notes") || "",
     status: formData.get("status"),
     buyerPartyId: formData.get("buyerPartyId") || null,
     rate: formData.get("rate") ? Number(formData.get("rate")) : null,
-    rateUnit: formData.get("rateUnit") || "KG",
+    rateUnit: formData.get("rateUnit") || DEFAULT_UNIT,
     Bardana: formData.get("Bardana") ? Number(formData.get("Bardana")) : null,
     Khot: formData.get("Khot") ? Number(formData.get("Khot")) : null,
     netWeight: formData.get("netWeight") ? Number(formData.get("netWeight")) : null,

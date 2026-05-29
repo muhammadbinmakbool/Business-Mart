@@ -1,4 +1,4 @@
-import { convertFromBase, convertRate, UNIT_IDS, getUnitLabel } from "./units";
+import { convertFromBase, convertRate, UNIT_IDS, getUnitLabel, DEFAULT_UNIT } from "./units";
 
 export const PREFERENCE_KEYS = {
   WEIGHT_UNIT: "pref_weight_display_unit",
@@ -10,11 +10,11 @@ export const PREFERENCE_KEYS = {
  * Centralized localStorage abstraction (client-safe).
  */
 export function getPreferredWeightUnit() {
-  if (typeof window === "undefined") return "KG";
+  if (typeof window === "undefined") return DEFAULT_UNIT;
   try {
-    return window.localStorage.getItem(PREFERENCE_KEYS.WEIGHT_UNIT) || "KG";
+    return window.localStorage.getItem(PREFERENCE_KEYS.WEIGHT_UNIT) || DEFAULT_UNIT;
   } catch (e) {
-    return "KG";
+    return DEFAULT_UNIT;
   }
 }
 
@@ -23,11 +23,11 @@ export function getPreferredWeightUnit() {
  * Centralized localStorage abstraction (client-safe).
  */
 export function getPreferredRateUnit() {
-  if (typeof window === "undefined") return "KG";
+  if (typeof window === "undefined") return DEFAULT_UNIT;
   try {
-    return window.localStorage.getItem(PREFERENCE_KEYS.RATE_UNIT) || "KG";
+    return window.localStorage.getItem(PREFERENCE_KEYS.RATE_UNIT) || DEFAULT_UNIT;
   } catch (e) {
-    return "KG";
+    return DEFAULT_UNIT;
   }
 }
 

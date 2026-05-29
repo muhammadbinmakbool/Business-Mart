@@ -56,3 +56,47 @@ If you modify a category's base unit (for example, setting the weight category's
 > **Co-dependency Rule**: If you change a category's base unit in `BASE_UNITS`, you **must** update the corresponding unit registry definitions in `UNITS` so that:
 > - The new base unit has `factor: 1`.
 > - All other units in the same category have their factors scaled relative to the new base unit.
+
+---
+
+## 3. Centralized Unit Identifiers (`UNIT_IDS`)
+
+To eliminate magic string duplication and hardcoded bugs, all structural code references to unit identifiers must consume the type-safe `UNIT_IDS` constant defined in `src/lib/units.js`:
+
+```javascript
+export const UNIT_IDS = {
+  KG: "KG",
+  MAUND: "MAUND",
+  BAG: "BAG",
+  // ...other registered units
+};
+```
+
+Developers must NEVER use raw strings like `"MAUND"`, `"MND"`, or `"KG"` in listing/detail views, database controllers, schema definitions, print subsystems, or service layers. Instead, import `UNIT_IDS` or use the localized formatting helpers:
+- **Presentation Display**: Use `getUnitLabel(unitCode)` to render human-readable local representations.
+- **Calculations & Compatibility**: Reference `UNIT_IDS.KG` or `UNIT_IDS.MAUND` directly to verify categories and bounds.
+
+---
+
+## 4. Centralized Fallback Strategy (`DEFAULT_UNIT`)
+
+The registry exports a centralized `DEFAULT_UNIT` identifier to provide single-point configuration for fallback preferences:
+
+```javascript
+export const DEFAULT_UNIT = UNIT_IDS.KG;
+```
+
+### Fallback Implementation Pattern
+
+Whenever a unit is optional or could evaluate to `null` / `undefined` (e.g. historical inputs, preferences, adjustment rates, or optional schemas), developers must use `DEFAULT_UNIT` as the fallback boundary instead of hardcoding default strings:
+
+```javascript
+// [INCORRECT] Hardcoded fallback string
+const unit = item.unit || "KG";
+
+// [CORRECT] Single-point configurable default fallback
+import { DEFAULT_UNIT } from "@/lib/units";
+const unit = item.unit || DEFAULT_UNIT;
+```
+
+This ensures that the entire system's default unit behavior can be adjusted globally by modifying a single constant.

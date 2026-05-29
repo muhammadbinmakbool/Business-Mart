@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_UNIT } from "@/lib/units";
 
 export class SalesTrackService {
   /**
@@ -120,7 +121,7 @@ export class SalesTrackService {
       sellingRate: track.sellingRate ? Number(track.sellingRate) : null,
       netWeight: track.netWeight ? Number(track.netWeight) : null,
       baseAmount: track.baseAmount ? Number(track.baseAmount) : null,
-      rateUnit: track.rateUnit || "KG",
+      rateUnit: track.rateUnit || DEFAULT_UNIT,
       isBilled: track.isBilled,
       isSettled: track.isSettled,
       notes: track.notes,
@@ -134,7 +135,7 @@ export class SalesTrackService {
         productId: track.intakeTransaction.productId,
         bagCount: track.intakeTransaction.bagCount,
         rate: track.intakeTransaction.rate ? Number(track.intakeTransaction.rate) : null,
-        rateUnit: track.intakeTransaction.rateUnit || "KG",
+        rateUnit: track.intakeTransaction.rateUnit || DEFAULT_UNIT,
         grossWeight: Number(track.intakeTransaction.grossWeight),
         unit: track.intakeTransaction.unit,
         normalizedWeight: Number(track.intakeTransaction.normalizedWeight),

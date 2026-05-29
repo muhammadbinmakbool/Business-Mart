@@ -1,7 +1,7 @@
 import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceRepository";
 import { calculateSupplierDeductions, calculateInvoiceClearingState } from "@/lib/financial";
 import { prisma } from "@/lib/prisma";
-import { convertRate } from "@/lib/units";
+import { convertRate, DEFAULT_UNIT } from "@/lib/units";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 
 
@@ -50,7 +50,7 @@ export class SupplierInvoiceService {
               grossWeight: Number(track.quantity),
               netWeight: Number(track.netWeight || track.quantity),
               rate: Number(track.sellingRate),
-              rateUnit: track.rateUnit || "KG",
+              rateUnit: track.rateUnit || DEFAULT_UNIT,
               salesTracks: [track]
             });
           }
@@ -80,7 +80,7 @@ export class SupplierInvoiceService {
       } else {
         billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
       }
-      const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+      const actualRate = convertRate(intake.rate, intake.rateUnit || DEFAULT_UNIT, intake.unit || DEFAULT_UNIT, intake.product);
       const rate = actualRate ? Number(actualRate) : 0;
       
       const breakdown = intakeBreakdowns.find(b => b.intakeId === (intake.virtualId || intake.id));
@@ -210,7 +210,7 @@ export class SupplierInvoiceService {
                grossWeight: Number(track.quantity),
                netWeight: Number(track.netWeight || track.quantity),
                rate: Number(track.sellingRate),
-               rateUnit: track.rateUnit || "KG",
+               rateUnit: track.rateUnit || DEFAULT_UNIT,
                salesTracks: [track]
              });
            });
@@ -237,7 +237,7 @@ export class SupplierInvoiceService {
          } else {
            billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
          }
-         const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+         const actualRate = convertRate(intake.rate, intake.rateUnit || DEFAULT_UNIT, intake.unit || DEFAULT_UNIT, intake.product);
          const rate = actualRate ? Number(actualRate) : 0;
          
          const breakdown = intakeBreakdowns.find(b => b.intakeId === (intake.virtualId || intake.id));
@@ -407,7 +407,7 @@ export class SupplierInvoiceService {
                 grossWeight: Number(track.quantity),
                 netWeight: Number(track.netWeight || track.quantity),
                 rate: Number(track.sellingRate),
-                rateUnit: track.rateUnit || "KG",
+                rateUnit: track.rateUnit || DEFAULT_UNIT,
                 salesTracks: [track]
               });
             }
@@ -437,7 +437,7 @@ export class SupplierInvoiceService {
         } else {
           billingWeight = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
         }
-        const actualRate = convertRate(intake.rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+        const actualRate = convertRate(intake.rate, intake.rateUnit || DEFAULT_UNIT, intake.unit || DEFAULT_UNIT, intake.product);
         const rate = actualRate ? Number(actualRate) : 0;
         
         const breakdown = intakeBreakdowns.find(b => b.intakeId === (intake.virtualId || intake.id));

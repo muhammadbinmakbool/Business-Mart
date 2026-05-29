@@ -1,6 +1,6 @@
 // Print Subsystem Data Mappers
 import { format } from "date-fns";
-import { UNIT_IDS } from "@/lib/units";
+import { UNIT_IDS, DEFAULT_UNIT } from "@/lib/units";
 
 /**
  * Maps a Prisma Intake record to a print-ready model.
@@ -28,7 +28,7 @@ export function mapIntakeToPrintModel(intake) {
     },
     
     grossWeight: Number(intake.grossWeight || 0).toLocaleString(),
-    unit: intake.unit || "KG",
+    unit: intake.unit || DEFAULT_UNIT,
     bagCount: intake.bagCount ? Number(intake.bagCount).toLocaleString() : null,
     
     isSold,
@@ -40,7 +40,7 @@ export function mapIntakeToPrintModel(intake) {
     soldDetails: isSold && track ? {
       netWeight: Number(track.quantity).toLocaleString(),
       rate: Number(track.sellingRate).toLocaleString(),
-      rateUnit: intake.rateUnit || "KG",
+      rateUnit: intake.rateUnit || DEFAULT_UNIT,
       bardanaWeight: Number(intake.Bardana || 0).toLocaleString(),
       khotWeight: Number(intake.Khot || 0).toLocaleString(),
       baseAmount: Number(track.quantity * track.sellingRate).toLocaleString()
@@ -69,9 +69,9 @@ export function mapSaleToPrintModel(sale) {
       id: item.id,
       productName: item.product?.name || "N/A",
       weight: Number(item.weight).toLocaleString(),
-      unit: item.unit === UNIT_IDS.MAUND ? "MND" : item.unit || "KG",
+      unit: item.unit === UNIT_IDS.MAUND ? "MND" : item.unit || DEFAULT_UNIT,
       rate: Number(item.rate).toLocaleString(),
-      rateUnit: item.rateUnit === UNIT_IDS.MAUND ? "MND" : item.rateUnit || "KG",
+      rateUnit: item.rateUnit === UNIT_IDS.MAUND ? "MND" : item.rateUnit || DEFAULT_UNIT,
       amount: Number(item.amount).toLocaleString()
     })),
     
@@ -79,7 +79,7 @@ export function mapSaleToPrintModel(sale) {
       id: adj.id,
       type: adj.adjustmentType,
       method: adj.method === "PERCENTAGE" ? `${adj.value}% of Base` : 
-              adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per ${adj.unit || "KG"}` : 
+              adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per ${adj.unit || DEFAULT_UNIT}` : 
               `Fixed Rs. ${adj.value}`,
       direction: adj.direction,
       amount: Number(adj.calculatedAmount).toLocaleString()
@@ -123,15 +123,15 @@ export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summar
         productName: item.intake?.product?.name || "N/A",
         intakeNumber: item.intake?.intakeNumber || `INT-${item.intakeTransactionId}`,
         weight: Number(item.weight).toLocaleString(),
-        unit: item.intake?.unit || "KG",
+        unit: item.intake?.unit || DEFAULT_UNIT,
         rate: Number(item.rate).toLocaleString(),
-        rateUnit: item.intake?.rateUnit || "KG",
+        rateUnit: item.intake?.rateUnit || DEFAULT_UNIT,
         grossAmount: Number(item.amount).toLocaleString(),
         netAmount: Number(breakdown.net).toLocaleString(),
         adjustments: (breakdown.adjustments || []).map(adj => ({
           type: adj.adjustmentType,
           description: adj.method === "PERCENTAGE" ? `${adj.value}%` : 
-                       adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/${adj.unit || "KG"}` : 
+                       adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/${adj.unit || DEFAULT_UNIT}` : 
                        `Fixed`,
           direction: adj.direction,
           amount: Number(adj.calculatedAmount).toLocaleString()
@@ -142,7 +142,7 @@ export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summar
     adjustmentsSummary: summaryAdjustments.map(adj => ({
       type: adj.adjustmentType,
       rule: adj.method === "PERCENTAGE" ? `${adj.value}%` : 
-            adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per ${adj.unit || "KG"}` : 
+            adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per ${adj.unit || DEFAULT_UNIT}` : 
             `Fixed Rs. ${adj.value}`,
       direction: adj.direction,
       amount: Number(adj.calculatedAmount).toLocaleString()

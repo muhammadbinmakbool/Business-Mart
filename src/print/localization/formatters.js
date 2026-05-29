@@ -1,5 +1,5 @@
 import { PRINT_CONFIG } from "../theme/printConfig";
-import { UNIT_IDS } from "@/lib/units";
+import { UNIT_IDS, DEFAULT_UNIT } from "@/lib/units";
 
 /**
  * Format currency with default symbol and local number formatting.
@@ -22,7 +22,7 @@ export function formatCurrency(amount, locale = "en") {
 /**
  * Format weights based on the unit and locale (translating unit tags like MAUND or KG).
  */
-export function formatWeight(weight, unit = "KG", locale = "en") {
+export function formatWeight(weight, unit = DEFAULT_UNIT, locale = "en") {
   const num = typeof weight === "string" ? parseFloat(weight.replace(/,/g, "")) : weight;
   
   if ((unit === UNIT_IDS.MAUND || unit === "MND") && !isNaN(num)) {
@@ -42,7 +42,7 @@ export function formatWeight(weight, unit = "KG", locale = "en") {
   let translatedUnit = unit;
   if (locale === "ur") {
     if (unit === UNIT_IDS.MAUND || unit === "MND") translatedUnit = "من";
-    else if (unit === "KG") translatedUnit = "کلو";
+    else if (unit === UNIT_IDS.KG) translatedUnit = "کلو";
   } else {
     if (unit === UNIT_IDS.MAUND) translatedUnit = "MND";
   }

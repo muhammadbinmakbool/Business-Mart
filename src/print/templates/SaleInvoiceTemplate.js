@@ -130,7 +130,7 @@ export default function SaleInvoiceTemplate({ data, locale = "en" }) {
               )}
               <div className="flex justify-between items-center text-slate-400 text-[10px] rtl:flex-row-reverse">
                 <span>{t("totalNetWeight", locale)}:</span>
-                <span>{formatWeight(data.totals.totalWeight, "KG", locale)}</span>
+                <span>{formatWeight(data.totals.totalWeight, UNIT_IDS.KG, locale)}</span>
               </div>
               <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 rtl:flex-row-reverse">
                 <span className="font-bold text-slate-800">{t("finalInvTotal", locale)}:</span>

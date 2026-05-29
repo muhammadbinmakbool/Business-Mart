@@ -2,6 +2,7 @@ import { MarketInsightRepository } from "../repositories/MarketInsightRepository
 import { marketInsightSchema } from "../validations/marketInsightSchema";
 import { prisma } from "@/lib/prisma";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { DEFAULT_UNIT } from "@/lib/units";
 
 export class MarketInsightService {
   /**
@@ -20,8 +21,8 @@ export class MarketInsightService {
       throw new Error(`Product with ID ${data.productId} does not exist`);
     }
 
-    // 2. Fallback to product primary unit or "KG"
-    const unit = data.unit || product.primaryUnit || "KG";
+    // 2. Fallback to product primary unit or default unit
+    const unit = data.unit || product.primaryUnit || DEFAULT_UNIT;
 
     // 3. Validate entry using Zod schema
     const validated = marketInsightSchema.parse({

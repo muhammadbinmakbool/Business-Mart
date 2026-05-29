@@ -6,7 +6,7 @@ import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
 import { prisma } from "@/lib/prisma";
-import { convertRate } from "@/lib/units";
+import { convertRate, DEFAULT_UNIT } from "@/lib/units";
 import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 import { calculateIntakeState } from "@/lib/financial";
@@ -24,7 +24,7 @@ export class IntakeService {
       Khot: intake.Khot ? Number(intake.Khot) : null,
       normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
-      rateUnit: intake.rateUnit || "KG",
+      rateUnit: intake.rateUnit || DEFAULT_UNIT,
       product: intake.product ? {
         ...intake.product,
         quantity: Number(intake.product.quantity),
@@ -47,7 +47,7 @@ export class IntakeService {
       Khot: intake.Khot ? Number(intake.Khot) : null,
       normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
-      rateUnit: intake.rateUnit || "KG",
+      rateUnit: intake.rateUnit || DEFAULT_UNIT,
       product: intake.product ? {
         ...intake.product,
         quantity: Number(intake.product.quantity),
@@ -100,7 +100,7 @@ export class IntakeService {
     const product = await ProductService.getProduct(validated.productId);
     if (!product) throw new Error("Product not found");
     
-    const normalizedWeight = UnitService.getNormalizedQuantity(validated.grossWeight, validated.unit || "KG", product);
+    const normalizedWeight = UnitService.getNormalizedQuantity(validated.grossWeight, validated.unit || DEFAULT_UNIT, product);
     
     const intake = await prisma.$transaction(async (tx) => {
       // 1. Get next number
@@ -118,10 +118,10 @@ export class IntakeService {
           netWeight: validated.netWeight ?? null,
           Bardana: validated.Bardana ?? null,
           Khot: validated.Khot ?? null,
-          unit: validated.unit || "KG",
+          unit: validated.unit || DEFAULT_UNIT,
           normalizedWeight,
           rate: validated.rate ?? null,
-          rateUnit: validated.rateUnit || "KG",
+          rateUnit: validated.rateUnit || DEFAULT_UNIT,
           notes: validated.notes,
           status: validated.status || "PENDING",
           entryDate: validated.entryDate,
@@ -227,7 +227,7 @@ export class IntakeService {
         const soldWeight = oldGross - (current.remainingWeight !== null ? Number(current.remainingWeight) : oldGross);
 
         if (newGross < soldWeight) {
-          throw new Error(`Gross weight cannot be less than the already sold weight of ${soldWeight} ${current.unit || "KG"}.`);
+          throw new Error(`Gross weight cannot be less than the already sold weight of ${soldWeight} ${current.unit || DEFAULT_UNIT}.`);
         }
 
         if (current.status === "PENDING") {
@@ -247,7 +247,7 @@ export class IntakeService {
         : current.rate;
       const finalSupplierRateUnit = validated.rateUnit !== undefined && validated.rateUnit !== null
         ? validated.rateUnit
-        : current.rateUnit || "KG";
+        : current.rateUnit || DEFAULT_UNIT;
 
       const finalSalesTrackRate = validated.rate !== undefined && validated.rate !== null
         ? validated.rate
@@ -290,7 +290,7 @@ export class IntakeService {
           ? Number(updated.netWeight) 
           : Number(updated.grossWeight);
         const quantityInKg = UnitService.getNormalizedQuantity(weightForTotal, updated.unit, product);
-        const actualRate = convertRate(updated.rate, updated.rateUnit || "KG", updated.unit || "KG", product);
+        const actualRate = convertRate(updated.rate, updated.rateUnit || DEFAULT_UNIT, updated.unit || DEFAULT_UNIT, product);
         const rateForTotal = actualRate ? Number(actualRate) : 0;
         const baseAmount = weightForTotal * rateForTotal;
 
@@ -368,7 +368,7 @@ export class IntakeService {
       Khot: intake.Khot ? Number(intake.Khot) : null,
       normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
-      rateUnit: intake.rateUnit || "KG",
+      rateUnit: intake.rateUnit || DEFAULT_UNIT,
       product: intake.product ? {
         ...intake.product,
         quantity: Number(intake.product.quantity),
@@ -389,7 +389,7 @@ export class IntakeService {
     const intakeId = parseInt(id);
     const buyerPartyId = parseInt(data.buyerPartyId);
     const rate = Number(data.rate);
-    const rateUnit = data.rateUnit || "KG";
+    const rateUnit = data.rateUnit || DEFAULT_UNIT;
     const Bardana = Number(data.Bardana) || 0;
     const Khot = Number(data.Khot) || 0;
     const netWeight = Number(data.netWeight) || 0;
