@@ -15,7 +15,9 @@ import {
   DollarSign, 
   Package, 
   ShieldCheck, 
-  ShieldAlert
+  ShieldAlert,
+  Wallet,
+  Banknote
 } from "lucide-react";
 import { 
   DailyActivityChart, 
@@ -59,8 +61,8 @@ export function QuickActionsWidget() {
     { title: "New Sale", desc: "Create a customer invoice", href: "/sales/create", icon: FileText, color: "text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/40 border-violet-100 dark:border-violet-900" },
     { title: "New Settlement", desc: "Settle supplier balances", href: "/supplier-invoices/create", icon: DollarSign, color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border-amber-100 dark:border-amber-900" },
     { title: "New Product", desc: "Register an inventory item", href: "/products/create", icon: Package, color: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900" },
-    { title: "Open Ledger", desc: "Audit and reconcile balances", href: "/ledger", icon: BookOpen, color: "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border-indigo-100 dark:border-indigo-900" },
-    { title: "Market Insight", desc: "Review price fluctuation logs", href: "/market-insight", icon: TrendingUp, color: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-rose-100 dark:border-rose-900" },
+    { title: "Quick Payment", desc: "Sequential collection or payout", href: "/parties", icon: Wallet, color: "text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border-indigo-100 dark:border-indigo-900" },
+    { title: "New Advance", desc: "Issue supplier cash advance", href: "/advances/create", icon: Banknote, color: "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-rose-100 dark:border-rose-900" },
   ];
 
   return (
