@@ -70,7 +70,8 @@ export class PartyProfileService {
       id: a.id,
       amount: Number(a.amount || 0),
       notes: a.notes,
-      createdAt: a.createdAt
+      createdAt: a.createdAt,
+      supplierInvoiceId: a.supplierInvoiceId
     }));
 
     // Financial Sums
@@ -79,15 +80,18 @@ export class PartyProfileService {
     const totalSalesRemaining = sales.reduce((sum, s) => sum + s.remainingAmount, 0);
 
     const totalAdvances = advances.reduce((sum, a) => sum + a.amount, 0);
+    const unadjustedAdvances = advances
+      .filter(a => a.supplierInvoiceId === null)
+      .reduce((sum, a) => sum + a.amount, 0);
 
     const totalSupplierPayable = settlements.reduce((sum, s) => sum + s.finalPayableAmount, 0);
     const totalSupplierPaid = settlements.reduce((sum, s) => sum + s.allocatedAmount, 0);
     const totalSupplierRemaining = settlements.reduce((sum, s) => sum + s.remainingAmount, 0);
 
-    // net official balance: (Outstanding Sales Debt + Advances DR) - (Outstanding Supplier Payable)
+    // net official balance: (Outstanding Sales Debt + Unadjusted Advances DR) - (Outstanding Supplier Payable)
     // If positive: Party owes us money (DR)
     // If negative: We owe party money (CR)
-    const officialBalance = (totalSalesRemaining + totalAdvances) - totalSupplierRemaining;
+    const officialBalance = (totalSalesRemaining + unadjustedAdvances) - totalSupplierRemaining;
 
     // Timeline Events: compiles chronological list of business transactions
     const timelineEvents = [];
@@ -118,7 +122,7 @@ export class PartyProfileService {
         ref: inv.invoiceNumber,
         description: `Supplier invoice generated`,
         debit: 0,
-        credit: inv.finalPayableAmount,
+        credit: inv.finalPayableAmount + inv.totalAdvances,
         requiredAmount: inv.finalPayableAmount,
         allocatedAmount: inv.allocatedAmount,
         remainingAmount: inv.remainingAmount,
