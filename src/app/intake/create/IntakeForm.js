@@ -6,7 +6,7 @@ import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getUnitsByCategory, normalizeQuantity, convertFromBase, UNIT_IDS, DEFAULT_UNIT } from "@/lib/units";
+import { getUnitsByCategory, normalizeQuantity, convertFromBase, UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { getPreferredWeightUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
@@ -33,7 +33,7 @@ export default function IntakeForm({ suppliers, products }) {
       const units = getUnitsByCategory(prod.category);
       const prefUnit = getPreferredWeightUnit();
       const isPrefCompatible = units.some(u => u.id === prefUnit);
-      const defaultUnit = isPrefCompatible ? prefUnit : (prod.primaryUnit || DEFAULT_UNIT);
+      const defaultUnit = isPrefCompatible ? prefUnit : (prod.primaryUnit || DEFAULT_WEIGHT_UNIT);
       setSelectedUnit(defaultUnit);
 
       const isProdBag = prod.primaryUnit === UNIT_IDS.BAG && prod.unitConversion && Number(prod.unitConversion) > 0;

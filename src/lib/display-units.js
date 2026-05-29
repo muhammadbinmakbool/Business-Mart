@@ -1,4 +1,4 @@
-import { convertFromBase, convertRate, UNIT_IDS, getUnitLabel, DEFAULT_UNIT } from "./units";
+import { convertFromBase, convertRate, UNIT_IDS, getUnitLabel, DEFAULT_WEIGHT_UNIT } from "./units";
 
 export const PREFERENCE_KEYS = {
   WEIGHT_UNIT: "pref_weight_display_unit",
@@ -10,11 +10,11 @@ export const PREFERENCE_KEYS = {
  * Centralized localStorage abstraction (client-safe).
  */
 export function getPreferredWeightUnit() {
-  if (typeof window === "undefined") return DEFAULT_UNIT;
+  if (typeof window === "undefined") return DEFAULT_WEIGHT_UNIT;
   try {
-    return window.localStorage.getItem(PREFERENCE_KEYS.WEIGHT_UNIT) || DEFAULT_UNIT;
+    return window.localStorage.getItem(PREFERENCE_KEYS.WEIGHT_UNIT) || DEFAULT_WEIGHT_UNIT;
   } catch (e) {
-    return DEFAULT_UNIT;
+    return DEFAULT_WEIGHT_UNIT;
   }
 }
 
@@ -23,11 +23,11 @@ export function getPreferredWeightUnit() {
  * Centralized localStorage abstraction (client-safe).
  */
 export function getPreferredRateUnit() {
-  if (typeof window === "undefined") return DEFAULT_UNIT;
+  if (typeof window === "undefined") return DEFAULT_WEIGHT_UNIT;
   try {
-    return window.localStorage.getItem(PREFERENCE_KEYS.RATE_UNIT) || DEFAULT_UNIT;
+    return window.localStorage.getItem(PREFERENCE_KEYS.RATE_UNIT) || DEFAULT_WEIGHT_UNIT;
   } catch (e) {
-    return DEFAULT_UNIT;
+    return DEFAULT_WEIGHT_UNIT;
   }
 }
 

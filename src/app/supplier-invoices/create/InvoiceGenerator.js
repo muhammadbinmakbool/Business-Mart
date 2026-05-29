@@ -21,7 +21,7 @@ import { calculateSupplierDeductions } from "@/lib/financial";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ADJUSTMENT_TYPES_SUPPLIER } from "@/lib/constants";
-import { UNIT_IDS, DEFAULT_UNIT } from "@/lib/units";
+import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 
 export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
   const router = useRouter();
@@ -29,14 +29,14 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
 
   const getIntakeDisplayRate = (intake) => {
     let displayRate = Number(intake.rate || 0);
-    let displayRateUnit = intake.rateUnit || DEFAULT_UNIT;
+    let displayRateUnit = intake.rateUnit || DEFAULT_WEIGHT_UNIT;
 
     if ((!displayRate || displayRate === 0) && intake.salesTracks && intake.salesTracks.length > 0) {
       const gross = intake.salesTracks.reduce((sum, track) => sum + Number(track.baseAmount || 0), 0);
       const weightVal = intake.netWeight !== null && intake.netWeight !== undefined ? Number(intake.netWeight) : Number(intake.grossWeight);
       if (weightVal > 0) {
         displayRate = gross / weightVal;
-        displayRateUnit = intake.salesTracks[0].rateUnit || intake.rateUnit || DEFAULT_UNIT;
+        displayRateUnit = intake.salesTracks[0].rateUnit || intake.rateUnit || DEFAULT_WEIGHT_UNIT;
       }
     }
     return { rate: displayRate, rateUnit: displayRateUnit };
@@ -57,7 +57,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
     method: "PERCENTAGE",
     direction: "SUBTRACT",
     value: "",
-    unit: DEFAULT_UNIT
+    unit: DEFAULT_WEIGHT_UNIT
   });
 
   // Group and load initial adjustments if editing

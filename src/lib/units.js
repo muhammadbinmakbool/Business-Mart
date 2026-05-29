@@ -13,7 +13,7 @@ export const UNIT_IDS = {
   BOX: "BOX"
 };
 
-export const DEFAULT_UNIT = UNIT_IDS.KG;
+export const DEFAULT_WEIGHT_UNIT = UNIT_IDS.KG;
 
 export const UNIT_ABBREVIATIONS = {
   [UNIT_IDS.KG]: "KG",

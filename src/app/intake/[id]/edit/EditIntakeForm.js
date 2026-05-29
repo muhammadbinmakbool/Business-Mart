@@ -5,7 +5,7 @@ import { updateIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getUnitsByCategory, calculateIntakeNetWeight, normalizeQuantity, convertFromBase, UNIT_IDS, getUnitLabel, DEFAULT_UNIT } from "@/lib/units";
+import { getUnitsByCategory, calculateIntakeNetWeight, normalizeQuantity, convertFromBase, UNIT_IDS, getUnitLabel, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { Scale, User, DollarSign, Box, X, XCircle } from "lucide-react";
 import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
@@ -17,7 +17,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   // Controlled States
   const [selectedProductId, setSelectedProductId] = useState(intake.productId.toString());
   const [grossWeight, setGrossWeight] = useState(intake.grossWeight || "");
-  const [unit, setUnit] = useState(intake.unit || DEFAULT_UNIT);
+  const [unit, setUnit] = useState(intake.unit || DEFAULT_WEIGHT_UNIT);
   const [bagCount, setBagCount] = useState(intake.bagCount || "");
   const [status, setStatus] = useState(intake.status || "PENDING");
   const [notes, setNotes] = useState(intake.notes || "");
@@ -25,12 +25,12 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   // SOLD calculations states
   const [buyerPartyId, setBuyerPartyId] = useState(intake.salesTracks?.[0]?.buyerPartyId?.toString() || "");
   const [rate, setRate] = useState(intake.rate || "");
-  const [rateUnit, setRateUnit] = useState(intake.rateUnit || DEFAULT_UNIT);
+  const [rateUnit, setRateUnit] = useState(intake.rateUnit || DEFAULT_WEIGHT_UNIT);
   const [bardanaGramPerBag, setBardanaGramPerBag] = useState(
     intake.Bardana && intake.bagCount ? Math.round((Number(intake.Bardana) * 1000) / Number(intake.bagCount)).toString() : "150"
   );
   const [khotRate, setKhotRate] = useState("0");
-  const [khotRateUnit, setKhotRateUnit] = useState(DEFAULT_UNIT);
+  const [khotRateUnit, setKhotRateUnit] = useState(DEFAULT_WEIGHT_UNIT);
 
   // Status Reversion states
   const [showUnbilledConfirmModal, setShowUnbilledConfirmModal] = useState(false);
@@ -67,7 +67,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
       const units = getUnitsByCategory(prod.category);
       const prefUnit = getPreferredWeightUnit();
       const isPrefCompatible = units.some(u => u.id === prefUnit);
-      const defaultUnit = isPrefCompatible ? prefUnit : (prod.primaryUnit || DEFAULT_UNIT);
+      const defaultUnit = isPrefCompatible ? prefUnit : (prod.primaryUnit || DEFAULT_WEIGHT_UNIT);
       setUnit(defaultUnit);
 
       const isProdBag = prod.primaryUnit === UNIT_IDS.BAG && prod.unitConversion && Number(prod.unitConversion) > 0;

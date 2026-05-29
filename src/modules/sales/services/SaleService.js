@@ -7,7 +7,7 @@ import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
 import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
-import { DEFAULT_UNIT } from "@/lib/units";
+import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 
 export class SaleService {
   /**
@@ -39,11 +39,11 @@ export class SaleService {
       const product = await ProductService.getProduct(item.productId);
       if (!product) throw new Error(`Product ${item.productId} not found`);
 
-      const validation = UnitService.validateCompatibility(item.unit || DEFAULT_UNIT, product);
+      const validation = UnitService.validateCompatibility(item.unit || DEFAULT_WEIGHT_UNIT, product);
       if (!validation.valid) throw new Error(validation.error);
 
-      const normalizedQty = UnitService.getNormalizedQuantity(item.weight, item.unit || DEFAULT_UNIT, product);
-      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.rateUnit || DEFAULT_UNIT, product);
+      const normalizedQty = UnitService.getNormalizedQuantity(item.weight, item.unit || DEFAULT_WEIGHT_UNIT, product);
+      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.rateUnit || DEFAULT_WEIGHT_UNIT, product);
 
       processedItems.push({
         ...item,
@@ -150,10 +150,10 @@ export class SaleService {
             create: processedItems.map(item => ({
               product: { connect: { id: parseInt(item.productId) } },
               weight: item.weight,
-              unit: item.unit || DEFAULT_UNIT,
+              unit: item.unit || DEFAULT_WEIGHT_UNIT,
               normalizedWeight: item.normalizedWeight,
               rate: item.rate,
-              rateUnit: item.rateUnit || DEFAULT_UNIT,
+              rateUnit: item.rateUnit || DEFAULT_WEIGHT_UNIT,
               amount: item.amount
             }))
           },
@@ -220,11 +220,11 @@ export class SaleService {
       const product = await ProductService.getProduct(item.productId);
       if (!product) throw new Error(`Product ${item.productId} not found`);
 
-      const validation = UnitService.validateCompatibility(item.unit || DEFAULT_UNIT, product);
+      const validation = UnitService.validateCompatibility(item.unit || DEFAULT_WEIGHT_UNIT, product);
       if (!validation.valid) throw new Error(validation.error);
 
-      const normalizedQty = UnitService.getNormalizedQuantity(item.weight, item.unit || DEFAULT_UNIT, product);
-      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.rateUnit || DEFAULT_UNIT, product);
+      const normalizedQty = UnitService.getNormalizedQuantity(item.weight, item.unit || DEFAULT_WEIGHT_UNIT, product);
+      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.rateUnit || DEFAULT_WEIGHT_UNIT, product);
 
       processedItems.push({
         ...item,
@@ -378,10 +378,10 @@ export class SaleService {
             create: processedItems.map(item => ({
               product: { connect: { id: parseInt(item.productId) } },
               weight: item.weight,
-              unit: item.unit || DEFAULT_UNIT,
+              unit: item.unit || DEFAULT_WEIGHT_UNIT,
               normalizedWeight: item.normalizedWeight,
               rate: item.rate,
-              rateUnit: item.rateUnit || DEFAULT_UNIT,
+              rateUnit: item.rateUnit || DEFAULT_WEIGHT_UNIT,
               amount: item.amount
             }))
           },

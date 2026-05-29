@@ -1,6 +1,6 @@
 import { AdvanceRepository } from "../repositories/AdvanceRepository";
 import { advanceSchema } from "../validations/intakeSchema";
-import { DEFAULT_UNIT } from "@/lib/units";
+import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 
 export class AdvanceService {
   static async listAdvances() {
@@ -16,7 +16,7 @@ export class AdvanceService {
         Khot: a.intakeTransaction.Khot ? Number(a.intakeTransaction.Khot) : null,
         normalizedWeight: Number(a.intakeTransaction.normalizedWeight),
         rate: a.intakeTransaction.rate ? Number(a.intakeTransaction.rate) : null,
-        rateUnit: a.intakeTransaction.rateUnit || DEFAULT_UNIT
+        rateUnit: a.intakeTransaction.rateUnit || DEFAULT_WEIGHT_UNIT
       } : null
     }));
   }
