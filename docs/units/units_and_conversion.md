@@ -96,7 +96,7 @@ const unit = item.unit || "KG";
 
 // [CORRECT] Single-point configurable default fallback
 import { DEFAULT_UNIT } from "@/lib/units";
-const unit = item.unit || DEFAULT_UNIT;
+const unit = item.unit || DEFAULT_WEIGHT_UNIT;
 ```
 
 This ensures that the entire system's default unit behavior can be adjusted globally by modifying a single constant.
