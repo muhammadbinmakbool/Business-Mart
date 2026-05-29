@@ -15,7 +15,9 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  History
+  History,
+  Banknote,
+  Route
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,9 +27,9 @@ const menuItems = [
   { name: "Products", href: "/products", icon: Package },
   { name: "Goods Intake", href: "/intake", icon: ShoppingCart },
   { name: "Supplier Advances", href: "/advances", icon: Coins },
-  { name: "Supplier Settlements", href: "/supplier-invoices", icon: ReceiptText },
+  { name: "Supplier Settlements", href: "/supplier-invoices", icon: Banknote },
   { name: "Sales / Billing", href: "/sales", icon: ReceiptText },
-  { name: "Source Tracking", href: "/source-tracking", icon: Package },
+  { name: "Source Tracking", href: "/source-tracking", icon: Route },
 
   { name: "Ledger", href: "/ledger", icon: BookOpen },
 
