@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft, Phone, MapPin, TrendingUp, TrendingDown, Wallet, Receipt, Package, Banknote, Scale, ChevronDown, ChevronUp, Clock, Plus, Check } from "lucide-react";
+import { ArrowLeft, Phone, MapPin, TrendingUp, TrendingDown, Wallet, Receipt, Package, Banknote, Scale, ChevronDown, ChevronUp, Clock, Plus, Check, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { applyPartyPaymentAction } from "@/modules/parties/controllers/partyActions";
@@ -357,6 +357,14 @@ export default function PartyProfileClient({ profile }) {
               {party.phoneNumber && <span className="flex items-center gap-1"><Phone className="h-3 w-3" /> {party.phoneNumber}</span>}
               {party.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {party.address}</span>}
             </div>
+            {party.notes && (
+              <div className="mt-3 flex items-start gap-1.5 text-xs text-muted-foreground bg-slate-50 dark:bg-slate-900/40 border border-slate-200/50 dark:border-slate-800/40 px-3 py-2 rounded-xl max-w-xl">
+                <FileText className="h-3.5 w-3.5 mt-0.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                <span className="leading-relaxed">
+                  <strong className="font-semibold text-slate-700 dark:text-slate-300">Party Note:</strong> {party.notes}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
