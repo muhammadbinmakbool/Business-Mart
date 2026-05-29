@@ -18,6 +18,7 @@ import SalePaymentCard from "./SalePaymentCard";
 import { deleteSaleAction, updateSaleStatusAction } from "@/modules/sales/controllers/saleActions";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { formatMaundWeight } from "@/lib/display-units";
+import { UNIT_IDS } from "@/lib/units";
 
 export default async function SaleDetailsPage({ params: paramsPromise }) {
   const params = await paramsPromise;
@@ -99,7 +100,7 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
                     <tr key={item.id} className="hover:bg-muted/5 transition-colors">
                       <td className="px-4 py-3 font-semibold text-foreground">{item.product.name}</td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
-                        {item.unit === "MAUND" ? formatMaundWeight(item.weight, "MND", "KG") : `${item.weight.toLocaleString()} ${item.unit}`}
+                        {item.unit === UNIT_IDS.MAUND ? formatMaundWeight(item.weight, "MND", "KG") : `${item.weight.toLocaleString()} ${item.unit}`}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
                         Rs. {item.rate.toLocaleString()}

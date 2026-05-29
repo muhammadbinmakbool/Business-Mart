@@ -11,6 +11,7 @@ import { calculateSupplierDeductions } from "@/lib/financial";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import Alert from "@/components/ui/Alert";
 import { formatMaundWeight } from "@/lib/display-units";
+import { UNIT_IDS } from "@/lib/units";
 
 export default async function SupplierInvoiceDetailPage({ params }) {
   const { id } = await params;
@@ -158,7 +159,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
                         <div className="text-[9px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
-                        {item.intake.unit === "MAUND" ? formatMaundWeight(item.weight, "MND", "KG") : `${Number(item.weight)} ${item.intake.unit || "KG"}`}
+                        {item.intake.unit === UNIT_IDS.MAUND ? formatMaundWeight(item.weight, "MND", "KG") : `${Number(item.weight)} ${item.intake.unit || "KG"}`}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">Rs. {Number(item.rate)}</td>
                       <td className="px-4 py-3 text-right font-bold text-foreground">Rs. {Number(item.amount).toLocaleString()}</td>

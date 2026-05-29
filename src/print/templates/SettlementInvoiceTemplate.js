@@ -4,6 +4,7 @@ import { PRINT_TYPOGRAPHY } from "../theme/typography";
 import { PRINT_LAYOUT } from "../theme/layout";
 import { t } from "../localization/locale";
 import { formatCurrency, formatWeight } from "../localization/formatters";
+import { UNIT_IDS } from "@/lib/units";
 
 export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
   const isRTL = locale === "ur";
@@ -74,7 +75,7 @@ export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
                       {formatWeight(item.weight, item.unit, locale)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {formatCurrency(item.rate, locale)} / {item.rateUnit === "MAUND" || item.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : item.rateUnit}
+                      {formatCurrency(item.rate, locale)} / {item.rateUnit === UNIT_IDS.MAUND || item.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : item.rateUnit}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-slate-800">
                       {formatCurrency(item.grossAmount, locale)}

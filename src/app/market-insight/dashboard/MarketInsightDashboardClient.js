@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { createRateAction, archiveRateAction } from "@/modules/market-insight/controllers/marketInsightActions";
+import { UNIT_IDS } from "@/lib/units";
 
 export default function MarketInsightDashboardClient({
   products,
@@ -677,8 +678,8 @@ export default function MarketInsightDashboardClient({
                     onChange={() => {}} // Controlled by state default, editable via state if user customizes
                     className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary text-slate-850 dark:text-slate-200"
                   >
-                    <option value="KG">Kilogram (KG)</option>
-                    <option value="MAUND">Maund (40 KG)</option>
+                    <option value={UNIT_IDS.KG}>Kilogram (KG)</option>
+                    <option value={UNIT_IDS.MAUND}>Maund (40 KG)</option>
                     <option value="BAG">Bag (Conversion unit)</option>
                     <option value="LITER">Liter (LITER)</option>
                     <option value="PIECE">Piece (PIECE)</option>

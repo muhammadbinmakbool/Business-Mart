@@ -17,28 +17,15 @@ import {
   normalizeQuantity, 
   normalizeRate, 
   convertFromBase,
-  getConversionFactor 
+  getConversionFactor,
+  getUnitLabel,
+  UNIT_IDS
 } from "@/lib/units";
 
 // Simple local rounding helper to keep UI values clean
 const round = (val, decimals = 2) => {
   const factor = Math.pow(10, decimals);
   return Math.round((Number(val) + Number.EPSILON) * factor) / factor;
-};
-
-// Consistent abbreviated unit terminology mapping
-const getUnitLabel = (unitId) => {
-  const mapping = {
-    KG: "KG",
-    MAUND: "MND",
-    PIECE: "PCS",
-    BAG: "BAG",
-    LITER: "LTR",
-    ML: "ML",
-    PACK: "PCK",
-    BOX: "BOX"
-  };
-  return mapping[unitId] || unitId;
 };
 
 export default function MappingForm({ 
@@ -315,7 +302,7 @@ export default function MappingForm({
               >
                 <option value="">Select Intake...</option>
                 {intakes.map(i => (
-                  <option key={i.id} value={i.id}>{i.intakeNumber} - {i.party?.name} - {i.product?.name || "N/A"} ({Number(i.grossWeight).toLocaleString()} {i.unit === "MAUND" ? "MND" : i.unit})</option>
+                  <option key={i.id} value={i.id}>{i.intakeNumber} - {i.party?.name} - {i.product?.name || "N/A"} ({Number(i.grossWeight).toLocaleString()} {getUnitLabel(i.unit)})</option>
                 ))}
               </select>
             </div>

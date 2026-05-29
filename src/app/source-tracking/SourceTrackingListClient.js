@@ -6,7 +6,7 @@ import { Plus, Search, MapPin, ReceiptText } from "lucide-react";
 import { format } from "date-fns";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
-import { convertRate } from "@/lib/units";
+import { convertRate, getUnitLabel } from "@/lib/units";
 import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 
@@ -183,7 +183,7 @@ export default function SourceTrackingListClient({ tracks = [], defaultPreset = 
                     <td className="px-4 py-3.5 text-right font-mono text-[10px] whitespace-nowrap">
                       {(() => {
                         const targetUnit = track.rateUnit || track.intakeTransaction?.rateUnit || "KG";
-                        const displayUnitLabel = targetUnit === "MAUND" ? "Mnd" : targetUnit;
+                        const displayUnitLabel = getUnitLabel(targetUnit);
                         const displayBuyingRate = track.buyingRate ? Number(track.buyingRate) : null;
                         const displaySellingRate = track.sellingRate ? Number(track.sellingRate) : null;
                         return (
@@ -203,9 +203,7 @@ export default function SourceTrackingListClient({ tracks = [], defaultPreset = 
                         <>
                           {Number(track.netWeight).toLocaleString()}{" "}
                           <span className="text-[10px] opacity-40 uppercase">
-                            {track.intakeTransaction?.unit === "MAUND"
-                              ? "MND"
-                              : track.intakeTransaction?.unit || "KG"}
+                            {getUnitLabel(track.intakeTransaction?.unit || "KG")}
                           </span>
                         </>
                       ) : (

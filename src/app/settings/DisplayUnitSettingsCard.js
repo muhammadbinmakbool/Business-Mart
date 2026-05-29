@@ -9,6 +9,7 @@ import {
   setPreferredWeightUnit, 
   setPreferredRateUnit 
 } from "@/lib/display-units";
+import { UNIT_IDS } from "@/lib/units";
 
 export default function DisplayUnitSettingsCard() {
   const [weightUnit, setWeightUnit] = useState("KG");
@@ -60,8 +61,8 @@ export default function DisplayUnitSettingsCard() {
               onChange={(e) => setWeightUnit(e.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
             >
-              <option value="KG">Kilogram (KG)</option>
-              <option value="MAUND">Maund (MAUND)</option>
+              <option value={UNIT_IDS.KG}>Kilogram (KG)</option>
+              <option value={UNIT_IDS.MAUND}>Maund (MAUND)</option>
             </select>
           </div>
 
@@ -75,8 +76,8 @@ export default function DisplayUnitSettingsCard() {
               onChange={(e) => setRateUnit(e.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-primary outline-none"
             >
-              <option value="KG">per KG (/KG)</option>
-              <option value="MAUND">per Maund (/MAUND)</option>
+              <option value={UNIT_IDS.KG}>per KG (/KG)</option>
+              <option value={UNIT_IDS.MAUND}>per Maund (/MAUND)</option>
             </select>
           </div>
         </div>

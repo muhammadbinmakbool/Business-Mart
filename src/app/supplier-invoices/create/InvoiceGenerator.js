@@ -21,6 +21,7 @@ import { calculateSupplierDeductions } from "@/lib/financial";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { ADJUSTMENT_TYPES_SUPPLIER } from "@/lib/constants";
+import { UNIT_IDS } from "@/lib/units";
 
 export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
   const router = useRouter();
@@ -421,7 +422,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                       <div className="font-bold text-base font-mono">
                         {Number(i.netWeight || i.grossWeight).toLocaleString()} {i.unit || "KG"}
                       </div>
-                      <div className="text-xs text-muted-foreground">Rs. {Number(i.rate).toLocaleString()} / {i.rateUnit === "MAUND" ? "Maund" : (i.rateUnit || "KG")}</div>
+                      <div className="text-xs text-muted-foreground">Rs. {Number(i.rate).toLocaleString()} / {i.rateUnit === UNIT_IDS.MAUND ? "Maund" : (i.rateUnit || "KG")}</div>
                     </div>
                   </div>
                 );
@@ -523,7 +524,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                           </div>
                           <h4 className="font-bold text-sm mt-1">{intake.product.name}</h4>
                           <div className="text-[10px] text-muted-foreground mt-0.5">
-                            {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} {intake.unit || "KG"} @ Rs. {Number(getIntakeDisplayRate(intake).rate).toLocaleString()}/{getIntakeDisplayRate(intake).rateUnit === "MAUND" ? "Maund" : (getIntakeDisplayRate(intake).rateUnit || "KG")}
+                            {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} {intake.unit || "KG"} @ Rs. {Number(getIntakeDisplayRate(intake).rate).toLocaleString()}/{getIntakeDisplayRate(intake).rateUnit === UNIT_IDS.MAUND ? "Maund" : (getIntakeDisplayRate(intake).rateUnit || "KG")}
                           </div>
                         </div>
                         <div className="text-right">
@@ -751,8 +752,8 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                         onChange={e => setCurrentAdjustment({...currentAdjustment, unit: e.target.value})}
                         className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-card-foreground"
                       >
-                        <option value="KG">KG</option>
-                        <option value="MAUND">Maund</option>
+                        <option value={UNIT_IDS.KG}>KG</option>
+                        <option value={UNIT_IDS.MAUND}>Maund</option>
                         <option value="BAG">Bag</option>
                       </select>
                     </div>

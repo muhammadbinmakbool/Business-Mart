@@ -10,6 +10,7 @@ import SortableHeader from "@/components/SortableHeader";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
 import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
+import { getUnitLabel } from "@/lib/units";
 
 export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -206,7 +207,7 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
                         <>
                           Rs. {Number(sale.items[0]?.rate || 0).toLocaleString()}
                           <span className="text-[9px] opacity-60 ml-1 uppercase">
-                            / {sale.items[0]?.rateUnit === "MAUND" ? "MND" : "KG"}
+                            / {getUnitLabel(sale.items[0]?.rateUnit || "KG")}
                           </span>
                         </>
                       )}

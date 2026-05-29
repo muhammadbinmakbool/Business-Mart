@@ -1,4 +1,4 @@
-import { convertFromBase, convertRate } from "./units";
+import { convertFromBase, convertRate, UNIT_IDS, getUnitLabel } from "./units";
 
 export const PREFERENCE_KEYS = {
   WEIGHT_UNIT: "pref_weight_display_unit",
@@ -66,7 +66,7 @@ export function formatWeightForInputUI(value, product) {
   const converted = convertFromBase(value, targetUnit, product);
   return {
     value: converted,
-    unit: targetUnit === "MAUND" ? "MND" : targetUnit
+    unit: getUnitLabel(targetUnit)
   };
 }
 
@@ -79,7 +79,7 @@ export function formatRateForInputUI(rate, product) {
   const converted = convertRate(rate, "KG", targetUnit, product);
   return {
     value: converted,
-    unit: targetUnit === "MAUND" ? "MND" : targetUnit
+    unit: getUnitLabel(targetUnit)
   };
 }
 

@@ -1,5 +1,6 @@
 // Print Subsystem Data Mappers
 import { format } from "date-fns";
+import { UNIT_IDS } from "@/lib/units";
 
 /**
  * Maps a Prisma Intake record to a print-ready model.
@@ -68,9 +69,9 @@ export function mapSaleToPrintModel(sale) {
       id: item.id,
       productName: item.product?.name || "N/A",
       weight: Number(item.weight).toLocaleString(),
-      unit: item.unit === "MAUND" ? "MND" : item.unit || "KG",
+      unit: item.unit === UNIT_IDS.MAUND ? "MND" : item.unit || "KG",
       rate: Number(item.rate).toLocaleString(),
-      rateUnit: item.rateUnit === "MAUND" ? "MND" : item.rateUnit || "KG",
+      rateUnit: item.rateUnit === UNIT_IDS.MAUND ? "MND" : item.rateUnit || "KG",
       amount: Number(item.amount).toLocaleString()
     })),
     

@@ -8,7 +8,7 @@ import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/financial";
-import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate, convertRate, convertFromBase } from "@/lib/units";
+import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate, convertRate, convertFromBase, UNIT_IDS } from "@/lib/units";
 import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
 import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
 import Alert from "@/components/ui/Alert";
@@ -484,7 +484,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
                           {track.product?.name || "Unknown Product"}
                         </div>
                         <div className="text-[11px] text-muted-foreground">
-                          Rate: Rs. {displayRate} / {originalRateUnit === "MAUND" ? "Maund" : originalRateUnit}
+                          Rate: Rs. {displayRate} / {originalRateUnit === UNIT_IDS.MAUND ? "Maund" : originalRateUnit}
                         </div>
                       </div>
                       <div className="text-right">

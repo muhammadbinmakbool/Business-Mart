@@ -4,6 +4,7 @@ import { PRINT_TYPOGRAPHY } from "../theme/typography";
 import { PRINT_LAYOUT } from "../theme/layout";
 import { t } from "../localization/locale";
 import { formatCurrency, formatWeight, formatBags } from "../localization/formatters";
+import { UNIT_IDS } from "@/lib/units";
 
 export default function IntakeReceiptTemplate({ data, locale = "en" }) {
   const isRTL = locale === "ur";
@@ -99,7 +100,7 @@ export default function IntakeReceiptTemplate({ data, locale = "en" }) {
                   </div>
                   <div className="text-slate-500">{t("sellingRate", locale)}:</div>
                   <div className="font-bold text-right text-slate-800">
-                    {formatCurrency(data.soldDetails.rate, locale)} / {data.soldDetails.rateUnit === "MAUND" || data.soldDetails.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : data.soldDetails.rateUnit}
+                    {formatCurrency(data.soldDetails.rate, locale)} / {data.soldDetails.rateUnit === UNIT_IDS.MAUND || data.soldDetails.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : data.soldDetails.rateUnit}
                   </div>
                   <div className="text-slate-500 border-t pt-1">{t("totalBaseValue", locale)}:</div>
                   <div className="font-black text-right text-emerald-700 border-t pt-1 text-sm">

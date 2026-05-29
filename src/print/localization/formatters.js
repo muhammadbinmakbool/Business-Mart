@@ -1,4 +1,5 @@
 import { PRINT_CONFIG } from "../theme/printConfig";
+import { UNIT_IDS } from "@/lib/units";
 
 /**
  * Format currency with default symbol and local number formatting.
@@ -24,7 +25,7 @@ export function formatCurrency(amount, locale = "en") {
 export function formatWeight(weight, unit = "KG", locale = "en") {
   const num = typeof weight === "string" ? parseFloat(weight.replace(/,/g, "")) : weight;
   
-  if ((unit === "MAUND" || unit === "MND") && !isNaN(num)) {
+  if ((unit === UNIT_IDS.MAUND || unit === "MND") && !isNaN(num)) {
     const wholeMaunds = Math.floor(num);
     const remainderKg = Math.round((num - wholeMaunds) * 40);
     
@@ -40,10 +41,10 @@ export function formatWeight(weight, unit = "KG", locale = "en") {
   
   let translatedUnit = unit;
   if (locale === "ur") {
-    if (unit === "MAUND" || unit === "MND") translatedUnit = "من";
+    if (unit === UNIT_IDS.MAUND || unit === "MND") translatedUnit = "من";
     else if (unit === "KG") translatedUnit = "کلو";
   } else {
-    if (unit === "MAUND") translatedUnit = "MND";
+    if (unit === UNIT_IDS.MAUND) translatedUnit = "MND";
   }
   
   return `${formattedWeight} ${translatedUnit}`;

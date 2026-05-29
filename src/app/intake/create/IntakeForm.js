@@ -6,7 +6,7 @@ import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getUnitsByCategory, normalizeQuantity, convertFromBase } from "@/lib/units";
+import { getUnitsByCategory, normalizeQuantity, convertFromBase, UNIT_IDS } from "@/lib/units";
 import { getPreferredWeightUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
@@ -36,12 +36,12 @@ export default function IntakeForm({ suppliers, products }) {
       const defaultUnit = isPrefCompatible ? prefUnit : (prod.primaryUnit || "KG");
       setSelectedUnit(defaultUnit);
 
-      const isProdBag = prod.primaryUnit === "BAG" && prod.unitConversion && Number(prod.unitConversion) > 0;
-      if (defaultUnit === "BAG") {
+      const isProdBag = prod.primaryUnit === UNIT_IDS.BAG && prod.unitConversion && Number(prod.unitConversion) > 0;
+      if (defaultUnit === UNIT_IDS.BAG) {
         setGrossWeightVal(bagCountVal);
       } else if (isProdBag && grossWeightVal) {
         const weightInKg = normalizeQuantity(grossWeightVal, defaultUnit, prod);
-        const bags = convertFromBase(weightInKg, "BAG", prod);
+        const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, prod);
         const calculatedBags = Math.ceil(bags);
         setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
       }
@@ -54,9 +54,9 @@ export default function IntakeForm({ suppliers, products }) {
 
   const handleGrossWeightChange = (val) => {
     setGrossWeightVal(val);
-    if (isBagProduct && (selectedUnit === "KG" || selectedUnit === "MAUND")) {
+    if (isBagProduct && (selectedUnit === UNIT_IDS.KG || selectedUnit === UNIT_IDS.MAUND)) {
       const weightInKg = normalizeQuantity(val, selectedUnit, selectedProduct);
-      const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
+      const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, selectedProduct);
       const calculatedBags = Math.ceil(bags);
       setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
     }
@@ -64,11 +64,11 @@ export default function IntakeForm({ suppliers, products }) {
 
   const handleUnitChange = (unit) => {
     setSelectedUnit(unit);
-    if (unit === "BAG") {
+    if (unit === UNIT_IDS.BAG) {
       setGrossWeightVal(bagCountVal);
     } else if (isBagProduct) {
       const weightInKg = normalizeQuantity(grossWeightVal, unit, selectedProduct);
-      const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
+      const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, selectedProduct);
       const calculatedBags = Math.ceil(bags);
       setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
     }
@@ -76,7 +76,7 @@ export default function IntakeForm({ suppliers, products }) {
 
   const handleBagCountChange = (val) => {
     setBagCountVal(val);
-    if (selectedUnit === "BAG") {
+    if (selectedUnit === UNIT_IDS.BAG) {
       setGrossWeightVal(val);
     }
   };
@@ -241,15 +241,15 @@ export default function IntakeForm({ suppliers, products }) {
         {/* 4. Weight */}
         <div className="space-y-2">
           <label htmlFor="grossWeight" className="text-sm font-medium">
-            Gross Weight {selectedUnit === "BAG" ? "(Calculated in KG)" : ""}
+            Gross Weight {selectedUnit === UNIT_IDS.BAG ? "(Calculated in KG)" : ""}
           </label>
-          {selectedUnit === "BAG" ? (
+          {selectedUnit === UNIT_IDS.BAG ? (
             <>
               <input
                 id="grossWeight_display"
                 type="text"
                 readOnly
-                value={selectedProduct ? normalizeQuantity(bagCountVal || 0, "BAG", selectedProduct).toFixed(2) : ""}
+                value={selectedProduct ? normalizeQuantity(bagCountVal || 0, UNIT_IDS.BAG, selectedProduct).toFixed(2) : ""}
                 className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-muted cursor-not-allowed text-muted-foreground font-semibold"
               />
               <input
@@ -276,15 +276,15 @@ export default function IntakeForm({ suppliers, products }) {
         {/* 5. Bag Count */}
         <div className="space-y-2">
           <label htmlFor="bagCount" className="text-sm font-medium">
-            {selectedUnit === "BAG" ? "Bag Count (Required)" : (isBagProduct ? "Bag Count (Calculated)" : "Bag Count (Optional)")}
+            {selectedUnit === UNIT_IDS.BAG ? "Bag Count (Required)" : (isBagProduct ? "Bag Count (Calculated)" : "Bag Count (Optional)")}
           </label>
           <input
             id="bagCount"
             name="bagCount"
             type="number"
-            required={selectedUnit === "BAG"}
-            readOnly={selectedUnit !== "BAG" && isBagProduct}
-            placeholder={selectedUnit === "BAG" ? "Enter number of bags..." : (isBagProduct ? "Automatically calculated" : "e.g. 50")}
+            required={selectedUnit === UNIT_IDS.BAG}
+            readOnly={selectedUnit !== UNIT_IDS.BAG && isBagProduct}
+            placeholder={selectedUnit === UNIT_IDS.BAG ? "Enter number of bags..." : (isBagProduct ? "Automatically calculated" : "e.g. 50")}
             value={bagCountVal}
             onChange={(e) => handleBagCountChange(e.target.value)}
             className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${selectedUnit !== "BAG" && isBagProduct ? "bg-muted cursor-not-allowed text-muted-foreground" : "bg-background"}`}

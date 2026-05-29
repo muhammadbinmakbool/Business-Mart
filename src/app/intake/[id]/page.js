@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
 import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
-import { convertRate, normalizeQuantity } from "@/lib/units";
+import { convertRate, normalizeQuantity, getUnitLabel, UNIT_IDS } from "@/lib/units";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 
 export default async function IntakeDetailsPage({ params: paramsPromise }) {
@@ -106,7 +106,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
                     </>
                   ) : (
                     <>
-                      {Number(intake.grossWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                      {Number(intake.grossWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{getUnitLabel(intake.unit)}</span>
                     </>
                   )}
                 </div>
@@ -115,7 +115,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
                 <div className="bg-purple-500/5 border border-purple-500/10 p-4 rounded-lg space-y-1">
                   <span className="text-[10px] font-bold uppercase text-purple-600">Remaining Weight</span>
                   <div className="text-2xl font-bold text-purple-700">
-                    {Number(intake.remainingWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                    {Number(intake.remainingWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{getUnitLabel(intake.unit)}</span>
                   </div>
                 </div>
               )}
@@ -179,10 +179,10 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
                       </div>
                       <div className="sm:text-right flex sm:flex-col justify-between items-center sm:items-end gap-2 border-t sm:border-0 pt-2 sm:pt-0">
                         <div className="font-bold text-blue-900">
-                          {Number(track.quantity).toLocaleString()} <span className="text-xs font-normal uppercase italic">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                          {Number(track.quantity).toLocaleString()} <span className="text-xs font-normal uppercase italic">{getUnitLabel(intake.unit)}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Rs. {Number(track.sellingRate).toLocaleString()} / {track.rateUnit === "MAUND" ? "MND" : (track.rateUnit || "KG")}
+                          Rs. {Number(track.sellingRate).toLocaleString()} / {getUnitLabel(track.rateUnit || "KG")}
                         </div>
                         <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
                           Rs. {Number(track.baseAmount).toLocaleString()}

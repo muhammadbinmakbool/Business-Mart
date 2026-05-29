@@ -10,7 +10,7 @@ import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
 import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
-import { normalizeQuantity } from "@/lib/units";
+import { normalizeQuantity, getUnitLabel, UNIT_IDS } from "@/lib/units";
 
 export default function IntakeListClient({ intakes = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -136,14 +136,14 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
                         </>
                       ) : (
                         <>
-                          {Number(intake.grossWeight).toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                          {Number(intake.grossWeight).toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">{getUnitLabel(intake.unit)}</span>
                         </>
                       )}
                     </td>
                     {showSoldColumns && (
                       <>
                         <td className="px-4 py-3 text-right font-medium whitespace-nowrap">
-                          Rs. {Number(intake.rate || 0).toLocaleString()} <span className="text-[10px] text-muted-foreground">/{intake.rateUnit === "MAUND" ? "MND" : "KG"}</span>
+                          Rs. {Number(intake.rate || 0).toLocaleString()} <span className="text-[10px] text-muted-foreground">/{getUnitLabel(intake.rateUnit || "KG")}</span>
                         </td>
                         <td className="px-4 py-3 text-right text-muted-foreground whitespace-nowrap">
                           {intake.Bardana !== null ? `${Number(intake.Bardana).toLocaleString()} KG` : "-"}
@@ -160,7 +160,7 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
                                 </>
                               ) : (
                                 <>
-                                  {Number(intake.netWeight).toLocaleString()} <span className="text-[10px] uppercase text-muted-foreground">{intake.unit === "MAUND" ? "MND" : intake.unit}</span>
+                                  {Number(intake.netWeight).toLocaleString()} <span className="text-[10px] uppercase text-muted-foreground">{getUnitLabel(intake.unit)}</span>
                                 </>
                               )}
                             </>

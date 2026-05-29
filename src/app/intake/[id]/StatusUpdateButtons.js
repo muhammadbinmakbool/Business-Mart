@@ -5,7 +5,7 @@ import { updateIntakeStatusAction, sellIntakeAction } from "@/modules/intake/con
 import { showToast } from "@/components/ui/Toast";
 import { Clock, BadgeCheck, ShoppingBag, XCircle, X, Scale, User, DollarSign, Box } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { calculateIntakeNetWeight } from "@/lib/units";
+import { calculateIntakeNetWeight, UNIT_IDS, getUnitLabel } from "@/lib/units";
 import { getPreferredRateUnit, getPreferredWeightUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
 
@@ -263,7 +263,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                       </>
                     ) : (
                       <>
-                        {Number(intake?.grossWeight).toLocaleString()} <span className="text-xs font-normal uppercase">{intake?.unit === "MAUND" ? "MND" : intake?.unit}</span>
+                        {Number(intake?.grossWeight).toLocaleString()} <span className="text-xs font-normal uppercase">{getUnitLabel(intake?.unit)}</span>
                       </>
                     )}
                   </div>
@@ -357,8 +357,8 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                     onChange={e => setRateUnit(e.target.value)}
                     className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
                   >
-                    <option value="KG">/ KG</option>
-                    <option value="MAUND">/ Maund</option>
+                     <option value={UNIT_IDS.KG}>/ KG</option>
+                     <option value={UNIT_IDS.MAUND}>/ Maund</option>
                   </select>
                 </div>
               </div>
@@ -419,8 +419,8 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                       onChange={e => setKhotRateUnit(e.target.value)}
                       className="w-full bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
                     >
-                      <option value="KG">/ KG</option>
-                      <option value="MAUND">/ Maund</option>
+                      <option value={UNIT_IDS.KG}>/ KG</option>
+                      <option value={UNIT_IDS.MAUND}>/ Maund</option>
                     </select>
                   </div>
                 </div>
@@ -443,7 +443,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                     ) : (
                       <>
                         {netWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <span className="text-xs font-normal uppercase ml-1 italic">{intake?.unit === "MAUND" ? "MND" : intake?.unit}</span>
+                        <span className="text-xs font-normal uppercase ml-1 italic">{getUnitLabel(intake?.unit)}</span>
                       </>
                     )}
                   </div>

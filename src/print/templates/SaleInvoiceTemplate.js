@@ -4,6 +4,7 @@ import { PRINT_TYPOGRAPHY } from "../theme/typography";
 import { PRINT_LAYOUT } from "../theme/layout";
 import { t } from "../localization/locale";
 import { formatCurrency, formatWeight } from "../localization/formatters";
+import { UNIT_IDS } from "@/lib/units";
 
 export default function SaleInvoiceTemplate({ data, locale = "en" }) {
   const isRTL = locale === "ur";
@@ -62,7 +63,7 @@ export default function SaleInvoiceTemplate({ data, locale = "en" }) {
                     {formatWeight(item.weight, item.unit, locale)}
                   </td>
                   <td className={PRINT_TYPOGRAPHY.tableBodyCellRight}>
-                    {formatCurrency(item.rate, locale)} / {item.rateUnit === "MAUND" || item.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : item.rateUnit}
+                    {formatCurrency(item.rate, locale)} / {item.rateUnit === UNIT_IDS.MAUND || item.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : item.rateUnit}
                   </td>
                   <td className={`${PRINT_TYPOGRAPHY.tableBodyCellRight} text-slate-800 font-bold`}>
                     {formatCurrency(item.amount, locale)}

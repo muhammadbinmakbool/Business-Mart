@@ -1,7 +1,33 @@
 import { UNIT_CATEGORIES } from "./constants";
 export { UNIT_CATEGORIES };
 
+export const UNIT_IDS = {
+  KG: "KG",
+  MAUND: "MAUND",
+  TON: "TON",
+  BAG: "BAG",
+  ML: "ML",
+  LITER: "LITER",
+  PIECE: "PIECE",
+  PACK: "PACK",
+  BOX: "BOX"
+};
 
+export const UNIT_ABBREVIATIONS = {
+  [UNIT_IDS.KG]: "KG",
+  [UNIT_IDS.MAUND]: "MND",
+  [UNIT_IDS.TON]: "TON",
+  [UNIT_IDS.BAG]: "BAG",
+  [UNIT_IDS.ML]: "ML",
+  [UNIT_IDS.LITER]: "LTR",
+  [UNIT_IDS.PIECE]: "PCS",
+  [UNIT_IDS.PACK]: "PCK",
+  [UNIT_IDS.BOX]: "BOX"
+};
+
+export function getUnitLabel(unitId) {
+  return UNIT_ABBREVIATIONS[unitId] || unitId;
+}
 
 export const UNITS = {
   // WEIGHT CATEGORY

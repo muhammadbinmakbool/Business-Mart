@@ -5,7 +5,7 @@ import { updateIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { getUnitsByCategory, calculateIntakeNetWeight, normalizeQuantity, convertFromBase } from "@/lib/units";
+import { getUnitsByCategory, calculateIntakeNetWeight, normalizeQuantity, convertFromBase, UNIT_IDS, getUnitLabel } from "@/lib/units";
 import { Scale, User, DollarSign, Box, X, XCircle } from "lucide-react";
 import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
@@ -70,12 +70,12 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
       const defaultUnit = isPrefCompatible ? prefUnit : (prod.primaryUnit || "KG");
       setUnit(defaultUnit);
 
-      const isProdBag = prod.primaryUnit === "BAG" && prod.unitConversion && Number(prod.unitConversion) > 0;
-      if (defaultUnit === "BAG") {
+      const isProdBag = prod.primaryUnit === UNIT_IDS.BAG && prod.unitConversion && Number(prod.unitConversion) > 0;
+      if (defaultUnit === UNIT_IDS.BAG) {
         setGrossWeight(bagCount);
       } else if (isProdBag && grossWeight) {
         const weightInKg = normalizeQuantity(grossWeight, defaultUnit, prod);
-        const bags = convertFromBase(weightInKg, "BAG", prod);
+        const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, prod);
         const calculatedBags = Math.ceil(bags);
         setBagCount(calculatedBags ? calculatedBags.toString() : "");
       }
@@ -88,9 +88,9 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
   const handleGrossWeightChange = (val) => {
     setGrossWeight(val);
-    if (isBagProduct && (unit === "KG" || unit === "MAUND")) {
+    if (isBagProduct && (unit === UNIT_IDS.KG || unit === UNIT_IDS.MAUND)) {
       const weightInKg = normalizeQuantity(val, unit, selectedProduct);
-      const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
+      const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, selectedProduct);
       const calculatedBags = Math.ceil(bags);
       setBagCount(calculatedBags ? calculatedBags.toString() : "");
     }
@@ -98,11 +98,11 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
   const handleUnitChange = (newUnit) => {
     setUnit(newUnit);
-    if (newUnit === "BAG") {
+    if (newUnit === UNIT_IDS.BAG) {
       setGrossWeight(bagCount);
     } else if (isBagProduct) {
       const weightInKg = normalizeQuantity(grossWeight, newUnit, selectedProduct);
-      const bags = convertFromBase(weightInKg, "BAG", selectedProduct);
+      const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, selectedProduct);
       const calculatedBags = Math.ceil(bags);
       setBagCount(calculatedBags ? calculatedBags.toString() : "");
     }
@@ -110,7 +110,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
   const handleBagCountChange = (val) => {
     setBagCount(val);
-    if (unit === "BAG") {
+    if (unit === UNIT_IDS.BAG) {
       setGrossWeight(val);
     }
   };
@@ -264,15 +264,15 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
         <div className="space-y-2">
           <label htmlFor="grossWeight" className="text-sm font-medium">
-            Gross Weight {unit === "BAG" ? "(Calculated in KG)" : ""}
+            Gross Weight {unit === UNIT_IDS.BAG ? "(Calculated in KG)" : ""}
           </label>
-          {unit === "BAG" ? (
+          {unit === UNIT_IDS.BAG ? (
             <>
               <input
                 id="grossWeight_display"
                 type="text"
                 readOnly
-                value={selectedProduct ? normalizeQuantity(bagCount || 0, "BAG", selectedProduct).toFixed(2) : ""}
+                value={selectedProduct ? normalizeQuantity(bagCount || 0, UNIT_IDS.BAG, selectedProduct).toFixed(2) : ""}
                 className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-muted cursor-not-allowed text-muted-foreground font-semibold"
               />
               <input
@@ -296,17 +296,17 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
         <div className="space-y-2">
           <label htmlFor="bagCount" className="text-sm font-medium">
-            {unit === "BAG" ? "Bag Count (Required)" : (isBagProduct ? "Bag Count (Calculated)" : "Bag Count (Optional)")}
+            {unit === UNIT_IDS.BAG ? "Bag Count (Required)" : (isBagProduct ? "Bag Count (Calculated)" : "Bag Count (Optional)")}
           </label>
           <input
             id="bagCount"
             type="number"
-            required={unit === "BAG"}
-            readOnly={unit !== "BAG" && isBagProduct}
-            placeholder={unit === "BAG" ? "Enter number of bags..." : (isBagProduct ? "Automatically calculated" : "e.g. 50")}
+            required={unit === UNIT_IDS.BAG}
+            readOnly={unit !== UNIT_IDS.BAG && isBagProduct}
+            placeholder={unit === UNIT_IDS.BAG ? "Enter number of bags..." : (isBagProduct ? "Automatically calculated" : "e.g. 50")}
             value={bagCount}
             onChange={e => handleBagCountChange(e.target.value)}
-            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${unit !== "BAG" && isBagProduct ? "bg-muted cursor-not-allowed text-muted-foreground" : "bg-background"}`}
+            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${unit !== UNIT_IDS.BAG && isBagProduct ? "bg-muted cursor-not-allowed text-muted-foreground" : "bg-background"}`}
           />
         </div>
 
@@ -392,8 +392,8 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
                   onChange={e => setRateUnit(e.target.value)}
                   className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
                 >
-                  <option value="KG">/ KG</option>
-                  <option value="MAUND">/ Maund</option>
+                  <option value={UNIT_IDS.KG}>/ KG</option>
+                  <option value={UNIT_IDS.MAUND}>/ Maund</option>
                 </select>
               </div>
             </div>
@@ -451,8 +451,8 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
                     onChange={e => setKhotRateUnit(e.target.value)}
                     className="w-full bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
                   >
-                    <option value="KG">/ KG</option>
-                    <option value="MAUND">/ Maund</option>
+                    <option value={UNIT_IDS.KG}>/ KG</option>
+                    <option value={UNIT_IDS.MAUND}>/ Maund</option>
                   </select>
                 </div>
               </div>
@@ -468,7 +468,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
             <div className="space-y-0.5">
               <span className="text-[10px] font-bold uppercase text-emerald-800 tracking-wider">Computed Net Weight (For Billing)</span>
               <div className="text-2xl font-black text-emerald-700 font-mono">
-                {unit === "BAG" ? (
+                {unit === UNIT_IDS.BAG ? (
                   <>
                     {netWeightKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     <span className="text-xs font-normal uppercase ml-1 italic">KG</span>
@@ -476,7 +476,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
                 ) : (
                   <>
                     {netWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    <span className="text-xs font-normal uppercase ml-1 italic">{unit === "MAUND" ? "MND" : unit}</span>
+                    <span className="text-xs font-normal uppercase ml-1 italic">{getUnitLabel(unit)}</span>
                   </>
                 )}
               </div>
