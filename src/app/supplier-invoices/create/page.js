@@ -15,16 +15,27 @@ export default async function CreateSupplierInvoicePage() {
       ],
       intakeTransactions: {
         some: {
-          status: "SOLD",
-          invoiceItems: {
-            none: {
-              invoice: {
-                status: {
-                  not: "SUPERSEDED"
+          status: { in: ["SOLD", "PARTIAL"] },
+          OR: [
+            {
+              invoiceItems: {
+                none: {
+                  invoice: {
+                    status: {
+                      not: "SUPERSEDED"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              salesTracks: {
+                some: {
+                  isSettled: false
                 }
               }
             }
-          }
+          ]
         }
       }
     },
