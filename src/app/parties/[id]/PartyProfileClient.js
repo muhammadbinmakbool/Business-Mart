@@ -12,11 +12,11 @@ const fmt = (v) => Number(v || 0).toLocaleString(undefined, { minimumFractionDig
 function SummaryCard({ label, value, icon: Icon, color = "primary", sub }) {
   const colors = {
     primary: "bg-primary/5 border-primary/10 text-primary",
-    emerald: "bg-emerald-500/5 border-emerald-500/10 text-emerald-700",
-    amber: "bg-amber-500/5 border-amber-500/10 text-amber-700",
-    rose: "bg-rose-500/5 border-rose-500/10 text-rose-700",
-    blue: "bg-blue-500/5 border-blue-500/10 text-blue-700",
-    violet: "bg-violet-500/5 border-violet-500/10 text-violet-700",
+    emerald: "bg-emerald-500/5 border-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+    amber: "bg-amber-500/5 border-amber-500/10 text-amber-700 dark:text-amber-400",
+    rose: "bg-rose-500/5 border-rose-500/10 text-rose-700 dark:text-rose-400",
+    blue: "bg-blue-500/5 border-blue-500/10 text-blue-700 dark:text-blue-400",
+    violet: "bg-violet-500/5 border-violet-500/10 text-violet-700 dark:text-violet-400",
   };
   return (
     <div className={cn("rounded-xl border p-5 space-y-2", colors[color])}>
@@ -228,7 +228,7 @@ function QuickPaymentForm({ party }) {
                 "py-2 text-xs font-bold rounded-xl border transition-all",
                 paymentType === "CASH_IN" 
                   ? "bg-emerald-600 border-emerald-700 text-white shadow-md shadow-emerald-600/10" 
-                  : "bg-muted text-muted-foreground hover:bg-slate-200"
+                  : "bg-muted text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800"
               )}
             >
               CASH IN (Collection)
@@ -240,14 +240,14 @@ function QuickPaymentForm({ party }) {
                 "py-2 text-xs font-bold rounded-xl border transition-all",
                 paymentType === "CASH_OUT" 
                   ? "bg-amber-600 border-amber-700 text-white shadow-md shadow-amber-600/10" 
-                  : "bg-muted text-muted-foreground hover:bg-slate-200"
+                  : "bg-muted text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800"
               )}
             >
               CASH OUT (Payout)
             </button>
           </div>
         ) : (
-          <div className="py-2.5 px-3 rounded-xl bg-muted border border-slate-200 font-bold text-xs">
+          <div className="py-2.5 px-3 rounded-xl bg-muted border border-slate-200 dark:border-slate-800 font-bold text-xs">
             {paymentType === "CASH_IN" ? "CASH IN (Receivable Collection from Buyer)" : "CASH OUT (Settlement Payout to Supplier)"}
           </div>
         )}
@@ -262,7 +262,7 @@ function QuickPaymentForm({ party }) {
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           placeholder="0.00"
-          className="w-full bg-slate-50 border rounded-xl py-2 px-3 text-sm font-semibold tracking-tight focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white"
+          className="w-full bg-slate-50 dark:bg-slate-900 border dark:border-slate-800 rounded-xl py-2 px-3 text-sm font-semibold tracking-tight focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-slate-100"
         />
       </div>
 
@@ -273,7 +273,7 @@ function QuickPaymentForm({ party }) {
           onChange={(e) => setNotes(e.target.value)}
           placeholder="e.g. Cleared pending sales, custom discount applied..."
           rows={3}
-          className="w-full bg-slate-50 border rounded-xl py-2 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white"
+          className="w-full bg-slate-50 dark:bg-slate-900 border dark:border-slate-800 rounded-xl py-2 px-3 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white dark:focus:bg-slate-800 text-slate-900 dark:text-slate-100"
         />
       </div>
 
@@ -285,7 +285,7 @@ function QuickPaymentForm({ party }) {
         {submitting ? "Clearing Outstanding Invoices..." : "Apply Quick Payment"}
       </button>
 
-      <div className="text-[9px] text-muted-foreground bg-slate-50 border border-slate-200/50 p-2.5 rounded-lg text-center font-medium leading-relaxed">
+      <div className="text-[9px] text-muted-foreground bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800 p-2.5 rounded-lg text-center font-medium leading-relaxed">
         ℹ️ **Sequential Clearing Enabled:** Applying a payment here automatically allocates funds to this party's outstanding invoices sequentially. Fully paid items transition to **CLEARED**, while partially cleared ones update to **PARTIAL**.
       </div>
     </form>
@@ -386,12 +386,12 @@ export default function PartyProfileClient({ profile }) {
         <div className="rounded-xl border bg-card p-6 space-y-4 shadow-sm">
           <h3 className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest font-black">Buyer Account Standing</h3>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Total Sales Billing</span><span className="font-bold text-slate-800">Rs. {fmt(summary.totalSales)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Paid by Buyer</span><span className="font-bold text-emerald-600">Rs. {fmt(summary.totalSalesPaid)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Cash Advances Issued</span><span className="font-bold text-amber-600">Rs. {fmt(summary.totalAdvances)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Sales Billing</span><span className="font-bold text-slate-800 dark:text-slate-200">Rs. {fmt(summary.totalSales)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Paid by Buyer</span><span className="font-bold text-emerald-600 dark:text-emerald-400">Rs. {fmt(summary.totalSalesPaid)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Cash Advances Issued</span><span className="font-bold text-amber-600 dark:text-amber-400">Rs. {fmt(summary.totalAdvances)}</span></div>
             <div className="border-t pt-2 flex justify-between font-bold">
               <span>Outstanding Debt</span>
-              <span className="text-amber-600 font-mono">Rs. {fmt(summary.totalSalesRemaining + summary.totalAdvances)}</span>
+              <span className="text-amber-600 dark:text-amber-400 font-mono">Rs. {fmt(summary.totalSalesRemaining + summary.totalAdvances)}</span>
             </div>
           </div>
         </div>
@@ -399,11 +399,11 @@ export default function PartyProfileClient({ profile }) {
         <div className="rounded-xl border bg-card p-6 space-y-4 shadow-sm border-dashed">
           <h3 className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest font-black">Supplier Account Standing</h3>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Total Supplier Invoices</span><span className="font-bold text-slate-800">Rs. {fmt(summary.totalSupplierPayable)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Paid to Supplier</span><span className="font-bold text-emerald-600">Rs. {fmt(summary.totalSupplierPaid)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Supplier Invoices</span><span className="font-bold text-slate-800 dark:text-slate-200">Rs. {fmt(summary.totalSupplierPayable)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Paid to Supplier</span><span className="font-bold text-emerald-600 dark:text-emerald-400">Rs. {fmt(summary.totalSupplierPaid)}</span></div>
             <div className="border-t pt-2 flex justify-between font-bold">
               <span>Outstanding Payable</span>
-              <span className="text-rose-600 font-mono">Rs. {fmt(summary.totalSupplierRemaining)}</span>
+              <span className="text-rose-600 dark:text-rose-400 font-mono">Rs. {fmt(summary.totalSupplierRemaining)}</span>
             </div>
           </div>
         </div>
@@ -441,11 +441,11 @@ export default function PartyProfileClient({ profile }) {
                   Grain market transactions are cleared sequentially. Outstanding invoices are sorted chronologically and payments are automatically allocated.
                 </p>
                 <div className="grid grid-cols-2 gap-4 pt-2">
-                  <div className="bg-white border rounded-xl p-4 text-center">
+                  <div className="bg-white dark:bg-slate-900 border rounded-xl p-4 text-center">
                     <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground block">Active Sales Pending</span>
                     <span className="text-lg font-black text-amber-600 mt-1 block">Rs. {fmt(summary.totalSalesRemaining)}</span>
                   </div>
-                  <div className="bg-white border rounded-xl p-4 text-center">
+                  <div className="bg-white dark:bg-slate-900 border rounded-xl p-4 text-center">
                     <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground block">Active Settlements Pending</span>
                     <span className="text-lg font-black text-rose-600 mt-1 block">Rs. {fmt(summary.totalSupplierRemaining)}</span>
                   </div>
@@ -454,7 +454,7 @@ export default function PartyProfileClient({ profile }) {
             </div>
 
             <div>
-              <div className="sticky top-6 bg-card border border-primary/10 rounded-2xl p-6 shadow-md space-y-4 bg-white/80 backdrop-blur-md">
+              <div className="sticky top-6 bg-card border border-primary/10 rounded-2xl p-6 shadow-md space-y-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md">
                 <div className="flex items-center gap-2 border-b pb-3">
                   <Banknote className="h-5 w-5 text-primary animate-pulse" />
                   <div>
