@@ -38,6 +38,10 @@ export class SaleService {
     for (const item of items) {
       const product = await ProductService.getProduct(item.productId);
       if (!product) throw new Error(`Product ${item.productId} not found`);
+      
+      if (!product.isActive && !item.salesTrackId) {
+        throw new Error(`Product "${product.name}" is disabled/inactive and cannot be sold. Please reactivate the product first.`);
+      }
 
       const validation = UnitService.validateCompatibility(item.unit || DEFAULT_WEIGHT_UNIT, product);
       if (!validation.valid) throw new Error(validation.error);
@@ -219,6 +223,10 @@ export class SaleService {
     for (const item of items) {
       const product = await ProductService.getProduct(item.productId);
       if (!product) throw new Error(`Product ${item.productId} not found`);
+      
+      if (!product.isActive && !item.salesTrackId) {
+        throw new Error(`Product "${product.name}" is disabled/inactive and cannot be sold. Please reactivate the product first.`);
+      }
 
       const validation = UnitService.validateCompatibility(item.unit || DEFAULT_WEIGHT_UNIT, product);
       if (!validation.valid) throw new Error(validation.error);

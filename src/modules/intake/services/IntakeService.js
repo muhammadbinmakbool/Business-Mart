@@ -99,6 +99,9 @@ export class IntakeService {
     // Normalize weight
     const product = await ProductService.getProduct(validated.productId);
     if (!product) throw new Error("Product not found");
+    if (!product.isActive) {
+      throw new Error(`Product "${product.name}" is disabled/inactive. New goods intakes cannot be created for disabled products.`);
+    }
     
     const normalizedWeight = UnitService.getNormalizedQuantity(validated.grossWeight, validated.unit || DEFAULT_WEIGHT_UNIT, product);
     
@@ -173,6 +176,18 @@ export class IntakeService {
       const newProductId = validated.productId ? parseInt(validated.productId) : oldProductId;
       let newStatus = validated.status || oldStatus;
       let newRemainingWeight;
+
+      const product = await tx.product.findUnique({ where: { id: newProductId } });
+      if (!product) throw new Error("Product not found");
+
+      if (!product.isActive) {
+        const isTransitionToSelling = (newStatus === "SOLD" || newStatus === "PARTIAL");
+        const isNewInactiveProduct = (newProductId !== oldProductId);
+        
+        if (isTransitionToSelling || isNewInactiveProduct) {
+          throw new Error(`Product "${product.name}" is disabled/inactive. Further transactions, arrivals, or selling of this product are suspended until it is reactivated.`);
+        }
+      }
 
       // Validation Rule: If transitioning away from SOLD, CLEARED, or PARTIAL to PENDING or CANCELLED, verify/delete unbilled SalesTrack and block if included in Supplier Settlement
       if ((oldStatus === "SOLD" || oldStatus === "CLEARED" || oldStatus === "PARTIAL") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
@@ -403,6 +418,10 @@ export class IntakeService {
         include: { product: true }
       });
       if (!intake) throw new Error("Intake transaction not found");
+
+      if (intake.product && !intake.product.isActive) {
+        throw new Error(`Product "${intake.product.name}" is disabled/inactive. Further transactions, arrivals, or selling of this product are suspended until it is reactivated.`);
+      }
 
       if (intake.status === "CANCELLED") {
         throw new Error("Cannot sell a cancelled intake");
