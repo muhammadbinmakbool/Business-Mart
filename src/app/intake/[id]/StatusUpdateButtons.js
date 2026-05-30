@@ -28,15 +28,17 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     ? Number(intake.remainingWeight) 
     : Number(intake?.grossWeight || 0);
 
+  const isBagProduct = intake?.unit === "BAG" || intake?.product?.category === "BAG" || intake?.product?.primaryUnit === "BAG";
+
   React.useEffect(() => {
     if (!intake || intake.status === "PENDING" || intake.status === "PARTIAL") {
-      setRateUnit(getPreferredRateUnit());
+      setRateUnit(isBagProduct ? "BAG" : getPreferredRateUnit());
       setKhotRateUnit(getPreferredWeightUnit());
     } else {
-      setRateUnit(intake.rateUnit || "KG");
+      setRateUnit(intake.rateUnit || (isBagProduct ? "BAG" : "KG"));
       setKhotRateUnit(intake.khotRateUnit || "KG");
     }
-  }, [intake]);
+  }, [intake, isBagProduct]);
 
   React.useEffect(() => {
     if (intake) {
@@ -357,8 +359,14 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                     onChange={e => setRateUnit(e.target.value)}
                     className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
                   >
-                     <option value={UNIT_IDS.KG}>/ KG</option>
-                     <option value={UNIT_IDS.MAUND}>/ Maund</option>
+                    {isBagProduct ? (
+                      <option value="BAG">/ Bag</option>
+                    ) : (
+                      <>
+                        <option value={UNIT_IDS.KG}>/ KG</option>
+                        <option value={UNIT_IDS.MAUND}>/ Maund</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>

@@ -449,6 +449,18 @@ export class IntakeService {
       // Calculate converted rates!
       const finalSalesTrackRate = rate;
 
+      // Fetch existing sales tracks to calculate average rate
+      const existingTracks = await tx.salesTrack.findMany({
+        where: { intakeTransactionId: intakeId }
+      });
+      const allTracks = [
+        ...existingTracks.map(t => ({ quantity: Number(t.quantity || 0), rate: Number(t.buyingRate || 0) })),
+        { quantity: netWeight, rate: rate }
+      ];
+      const totalQty = allTracks.reduce((sum, t) => sum + t.quantity, 0);
+      const totalValue = allTracks.reduce((sum, t) => sum + (t.quantity * t.rate), 0);
+      const averageRate = totalQty > 0 ? (totalValue / totalQty) : rate;
+
       // 2. Update Intake Transaction fields
       const updatedIntake = await tx.intakeTransaction.update({
         where: { id: intakeId },
@@ -458,6 +470,8 @@ export class IntakeService {
           Bardana: Number(intake.Bardana || 0) + Bardana,
           Khot: Number(intake.Khot || 0) + Khot,
           netWeight: Number(intake.netWeight || 0) + netWeight,
+          rate: averageRate,
+          rateUnit: rateUnit,
         }
       });
 

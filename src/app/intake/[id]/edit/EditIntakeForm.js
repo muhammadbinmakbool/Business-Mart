@@ -52,9 +52,9 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
       setUnit(getPreferredWeightUnit());
     }
     if (!intake.rateUnit || intake.status === "PENDING") {
-      setRateUnit(getPreferredRateUnit());
+      setRateUnit(isBagProduct ? "BAG" : getPreferredRateUnit());
     }
-  }, [intake]);
+  }, [intake, isBagProduct]);
 
   const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
   const isBagProduct = selectedProduct && (selectedProduct.primaryUnit === "BAG" || selectedProduct.category === "BAG");
@@ -396,8 +396,14 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
                   onChange={e => setRateUnit(e.target.value)}
                   className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
                 >
-                  <option value={UNIT_IDS.KG}>/ KG</option>
-                  <option value={UNIT_IDS.MAUND}>/ Maund</option>
+                  {isBagProduct ? (
+                    <option value="BAG">/ Bag</option>
+                  ) : (
+                    <>
+                      <option value={UNIT_IDS.KG}>/ KG</option>
+                      <option value={UNIT_IDS.MAUND}>/ Maund</option>
+                    </>
+                  )}
                 </select>
               </div>
             </div>

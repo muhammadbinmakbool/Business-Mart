@@ -6,6 +6,7 @@ export class IntakeRepository {
       include: {
         party: true,
         product: true,
+        salesTracks: true,
         _count: {
           select: { advances: true }
         }

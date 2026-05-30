@@ -10,7 +10,7 @@ import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
 import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
-import { normalizeQuantity, getUnitLabel, UNIT_IDS } from "@/lib/units";
+import { normalizeQuantity, getUnitLabel, UNIT_IDS, convertRate } from "@/lib/units";
 
 export default function IntakeListClient({ intakes = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -49,10 +49,34 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
 
   // Pre-calculate initialTotal for sorting and rendering
   const mappedIntakes = useMemo(() => {
-    return filteredIntakes.map(intake => ({
-      ...intake,
-      initialTotal: Number(intake.netWeight || intake.grossWeight || 0) * Number(intake.rate || 0)
-    }));
+    return filteredIntakes.map(intake => {
+      const hasTracks = intake.salesTracks && intake.salesTracks.length > 0;
+      
+      // Calculate dynamic netWeight, rate, and initialTotal if tracks exist
+      let netWeight = intake.netWeight !== null ? Number(intake.netWeight) : null;
+      let rate = intake.rate !== null ? Number(intake.rate) : 0;
+      let initialTotal = 0;
+      
+      if (hasTracks) {
+        const totalNetWeight = intake.salesTracks.reduce((sum, t) => sum + Number(t.netWeight || t.quantity || 0), 0);
+        const totalBaseAmount = intake.salesTracks.reduce((sum, t) => sum + Number(t.baseAmount || 0), 0);
+        const totalQuantity = intake.salesTracks.reduce((sum, t) => sum + Number(t.quantity || 0), 0);
+        
+        netWeight = totalNetWeight;
+        rate = totalQuantity > 0 ? (totalBaseAmount / totalQuantity) : rate;
+        initialTotal = totalBaseAmount;
+      } else {
+        const rateInIntakeUnit = convertRate(rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+        initialTotal = Number(netWeight || intake.grossWeight || 0) * rateInIntakeUnit;
+      }
+
+      return {
+        ...intake,
+        netWeight,
+        rate,
+        initialTotal
+      };
+    });
   }, [filteredIntakes]);
 
   const { sortedData: sortedIntakes, sortField, sortDirection, requestSort } = useTableSorting(mappedIntakes, "entryDate", "desc");
