@@ -21,6 +21,9 @@ export class AdvanceService {
       } : null,
       supplierInvoice: a.supplierInvoice ? {
         ...a.supplierInvoice,
+        totalGrossValue: Number(a.supplierInvoice.totalGrossValue),
+        totalDeductions: Number(a.supplierInvoice.totalDeductions),
+        totalAdvances: Number(a.supplierInvoice.totalAdvances),
         finalPayableAmount: Number(a.supplierInvoice.finalPayableAmount),
         paidAmount: Number(a.supplierInvoice.paidAmount)
       } : null
