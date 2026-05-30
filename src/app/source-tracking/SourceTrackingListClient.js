@@ -182,7 +182,10 @@ export default function SourceTrackingListClient({ tracks = [], defaultPreset = 
                     </td>
                     <td className="px-4 py-3.5 text-right font-mono text-[10px] whitespace-nowrap">
                       {(() => {
-                        const targetUnit = track.rateUnit || track.intakeTransaction?.rateUnit || "KG";
+                        let targetUnit = track.rateUnit || track.intakeTransaction?.rateUnit || "KG";
+                        if (track.product?.category === "BAG" || track.product?.primaryUnit === "BAG" || track.intakeTransaction?.unit === "BAG") {
+                          targetUnit = "BAG";
+                        }
                         const displayUnitLabel = getUnitLabel(targetUnit);
                         const displayBuyingRate = track.buyingRate ? Number(track.buyingRate) : null;
                         const displaySellingRate = track.sellingRate ? Number(track.sellingRate) : null;
@@ -201,10 +204,25 @@ export default function SourceTrackingListClient({ tracks = [], defaultPreset = 
                     <td className="px-4 py-3.5 text-right font-mono text-xs">
                       {track.netWeight !== null && track.netWeight !== undefined ? (
                         <>
-                          {Number(track.netWeight).toLocaleString()}{" "}
-                          <span className="text-[10px] opacity-40 uppercase">
-                            {getUnitLabel(track.intakeTransaction?.unit || "KG")}
-                          </span>
+                          {(() => {
+                            let displayWeight = Number(track.netWeight);
+                            let displayUnit = track.intakeTransaction?.unit || "KG";
+                            if (displayUnit === "BAG") {
+                              const gross = Number(track.intakeTransaction?.grossWeight) || 0;
+                              const norm = Number(track.intakeTransaction?.normalizedWeight) || 0;
+                              const factor = gross > 0 ? (norm / gross) : (track.product?.unitConversion ? Number(track.product.unitConversion) : 1);
+                              displayWeight = displayWeight * factor;
+                              displayUnit = "KG";
+                            }
+                            return (
+                              <>
+                                {displayWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
+                                <span className="text-[10px] opacity-40 uppercase">
+                                  {getUnitLabel(displayUnit)}
+                                </span>
+                              </>
+                            );
+                          })()}
                         </>
                       ) : (
                         <span className="text-muted-foreground opacity-50">-</span>
