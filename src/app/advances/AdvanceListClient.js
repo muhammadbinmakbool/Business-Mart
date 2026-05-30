@@ -100,13 +100,21 @@ export default function AdvanceListClient({ advances = [], defaultPreset = "all"
                 >
                   Amount
                 </SortableHeader>
-                <SortableHeader
+                 <SortableHeader
                   field="intakeNumber"
                   currentSortField={sortField}
                   currentSortDirection={sortDirection}
                   onRequestSort={requestSort}
                 >
                   Linked Intake
+                </SortableHeader>
+                <SortableHeader
+                  field="supplierInvoiceId"
+                  currentSortField={sortField}
+                  currentSortDirection={sortDirection}
+                  onRequestSort={requestSort}
+                >
+                  Settlement Status
                 </SortableHeader>
                 <SortableHeader
                   field="notes"
@@ -121,7 +129,7 @@ export default function AdvanceListClient({ advances = [], defaultPreset = "all"
             <tbody>
               {sortedAdvances.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-muted-foreground italic">
+                  <td colSpan={6} className="px-4 py-12 text-center text-muted-foreground italic">
                     No advance payments recorded.
                   </td>
                 </tr>
@@ -144,12 +152,31 @@ export default function AdvanceListClient({ advances = [], defaultPreset = "all"
                       {advance.intakeTransaction ? (
                         <Link
                           href={`/intake/${advance.intakeTransactionId}`}
-                          className="text-blue-600 hover:underline font-mono text-xs"
+                          className="text-blue-600 dark:text-blue-400 hover:underline font-mono text-xs"
                         >
                           {advance.intakeNumber}
                         </Link>
                       ) : (
                         <span className="text-muted-foreground text-xs italic">Standalone</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {advance.supplierInvoice ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900 text-[9px] font-bold uppercase px-2 py-0.5 rounded border inline-block w-fit">
+                            Adjusted
+                          </span>
+                          <Link
+                            href={`/supplier-invoices/${advance.supplierInvoiceId}`}
+                            className="text-blue-600 dark:text-blue-400 hover:underline font-mono text-xs mt-0.5"
+                          >
+                            {advance.supplierInvoice.invoiceNumber}
+                          </Link>
+                        </div>
+                      ) : (
+                        <span className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900 text-[9px] font-bold uppercase px-2 py-0.5 rounded border inline-block w-fit">
+                          Outstanding
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-muted-foreground italic">

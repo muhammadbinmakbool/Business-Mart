@@ -18,6 +18,11 @@ export class AdvanceService {
         normalizedWeight: Number(a.intakeTransaction.normalizedWeight),
         rate: a.intakeTransaction.rate ? Number(a.intakeTransaction.rate) : null,
         rateUnit: a.intakeTransaction.rateUnit || DEFAULT_WEIGHT_UNIT
+      } : null,
+      supplierInvoice: a.supplierInvoice ? {
+        ...a.supplierInvoice,
+        finalPayableAmount: Number(a.supplierInvoice.finalPayableAmount),
+        paidAmount: Number(a.supplierInvoice.paidAmount)
       } : null
     }));
   }

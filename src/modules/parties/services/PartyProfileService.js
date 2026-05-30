@@ -22,6 +22,7 @@ export class PartyProfileService {
           orderBy: { entryDate: "desc" }
         },
         intakeAdvances: {
+          include: { supplierInvoice: true },
           orderBy: { createdAt: "desc" }
         },
         supplierInvoices: {
@@ -71,7 +72,8 @@ export class PartyProfileService {
       amount: Number(a.amount || 0),
       notes: a.notes,
       createdAt: a.createdAt,
-      supplierInvoiceId: a.supplierInvoiceId
+      supplierInvoiceId: a.supplierInvoiceId,
+      invoiceNumber: a.supplierInvoice?.invoiceNumber || null
     }));
 
     // Financial Sums

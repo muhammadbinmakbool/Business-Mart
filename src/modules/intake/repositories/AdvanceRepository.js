@@ -5,7 +5,8 @@ export class AdvanceRepository {
     return prisma.intakeAdvance.findMany({
       include: {
         party: true,
-        intakeTransaction: true
+        intakeTransaction: true,
+        supplierInvoice: true
       },
       orderBy: { createdAt: "desc" }
     });

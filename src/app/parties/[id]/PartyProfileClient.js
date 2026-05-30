@@ -323,6 +323,27 @@ export default function PartyProfileClient({ profile }) {
     { key: "id", label: "ID", render: r => `ADV-${r.id}` },
     { key: "createdAt", label: "Date", render: r => format(new Date(r.createdAt), "dd MMM yyyy, hh:mm a") },
     { key: "amount", label: "Amount", align: "right", mono: true, render: r => `Rs. ${fmt(r.amount)}` },
+    {
+      key: "supplierInvoiceId",
+      label: "Status",
+      render: r => r.supplierInvoiceId ? (
+        <div className="flex flex-col gap-0.5">
+          <span className="bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-900 text-[9px] font-bold uppercase px-2 py-0.5 rounded border inline-block w-fit">
+            Adjusted
+          </span>
+          <Link
+            href={`/supplier-invoices/${r.supplierInvoiceId}`}
+            className="text-blue-600 dark:text-blue-400 hover:underline font-mono text-xs mt-0.5"
+          >
+            {r.invoiceNumber || `SUP-${r.supplierInvoiceId}`}
+          </Link>
+        </div>
+      ) : (
+        <span className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-900 text-[9px] font-bold uppercase px-2 py-0.5 rounded border inline-block w-fit">
+          Outstanding
+        </span>
+      )
+    },
     { key: "notes", label: "Notes", render: r => r.notes || "—" },
   ];
 
