@@ -207,7 +207,7 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
                         <>
                           Rs. {Number(sale.items[0]?.rate || 0).toLocaleString()}
                           <span className="text-[9px] opacity-60 ml-1 uppercase">
-                            / {getUnitLabel(sale.items[0]?.rateUnit || "KG")}
+                            / {getUnitLabel((sale.items[0]?.unit === "BAG" || sale.items[0]?.product?.category === "BAG" || sale.items[0]?.product?.primaryUnit === "BAG") ? "BAG" : (sale.items[0]?.rateUnit || "KG"))}
                           </span>
                         </>
                       )}

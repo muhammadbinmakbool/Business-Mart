@@ -18,7 +18,7 @@ import SalePaymentCard from "./SalePaymentCard";
 import { deleteSaleAction, updateSaleStatusAction } from "@/modules/sales/controllers/saleActions";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { formatMaundWeight } from "@/lib/display-units";
-import { UNIT_IDS } from "@/lib/units";
+import { UNIT_IDS, getUnitLabel } from "@/lib/units";
 
 export default async function SaleDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
@@ -105,7 +105,7 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
                         {item.unit === UNIT_IDS.MAUND ? formatMaundWeight(item.weight, "MND", "KG") : `${item.weight.toLocaleString()} ${item.unit}`}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
-                        Rs. {item.rate.toLocaleString()}
+                        Rs. {item.rate.toLocaleString()} <span className="text-[9px] text-muted-foreground uppercase">/ {getUnitLabel((item.unit === "BAG" || item.product?.category === "BAG" || item.product?.primaryUnit === "BAG") ? "BAG" : (item.rateUnit || "KG"))}</span>
                       </td>
                       <td className="px-4 py-3 text-right font-bold text-foreground">Rs. {item.amount.toLocaleString()}</td>
                     </tr>

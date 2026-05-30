@@ -105,6 +105,8 @@ export class IntakeService {
     
     const normalizedWeight = UnitService.getNormalizedQuantity(validated.grossWeight, validated.unit || DEFAULT_WEIGHT_UNIT, product);
     
+    const isBagProduct = product && (product.primaryUnit === "BAG" || product.category === "BAG");
+
     const intake = await prisma.$transaction(async (tx) => {
       // 1. Get next number
       const lastEntry = await tx.intakeTransaction.findFirst({
@@ -124,7 +126,7 @@ export class IntakeService {
           unit: validated.unit || DEFAULT_WEIGHT_UNIT,
           normalizedWeight,
           rate: validated.rate ?? null,
-          rateUnit: validated.rateUnit || DEFAULT_WEIGHT_UNIT,
+          rateUnit: validated.rateUnit || (isBagProduct ? "BAG" : DEFAULT_WEIGHT_UNIT),
           notes: validated.notes,
           status: validated.status || "PENDING",
           entryDate: validated.entryDate,
@@ -216,6 +218,11 @@ export class IntakeService {
 
         // Reset remainingWeight to full grossWeight when reverting to PENDING/CANCELLED
         newRemainingWeight = Number(validated.grossWeight !== undefined ? validated.grossWeight : current.grossWeight);
+        validated.rate = null;
+        validated.rateUnit = null;
+        validated.Bardana = null;
+        validated.Khot = null;
+        validated.netWeight = null;
       }
 
       // Recalculate normalized weight if weight, unit, or product changed
@@ -257,15 +264,15 @@ export class IntakeService {
       }
 
       // Calculate converted rates based on the units used!
-      const finalSupplierRate = validated.rate !== undefined && validated.rate !== null
-        ? validated.rate
+      const finalSupplierRate = validated.rate !== undefined
+        ? (validated.rate === null ? null : validated.rate)
         : current.rate;
-      const finalSupplierRateUnit = validated.rateUnit !== undefined && validated.rateUnit !== null
-        ? validated.rateUnit
-        : current.rateUnit || DEFAULT_WEIGHT_UNIT;
+      const finalSupplierRateUnit = validated.rateUnit !== undefined
+        ? (validated.rateUnit === null ? null : validated.rateUnit)
+        : current.rateUnit;
 
-      const finalSalesTrackRate = validated.rate !== undefined && validated.rate !== null
-        ? validated.rate
+      const finalSalesTrackRate = validated.rate !== undefined
+        ? (validated.rate === null ? null : validated.rate)
         : current.rate;
 
       // 3. Update the intake record FIRST
@@ -404,7 +411,6 @@ export class IntakeService {
     const intakeId = parseInt(id);
     const buyerPartyId = parseInt(data.buyerPartyId);
     const rate = Number(data.rate);
-    const rateUnit = data.rateUnit || DEFAULT_WEIGHT_UNIT;
     const Bardana = Number(data.Bardana) || 0;
     const Khot = Number(data.Khot) || 0;
     const netWeight = Number(data.netWeight) || 0;
@@ -418,6 +424,9 @@ export class IntakeService {
         include: { product: true }
       });
       if (!intake) throw new Error("Intake transaction not found");
+
+      const isBagProduct = intake.unit === "BAG" || (intake.product && (intake.product.primaryUnit === "BAG" || intake.product.category === "BAG"));
+      const rateUnit = isBagProduct ? "BAG" : (data.rateUnit || DEFAULT_WEIGHT_UNIT);
 
       if (intake.product && !intake.product.isActive) {
         throw new Error(`Product "${intake.product.name}" is disabled/inactive. Further transactions, arrivals, or selling of this product are suspended until it is reactivated.`);

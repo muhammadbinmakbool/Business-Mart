@@ -184,7 +184,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                           {Number(track.quantity).toLocaleString()} <span className="text-xs font-normal uppercase italic">{getUnitLabel(intake.unit)}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Rs. {Number(track.sellingRate).toLocaleString()} / {getUnitLabel(track.rateUnit || "KG")}
+                          Rs. {Number(track.sellingRate).toLocaleString()} / {getUnitLabel((intake.unit === "BAG" || intake.product?.primaryUnit === "BAG") ? "BAG" : (track.rateUnit || "KG"))}
                         </div>
                         <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
                           Rs. {Number(track.baseAmount).toLocaleString()}

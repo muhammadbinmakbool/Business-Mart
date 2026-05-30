@@ -57,6 +57,20 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
       let rate = intake.rate !== null ? Number(intake.rate) : 0;
       let initialTotal = 0;
       
+      const distinctRates = hasTracks 
+        ? Array.from(new Set(intake.salesTracks.map(t => Number(t.buyingRate || t.sellingRate || 0))))
+        : [rate];
+      const trackTotals = hasTracks
+        ? intake.salesTracks.map(t => Number(t.baseAmount || 0))
+        : [];
+
+      let rateUnit = intake.rateUnit || "KG";
+      if (intake.unit === "BAG" || intake.product?.primaryUnit === "BAG") {
+        rateUnit = "BAG";
+      } else if (hasTracks) {
+        rateUnit = intake.salesTracks[0].rateUnit || "KG";
+      }
+
       if (hasTracks) {
         const totalNetWeight = intake.salesTracks.reduce((sum, t) => sum + Number(t.netWeight || t.quantity || 0), 0);
         const totalBaseAmount = intake.salesTracks.reduce((sum, t) => sum + Number(t.baseAmount || 0), 0);
@@ -74,7 +88,10 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
         ...intake,
         netWeight,
         rate,
-        initialTotal
+        rateUnit,
+        initialTotal,
+        distinctRates,
+        trackTotals
       };
     });
   }, [filteredIntakes]);
@@ -167,7 +184,20 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
                     {showSoldColumns && (
                       <>
                         <td className="px-4 py-3 text-right font-medium whitespace-nowrap">
-                          Rs. {Number(intake.rate || 0).toLocaleString()} <span className="text-[10px] text-muted-foreground">/{getUnitLabel(intake.rateUnit || "KG")}</span>
+                          {intake.distinctRates && intake.distinctRates.length > 1 ? (
+                            <div className="flex flex-col items-end">
+                              <span className="font-bold text-foreground">
+                                Rs. {intake.distinctRates.map(r => r.toLocaleString()).join(", ")}
+                              </span>
+                              <span className="text-[9px] text-muted-foreground font-semibold uppercase">
+                                / {getUnitLabel(intake.rateUnit || "KG")}
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              Rs. {Number(intake.rate || 0).toLocaleString()} <span className="text-[10px] text-muted-foreground">/{getUnitLabel(intake.rateUnit || "KG")}</span>
+                            </>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right text-muted-foreground whitespace-nowrap">
                           {intake.Bardana !== null ? `${Number(intake.Bardana).toLocaleString()} KG` : "-"}
@@ -180,18 +210,34 @@ export default function IntakeListClient({ intakes = [], defaultPreset = "all" }
                             <>
                               {intake.unit === "BAG" && intake.product ? (
                                 <>
-                                  {normalizeQuantity(intake.netWeight, "BAG", intake.product).toLocaleString()} <span className="text-[10px] uppercase text-muted-foreground">KG</span>
+                                  {(() => {
+                                    const grossWeight = Number(intake.grossWeight) || 0;
+                                    const normalizedWeight = Number(intake.normalizedWeight) || 0;
+                                    const factor = grossWeight > 0 ? (normalizedWeight / grossWeight) : (intake.product.unitConversion ? Number(intake.product.unitConversion) : 1);
+                                    return (Number(intake.netWeight) * factor).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                  })()} <span className="text-[10px] uppercase text-muted-foreground">KG</span>
                                 </>
                               ) : (
                                 <>
-                                  {Number(intake.netWeight).toLocaleString()} <span className="text-[10px] uppercase text-muted-foreground">{getUnitLabel(intake.unit)}</span>
+                                  {Number(intake.netWeight).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] uppercase text-muted-foreground">{getUnitLabel(intake.unit)}</span>
                                 </>
                               )}
                             </>
                           ) : "-"}
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-amber-700 whitespace-nowrap">
-                          Rs. {intake.initialTotal.toLocaleString()}
+                          {intake.trackTotals && intake.trackTotals.length > 1 ? (
+                            <div className="flex flex-col items-end">
+                              <span>Rs. {intake.initialTotal.toLocaleString()}</span>
+                              <span className="text-[9px] text-muted-foreground font-normal">
+                                ({intake.trackTotals.map(t => `Rs. ${t.toLocaleString()}`).join(" + ")})
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              Rs. {intake.initialTotal.toLocaleString()}
+                            </>
+                          )}
                         </td>
                       </>
                     )}
