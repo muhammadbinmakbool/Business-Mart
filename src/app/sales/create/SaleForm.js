@@ -213,12 +213,18 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     if (field === "productId") {
         const product = products.find(p => p.id === parseInt(value));
         if (product) {
-            const compatible = getUnitsByCategory(product.category);
-            const prefWeight = getPreferredWeightUnit();
-            const prefRate = getPreferredRateUnit();
+            const isProdBag = product.primaryUnit === "BAG" || product.category === "BAG";
+            if (isProdBag) {
+                newItems[index].unit = "BAG";
+                newItems[index].rateUnit = "BAG";
+            } else {
+                const compatible = getUnitsByCategory(product.category);
+                const prefWeight = getPreferredWeightUnit();
+                const prefRate = getPreferredRateUnit();
 
-            newItems[index].unit = compatible.some(u => u.id === prefWeight) ? prefWeight : (product.primaryUnit || "KG");
-            newItems[index].rateUnit = compatible.some(u => u.id === prefRate) ? prefRate : (product.primaryUnit || "KG");
+                newItems[index].unit = compatible.some(u => u.id === prefWeight) ? prefWeight : (product.primaryUnit || "KG");
+                newItems[index].rateUnit = compatible.some(u => u.id === prefRate) ? prefRate : (product.primaryUnit || "KG");
+            }
         }
     }
     
@@ -533,7 +539,12 @@ export default function SaleForm({ buyers, products, initialData = null }) {
             <tbody className="divide-y">
               {items.map((item, index) => {
                 const product = products.find(p => p.id === parseInt(item.productId));
-                const compatibleUnits = product ? getUnitsByCategory(product.category) : [];
+                const isProdBag = product && (product.primaryUnit === "BAG" || product.category === "BAG");
+                const compatibleUnits = product
+                  ? (isProdBag
+                      ? getUnitsByCategory(product.category).filter(u => u.id === "BAG")
+                      : getUnitsByCategory(product.category))
+                  : [];
 
                 return (
                   <tr key={index} className="group">

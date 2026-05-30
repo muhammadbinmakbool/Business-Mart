@@ -94,3 +94,42 @@ To avoid freezing payouts, unpaid supplier balances, or outstanding buyer accoun
 | **Sales** | [SaleService.js](file:///d:/Projects%20JS/src/modules/sales/services/SaleService.js) | `recordSale` / `updateSale` | Bypasses `isActive` check only if `item.salesTrackId` exists |
 | **Intake** | [IntakeService.js](file:///d:/Projects%20JS/src/modules/intake/services/IntakeService.js) | `createIntake` | Blocks new pending arrival records if product deactivated |
 | **Intake** | [IntakeService.js](file:///d:/Projects%20JS/src/modules/intake/services/IntakeService.js) | `updateIntake` / `sellIntake` | Blocks selling of remaining weight in lifecycle status changes |
+
+---
+
+## 5. Bag Product Architectural Lock
+
+To maintain absolute clarity, remove unit selection ambiguity, and prevent weight/bag recalculation drift, the system enforces a strict architectural boundary between **Bulk Products** and **Bag Products**.
+
+### A. Classification Rules
+1. **Bulk Products**: (e.g. Basmati Rice, Wheat, Sugar)
+   * Stored under standard category `WEIGHT`.
+   * Stored in primary unit `KG` or `MAUND`.
+   * **Allowed Units:** Selectable standard weight units (`KG`, `MAUND`, `TON`) are permitted.
+   * **Source of Truth:** Physical weight in base unit (KG) is the absolute source of truth.
+
+2. **Bag Products**: (e.g. Rice 20 KG Bag, Rice 40 KG Bag, Mango 50 KG Bag)
+   * Stored with `primaryUnit = "BAG"` or `category = "BAG"`.
+   * **Distinct Product Records:** Every bag size variation **must** be created as a completely separate product record with its own fixed `unitConversion` factor.
+   * **Allowed Units:** **Only `BAG` is selectable.** KG, MAUND, and other weight units are disabled/hidden in all forms.
+   * **Source of Truth:** The entered quantity in `BAG` is the source of truth, and weight in KG is a derived value.
+
+### B. Partial Intake Invariant Lock
+When a product's `unitConversion` (bag size) changes in product settings, the system executes a mathematically safe recalculation strategy that protects historical sold records:
+
+1. **Historical Sold Portion**:
+   * **MUST NEVER** be recalculated under any condition. Already sold allocations and traceability records are frozen forever using the historical conversion factor at the time of sale.
+2. **Remaining Portion**:
+   * **Unsold stock sitting in the warehouse** is recalculated dynamically using the new conversion factor to reflect physical warehouse changes.
+
+### C. Recalculation Formula (Option 1 Safe Model)
+For active `BAG`-entered intakes of a product when `unitConversion` is updated:
+
+$$\text{newNormalizedWeight} = \left[(\text{grossWeight} - \text{remainingWeight}) \times \text{oldConversion}\right] + (\text{remainingWeight} \times \text{newConversion})$$
+
+* **For `PENDING` Intakes (completely unsold):**
+  $$\text{newNormalizedWeight} = \text{grossWeight} \times \text{newConversion}$$
+* **For `PARTIAL` Intakes (partially sold):**
+  The sold portion remains frozen at the old conversion rate, and only the unsold remaining portion is recalculated under the new conversion rate.
+* **For `SOLD`, `CLEARED`, or `CANCELLED` Intakes:**
+  Completely skipped and untouched to preserve static historical accounting integrity.

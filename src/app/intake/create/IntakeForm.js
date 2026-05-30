@@ -23,20 +23,24 @@ export default function IntakeForm({ suppliers, products }) {
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
 
   const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
-  const isBagProduct = selectedProduct?.primaryUnit === "BAG" && selectedProduct?.unitConversion && Number(selectedProduct.unitConversion) > 0;
-  const compatibleUnits = selectedProduct ? getUnitsByCategory(selectedProduct.category) : [];
+  const isBagProduct = selectedProduct && (selectedProduct.primaryUnit === "BAG" || selectedProduct.category === "BAG");
+  const compatibleUnits = selectedProduct
+    ? (isBagProduct
+        ? getUnitsByCategory(selectedProduct.category).filter(u => u.id === "BAG")
+        : getUnitsByCategory(selectedProduct.category))
+    : [];
 
   const handleProductChange = (productId) => {
     setSelectedProductId(productId);
     const prod = products.find(p => p.id === parseInt(productId));
     if (prod) {
+      const isProdBag = prod.primaryUnit === "BAG" || prod.category === "BAG";
       const units = getUnitsByCategory(prod.category);
       const prefUnit = getPreferredWeightUnit();
       const isPrefCompatible = units.some(u => u.id === prefUnit);
-      const defaultUnit = isPrefCompatible ? prefUnit : (prod.primaryUnit || DEFAULT_WEIGHT_UNIT);
+      const defaultUnit = isProdBag ? "BAG" : (isPrefCompatible ? prefUnit : (prod.primaryUnit || DEFAULT_WEIGHT_UNIT));
       setSelectedUnit(defaultUnit);
 
-      const isProdBag = prod.primaryUnit === UNIT_IDS.BAG && prod.unitConversion && Number(prod.unitConversion) > 0;
       if (defaultUnit === UNIT_IDS.BAG) {
         setGrossWeightVal(bagCountVal);
       } else if (isProdBag && grossWeightVal) {
