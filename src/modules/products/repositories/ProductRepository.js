@@ -62,10 +62,35 @@ export class ProductRepository {
   }
 
   static async delete(id) {
-    await prisma.intakeTransaction.deleteMany({ where: { productId: parseInt(id) } });
-    
+    const pId = parseInt(id);
+
+    // 1. Check Intake transactions
+    const intakesCount = await prisma.intakeTransaction.count({
+      where: { productId: pId }
+    });
+    if (intakesCount > 0) {
+      throw new Error("Cannot delete product because it has associated intake transactions. Deactivate the product instead to prevent future selections.");
+    }
+
+    // 2. Check Sale Items
+    const salesCount = await prisma.saleItem.count({
+      where: { productId: pId }
+    });
+    if (salesCount > 0) {
+      throw new Error("Cannot delete product because it has associated sales invoices. Deactivate the product instead to prevent future selections.");
+    }
+
+    // 3. Check Sales Tracks
+    const tracksCount = await prisma.salesTrack.count({
+      where: { productId: pId }
+    });
+    if (tracksCount > 0) {
+      throw new Error("Cannot delete product because it has associated transaction tracks. Deactivate the product instead to prevent future selections.");
+    }
+
+    // If completely unlinked, delete cleanly
     const p = await prisma.product.delete({
-      where: { id: parseInt(id) },
+      where: { id: pId },
     });
     return this.serializeProduct(p);
   }
