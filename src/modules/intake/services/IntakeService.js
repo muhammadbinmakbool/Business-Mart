@@ -29,7 +29,15 @@ export class IntakeService {
         ...intake.product,
         quantity: Number(intake.product.quantity),
         unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
-      } : null
+      } : null,
+      salesTracks: intake.salesTracks?.map(st => ({
+        ...st,
+        quantity: Number(st.quantity),
+        buyingRate: st.buyingRate ? Number(st.buyingRate) : null,
+        sellingRate: st.sellingRate ? Number(st.sellingRate) : null,
+        netWeight: st.netWeight ? Number(st.netWeight) : null,
+        baseAmount: st.baseAmount ? Number(st.baseAmount) : null
+      }))
     }));
   }
 
