@@ -20,8 +20,10 @@ import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { formatMaundWeight } from "@/lib/display-units";
 import { UNIT_IDS } from "@/lib/units";
 
-export default async function SaleDetailsPage({ params: paramsPromise }) {
+export default async function SaleDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
+  const searchParams = searchParamsPromise ? await searchParamsPromise : {};
+  const backUrl = searchParams.backUrl || "/sales";
   const sale = await SaleService.getSale(params.id);
 
   if (!sale) {
@@ -29,7 +31,7 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
       <div className="flex flex-col items-center justify-center py-24 space-y-4">
         <ReceiptText className="h-12 w-12 text-muted-foreground opacity-20" />
         <h1 className="text-xl font-bold text-muted-foreground">Sale Invoice not found</h1>
-        <Link href="/sales" className="text-primary hover:underline">Back to Sales</Link>
+        <Link href={backUrl} className="text-primary hover:underline">Back to Sales</Link>
       </div>
     );
   }
@@ -38,7 +40,7 @@ export default async function SaleDetailsPage({ params: paramsPromise }) {
     <div className="max-w-5xl mx-auto space-y-8 pb-20">
       {/* Header */}
       <ResponsiveHeader
-        backUrl="/sales"
+        backUrl={backUrl}
         title={
           <div>
             <div className="flex items-center gap-3">

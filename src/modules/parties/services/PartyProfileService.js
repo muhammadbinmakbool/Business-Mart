@@ -73,7 +73,8 @@ export class PartyProfileService {
       notes: a.notes,
       createdAt: a.createdAt,
       supplierInvoiceId: a.supplierInvoiceId,
-      invoiceNumber: a.supplierInvoice?.invoiceNumber || null
+      invoiceNumber: a.supplierInvoice?.invoiceNumber || null,
+      intakeTransactionId: a.intakeTransactionId
     }));
 
     // Financial Sums
@@ -102,6 +103,7 @@ export class PartyProfileService {
     sales.forEach(sale => {
       timelineEvents.push({
         id: `sale-${sale.id}`,
+        targetId: sale.id,
         date: new Date(sale.entryDate),
         type: "SALE",
         ref: sale.saleNumber,
@@ -119,6 +121,7 @@ export class PartyProfileService {
     settlements.forEach(inv => {
       timelineEvents.push({
         id: `sup-${inv.id}`,
+        targetId: inv.id,
         date: new Date(inv.entryDate),
         type: "SUPPLIER_INVOICE",
         ref: inv.invoiceNumber,
@@ -136,6 +139,8 @@ export class PartyProfileService {
     advances.forEach(adv => {
       timelineEvents.push({
         id: `adv-${adv.id}`,
+        targetId: adv.id,
+        intakeTransactionId: adv.intakeTransactionId,
         date: new Date(adv.createdAt),
         type: "CASH_OUT",
         ref: `ADV-${adv.id}`,

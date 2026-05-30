@@ -13,8 +13,10 @@ import Alert from "@/components/ui/Alert";
 import { formatMaundWeight } from "@/lib/display-units";
 import { UNIT_IDS } from "@/lib/units";
 
-export default async function SupplierInvoiceDetailPage({ params }) {
+export default async function SupplierInvoiceDetailPage({ params, searchParams: searchParamsPromise }) {
   const { id } = await params;
+  const searchParams = searchParamsPromise ? await searchParamsPromise : {};
+  const backUrl = searchParams.backUrl || "/supplier-invoices";
   const result = await getSupplierInvoiceAction(id);
   
   if (!result.success) {
@@ -23,7 +25,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
         <AlertCircle className="h-12 w-12 text-rose-500 mb-4" />
         <h2 className="text-2xl font-bold">Error</h2>
         <p className="text-muted-foreground">{result.error}</p>
-        <Link href="/supplier-invoices" className="mt-6 text-primary hover:underline">Back to list</Link>
+        <Link href={backUrl} className="mt-6 text-primary hover:underline">Back to list</Link>
       </div>
     );
   }
@@ -74,7 +76,7 @@ export default async function SupplierInvoiceDetailPage({ params }) {
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20">
       <ResponsiveHeader
-        backUrl="/supplier-invoices"
+        backUrl={backUrl}
         title={
           <div>
             <div className="flex items-center gap-2">

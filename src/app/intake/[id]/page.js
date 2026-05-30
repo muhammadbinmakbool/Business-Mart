@@ -10,8 +10,10 @@ import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { convertRate, normalizeQuantity, getUnitLabel, UNIT_IDS } from "@/lib/units";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 
-export default async function IntakeDetailsPage({ params: paramsPromise }) {
+export default async function IntakeDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
+  const searchParams = searchParamsPromise ? await searchParamsPromise : {};
+  const backUrl = searchParams.backUrl || "/intake";
   const rawIntake = await IntakeService.getIntake(params.id);
 
   if (!rawIntake) {
@@ -26,7 +28,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise }) {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <ResponsiveHeader
-        backUrl="/intake"
+        backUrl={backUrl}
         title={
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Intake {intake.intakeNumber}</h1>

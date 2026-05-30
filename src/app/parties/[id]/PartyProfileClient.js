@@ -59,7 +59,7 @@ function StatusBadge({ status }) {
   );
 }
 
-function TimelineTable({ events }) {
+function TimelineTable({ events, partyId }) {
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? events : events.slice(0, 15);
 
@@ -104,7 +104,23 @@ function TimelineTable({ events }) {
                       {evt.type}
                     </span>
                   </td>
-                  <td className="px-4 py-3 font-mono text-xs">{evt.ref}</td>
+                  <td className="px-4 py-3 font-mono text-xs">
+                    {isSale ? (
+                      <Link href={`/sales/${evt.targetId}?backUrl=/parties/${partyId}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                        {evt.ref}
+                      </Link>
+                    ) : isSup ? (
+                      <Link href={`/supplier-invoices/${evt.targetId}?backUrl=/parties/${partyId}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                        {evt.ref}
+                      </Link>
+                    ) : evt.type === "CASH_OUT" && evt.intakeTransactionId ? (
+                      <Link href={`/intake/${evt.intakeTransactionId}?backUrl=/parties/${partyId}`} className="text-blue-600 dark:text-blue-400 hover:underline">
+                        {evt.ref} (Intake)
+                      </Link>
+                    ) : (
+                      evt.ref
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-right font-mono text-xs">
                     {evt.debit > 0 ? <span className="text-emerald-600 font-semibold">{fmt(evt.debit)}</span> : <span className="opacity-30">—</span>}
                   </td>
@@ -299,7 +315,7 @@ export default function PartyProfileClient({ profile }) {
   const [activeTab, setActiveTab] = useState("overview");
 
   const salesCols = [
-    { key: "saleNumber", label: "Invoice #" },
+    { key: "saleNumber", label: "Invoice #", render: r => <Link href={`/sales/${r.id}?backUrl=/parties/${party.id}`} className="text-blue-600 dark:text-blue-400 hover:underline font-mono">{r.saleNumber}</Link> },
     { key: "entryDate", label: "Date", render: r => format(new Date(r.entryDate), "dd MMM yyyy") },
     { key: "totalWeight", label: "Weight", align: "right", mono: true, render: r => `${fmt(r.totalWeight)} KG` },
     { key: "finalAmount", label: "Amount", align: "right", mono: true, render: r => `Rs. ${fmt(r.finalAmount)}` },
@@ -309,7 +325,7 @@ export default function PartyProfileClient({ profile }) {
   ];
 
   const settlementCols = [
-    { key: "invoiceNumber", label: "Invoice #" },
+    { key: "invoiceNumber", label: "Invoice #", render: r => <Link href={`/supplier-invoices/${r.id}?backUrl=/parties/${party.id}`} className="text-blue-600 dark:text-blue-400 hover:underline font-mono">{r.invoiceNumber}</Link> },
     { key: "entryDate", label: "Date", render: r => format(new Date(r.entryDate), "dd MMM yyyy") },
     { key: "totalGrossValue", label: "Gross", align: "right", mono: true, render: r => `Rs. ${fmt(r.totalGrossValue)}` },
     { key: "totalDeductions", label: "Deductions", align: "right", mono: true, render: r => `Rs. ${fmt(r.totalDeductions)}` },
@@ -332,7 +348,7 @@ export default function PartyProfileClient({ profile }) {
             Adjusted
           </span>
           <Link
-            href={`/supplier-invoices/${r.supplierInvoiceId}`}
+            href={`/supplier-invoices/${r.supplierInvoiceId}?backUrl=/parties/${party.id}`}
             className="text-blue-600 dark:text-blue-400 hover:underline font-mono text-xs mt-0.5"
           >
             {r.invoiceNumber || `SUP-${r.supplierInvoiceId}`}
@@ -453,7 +469,7 @@ export default function PartyProfileClient({ profile }) {
                 <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded border font-semibold">Realized Transactions</span>
               </div>
               <div className="p-0">
-                <TimelineTable events={timeline} />
+                <TimelineTable events={timeline} partyId={party.id} />
               </div>
             </div>
           </div>
