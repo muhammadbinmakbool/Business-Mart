@@ -1,16 +1,25 @@
 "use client";
 
 import React from "react";
-import { Sun, Moon, Bell, User } from "lucide-react";
+import { Sun, Moon, Bell, User, Menu } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
+import { useSidebar } from "./SidebarContext";
 
 export function Topbar() {
   const { theme, setTheme } = useTheme();
+  const { setIsMobileOpen } = useSidebar();
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-card px-6 text-card-foreground">
       <div className="flex items-center gap-4">
-        {/* Mobile menu toggle could go here */}
+        {/* Mobile menu toggle */}
+        <button
+          onClick={() => setIsMobileOpen(true)}
+          className="flex md:hidden items-center justify-center rounded-md p-2 hover:bg-accent text-foreground transition-colors"
+          title="Open Menu"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
       </div>
       <div className="flex items-center gap-4">
         <button
