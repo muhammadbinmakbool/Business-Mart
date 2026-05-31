@@ -115,21 +115,32 @@ All capability evaluations are declared as stateless, network-independent pure f
 2. **React Server Component fallback checks (`src/app/settings/page.js`)**: Secondary client-side RSC verification prior to component renders.
 3. **Backend Controller Enforcement (`src/modules/auth/controllers/userActions.js`)**: Re-authenticates every write request against caller's active JWT session roles.
 
-### 3. Unified Deletion Security Guard (`src/lib/authGuard.js`)
-To avoid manual logic duplication across deletion controllers, all financial writes and catalog deletions funnel through `assertDeletePermission(confirmPassword)`:
+### 3. Unified Deletion Security Guard & withSecurity Wrapper (`src/lib/authGuard.js`)
+To avoid manual logic duplication across deletion controllers and enforce strict security, all financial writes and catalog deletions funnel through `assertDeletePermission(confirmPassword)`.
+
+Additionally, to prevent a single point of failure where developers might forget to invoke the guard in a new module, we provide a **high-order Server Action wrapper**:
+
 ```javascript
-export async function assertDeletePermission(confirmPassword) {
-  const session = await getSession();
-  if (!session) throw new Error("Unauthorized: Session required");
-  if (!canDeleteRecord(session.role)) throw new Error("Forbidden: Insufficient permissions");
-  await AuthService.verifyCurrentPassword(confirmPassword);
-  return session;
-}
+import { withSecurity } from "@/lib/authGuard";
+import { canDeleteRecord } from "@/lib/permissions";
+
+// Wrapped server action automatically extracts confirmation password and enforces checks:
+export const deleteProductAction = withSecurity(async (id) => {
+  await ProductService.deleteProduct(id);
+}, {
+  actionName: "Delete Product",
+  roleCheck: canDeleteRecord,
+  requirePassword: true
+});
 ```
 
-### 4. Offline-Safe Password Verification
+The wrapper automatically parses arguments (including `FormData` and parameters like `(id, confirmPassword)`) to extract the verification password and validate permissions, ensuring consistent, bulletproof API boundaries.
+
+### 4. Offline-Safe Password Verification & 5-Minute UX Caching
 Sensitive master records, user management adjustments, and high-risk deletion triggers mandate operator re-authentication:
 - **Scope**: Required for User management, master catalog deletions (Products/Parties), and financial record deletions (Intakes, Sales, Supplier Invoices, and Settlements). Low-risk temporary data drafts do not block with re-authentication.
 - **Offline Integrity**: Authenticating the confirmation password is executed server-side via Node `bcrypt.compare` using local JWT session credentials—meaning the system does not depend on any third-party networks or API servers to verify operator identity.
-- **Frontend Interaction**: Captures the password input locally inside the premium overlay `PasswordConfirmModal.jsx` and transmits it via secure parameters to Server Actions.
+- **5-Minute Caching**: To deliver a premium ERP experience, a signed HttpOnly cookie `bm-reauth` is set upon successful verification. For the next **5 minutes**, the user is not prompted again. The `checkReauthStatusAction` allows the UI to automatically skip popping up the modal if the cache is active.
+- **`customAssertion` Guidelines**: The `customAssertion` argument inside `assertSensitiveAction` is strictly restricted to **core system operations** (such as user management actions, role updates, and account status toggles) and is prohibited in general business feature modules to maintain absolute rule consistency.
+
 
