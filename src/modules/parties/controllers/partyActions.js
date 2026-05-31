@@ -53,8 +53,13 @@ export async function togglePartyStatusAction(id) {
     return { error: "Failed to toggle status" };
   }
 }
-export async function deletePartyAction(id) {
+import { assertDeletePermission } from "@/lib/authGuard";
+
+export async function deletePartyAction(id, confirmPassword) {
   try {
+    // Enforce unified record deletion permission and password confirmation check
+    await assertDeletePermission(confirmPassword);
+
     await PartyService.deleteParty(id);
     revalidatePath("/parties");
     return { success: true };

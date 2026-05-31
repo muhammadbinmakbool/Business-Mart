@@ -91,3 +91,45 @@ Located under **System Settings → Security & Users**, administrators can:
 1. Register new operators with custom access roles (`ADMIN` or `USER`).
 2. Safely toggle operator status (Active / Disabled) using safe soft-disable actions.
 3. Update names, emails, and passwords cleanly.
+
+---
+
+## 🔒 Centralized Role-Based Access Control (RBAC) & Re-Authentication (Version 1)
+
+To ensure high-grade data protection, multi-layered security routing, and robust self-protection safeguards, the platform enforces centralized permission checking.
+
+### 1. Pure Decision Rules (`src/lib/permissions.js`)
+All capability evaluations are declared as stateless, network-independent pure functions, ensuring edge-compatibility and local PWA offline autonomy:
+- **`canAccessSettings(role)`**: Standard Settings module restricted to `SUPER_ADMIN` and `ADMIN`.
+- **`canDeleteRecord(role)`**: Standard deletions restricted to `SUPER_ADMIN` and `ADMIN`.
+- **`canManageUserRole(actorRole, targetRole)`**:
+  - `SUPER_ADMIN` has absolute operational capability.
+  - `ADMIN` can create/manage standard `ADMIN` and `USER` operators.
+  - `ADMIN` **cannot** modify or register `SUPER_ADMIN` accounts.
+- **`canEditSelfRole(actorId, targetId, newRole, currentRole)`**: Lockout safeguard. Active operator cannot change their own role.
+- **`canDisableSelf(actorId, targetId)`**: Lockout safeguard. Active operator cannot disable their own logged-in account.
+- **`canDeleteSelf(actorId, targetId)`**: Lockout safeguard. Active operator cannot delete their own account.
+
+### 2. Multi-Layer Page & Routing Guardrails
+1. **Next.js Edge Middleware Redirects (`src/middleware.js`)**: Intercepts request paths at network entrance level, instantly bouncing non-admin roles trying to open `/settings`.
+2. **React Server Component fallback checks (`src/app/settings/page.js`)**: Secondary client-side RSC verification prior to component renders.
+3. **Backend Controller Enforcement (`src/modules/auth/controllers/userActions.js`)**: Re-authenticates every write request against caller's active JWT session roles.
+
+### 3. Unified Deletion Security Guard (`src/lib/authGuard.js`)
+To avoid manual logic duplication across deletion controllers, all financial writes and catalog deletions funnel through `assertDeletePermission(confirmPassword)`:
+```javascript
+export async function assertDeletePermission(confirmPassword) {
+  const session = await getSession();
+  if (!session) throw new Error("Unauthorized: Session required");
+  if (!canDeleteRecord(session.role)) throw new Error("Forbidden: Insufficient permissions");
+  await AuthService.verifyCurrentPassword(confirmPassword);
+  return session;
+}
+```
+
+### 4. Offline-Safe Password Verification
+Sensitive master records, user management adjustments, and high-risk deletion triggers mandate operator re-authentication:
+- **Scope**: Required for User management, master catalog deletions (Products/Parties), and financial record deletions (Intakes, Sales, Supplier Invoices, and Settlements). Low-risk temporary data drafts do not block with re-authentication.
+- **Offline Integrity**: Authenticating the confirmation password is executed server-side via Node `bcrypt.compare` using local JWT session credentials—meaning the system does not depend on any third-party networks or API servers to verify operator identity.
+- **Frontend Interaction**: Captures the password input locally inside the premium overlay `PasswordConfirmModal.jsx` and transmits it via secure parameters to Server Actions.
+

@@ -43,6 +43,15 @@ export async function middleware(request) {
     return NextResponse.redirect(dashboardUrl);
   }
 
+  // Settings direct URL access protection
+  if (session && pathname.startsWith("/settings")) {
+    const role = session.role;
+    if (role !== "SUPER_ADMIN" && role !== "ADMIN") {
+      const dashboardUrl = new URL("/dashboard", request.url);
+      return NextResponse.redirect(dashboardUrl);
+    }
+  }
+
   return NextResponse.next();
 }
 

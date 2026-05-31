@@ -6,17 +6,34 @@ import {
   createUserAction, 
   updateUserAction, 
   disableUserAction, 
-  enableUserAction 
+  enableUserAction,
+  getActiveSessionAction
 } from "@/modules/auth/controllers/userActions";
 import { toast } from "sonner";
 import { Plus, User, Shield, Check, X, Pencil, UserX, UserCheck, Loader2 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
 import { USER_ROLES } from "@/lib/constants";
+import PasswordConfirmModal from "@/components/ui/PasswordConfirmModal";
+import { 
+  canManageUserRole, 
+  canEditSelfRole, 
+  canDisableSelf 
+} from "@/lib/permissions";
 
 export default function UsersManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isPending, startTransition] = useTransition();
+
+  // Active logged-in session user context
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Re-auth confirmation modal states
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [confirmDescription, setConfirmDescription] = useState("");
+  const [onConfirmCallback, setOnConfirmCallback] = useState(null);
+  const [confirmLoading, setConfirmLoading] = useState(false);
 
   // Modal states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -41,6 +58,11 @@ export default function UsersManagement() {
   };
 
   useEffect(() => {
+    async function loadSession() {
+      const sess = await getActiveSessionAction();
+      setCurrentUser(sess);
+    }
+    loadSession();
     fetchUsers();
   }, []);
 
@@ -52,6 +74,25 @@ export default function UsersManagement() {
     setIsCreateOpen(true);
   };
 
+  const requestConfirmation = (title, description, callback) => {
+    setConfirmTitle(title);
+    setConfirmDescription(description);
+    setOnConfirmCallback(() => callback);
+    setIsConfirmOpen(true);
+  };
+
+  const handlePasswordConfirmed = async (confirmPassword) => {
+    setConfirmLoading(true);
+    try {
+      await onConfirmCallback(confirmPassword);
+      setIsConfirmOpen(false);
+    } catch (e) {
+      toast.error(e.message || "Action failed");
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
+
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
     if (!name || !email || !password) {
@@ -59,22 +100,33 @@ export default function UsersManagement() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("email", email);
-    formData.append("password", password);
-    formData.append("role", role);
+    requestConfirmation(
+      "Confirm Operator Creation",
+      `Creating a new system operator (${email}) requires authorization. Please confirm your password to proceed.`,
+      async (confirmPassword) => {
+        const formData = new FormData();
+        formData.append("name", name);
+        formData.append("email", email);
+        formData.append("password", password);
+        formData.append("role", role);
+        formData.append("confirmPassword", confirmPassword);
 
-    startTransition(async () => {
-      const res = await createUserAction(formData);
-      if (res?.success) {
-        toast.success("User created successfully");
-        setIsCreateOpen(false);
-        fetchUsers();
-      } else {
-        toast.error(res?.error || "Failed to create user");
+        return new Promise((resolve, reject) => {
+          startTransition(async () => {
+            const res = await createUserAction(formData);
+            if (res?.success) {
+              toast.success("User created successfully");
+              setIsCreateOpen(false);
+              fetchUsers();
+              resolve();
+            } else {
+              toast.error(res?.error || "Failed to create user");
+              reject(new Error(res?.error || "Failed to create user"));
+            }
+          });
+        });
       }
-    });
+    );
   };
 
   const handleOpenEdit = (user) => {
@@ -93,39 +145,72 @@ export default function UsersManagement() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("name", name);
-    formData.append("email", email);
-    if (password) {
-      formData.append("password", password);
-    }
-    formData.append("role", role);
+    requestConfirmation(
+      "Confirm Profile Changes",
+      `Modifying system operator profile (${activeUser.email}) requires authorization. Please confirm your password to proceed.`,
+      async (confirmPassword) => {
+        const formData = new FormData();
+        formData.append("name", name);
+        formData.append("email", email);
+        if (password) {
+          formData.append("password", password);
+        }
+        formData.append("role", role);
+        formData.append("confirmPassword", confirmPassword);
 
-    startTransition(async () => {
-      const res = await updateUserAction(activeUser.id, formData);
-      if (res?.success) {
-        toast.success("User updated successfully");
-        setIsEditOpen(false);
-        fetchUsers();
-      } else {
-        toast.error(res?.error || "Failed to update user");
+        return new Promise((resolve, reject) => {
+          startTransition(async () => {
+            const res = await updateUserAction(activeUser.id, formData);
+            if (res?.success) {
+              toast.success("User updated successfully");
+              setIsEditOpen(false);
+              fetchUsers();
+              resolve();
+            } else {
+              toast.error(res?.error || "Failed to update user");
+              reject(new Error(res?.error || "Failed to update user"));
+            }
+          });
+        });
       }
-    });
+    );
   };
 
   const handleToggleStatus = (user) => {
     const action = user.isActive ? disableUserAction : enableUserAction;
     const actionText = user.isActive ? "disabled" : "enabled";
 
-    startTransition(async () => {
-      const res = await action(user.id);
-      if (res?.success) {
-        toast.success(`User ${user.email} successfully ${actionText}`);
-        fetchUsers();
-      } else {
-        toast.error(res?.error || `Failed to change status`);
+    // 1. Self-protection role block checks in UI
+    if (currentUser && String(currentUser.userId) === String(user.id)) {
+      toast.error("Forbidden: Lockout protection activated. You cannot disable your own active account.");
+      return;
+    }
+
+    // 2. Admin boundary verification in UI
+    if (currentUser && currentUser.role === USER_ROLES.ADMIN && user.role === USER_ROLES.SUPER_ADMIN) {
+      toast.error("Forbidden: Administrators cannot modify SUPER_ADMIN accounts.");
+      return;
+    }
+
+    requestConfirmation(
+      `Confirm Status Change`,
+      `Are you sure you want to ${user.isActive ? "DISABLE" : "ENABLE"} the operator account for ${user.email}? Please confirm your password to proceed.`,
+      async (confirmPassword) => {
+        return new Promise((resolve, reject) => {
+          startTransition(async () => {
+            const res = await action(user.id, confirmPassword);
+            if (res?.success) {
+              toast.success(`User ${user.email} successfully ${actionText}`);
+              fetchUsers();
+              resolve();
+            } else {
+              toast.error(res?.error || `Failed to change status`);
+              reject(new Error(res?.error || `Failed to change status`));
+            }
+          });
+        });
       }
-    });
+    );
   };
 
   return (
@@ -204,27 +289,50 @@ export default function UsersManagement() {
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleOpenEdit(u)}
-                          className="p-1.5 hover:bg-accent rounded-lg text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                          title="Edit User"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(u)}
-                          disabled={isPending}
-                          className={`p-1.5 hover:bg-accent rounded-lg transition-colors cursor-pointer ${
-                            u.isActive 
-                              ? "text-rose-600 hover:text-rose-500" 
-                              : "text-emerald-600 hover:text-emerald-500"
-                          }`}
-                          title={u.isActive ? "Disable User" : "Enable User"}
-                        >
-                          {u.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                        </button>
-                      </div>
+                      {(() => {
+                        const isSelf = currentUser && String(currentUser.userId) === String(u.id);
+                        const isSuperAdmin = u.role === "SUPER_ADMIN";
+                        const isTargetProtected = currentUser?.role === "ADMIN" && isSuperAdmin;
+
+                        return (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleOpenEdit(u)}
+                              disabled={isTargetProtected}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                isTargetProtected 
+                                  ? "opacity-35 cursor-not-allowed text-muted-foreground" 
+                                  : "hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
+                              }`}
+                              title={isTargetProtected ? "Cannot edit SUPER_ADMIN accounts" : "Edit User"}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleStatus(u)}
+                              disabled={isSelf || isTargetProtected || isPending}
+                              className={`p-1.5 rounded-lg transition-colors ${
+                                isSelf || isTargetProtected 
+                                  ? "opacity-35 cursor-not-allowed text-muted-foreground" 
+                                  : u.isActive 
+                                    ? "text-rose-600 hover:text-rose-500 hover:bg-accent cursor-pointer" 
+                                    : "text-emerald-600 hover:text-emerald-500 hover:bg-accent cursor-pointer"
+                              }`}
+                              title={
+                                isSelf 
+                                  ? "Cannot disable your own active account" 
+                                  : isTargetProtected 
+                                    ? "Cannot disable SUPER_ADMIN accounts" 
+                                    : u.isActive 
+                                      ? "Disable User" 
+                                      : "Enable User"
+                              }
+                            >
+                              {u.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}
@@ -288,6 +396,9 @@ export default function UsersManagement() {
             >
               <option value={USER_ROLES.USER}>User (Standard Access)</option>
               <option value={USER_ROLES.ADMIN}>Admin (Full System Config Access)</option>
+              {currentUser?.role === USER_ROLES.SUPER_ADMIN && (
+                <option value={USER_ROLES.SUPER_ADMIN}>Super Admin (System Owner)</option>
+              )}
             </select>
           </div>
         </form>
@@ -344,10 +455,23 @@ export default function UsersManagement() {
             >
               <option value={USER_ROLES.USER}>User (Standard Access)</option>
               <option value={USER_ROLES.ADMIN}>Admin (Full System Config Access)</option>
+              {currentUser?.role === USER_ROLES.SUPER_ADMIN && (
+                <option value={USER_ROLES.SUPER_ADMIN}>Super Admin (System Owner)</option>
+              )}
             </select>
           </div>
         </form>
       </Modal>
+
+      {/* Re-auth Password Confirmation Modal */}
+      <PasswordConfirmModal
+        isOpen={isConfirmOpen}
+        onClose={() => setIsConfirmOpen(false)}
+        onConfirm={handlePasswordConfirmed}
+        title={confirmTitle}
+        description={confirmDescription}
+        loading={confirmLoading}
+      />
     </div>
   );
 }

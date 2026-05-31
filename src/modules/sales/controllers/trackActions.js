@@ -25,8 +25,13 @@ export async function updateTrackAction(id, data) {
   }
 }
 
-export async function deleteTrackAction(id) {
+import { assertDeletePermission } from "@/lib/authGuard";
+
+export async function deleteTrackAction(id, confirmPassword) {
   try {
+    // Enforce unified record deletion permission and password confirmation check
+    await assertDeletePermission(confirmPassword);
+
     await SalesTrackService.delete(id);
     revalidatePath("/source-tracking");
     return { success: true };

@@ -57,6 +57,7 @@ export const PAYMENT_STATUS = {
 export const SYSTEM_BUSINESS_ID = 0;
 
 export const USER_ROLES = {
+  SUPER_ADMIN: "SUPER_ADMIN",
   ADMIN: "ADMIN",
   USER: "USER",
   SYSTEM: "SYSTEM"

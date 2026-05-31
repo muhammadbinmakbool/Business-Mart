@@ -159,8 +159,13 @@ export async function editSupplierInvoiceAction(formData) {
   }
 }
 
-export async function deleteSupplierInvoiceAction(invoiceId) {
+import { assertDeletePermission } from "@/lib/authGuard";
+
+export async function deleteSupplierInvoiceAction(invoiceId, confirmPassword) {
   try {
+    // Enforce unified record deletion permission and password confirmation check
+    await assertDeletePermission(confirmPassword);
+
     await SupplierInvoiceService.deleteInvoice(invoiceId);
     safeRevalidatePath("/supplier-invoices");
     return { success: true };

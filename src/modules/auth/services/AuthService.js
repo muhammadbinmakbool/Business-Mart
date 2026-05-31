@@ -1,7 +1,8 @@
 import bcrypt from "bcryptjs";
 import { UserRepository } from "../repositories/UserRepository";
 import { loginSchema } from "../validations/authSchema";
-import { createSession, deleteSession } from "@/lib/session";
+import { createSession, deleteSession, getSession } from "@/lib/session";
+import { prisma } from "@/lib/prisma";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -55,5 +56,35 @@ export class AuthService {
    */
   static async hashPassword(password) {
     return bcrypt.hash(password, BCRYPT_ROUNDS);
+  }
+
+  /**
+   * Verify currently logged-in user's password securely (offline-safe).
+   * @param {string} password - Confirmation password
+   * @returns {Promise<boolean>}
+   */
+  static async verifyCurrentPassword(password) {
+    if (!password) {
+      throw new Error("Password confirmation is required for sensitive operations");
+    }
+
+    const session = await getSession();
+    if (!session) {
+      throw new Error("Unauthorized: active session required");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: parseInt(session.userId) }
+    });
+    if (!user) {
+      throw new Error("Operator record not found");
+    }
+
+    const match = await bcrypt.compare(password, user.password);
+    if (!match) {
+      throw new Error("Incorrect confirmation password. Operation aborted.");
+    }
+
+    return true;
   }
 }

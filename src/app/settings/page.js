@@ -10,14 +10,30 @@ import {
   Sliders,
   ShieldAlert
 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import DisplayUnitSettingsCard from "./DisplayUnitSettingsCard";
 import UsersManagement from "./UsersManagement";
+import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
 
 function SettingsContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("general");
+  const [authorized, setAuthorized] = useState(false);
+
+  useEffect(() => {
+    async function checkAuth() {
+      const { canAccessSettings } = await import("@/lib/permissions");
+      const session = await getActiveSessionAction();
+      if (!session || !canAccessSettings(session.role)) {
+        router.push("/dashboard");
+      } else {
+        setAuthorized(true);
+      }
+    }
+    checkAuth();
+  }, [router]);
 
   useEffect(() => {
     const tab = searchParams.get("tab");
@@ -25,6 +41,14 @@ function SettingsContent() {
       setActiveTab(tab);
     }
   }, [searchParams]);
+
+  if (!authorized) {
+    return (
+      <div className="max-w-7xl mx-auto py-16 text-center text-muted-foreground animate-pulse text-sm">
+        Verifying security access...
+      </div>
+    );
+  }
 
   const templates = [
     {

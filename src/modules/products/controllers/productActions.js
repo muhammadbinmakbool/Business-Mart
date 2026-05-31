@@ -41,6 +41,8 @@ export async function updateProductAction(id, formData) {
   }
 }
 
+import { assertDeletePermission } from "@/lib/authGuard";
+
 export async function toggleProductStatusAction(id, isActive) {
   try {
     await ProductService.toggleProductStatus(id, isActive);
@@ -49,8 +51,11 @@ export async function toggleProductStatusAction(id, isActive) {
     return { error: "Failed to toggle status" };
   }
 }
-export async function deleteProductAction(id) {
+export async function deleteProductAction(id, confirmPassword) {
   try {
+    // Enforce unified record deletion permission and password confirmation check
+    await assertDeletePermission(confirmPassword);
+
     await ProductService.deleteProduct(id);
     revalidatePath("/products");
     return { success: true };

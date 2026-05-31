@@ -95,8 +95,13 @@ export async function updateIntakeAction(id, formData) {
   }
 }
 
-export async function deleteIntakeAction(id) {
+import { assertDeletePermission } from "@/lib/authGuard";
+
+export async function deleteIntakeAction(id, confirmPassword) {
   try {
+    // Enforce unified record deletion permission and password confirmation check
+    await assertDeletePermission(confirmPassword);
+
     await IntakeService.deleteIntake(id);
     revalidatePath("/intake");
     return { success: true };

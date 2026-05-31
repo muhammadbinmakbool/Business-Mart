@@ -43,8 +43,13 @@ export async function updateSaleAction(id, data) {
   }
 }
 
-export async function deleteSaleAction(id) {
+import { assertDeletePermission } from "@/lib/authGuard";
+
+export async function deleteSaleAction(id, confirmPassword) {
   try {
+    // Enforce unified record deletion permission and password confirmation check
+    await assertDeletePermission(confirmPassword);
+
     await SaleService.deleteSale(id);
     revalidatePath("/sales");
     return { success: true };
