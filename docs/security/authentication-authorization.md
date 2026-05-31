@@ -20,15 +20,15 @@ Client Page (Client Actions)
 
 ---
 
-## 🔑 Session Flow and Middleware
+## 🔑 Session Flow and Proxy (formerly Middleware)
 
 ### 1. HTTP-Only Session Cookie
 When a user logs in, the `AuthService` generates a stateful token signed with the `JWT_SECRET` key, and sets it in an `HttpOnly`, `Secure`, `SameSite: strict` cookie named `bm-session`.
 - **Duration**: 7 Days.
 - **Client-Side Safety**: Prevents client-side scripts from reading the token (mitigating XSS).
 
-### 2. Standard Next.js Middleware Protection (`src/middleware.js`)
-We handle all route-level authorization and redirects inside the standard Next.js `src/middleware.js` interceptor.
+### 2. Next.js 16.2 Proxy Interceptor (`src/proxy.js`)
+We handle all route-level authorization and redirects inside the Next.js `src/proxy.js` interceptor (which replaces the deprecated `middleware.js` in version 16.2+).
 - Protects all routes except `/login`, static assets (`_next`), and public APIs.
 - Directs unauthenticated users to `/login`.
 - Redirects authenticated users from `/login` back to the `/dashboard`.
@@ -111,7 +111,7 @@ All capability evaluations are declared as stateless, network-independent pure f
 - **`canDeleteSelf(actorId, targetId)`**: Lockout safeguard. Active operator cannot delete their own account.
 
 ### 2. Multi-Layer Page & Routing Guardrails
-1. **Next.js Edge Middleware Redirects (`src/middleware.js`)**: Intercepts request paths at network entrance level, instantly bouncing non-admin roles trying to open `/settings`.
+1. **Next.js Edge Proxy Redirects (`src/proxy.js`)**: Intercepts request paths at network entrance level, instantly bouncing non-admin roles trying to open `/settings`.
 2. **React Server Component fallback checks (`src/app/settings/page.js`)**: Secondary client-side RSC verification prior to component renders.
 3. **Backend Controller Enforcement (`src/modules/auth/controllers/userActions.js`)**: Re-authenticates every write request against caller's active JWT session roles.
 

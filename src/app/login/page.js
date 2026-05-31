@@ -39,13 +39,19 @@ export default function LoginPage() {
         <div className="absolute -bottom-10 -left-10 h-32 w-32 rounded-full bg-indigo-500/10 blur-2xl" />
 
         <div className="text-center relative z-10 space-y-2">
-          {/* Custom Brand Logo matching Sidebar */}
           <div className="flex justify-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-indigo-600 text-white shadow-lg shadow-primary/30">
-              <span className="font-bold text-lg tracking-tight">BM</span>
+            <div 
+              className="flex h-14 w-14 items-center justify-center rounded-2xl bg-background border border-border/65 shadow-[0_4px_12px_rgba(0,0,0,0.04)] overflow-hidden relative"
+              style={{ transform: "translate3d(0, 0, 0)", WebkitMaskImage: "-webkit-radial-gradient(white, black)" }}
+            >
+              <img 
+                src="/Logo.png" 
+                alt="Business Mart Logo" 
+                className="h-full w-full object-contain scale-[2.1] origin-center"
+              />
             </div>
           </div>
-          <h2 className="text-2xl font-bold tracking-tight">Welcome to Business Mart</h2>
+          <h2 className="text-2xl font-bold tracking-tight pt-1">Welcome to Business Mart</h2>
           <p className="text-sm text-muted-foreground">
             Enter your credentials to access the platform
           </p>

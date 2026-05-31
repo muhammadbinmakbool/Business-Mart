@@ -61,12 +61,19 @@ export function Sidebar({ forceExpanded = false, onClose }) {
       {/* Brand Header */}
       <div className={cn(
         "flex h-16 items-center border-b transition-all duration-300 shrink-0",
-        isCollapsed ? "justify-center px-4" : "justify-between px-6"
+        isCollapsed ? "justify-center px-3" : "justify-between px-6"
       )}>
         <div className="flex items-center gap-3">
           {/* Recognizable brand Logo Icon (always visible) */}
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-tr from-primary to-indigo-600 text-white shadow-md shadow-primary/20">
-            <span className="font-bold text-sm tracking-tight">BM</span>
+          <div 
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-background border border-border/50 shadow-[0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden relative"
+            style={{ transform: "translate3d(0, 0, 0)", WebkitMaskImage: "-webkit-radial-gradient(white, black)" }}
+          >
+            <img 
+              src="/Logo.png" 
+              alt="Business Mart Logo" 
+              className="h-full w-full object-contain scale-[2.1] origin-center"
+            />
           </div>
           {/* Logo Text (hidden when collapsed) */}
           {!isCollapsed && (
