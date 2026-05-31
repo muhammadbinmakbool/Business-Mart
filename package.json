@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "electron": "electron electron/main.js",
+    "dev:desktop": "concurrently -k -n \"next,electron\" -c \"cyan,magenta\" \"npm run dev\" \"wait-on http://localhost:3000 && npm run electron\""
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
@@ -28,8 +30,11 @@
     "@tailwindcss/postcss": "^4",
     "@types/node": "25.9.1",
     "@types/react": "19.2.15",
+    "concurrently": "^9.2.1",
+    "electron": "^41.7.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4",
+    "wait-on": "^9.0.10"
   }
 }
