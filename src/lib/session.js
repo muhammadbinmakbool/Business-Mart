@@ -98,7 +98,48 @@ export async function verifyToken(token) {
 
 import { SYSTEM_BUSINESS_ID } from "./constants";
 
-export { AUTH_COOKIE_NAME };
+const REAUTH_COOKIE_NAME = "bm-reauth";
+const REAUTH_DURATION_MINUTES = 5;
+
+export async function createReauthSession(userId) {
+  const expiresAt = new Date(Date.now() + REAUTH_DURATION_MINUTES * 60 * 1000);
+  const token = await new SignJWT({ userId, verifiedAt: Date.now() })
+    .setProtectedHeader({ alg: "HS256" })
+    .setExpirationTime(expiresAt)
+    .sign(getSecretKey());
+
+  const cookieStore = await cookies();
+  cookieStore.set(REAUTH_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    expires: expiresAt,
+    path: "/",
+  });
+}
+
+export async function isReauthValid() {
+  try {
+    const session = await getSession();
+    if (!session) return false;
+
+    const cookieStore = await cookies();
+    const reauthCookie = cookieStore.get(REAUTH_COOKIE_NAME);
+    if (!reauthCookie?.value) return false;
+
+    const { payload } = await jwtVerify(reauthCookie.value, getSecretKey());
+    return Number(payload.userId) === Number(session.userId);
+  } catch (e) {
+    return false;
+  }
+}
+
+export async function deleteReauthSession() {
+  const cookieStore = await cookies();
+  cookieStore.delete(REAUTH_COOKIE_NAME);
+}
+
+export { AUTH_COOKIE_NAME, REAUTH_COOKIE_NAME };
 
 /**
  * Explicitly injects userId and businessId into repository create/update payloads.

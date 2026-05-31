@@ -3,7 +3,7 @@
 import { UserService } from "../services/UserService";
 import { revalidatePath } from "next/cache";
 import { USER_ROLES } from "@/lib/constants";
-import { getSession } from "@/lib/session";
+import { getSession, isReauthValid } from "@/lib/session";
 import { 
   canManageUserRole, 
   canEditSelfRole, 
@@ -13,6 +13,10 @@ import { assertSensitiveAction } from "@/lib/authGuard";
 
 export async function getActiveSessionAction() {
   return getSession();
+}
+
+export async function checkReauthStatusAction() {
+  return isReauthValid();
 }
 
 export async function listUsersAction() {

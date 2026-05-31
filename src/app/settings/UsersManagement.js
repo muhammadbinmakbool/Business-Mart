@@ -74,7 +74,17 @@ export default function UsersManagement() {
     setIsCreateOpen(true);
   };
 
-  const requestConfirmation = (title, description, callback) => {
+  const requestConfirmation = async (title, description, callback) => {
+    const isReauthCached = await checkReauthStatusAction();
+    if (isReauthCached) {
+      try {
+        await callback("");
+      } catch (e) {
+        toast.error(e.message || "Action failed");
+      }
+      return;
+    }
+
     setConfirmTitle(title);
     setConfirmDescription(description);
     setOnConfirmCallback(() => callback);

@@ -59,11 +59,19 @@ export class AuthService {
   }
 
   /**
-   * Verify currently logged-in user's password securely (offline-safe).
+   * Verify currently logged-in user's password securely (offline-safe) with 5-minute re-auth caching.
    * @param {string} password - Confirmation password
    * @returns {Promise<boolean>}
    */
   static async verifyCurrentPassword(password) {
+    const { isReauthValid, createReauthSession } = await import("@/lib/session");
+    
+    // 1. If we have a valid 5-minute re-auth window, bypass the prompt
+    const hasValidReauth = await isReauthValid();
+    if (hasValidReauth) {
+      return true;
+    }
+
     if (!password) {
       throw new Error("Password confirmation is required for sensitive operations");
     }
@@ -84,6 +92,9 @@ export class AuthService {
     if (!match) {
       throw new Error("Incorrect confirmation password. Operation aborted.");
     }
+
+    // Cache re-authentication successfully for the next 5 minutes
+    await createReauthSession(session.userId);
 
     return true;
   }

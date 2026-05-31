@@ -54,3 +54,47 @@ export async function assertDeletePermission(confirmPassword) {
     roleCheck: canDeleteRecord
   });
 }
+
+/**
+ * High-order Server Action wrapper to automatically enforce authorization
+ * capability rules, extract confirmation passwords from arguments,
+ * and throw clean unified errors on breach.
+ * 
+ * @param {function} handler - The original Server Action handler
+ * @param {Object} options
+ * @param {string} options.actionName - Name of the action for audit/logging
+ * @param {function} [options.roleCheck] - Stateless capability validation helper
+ * @param {boolean} [options.requirePassword=false] - Whether this action triggers re-authentication
+ * @returns {function} Wrapped secure Server Action
+ */
+export function withSecurity(handler, { actionName, roleCheck, requirePassword = false } = {}) {
+  return async function wrappedAction(...args) {
+    try {
+      let confirmPassword = undefined;
+      if (requirePassword && args.length > 0) {
+        const first = args[0];
+        if (first instanceof FormData) {
+          confirmPassword = first.get("confirmPassword");
+        } else {
+          // Extract from the last string parameter (standard deleteActions(id, confirmPassword))
+          for (let i = args.length - 1; i >= 0; i--) {
+            if (typeof args[i] === "string" && args[i].length > 0 && args[i].length < 100) {
+              confirmPassword = args[i];
+              break;
+            }
+          }
+        }
+      }
+
+      await assertSensitiveAction({
+        actionName,
+        confirmPassword,
+        roleCheck
+      });
+
+      return await handler(...args);
+    } catch (error) {
+      return { error: error.message || "Security authorization failed" };
+    }
+  };
+}

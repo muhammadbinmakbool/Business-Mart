@@ -6,7 +6,7 @@ import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import PasswordConfirmModal from "@/components/ui/PasswordConfirmModal";
-import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
+import { getActiveSessionAction, checkReauthStatusAction } from "@/modules/auth/controllers/userActions";
 
 export default function DeleteButton({ 
   id, 
@@ -63,15 +63,27 @@ export default function DeleteButton({
     }
   }
 
+  async function handleTriggerClick(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    // Check if 5-minute re-auth window is valid
+    const isReauthCached = await checkReauthStatusAction();
+    if (isReauthCached) {
+      // Direct deletion with no password prompt needed!
+      await handleDeleteConfirm("");
+    } else {
+      setIsModalOpen(true);
+    }
+  }
+
   if (variant === "icon") {
     return (
       <>
         <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            setIsModalOpen(true);
-          }}
+          onClick={handleTriggerClick}
           className={cn(
             "rounded-full p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors",
             className
@@ -97,7 +109,7 @@ export default function DeleteButton({
   return (
     <>
       <button
-        onClick={() => setIsModalOpen(true)}
+        onClick={handleTriggerClick}
         className={cn(
           "flex items-center gap-2 border border-destructive/20 text-destructive px-4 py-2 rounded-lg text-sm font-medium hover:bg-destructive hover:text-destructive-foreground transition-all group",
           className
