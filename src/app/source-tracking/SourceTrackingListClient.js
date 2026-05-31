@@ -54,15 +54,8 @@ export default function SourceTrackingListClient({ tracks = [], defaultPreset = 
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Source Tracking</h1>
-          <p className="text-muted-foreground">Manual register for business mapping and informational tracking.</p>
+          <p className="text-muted-foreground">Automated register for business mapping and informational tracking.</p>
         </div>
-        <Link
-          href="/source-tracking/create"
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-sm"
-        >
-          <Plus className="h-4 w-4" />
-          Add Entry
-        </Link>
       </div>
 
       {/* Search and Filter Row */}
@@ -147,13 +140,12 @@ export default function SourceTrackingListClient({ tracks = [], defaultPreset = 
                 >
                   Ref #
                 </SortableHeader>
-                <th className="px-4 py-3 font-semibold text-center select-none">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {sortedTracks.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground italic">
+                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground italic">
                     Mapping register is empty.
                   </td>
                 </tr>
@@ -237,43 +229,24 @@ export default function SourceTrackingListClient({ tracks = [], defaultPreset = 
                     </td>
                     <td className="px-4 py-3.5 text-[10px] font-medium space-y-1">
                       {track.saleTransaction && (
-                        <div className="text-primary flex items-center gap-1">
+                        <Link 
+                          href={`/sales/${track.saleTransaction.id}?backUrl=/source-tracking`}
+                          className="text-primary hover:underline flex items-center gap-1 w-fit"
+                        >
                           <ReceiptText className="h-3 w-3" /> {track.saleTransaction.saleNumber}
-                        </div>
+                        </Link>
                       )}
                       {track.intakeTransaction && (
-                        <div className="text-emerald-600 flex items-center gap-1">
+                        <Link 
+                          href={`/intake/${track.intakeTransaction.id}?backUrl=/source-tracking`}
+                          className="text-emerald-600 hover:underline flex items-center gap-1 w-fit"
+                        >
                           <MapPin className="h-3 w-3" /> {track.intakeTransaction.intakeNumber}
-                        </div>
+                        </Link>
                       )}
                       {!track.saleTransaction && !track.intakeTransaction && (
                         <span className="text-muted-foreground italic">No Reference</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Link
-                          href={`/source-tracking/edit/${track.id}`}
-                          className="p-1.5 hover:bg-primary/10 hover:text-primary rounded-md"
-                        >
-                          {/* We can import Edit from lucide-react if needed, or keep it standard */}
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="14"
-                            height="14"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            className="h-3.5 w-3.5"
-                          >
-                            <path d="M12 20h9" />
-                            <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                          </svg>
-                        </Link>
-                      </div>
                     </td>
                   </tr>
                 ))
