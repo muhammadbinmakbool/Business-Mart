@@ -146,8 +146,8 @@ async function verifyDatabaseConnectivity(host, port) {
 
 // Spawn standalone Next.js server
 function spawnStandaloneServer(connectionString) {
-  // Path inside .next/standalone folder
-  const standaloneDir = path.join(__dirname, '..', '.next', 'standalone');
+  // Path inside .next/standalone folder (resolves to app.asar.unpacked when packaged)
+  const standaloneDir = path.join(__dirname, '..', '.next', 'standalone').replace('app.asar', 'app.asar.unpacked');
   const serverJsPath = path.join(standaloneDir, 'server.js');
 
   if (!fs.existsSync(serverJsPath)) {
@@ -175,7 +175,6 @@ function spawnStandaloneServer(connectionString) {
   serverProcess = spawn(process.execPath, [serverJsPath], {
     cwd: standaloneDir,
     env: serverEnv,
-    shell: true, // Use shell to correctly handle executable paths with spaces on Windows
     stdio: 'pipe' // Pipe stdout/stderr to files or console
   });
 

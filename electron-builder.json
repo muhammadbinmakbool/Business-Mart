@@ -32,6 +32,6 @@
     "node_modules/@prisma/client/**/*",
     "node_modules/prisma/**/*",
     "prisma/**/*",
-    ".next/standalone/node_modules/@prisma/client/**/*"
+    ".next/standalone/**/*"
   ]
 }
