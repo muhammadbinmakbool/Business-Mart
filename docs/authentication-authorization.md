@@ -55,6 +55,30 @@ const ownedData = await withOwnership(validatedData);
 const record = await ProductRepository.create(ownedData);
 ```
 
+### ⚠️ Crucial Rule: Nested Relations & Transactions
+Since Prisma operates purely as a data-access layer without dynamic interceptors, **all nested creates/updates inside relation maps (e.g., `items.create`, `adjustments.create`) must also explicitly receive `userId` and `businessId` mappings**. 
+
+Failing to explicitly attribute ownership on nested maps will result in those child database rows defaulting silently to `0`. Always enrich nested arrays explicitly using the resolved ownership metadata:
+
+```javascript
+const ownership = await withOwnership();
+
+const transaction = await tx.saleTransaction.create({
+  data: {
+    ...mainData,
+    userId: ownership.userId,
+    businessId: ownership.businessId,
+    items: {
+      create: itemsData.map(item => ({
+        ...item,
+        userId: ownership.userId,
+        businessId: ownership.businessId
+      }))
+    }
+  }
+});
+```
+
 ---
 
 ## 📊 Global Audit Activity Trails
