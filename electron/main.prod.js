@@ -167,13 +167,15 @@ function spawnStandaloneServer(connectionString) {
     HOSTNAME: HOST,
     NODE_ENV: 'production',
     DATABASE_URL: connectionString,
-    JWT_SECRET: process.env.JWT_SECRET || 'bm-super-secret-production-key-fallback'
+    JWT_SECRET: process.env.JWT_SECRET || 'bm-super-secret-production-key-fallback',
+    ELECTRON_RUN_AS_NODE: '1' // Force Electron binary to act as standard Node.js interpreter
   };
 
   // Run server.js using Electron's Node runtime
   serverProcess = spawn(process.execPath, [serverJsPath], {
     cwd: standaloneDir,
     env: serverEnv,
+    shell: true, // Use shell to correctly handle executable paths with spaces on Windows
     stdio: 'pipe' // Pipe stdout/stderr to files or console
   });
 
