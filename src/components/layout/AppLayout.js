@@ -2,12 +2,24 @@
 
 import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { useSidebar } from "./SidebarContext";
 
 export function AppLayout({ children }) {
+  const pathname = usePathname();
   const { isCollapsed, toggleCollapse, isMobileOpen, setIsMobileOpen } = useSidebar();
+
+  const isLoginPage = pathname === "/login";
+
+  if (isLoginPage) {
+    return (
+      <div className="min-h-screen w-screen bg-background flex flex-col justify-center">
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">

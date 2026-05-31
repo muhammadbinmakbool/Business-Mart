@@ -1,4 +1,33 @@
 import { ActivityLogService } from "./services/ActivityLogService";
+import { getSession } from "@/lib/session";
+import { SYSTEM_BUSINESS_ID } from "@/lib/constants";
+
+/**
+ * Enhanced Domain Event Dispatcher that automatically attributes acting user
+ * and businessId from the request session, falling back to system defaults.
+ */
+export async function emitUserActivity(params) {
+  let userId = 0;
+  let userName = "system";
+  let businessId = SYSTEM_BUSINESS_ID;
+
+  try {
+    const session = await getSession();
+    if (session) {
+      userId = session.userId || 0;
+      userName = session.userName || "system";
+    }
+  } catch (error) {
+    // Session context not available (e.g. background job or system task)
+  }
+
+  return emitActivity({
+    ...params,
+    userId,
+    userName,
+    businessId,
+  });
+}
 
 const logQueue = [];
 const failedLogsBuffer = [];
@@ -96,10 +125,30 @@ export async function emitActivity({
   entityId,
   action,
   description,
-  userId = 0,
-  userName = "system",
+  userId,
+  userName,
+  businessId,
   meta = {}
 }) {
+  let resolvedUserId = userId;
+  let resolvedUserName = userName;
+  let resolvedBusinessId = businessId !== undefined ? businessId : SYSTEM_BUSINESS_ID;
+
+  if (resolvedUserId === undefined || resolvedUserName === undefined) {
+    try {
+      const session = await getSession();
+      if (session) {
+        if (resolvedUserId === undefined) resolvedUserId = session.userId || 0;
+        if (resolvedUserName === undefined) resolvedUserName = session.userName || "system";
+      }
+    } catch (e) {
+      // Cookies/session not available in this context
+    }
+  }
+
+  // Fallbacks
+  if (resolvedUserId === undefined) resolvedUserId = 0;
+  if (resolvedUserName === undefined) resolvedUserName = "system";
   // 1. Queue memory growth safety cap check (Overflow handling)
   if (logQueue.length >= MAX_QUEUE_SIZE) {
     console.warn(
@@ -116,8 +165,9 @@ export async function emitActivity({
     entityId: entityId ? parseInt(entityId) : null,
     action,
     description,
-    userId,
-    userName,
+    userId: resolvedUserId,
+    userName: resolvedUserName,
+    businessId: resolvedBusinessId,
     meta
   });
 

@@ -11,6 +11,9 @@ model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   name      String?
+  password  String   @db.NVarChar(255)
+  role      String   @default("USER") // ADMIN | USER
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -23,6 +26,8 @@ model Party {
   notes              String?
   partyType          String
   isActive           Boolean             @default(true)
+  userId             Int                 @default(0)
+  businessId         Int                 @default(0)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   intakeAdvances     IntakeAdvance[]
@@ -44,6 +49,8 @@ model Product {
   unitConversion     Decimal?            @db.Decimal(18, 4) // e.g. 1 BAG = 100 KG
   quantity           Decimal             @default(0) @db.Decimal(18, 2)
   isActive           Boolean             @default(true)
+  userId             Int                 @default(0)
+  businessId         Int                 @default(0)
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   intakeTransactions IntakeTransaction[]
@@ -71,6 +78,8 @@ model IntakeTransaction {
   remainingWeight  Decimal?              @db.Decimal(18, 2)
   notes            String?
   status           String                @default("PENDING")
+  userId           Int                   @default(0)
+  businessId       Int                   @default(0)
   createdAt        DateTime              @default(now())
   updatedAt        DateTime              @updatedAt
 
@@ -90,6 +99,8 @@ model IntakeAdvance {
   amount              Decimal            @db.Decimal(18, 2)
   notes               String?
   supplierInvoiceId   Int?
+  userId              Int                @default(0)
+  businessId          Int                @default(0)
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   intakeTransaction   IntakeTransaction? @relation(fields: [intakeTransactionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -113,6 +124,8 @@ model SaleTransaction {
   isDeleted        Boolean                 @default(false)
   changeLog        String?                 @db.NVarChar(Max)
   previousState    String?                 @db.NVarChar(Max)
+  userId           Int                     @default(0)
+  businessId       Int                     @default(0)
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
   party            Party                   @relation(fields: [partyId], references: [id], onUpdate: NoAction)
@@ -132,6 +145,8 @@ model SaleItem {
   rate                Decimal            @db.Decimal(18, 2)
   rateUnit            String             @default("KG") // DEPRECATED: use unit
   amount              Decimal            @db.Decimal(18, 2)
+  userId              Int                @default(0)
+  businessId          Int                @default(0)
 
   sale                SaleTransaction    @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   product             Product            @relation(fields: [productId], references: [id], onUpdate: NoAction)
@@ -163,6 +178,9 @@ model SalesTrack {
 
   notes               String?
 
+  userId              Int       @default(0)
+  businessId          Int       @default(0)
+
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
@@ -187,6 +205,8 @@ model TransactionAdjustment {
   calculatedAmount Decimal         @db.Decimal(18, 2)
   direction        String          @default("ADD") // ADD or SUBTRACT
   unit             String?         @db.NVarChar(50)
+  userId           Int             @default(0)
+  businessId       Int             @default(0)
   sale             SaleTransaction @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
@@ -205,6 +225,8 @@ model SupplierInvoice {
   isOutdated         Boolean                     @default(false)
   version            Int                         @default(1)
   lastCalculatedAt   DateTime                    @default(now())
+  userId             Int                         @default(0)
+  businessId         Int                         @default(0)
   createdAt          DateTime                    @default(now())
   updatedAt          DateTime                    @updatedAt
   party              Party                       @relation(fields: [partyId], references: [id], onUpdate: NoAction)
@@ -221,6 +243,8 @@ model SupplierInvoiceAdjustment {
   calculatedAmount      Decimal             @db.Decimal(18, 2)
   direction             String              @default("ADD") // ADD or SUBTRACT
   unit                  String?             @db.NVarChar(50)
+  userId                Int                 @default(0)
+  businessId            Int                 @default(0)
   item                  SupplierInvoiceItem @relation(fields: [supplierInvoiceItemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
@@ -231,6 +255,8 @@ model SupplierInvoiceItem {
   weight              Decimal                     @db.Decimal(18, 2) // SNAPSHOT
   rate                Decimal                     @db.Decimal(18, 2) // SNAPSHOT
   amount              Decimal                     @db.Decimal(18, 2) // SNAPSHOT
+  userId              Int                         @default(0)
+  businessId          Int                         @default(0)
   invoice             SupplierInvoice             @relation(fields: [supplierInvoiceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   intake              IntakeTransaction           @relation(fields: [intakeTransactionId], references: [id], onUpdate: NoAction)
   adjustments         SupplierInvoiceAdjustment[]
@@ -248,6 +274,8 @@ model LedgerSession {
   buyerInvoiceCount    Int      @default(0)
   status               String   @default("OPEN") // OPEN | LOCKED
   notes                String?
+  userId               Int      @default(0)
+  businessId           Int      @default(0)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }
@@ -262,6 +290,8 @@ model ProductRate {
   isDeleted Boolean  @default(false)
   notes     String?  @db.NVarChar(Max)
   createdBy String?  @db.NVarChar(100) // Operator placeholder
+  userId    Int      @default(0)
+  businessId Int     @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -276,6 +306,7 @@ model ActivityLog {
   description String?  @db.NVarChar(Max)
   userId      Int      @default(0)
   userName    String?  @db.NVarChar(255)
+  businessId  Int      @default(0)
   meta        String?  @db.NVarChar(Max)
   createdAt   DateTime @default(now())
 
@@ -296,6 +327,8 @@ model PartyPayment {
   status        String                   @default("ACTIVE") // ACTIVE, VOIDED, REVERSED
   entryDate     DateTime                 @default(now())
   notes         String?
+  userId        Int                      @default(0)
+  businessId    Int                      @default(0)
   createdAt     DateTime                 @default(now())
   updatedAt     DateTime                 @updatedAt
   party         Party                    @relation(fields: [partyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -313,6 +346,8 @@ model PartyPaymentAllocation {
   referenceType   String       // SALE, SETTLEMENT
   referenceId     Int
   allocatedAmount Decimal      @db.Decimal(18, 2)
+  userId          Int          @default(0)
+  businessId      Int          @default(0)
   createdAt       DateTime     @default(now())
   party           Party        @relation(fields: [partyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   payment         PartyPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -320,5 +355,3 @@ model PartyPaymentAllocation {
   @@index([partyId])
   @@index([referenceType, referenceId])
 }
-
-

@@ -49,3 +49,14 @@ export const PAYMENT_STATUS = {
   CLEARED: "CLEARED",
 };
 
+// Auth & Ownership Constants
+// SYSTEM_BUSINESS_ID: Centralized default business identifier.
+// All create/update flows MUST inject this value via services.
+// When multi-business support is introduced, this constant will be replaced
+// by the authenticated user's business context.
+export const SYSTEM_BUSINESS_ID = 0;
+
+export const USER_ROLES = {
+  ADMIN: "ADMIN",
+  USER: "USER",
+};

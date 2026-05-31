@@ -7,5 +7,6 @@ export const activityLogSchema = z.object({
   description: z.string().nullable().optional(),
   userId: z.number().int().default(0),
   userName: z.string().nullable().optional().default("system"),
+  businessId: z.number().int().default(0),
   meta: z.any().optional()
 });
