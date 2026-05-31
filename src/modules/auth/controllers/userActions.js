@@ -9,7 +9,7 @@ import {
   canEditSelfRole, 
   canDisableSelf 
 } from "@/lib/permissions";
-import { AuthService } from "../services/AuthService";
+import { assertSensitiveAction } from "@/lib/authGuard";
 
 export async function getActiveSessionAction() {
   return getSession();
@@ -33,16 +33,15 @@ export async function createUserAction(formData) {
   const confirmPassword = formData.get("confirmPassword");
 
   try {
-    // 1. Session verification & permissions assertion
-    const session = await getSession();
-    if (!session) throw new Error("Unauthorized: Session required");
-
-    if (!canManageUserRole(session.role, targetRole)) {
-      throw new Error(`Forbidden: Insufficient privileges to create a ${targetRole} operator`);
-    }
-
-    // 2. Sensitive operation password verification
-    await AuthService.verifyCurrentPassword(confirmPassword);
+    await assertSensitiveAction({
+      actionName: "Create Operator",
+      confirmPassword,
+      customAssertion: (session) => {
+        if (!canManageUserRole(session.role, targetRole)) {
+          throw new Error(`Forbidden: Insufficient privileges to create a ${targetRole} operator`);
+        }
+      }
+    });
 
     const data = {
       email: formData.get("email"),
@@ -64,28 +63,25 @@ export async function updateUserAction(id, formData) {
   const newRole = formData.get("role");
 
   try {
-    // 1. Session check
-    const session = await getSession();
-    if (!session) throw new Error("Unauthorized: Session required");
-
-    // 2. Fetch target user role to assert hierarchy
     const targetUser = await UserService.getUser(id);
 
-    // 3. Permission checks
-    if (!canManageUserRole(session.role, targetUser.role)) {
-      throw new Error("Forbidden: You cannot modify this account");
-    }
-    if (newRole && !canManageUserRole(session.role, newRole)) {
-      throw new Error(`Forbidden: You cannot promote an operator to ${newRole}`);
-    }
-
-    // 4. Self-protection check
-    if (newRole && !canEditSelfRole(session.userId, id, newRole, targetUser.role)) {
-      throw new Error("Forbidden: Lockout protection activated. You cannot change your own role.");
-    }
-
-    // 5. Password verification
-    await AuthService.verifyCurrentPassword(confirmPassword);
+    await assertSensitiveAction({
+      actionName: "Update Operator Profile",
+      confirmPassword,
+      customAssertion: (session) => {
+        if (!canManageUserRole(session.role, targetUser.role)) {
+          throw new Error("Forbidden: You cannot modify this account");
+        }
+        if (newRole) {
+          if (!canManageUserRole(session.role, newRole)) {
+            throw new Error(`Forbidden: You cannot promote an operator to ${newRole}`);
+          }
+          if (!canEditSelfRole(session.userId, id, newRole, targetUser.role)) {
+            throw new Error("Forbidden: Lockout protection activated. You cannot change your own role.");
+          }
+        }
+      }
+    });
 
     const data = {};
     const email = formData.get("email");
@@ -107,23 +103,20 @@ export async function updateUserAction(id, formData) {
 
 export async function disableUserAction(id, confirmPassword) {
   try {
-    const session = await getSession();
-    if (!session) throw new Error("Unauthorized: Session required");
-
     const targetUser = await UserService.getUser(id);
 
-    // 1. Permission checks
-    if (!canManageUserRole(session.role, targetUser.role)) {
-      throw new Error("Forbidden: You cannot disable this operator account");
-    }
-
-    // 2. Self-lockout check
-    if (!canDisableSelf(session.userId, id)) {
-      throw new Error("Forbidden: Lockout protection activated. You cannot disable your own logged-in account.");
-    }
-
-    // 3. Password verification
-    await AuthService.verifyCurrentPassword(confirmPassword);
+    await assertSensitiveAction({
+      actionName: "Disable Operator Account",
+      confirmPassword,
+      customAssertion: (session) => {
+        if (!canManageUserRole(session.role, targetUser.role)) {
+          throw new Error("Forbidden: You cannot disable this operator account");
+        }
+        if (!canDisableSelf(session.userId, id)) {
+          throw new Error("Forbidden: Lockout protection activated. You cannot disable your own logged-in account.");
+        }
+      }
+    });
 
     await UserService.disableUser(id);
     revalidatePath("/settings");
@@ -135,18 +128,17 @@ export async function disableUserAction(id, confirmPassword) {
 
 export async function enableUserAction(id, confirmPassword) {
   try {
-    const session = await getSession();
-    if (!session) throw new Error("Unauthorized: Session required");
-
     const targetUser = await UserService.getUser(id);
 
-    // 1. Permission checks
-    if (!canManageUserRole(session.role, targetUser.role)) {
-      throw new Error("Forbidden: You cannot enable this operator account");
-    }
-
-    // 2. Password verification
-    await AuthService.verifyCurrentPassword(confirmPassword);
+    await assertSensitiveAction({
+      actionName: "Enable Operator Account",
+      confirmPassword,
+      customAssertion: (session) => {
+        if (!canManageUserRole(session.role, targetUser.role)) {
+          throw new Error("Forbidden: You cannot enable this operator account");
+        }
+      }
+    });
 
     await UserService.enableUser(id);
     revalidatePath("/settings");
