@@ -3,7 +3,7 @@ import { jwtVerify } from "jose";
 
 const AUTH_COOKIE_NAME = "bm-session";
 
-export async function middleware(request) {
+export async function proxy(request) {
   const { pathname } = request.nextUrl;
 
   // Allow next static files, public assets, and specific routes
