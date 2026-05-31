@@ -44,14 +44,18 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-16">
+    <div className={`mx-auto space-y-8 pb-16 transition-all duration-300 ${
+      activeTab === "security" ? "max-w-7xl" : "max-w-5xl"
+    }`}>
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight">System Settings</h1>
         <p className="text-sm text-muted-foreground">Manage system configuration, organization profile, user controls, and printing subsystems.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className={`grid grid-cols-1 gap-6 transition-all duration-300 ${
+        activeTab === "security" ? "md:grid-cols-5" : "md:grid-cols-4"
+      }`}>
         {/* Left Navigation Tabs */}
         <div className="md:col-span-1 space-y-1">
           <button 
@@ -85,7 +89,9 @@ export default function SettingsPage() {
         </div>
 
         {/* Right Content Pane */}
-        <div className="md:col-span-3 space-y-6">
+        <div className={`space-y-6 transition-all duration-300 ${
+          activeTab === "security" ? "md:col-span-4" : "md:col-span-3"
+        }`}>
           {activeTab === "general" && (
             <>
               {/* Card 1: Branding Information */}
