@@ -1,0 +1,7 @@
+{
+  "db": {
+    "server": "localhost\\SQLEXPRESS",
+    "database": "BusinessMart",
+    "trustedConnection": true
+  }
+}

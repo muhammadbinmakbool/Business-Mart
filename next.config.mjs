@@ -2,6 +2,7 @@
 const nextConfig = {
   /* config options here */
   allowedDevOrigins: [process.env.IP_ADDRESS],
+  output: 'standalone',
 };
 
 export default nextConfig;
