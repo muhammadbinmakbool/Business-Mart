@@ -55,6 +55,8 @@ export class SupplierInvoiceRepository {
               weight: item.weight,
               rate: item.rate,
               amount: item.amount,
+              userId: invoiceData.userId || 0,
+              businessId: invoiceData.businessId || 0,
               intake: { connect: { id: parseInt(item.intakeTransactionId) } },
               adjustments: {
                 create: (item.adjustments || []).map(adj => ({
@@ -63,7 +65,9 @@ export class SupplierInvoiceRepository {
                   value: adj.value,
                   calculatedAmount: adj.calculatedAmount,
                   direction: adj.direction,
-                  unit: adj.unit || null
+                  unit: adj.unit || null,
+                  userId: invoiceData.userId || 0,
+                  businessId: invoiceData.businessId || 0
                 }))
               }
             }))

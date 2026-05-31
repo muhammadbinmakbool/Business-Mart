@@ -3,6 +3,7 @@ import { calculateSupplierDeductions, calculateInvoiceClearingState } from "@/li
 import { prisma } from "@/lib/prisma";
 import { convertRate, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { withOwnership } from "@/lib/session";
 
 
 export class SupplierInvoiceService {
@@ -105,6 +106,8 @@ export class SupplierInvoiceService {
       .map(id => parseInt(String(id).split("-track-")[1]));
 
     // 5. Create derived document record
+    const ownership = await withOwnership();
+
     const invoice = await SupplierInvoiceRepository.createWithItems(
       {
         invoiceNumber,
@@ -115,7 +118,9 @@ export class SupplierInvoiceService {
         finalPayableAmount,
         status: "PENDING",
         version: 1,
-        lastCalculatedAt: new Date()
+        lastCalculatedAt: new Date(),
+        userId: ownership.userId,
+        businessId: ownership.businessId
       },
       itemsData,
       advanceIds,
@@ -149,6 +154,7 @@ export class SupplierInvoiceService {
      const advanceIds = oldInvoice.advances.map(a => a.id);
  
      // 2. Execute atomic transaction to guarantee state consistency
+     const ownership = await withOwnership();
      const newInvoice = await prisma.$transaction(async (tx) => {
        // Mark old invoice as SUPERSEDED and isOutdated
        await tx.supplierInvoice.update({
@@ -266,11 +272,15 @@ export class SupplierInvoiceService {
            status: "PENDING",
            version: oldInvoice.version + 1,
            lastCalculatedAt: new Date(),
+           userId: ownership.userId,
+           businessId: ownership.businessId,
            items: {
              create: itemsData.map(item => ({
                weight: item.weight,
                rate: item.rate,
                amount: item.amount,
+               userId: ownership.userId,
+               businessId: ownership.businessId,
                intake: { connect: { id: parseInt(item.intakeTransactionId) } },
                adjustments: {
                  create: (item.adjustments || []).map(adj => ({
@@ -279,7 +289,9 @@ export class SupplierInvoiceService {
                    value: adj.value,
                    calculatedAmount: adj.calculatedAmount,
                    direction: adj.direction,
-                   unit: adj.unit || null
+                   unit: adj.unit || null,
+                   userId: ownership.userId,
+                   businessId: ownership.businessId
                  }))
                }
              }))
@@ -347,6 +359,8 @@ export class SupplierInvoiceService {
     if (oldInvoice.status !== "PENDING") {
       throw new Error("Only PENDING invoices can be edited");
     }
+
+    const ownership = await withOwnership();
 
     const newInvoice = await prisma.$transaction(async (tx) => {
       // 1. Mark old invoice as SUPERSEDED and isOutdated
@@ -473,11 +487,15 @@ export class SupplierInvoiceService {
           status: "PENDING",
           version: oldInvoice.version + 1,
           lastCalculatedAt: new Date(),
+          userId: ownership.userId,
+          businessId: ownership.businessId,
           items: {
             create: itemsData.map(item => ({
               weight: item.weight,
               rate: item.rate,
               amount: item.amount,
+              userId: ownership.userId,
+              businessId: ownership.businessId,
               intake: { connect: { id: parseInt(item.intakeTransactionId) } },
               adjustments: {
                 create: (item.adjustments || []).map(adj => ({
@@ -486,7 +504,9 @@ export class SupplierInvoiceService {
                   value: adj.value,
                   calculatedAmount: adj.calculatedAmount,
                   direction: adj.direction,
-                  unit: adj.unit || null
+                  unit: adj.unit || null,
+                  userId: ownership.userId,
+                  businessId: ownership.businessId
                 }))
               }
             }))

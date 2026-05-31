@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { withOwnership } from "@/lib/session";
 
 export class SalesTrackService {
   /**
@@ -29,6 +30,8 @@ export class SalesTrackService {
       }
     }
 
+    const ownership = await withOwnership();
+
     return prisma.salesTrack.create({
       data: {
         saleTransactionId: data.saleTransactionId ? parseInt(data.saleTransactionId) : null,
@@ -42,7 +45,9 @@ export class SalesTrackService {
         sellingRate: data.sellingRate ? Number(data.sellingRate) : null,
         netWeight: data.netWeight ? Number(data.netWeight) : null,
         baseAmount: data.baseAmount ? Number(data.baseAmount) : null,
-        notes: data.notes
+        notes: data.notes,
+        userId: ownership.userId,
+        businessId: ownership.businessId
       }
     });
   }
@@ -56,6 +61,8 @@ export class SalesTrackService {
         throw new Error("This intake transaction is already mapped to another Sales Track entry.");
       }
     }
+
+    const ownership = await withOwnership();
 
     return prisma.salesTrack.update({
       where: { id: parseInt(id) },
@@ -71,7 +78,9 @@ export class SalesTrackService {
         sellingRate: data.sellingRate ? Number(data.sellingRate) : null,
         netWeight: data.netWeight ? Number(data.netWeight) : null,
         baseAmount: data.baseAmount ? Number(data.baseAmount) : null,
-        notes: data.notes
+        notes: data.notes,
+        userId: ownership.userId,
+        businessId: ownership.businessId
       }
     });
   }

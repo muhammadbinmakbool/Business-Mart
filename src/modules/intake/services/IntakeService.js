@@ -386,12 +386,13 @@ export class IntakeService {
     const intake = await this.createIntake(intakeData);
     
     if (advanceAmount && parseFloat(advanceAmount) > 0) {
-      await AdvanceRepository.create({
+      const ownedAdvance = await withOwnership({
         partyId: intake.partyId,
         intakeTransactionId: intake.id,
         amount: parseFloat(advanceAmount),
         notes: advanceNotes || `Advance for Intake ${intake.intakeNumber}`
       });
+      await AdvanceRepository.create(ownedAdvance);
     }
     
     return intake;
@@ -434,6 +435,7 @@ export class IntakeService {
     const netWeight = Number(data.netWeight) || 0;
 
     const isPartial = !!data.isPartialSale;
+    const ownership = await withOwnership();
 
     const updatedIntake = await prisma.$transaction(async (tx) => {
       // 1. Get the current intake record
@@ -499,6 +501,8 @@ export class IntakeService {
           netWeight: Number(intake.netWeight || 0) + netWeight,
           rate: averageRate,
           rateUnit: rateUnit,
+          userId: ownership.userId,
+          businessId: ownership.businessId
         }
       });
 
@@ -520,7 +524,9 @@ export class IntakeService {
         rateUnit: rateUnit,
         netWeight: netWeight,
         baseAmount: baseAmount,
-        notes: `Intake ${intake.intakeNumber} marked as ${newStatus}`
+        notes: `Intake ${intake.intakeNumber} marked as ${newStatus}`,
+        userId: ownership.userId,
+        businessId: ownership.businessId
       };
 
       await tx.salesTrack.create({

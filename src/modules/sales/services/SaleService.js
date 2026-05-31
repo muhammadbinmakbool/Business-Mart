@@ -8,6 +8,7 @@ import { InventoryService } from "../../products/services/InventoryService";
 import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { withOwnership } from "@/lib/session";
 
 export class SaleService {
   /**
@@ -32,6 +33,8 @@ export class SaleService {
       const newParty = await PartyService.createParty(newPartyData);
       partyId = newParty.id;
     }
+
+    const ownership = await withOwnership();
 
     // 1. Validate units and normalize quantities
     const processedItems = [];
@@ -149,6 +152,8 @@ export class SaleService {
           finalAmount,
           status: "PENDING",
           notes,
+          userId: ownership.userId,
+          businessId: ownership.businessId,
           party: { connect: { id: parseInt(partyId) } },
           items: {
             create: processedItems.map(item => ({
@@ -158,11 +163,17 @@ export class SaleService {
               normalizedWeight: item.normalizedWeight,
               rate: item.rate,
               rateUnit: item.rateUnit || DEFAULT_WEIGHT_UNIT,
-              amount: item.amount
+              amount: item.amount,
+              userId: ownership.userId,
+              businessId: ownership.businessId
             }))
           },
           adjustments: {
-            create: processedAdjustments
+            create: processedAdjustments.map(adj => ({
+              ...adj,
+              userId: ownership.userId,
+              businessId: ownership.businessId
+            }))
           }
         },
         include: { items: true, adjustments: true }
@@ -217,6 +228,8 @@ export class SaleService {
     }
     const oldSale = await SaleRepository.getById(id);
     if (!oldSale) throw new Error("Sale not found");
+
+    const ownership = await withOwnership();
 
     // 1. Validate units and normalize new items
     const processedItems = [];
@@ -382,6 +395,8 @@ export class SaleService {
           totalAdjustments,
           finalAmount,
           notes,
+          userId: ownership.userId,
+          businessId: ownership.businessId,
           items: {
             create: processedItems.map(item => ({
               product: { connect: { id: parseInt(item.productId) } },
@@ -390,11 +405,17 @@ export class SaleService {
               normalizedWeight: item.normalizedWeight,
               rate: item.rate,
               rateUnit: item.rateUnit || DEFAULT_WEIGHT_UNIT,
-              amount: item.amount
+              amount: item.amount,
+              userId: ownership.userId,
+              businessId: ownership.businessId
             }))
           },
           adjustments: {
-            create: processedAdjustments
+            create: processedAdjustments.map(adj => ({
+              ...adj,
+              userId: ownership.userId,
+              businessId: ownership.businessId
+            }))
           }
         },
         include: { items: true, adjustments: true }
