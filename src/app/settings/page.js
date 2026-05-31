@@ -10,11 +10,21 @@ import {
   Sliders,
   ShieldAlert
 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 import DisplayUnitSettingsCard from "./DisplayUnitSettingsCard";
 import UsersManagement from "./UsersManagement";
 
-export default function SettingsPage() {
+function SettingsContent() {
+  const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState("general");
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "security" || tab === "general") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   const templates = [
     {
@@ -170,5 +180,17 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SettingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-7xl mx-auto py-16 text-center text-muted-foreground animate-pulse text-sm">
+        Loading system settings...
+      </div>
+    }>
+      <SettingsContent />
+    </Suspense>
   );
 }
