@@ -3,6 +3,7 @@ import { marketInsightSchema } from "../validations/marketInsightSchema";
 import { prisma } from "@/lib/prisma";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { withOwnership } from "@/lib/session";
 
 export class MarketInsightService {
   /**
@@ -30,8 +31,10 @@ export class MarketInsightService {
       unit
     });
 
+    const ownedData = await withOwnership(validated);
+
     // 4. Save to database
-    const rateEntry = await MarketInsightRepository.create(validated);
+    const rateEntry = await MarketInsightRepository.create(ownedData);
 
     await emitActivity({
       entityType: "PRODUCT",

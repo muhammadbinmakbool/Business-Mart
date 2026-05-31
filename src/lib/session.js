@@ -96,4 +96,29 @@ export async function verifyToken(token) {
   }
 }
 
+import { SYSTEM_BUSINESS_ID } from "./constants";
+
 export { AUTH_COOKIE_NAME };
+
+/**
+ * Explicitly injects userId and businessId into repository create/update payloads.
+ * @param {Object} data - Payload to be enriched
+ * @returns {Promise<Object>} The enriched payload
+ */
+export async function withOwnership(data = {}) {
+  let userId = 0;
+  try {
+    const session = await getSession();
+    if (session) {
+      userId = session.userId || 0;
+    }
+  } catch (error) {
+    // Session context not available
+  }
+
+  return {
+    ...data,
+    userId: data.userId !== undefined ? data.userId : userId,
+    businessId: data.businessId !== undefined ? data.businessId : SYSTEM_BUSINESS_ID,
+  };
+}

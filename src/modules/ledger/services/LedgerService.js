@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { LedgerRepository } from "../repositories/LedgerRepository";
 import { calculateReconciliationSummary } from "@/lib/reconciliation";
+import { withOwnership } from "@/lib/session";
 
 export class LedgerService {
   /**
@@ -122,7 +123,7 @@ export class LedgerService {
     // Fetch live summary for this range (do not filter by party for period-wide locking)
     const summary = await this.getLiveReconciliationSummary({ startDate, endDate });
 
-    const session = await LedgerRepository.create({
+    const sessionPayload = await withOwnership({
       title,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
@@ -134,6 +135,8 @@ export class LedgerService {
       status: status || "OPEN",
       notes
     });
+
+    const session = await LedgerRepository.create(sessionPayload);
 
     return JSON.parse(JSON.stringify(session));
   }

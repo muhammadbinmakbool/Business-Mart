@@ -1,6 +1,7 @@
 import { AdvanceRepository } from "../repositories/AdvanceRepository";
 import { advanceSchema } from "../validations/intakeSchema";
 import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { withOwnership } from "@/lib/session";
 
 export class AdvanceService {
   static async listAdvances() {
@@ -32,7 +33,8 @@ export class AdvanceService {
 
   static async recordAdvance(data) {
     const validated = advanceSchema.parse(data);
-    return AdvanceRepository.create(validated);
+    const ownedData = await withOwnership(validated);
+    return AdvanceRepository.create(ownedData);
   }
 
   static async getPartyAdvances(partyId) {

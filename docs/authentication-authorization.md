@@ -15,7 +15,7 @@ Client Page (Client Actions)
     └── Controller Server Actions (src/modules/auth/controllers/)
         └── UserService / AuthService (src/modules/auth/services/)
             └── UserRepository (src/modules/auth/repositories/)
-                └── Prisma Client (Prisma Extensions)
+                └── Prisma Client (Pure Data Access Layer)
 ```
 
 ---
@@ -27,39 +27,32 @@ When a user logs in, the `AuthService` generates a stateful token signed with th
 - **Duration**: 7 Days.
 - **Client-Side Safety**: Prevents client-side scripts from reading the token (mitigating XSS).
 
-### 2. Next.js 16 Proxy Router Protection (`src/proxy.js`)
-Next.js 16 uses the named `proxy` export inside `src/proxy.js` to handle all middleware request interceptions.
-- Protects all routes except `/login`, assets (`_next`), and public APIs.
+### 2. Standard Next.js Middleware Protection (`src/middleware.js`)
+We handle all route-level authorization and redirects inside the standard Next.js `src/middleware.js` interceptor.
+- Protects all routes except `/login`, static assets (`_next`), and public APIs.
 - Directs unauthenticated users to `/login`.
 - Redirects authenticated users from `/login` back to the `/dashboard`.
 
 ---
 
-## 🛡️ Automatic Ownership & Audit Trails
+## 🛡️ Explicit Ownership & Service-Layer Control
 
-To support future multi-business isolation, all 16 primary business models in `schema.prisma` now contain:
+To support future multi-business isolation, all 16 primary business models in `schema.prisma` contain:
 - `userId`: Tracks which operator created/edited the record.
 - `businessId`: Defaulting to `SYSTEM_BUSINESS_ID = 0` for single-business simplicity.
 
-### Centralized Dynamic Injections (`src/lib/prisma.js`)
-We use a **Prisma Client Extension** to automatically inject `userId` and `businessId` on all create, createMany, update, and updateMany queries without touching the service layer files:
+### Invisible Side-Effects Avoidance
+Prisma remains a **pure, transparent data-access layer** with no hidden mutations or query hook interceptors. Ownership is explicitly assigned in the **Service Layer** to preserve full traceability and simplify auditing.
+
+### `withOwnership` Utility (`src/lib/session.js`)
+Services fetch the active operator session explicitly using `withOwnership` prior to executing database writes:
 
 ```javascript
-export const prisma = basePrisma.$extends({
-  query: {
-    $allModels: {
-      async create({ model, args, query }) {
-        const context = await getAuthContext();
-        args.data = {
-          ...args.data,
-          userId: args.data.userId ?? context.userId,
-          businessId: args.data.businessId ?? context.businessId,
-        };
-        return query(args);
-      }
-    }
-  }
-});
+import { withOwnership } from "@/lib/session";
+
+// Inside Service...
+const ownedData = await withOwnership(validatedData);
+const record = await ProductRepository.create(ownedData);
 ```
 
 ---

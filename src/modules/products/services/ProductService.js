@@ -2,6 +2,7 @@ import { ProductRepository } from "../repositories/ProductRepository";
 import { productSchema } from "../validations/productSchema";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 import { prisma } from "@/lib/prisma";
+import { withOwnership } from "@/lib/session";
 
 export class ProductService {
   static async listProducts() {
@@ -18,7 +19,8 @@ export class ProductService {
 
   static async createProduct(data) {
     const validatedData = productSchema.parse(data);
-    const product = await ProductRepository.create(validatedData);
+    const ownedData = await withOwnership(validatedData);
+    const product = await ProductRepository.create(ownedData);
     await emitActivity({
       entityType: "PRODUCT",
       entityId: product.id,
@@ -31,6 +33,7 @@ export class ProductService {
 
   static async updateProduct(id, data) {
     const validatedData = productSchema.parse(data);
+    const ownedData = await withOwnership(validatedData);
     const productId = parseInt(id);
 
     const oldProduct = await ProductRepository.getById(productId);
@@ -40,7 +43,7 @@ export class ProductService {
       // 1. Update the product
       const updatedProduct = await tx.product.update({
         where: { id: productId },
-        data: validatedData,
+        data: ownedData,
       });
 
       const oldConversion = oldProduct.unitConversion ? Number(oldProduct.unitConversion) : 0;

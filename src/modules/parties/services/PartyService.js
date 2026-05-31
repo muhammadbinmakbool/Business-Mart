@@ -1,6 +1,7 @@
 import { PartyRepository } from "../repositories/PartyRepository";
 import { partySchema } from "../validations/partySchema";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { withOwnership } from "@/lib/session";
 
 export class PartyService {
   static async listParties() {
@@ -13,7 +14,8 @@ export class PartyService {
 
   static async createParty(data) {
     const validatedData = partySchema.parse(data);
-    const party = await PartyRepository.create(validatedData);
+    const ownedData = await withOwnership(validatedData);
+    const party = await PartyRepository.create(ownedData);
     await emitActivity({
       entityType: "PARTY",
       entityId: party.id,
@@ -26,7 +28,8 @@ export class PartyService {
 
   static async updateParty(id, data) {
     const validatedData = partySchema.parse(data);
-    const party = await PartyRepository.update(id, validatedData);
+    const ownedData = await withOwnership(validatedData);
+    const party = await PartyRepository.update(id, ownedData);
     await emitActivity({
       entityType: "PARTY",
       entityId: party.id,

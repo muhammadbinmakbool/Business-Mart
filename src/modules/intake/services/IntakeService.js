@@ -10,6 +10,7 @@ import { convertRate, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 import { calculateIntakeState } from "@/lib/financial";
+import { withOwnership } from "@/lib/session";
 
 
 export class IntakeService {
@@ -115,6 +116,8 @@ export class IntakeService {
     
     const isBagProduct = product && (product.primaryUnit === "BAG" || product.category === "BAG");
 
+    const ownership = await withOwnership();
+
     const intake = await prisma.$transaction(async (tx) => {
       // 1. Get next number
       const lastEntry = await tx.intakeTransaction.findFirst({
@@ -140,6 +143,8 @@ export class IntakeService {
           entryDate: validated.entryDate,
           bagCount: validated.bagCount,
           intakeNumber: nextNumber,
+          userId: ownership.userId,
+          businessId: ownership.businessId,
           party: { connect: { id: parseInt(partyId) } },
           product: { connect: { id: parseInt(validated.productId) } }
         }
@@ -170,6 +175,7 @@ export class IntakeService {
   static async updateIntake(id, data) {
     const { buyerPartyId, ...rest } = data;
     const validated = intakeSchema.partial().parse(rest);
+    const ownership = await withOwnership();
     
     return prisma.$transaction(async (tx) => {
       // 1. Get current state
@@ -302,6 +308,8 @@ export class IntakeService {
           Bardana: validated.Bardana !== undefined ? validated.Bardana : current.Bardana,
           Khot: validated.Khot !== undefined ? validated.Khot : current.Khot,
           netWeight: validated.netWeight !== undefined ? validated.netWeight : current.netWeight,
+          userId: ownership.userId,
+          businessId: ownership.businessId
         }
       });
 
@@ -335,7 +343,9 @@ export class IntakeService {
           rateUnit: finalSupplierRateUnit,
           netWeight: updated.netWeight !== null && updated.netWeight !== undefined ? Number(updated.netWeight) : null,
           baseAmount: baseAmount,
-          notes: `Intake ${updated.intakeNumber} updated and marked as SOLD`
+          notes: `Intake ${updated.intakeNumber} updated and marked as SOLD`,
+          userId: ownership.userId,
+          businessId: ownership.businessId
         };
 
         if (existingTrack) {
