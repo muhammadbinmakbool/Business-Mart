@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { 
@@ -13,8 +13,6 @@ import {
   BookOpen, 
   TrendingUp, 
   Settings,
-  ChevronLeft,
-  ChevronRight,
   History,
   Banknote,
   Route,
@@ -40,10 +38,23 @@ const menuItems = [
 
 export function Sidebar({ forceExpanded = false, onClose }) {
   const pathname = usePathname();
-  const { isCollapsed: contextCollapsed, toggleCollapse } = useSidebar();
+  const { isCollapsed: contextCollapsed } = useSidebar();
 
   // If forceExpanded is true (e.g. mobile drawer), ignore collapsed state
   const isCollapsed = forceExpanded ? false : contextCollapsed;
+
+  // Fixed-position tooltip state — renders outside all overflow containers
+  const [tooltip, setTooltip] = useState({ visible: false, text: "", top: 0 });
+
+  const showTooltip = useCallback((e, text) => {
+    if (!isCollapsed) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    setTooltip({ visible: true, text, top: rect.top + rect.height / 2 });
+  }, [isCollapsed]);
+
+  const hideTooltip = useCallback(() => {
+    setTooltip({ visible: false, text: "", top: 0 });
+  }, []);
 
   return (
     <div className="flex h-full w-full flex-col bg-card text-card-foreground relative overflow-hidden">
@@ -77,20 +88,6 @@ export function Sidebar({ forceExpanded = false, onClose }) {
         )}
       </div>
 
-      {/* Desktop-only Border Toggle Button */}
-      {!forceExpanded && (
-        <button
-          onClick={toggleCollapse}
-          className="absolute -right-3 top-20 z-40 hidden md:flex h-6 w-6 items-center justify-center rounded-full border bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground cursor-pointer transition-all duration-200 hover:scale-110"
-          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-        >
-          {isCollapsed ? (
-            <ChevronRight className="h-3 w-3" />
-          ) : (
-            <ChevronLeft className="h-3 w-3" />
-          )}
-        </button>
-      )}
 
       {/* Navigation Menu */}
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
@@ -102,6 +99,8 @@ export function Sidebar({ forceExpanded = false, onClose }) {
             <Link
               key={item.name}
               href={item.href}
+              onMouseEnter={(e) => showTooltip(e, item.name)}
+              onMouseLeave={hideTooltip}
               className={cn(
                 "flex items-center rounded-lg py-2.5 transition-all duration-200 relative group",
                 isCollapsed ? "justify-center px-0 mx-1" : "gap-3 px-3 mx-0",
@@ -120,13 +119,6 @@ export function Sidebar({ forceExpanded = false, onClose }) {
                   {item.name}
                 </span>
               )}
-
-              {/* Simple & Robust CSS-driven Hover Tooltip in Collapsed Mode */}
-              {isCollapsed && (
-                <div className="absolute left-full ml-3 z-50 hidden group-hover:block rounded-md bg-popover text-popover-foreground px-2.5 py-1.5 text-xs font-semibold shadow-lg border border-border whitespace-nowrap">
-                  {item.name}
-                </div>
-              )}
             </Link>
           );
         })}
@@ -142,6 +134,16 @@ export function Sidebar({ forceExpanded = false, onClose }) {
           </div>
         )}
       </div>
+
+      {/* Fixed-position tooltip — renders at viewport level, escapes all overflow containers */}
+      {tooltip.visible && (
+        <div
+          className="fixed z-[9999] rounded-md bg-popover text-popover-foreground px-2.5 py-1.5 text-xs font-semibold shadow-lg border border-border whitespace-nowrap pointer-events-none"
+          style={{ left: "88px", top: tooltip.top, transform: "translateY(-50%)" }}
+        >
+          {tooltip.text}
+        </div>
+      )}
     </div>
   );
 }

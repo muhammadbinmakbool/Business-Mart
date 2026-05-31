@@ -1,21 +1,35 @@
 "use client";
 
 import React from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { useSidebar } from "./SidebarContext";
 
 export function AppLayout({ children }) {
-  const { isCollapsed, isMobileOpen, setIsMobileOpen } = useSidebar();
+  const { isCollapsed, toggleCollapse, isMobileOpen, setIsMobileOpen } = useSidebar();
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
       {/* Desktop Sidebar (hidden on mobile) */}
       <div 
-        className="hidden md:block h-full transition-all duration-300 ease-in-out shrink-0 border-r"
+        className="relative hidden md:block h-full transition-all duration-300 ease-in-out shrink-0 border-r"
         style={{ width: isCollapsed ? "80px" : "256px" }}
       >
         <Sidebar />
+
+        {/* Collapse / Expand toggle — lives here so it's never clipped by Sidebar's overflow-hidden */}
+        <button
+          onClick={toggleCollapse}
+          className="absolute -right-3 top-20 z-40 flex h-6 w-6 items-center justify-center rounded-full border bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground cursor-pointer transition-all duration-200 hover:scale-110"
+          title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="h-3 w-3" />
+          ) : (
+            <ChevronLeft className="h-3 w-3" />
+          )}
+        </button>
       </div>
 
       {/* Mobile Slide-over Drawer */}
