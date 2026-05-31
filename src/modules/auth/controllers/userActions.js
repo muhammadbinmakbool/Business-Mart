@@ -2,6 +2,7 @@
 
 import { UserService } from "../services/UserService";
 import { revalidatePath } from "next/cache";
+import { USER_ROLES } from "@/lib/constants";
 
 export async function listUsersAction() {
   try {
@@ -17,7 +18,7 @@ export async function createUserAction(formData) {
     email: formData.get("email"),
     name: formData.get("name"),
     password: formData.get("password"),
-    role: formData.get("role") || "USER",
+    role: formData.get("role") || USER_ROLES.USER,
   };
 
   try {

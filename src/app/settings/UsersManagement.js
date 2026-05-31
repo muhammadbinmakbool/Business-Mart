@@ -11,6 +11,7 @@ import {
 import { toast } from "sonner";
 import { Plus, User, Shield, Check, X, Pencil, UserX, UserCheck, Loader2 } from "lucide-react";
 import Modal from "@/components/ui/Modal";
+import { USER_ROLES } from "@/lib/constants";
 
 export default function UsersManagement() {
   const [users, setUsers] = useState([]);
@@ -26,7 +27,7 @@ export default function UsersManagement() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState("USER");
+  const [role, setRole] = useState(USER_ROLES.USER);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -47,7 +48,7 @@ export default function UsersManagement() {
     setName("");
     setEmail("");
     setPassword("");
-    setRole("USER");
+    setRole(USER_ROLES.USER);
     setIsCreateOpen(true);
   };
 
@@ -81,7 +82,7 @@ export default function UsersManagement() {
     setName(user.name || "");
     setEmail(user.email || "");
     setPassword(""); // Keep blank to not modify
-    setRole(user.role || "USER");
+    setRole(user.role || USER_ROLES.USER);
     setIsEditOpen(true);
   };
 
@@ -285,8 +286,8 @@ export default function UsersManagement() {
               onChange={(e) => setRole(e.target.value)}
               className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
-              <option value="USER">User (Standard Access)</option>
-              <option value="ADMIN">Admin (Full System Config Access)</option>
+              <option value={USER_ROLES.USER}>User (Standard Access)</option>
+              <option value={USER_ROLES.ADMIN}>Admin (Full System Config Access)</option>
             </select>
           </div>
         </form>
@@ -341,8 +342,8 @@ export default function UsersManagement() {
               onChange={(e) => setRole(e.target.value)}
               className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
-              <option value="USER">User (Standard Access)</option>
-              <option value="ADMIN">Admin (Full System Config Access)</option>
+              <option value={USER_ROLES.USER}>User (Standard Access)</option>
+              <option value={USER_ROLES.ADMIN}>Admin (Full System Config Access)</option>
             </select>
           </div>
         </form>

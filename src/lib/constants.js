@@ -59,4 +59,5 @@ export const SYSTEM_BUSINESS_ID = 0;
 export const USER_ROLES = {
   ADMIN: "ADMIN",
   USER: "USER",
+  SYSTEM: "SYSTEM"
 };

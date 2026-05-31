@@ -1,6 +1,6 @@
 import { ActivityLogService } from "./services/ActivityLogService";
 import { getSession } from "@/lib/session";
-import { SYSTEM_BUSINESS_ID } from "@/lib/constants";
+import { SYSTEM_BUSINESS_ID, USER_ROLES } from "@/lib/constants";
 
 /**
  * Enhanced Domain Event Dispatcher that automatically attributes acting user
@@ -8,14 +8,14 @@ import { SYSTEM_BUSINESS_ID } from "@/lib/constants";
  */
 export async function emitUserActivity(params) {
   let userId = 0;
-  let userName = "system";
+  let userName = USER_;
   let businessId = SYSTEM_BUSINESS_ID;
 
   try {
     const session = await getSession();
     if (session) {
       userId = session.userId || 0;
-      userName = session.userName || "system";
+      userName = session.userName || USER_ROLES.SYSTEM;
     }
   } catch (error) {
     // Session context not available (e.g. background job or system task)
@@ -139,7 +139,7 @@ export async function emitActivity({
       const session = await getSession();
       if (session) {
         if (resolvedUserId === undefined) resolvedUserId = session.userId || 0;
-        if (resolvedUserName === undefined) resolvedUserName = session.userName || "system";
+        if (resolvedUserName === undefined) resolvedUserName = session.userName || USER_ROLES.SYSTEM;
       }
     } catch (e) {
       // Cookies/session not available in this context
@@ -148,7 +148,7 @@ export async function emitActivity({
 
   // Fallbacks
   if (resolvedUserId === undefined) resolvedUserId = 0;
-  if (resolvedUserName === undefined) resolvedUserName = "system";
+  if (resolvedUserName === undefined) resolvedUserName = USER_ROLES.SYSTEM;
   // 1. Queue memory growth safety cap check (Overflow handling)
   if (logQueue.length >= MAX_QUEUE_SIZE) {
     console.warn(

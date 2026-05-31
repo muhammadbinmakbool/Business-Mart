@@ -1,6 +1,7 @@
 import { UserRepository } from "../repositories/UserRepository";
 import { createUserSchema, updateUserSchema } from "../validations/authSchema";
 import { AuthService } from "./AuthService";
+import { USER_ROLES } from "@/lib/constants";
 
 export class UserService {
   static async listUsers() {
@@ -28,7 +29,7 @@ export class UserService {
       email: validated.email,
       name: validated.name,
       password: hashedPassword,
-      role: validated.role || "USER",
+      role: validated.role || USER_ROLES.USER,
     });
   }
 
