@@ -32,6 +32,7 @@
     "node_modules/@prisma/**/*",
     "node_modules/prisma/**/*",
     "node_modules/.prisma/**/*",
+    "node_modules/bcryptjs/**/*",
     "node_modules/effect/**/*",
     "node_modules/c12/**/*",
     "node_modules/deepmerge-ts/**/*",
