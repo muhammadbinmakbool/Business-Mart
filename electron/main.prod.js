@@ -384,14 +384,14 @@ app.whenReady().then(async () => {
     saveDatabaseConfig(configParams);
 
     // Step 2: Create the database
-    const dbCreated = createDatabase(
+    const dbCreateResult = createDatabase(
       configParams.server, configParams.database,
       configParams.trustedConnection, configParams.user, configParams.password
     );
-    if (!dbCreated) {
+    if (!dbCreateResult.success) {
       return { 
         success: false, 
-        error: 'Could not create SQL Server database. Check that your user has CREATE DATABASE privileges or contact your system administrator.' 
+        error: dbCreateResult.error || 'Could not create SQL Server database. Check that your user has CREATE DATABASE privileges or contact your system administrator.' 
       };
     }
 

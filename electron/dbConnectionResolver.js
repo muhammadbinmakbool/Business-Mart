@@ -232,6 +232,7 @@ function testPrismaFallback(server, database, trustedConnection, user, password)
 
 // Create database via system 'master' connection
 // Accepts raw config params to build connection natively via ADO.NET and PowerShell.
+// Returns { success: boolean, error?: string }
 function createDatabase(server, database, trustedConnection, user, password) {
   console.log(`[DB Resolver] Auto-creating database [${database}] on server [${server}] natively via ADO.NET PowerShell...`);
 
@@ -249,6 +250,17 @@ $connString = "${adonetConnString.replace(/"/g, '`"')}"
 try {
     $conn = New-Object System.Data.SqlClient.SqlConnection($connString)
     $conn.Open()
+    
+    # Check if database already exists
+    $cmdCheck = $conn.CreateCommand()
+    $cmdCheck.CommandText = "SELECT database_id FROM sys.databases WHERE name = '${database}'"
+    $exists = $cmdCheck.ExecuteScalar()
+    
+    if ($exists -ne $null) {
+        $conn.Close()
+        Write-Output "SUCCESS (ALREADY_EXISTS)"
+        exit 0
+    }
     
     $cmd = $conn.CreateCommand()
     $cmd.CommandText = "CREATE DATABASE [${database}]"
@@ -280,15 +292,17 @@ try {
 
     if (result.status === 0 && output.includes('SUCCESS')) {
       console.log(`[DB Resolver] Database [${database}] created successfully natively.`);
-      return true;
+      return { success: true };
     } else {
-      console.error(`[DB Resolver] Native database creation failed: ${output}`);
-      return false;
+      let errDetail = output;
+      if (result.stderr) errDetail += '\n' + result.stderr;
+      console.error(`[DB Resolver] Native database creation failed: ${errDetail}`);
+      return { success: false, error: errDetail };
     }
   } catch (err) {
     try { fs.unlinkSync(tempPsPath); } catch (e) {}
     console.error('[DB Resolver] Exception during native CREATE DATABASE:', err.message);
-    return false;
+    return { success: false, error: err.message };
   }
 }
 
