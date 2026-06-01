@@ -251,7 +251,7 @@ try {
     $conn = New-Object System.Data.SqlClient.SqlConnection($connString)
     $conn.Open()
     
-    # Check if database already exists
+    # 1. Check if database already registered in SQL Server catalog
     $cmdCheck = $conn.CreateCommand()
     $cmdCheck.CommandText = "SELECT database_id FROM sys.databases WHERE name = '${database}'"
     $exists = $cmdCheck.ExecuteScalar()
@@ -261,14 +261,54 @@ try {
         Write-Output "SUCCESS (ALREADY_EXISTS)"
         exit 0
     }
-    
-    $cmd = $conn.CreateCommand()
-    $cmd.CommandText = "CREATE DATABASE [${database}]"
-    $cmd.ExecuteNonQuery()
-    
-    $conn.Close()
-    Write-Output "SUCCESS"
-    exit 0
+
+    # 2. Get default data path from master database file location
+    $cmdPath = $conn.CreateCommand()
+    $cmdPath.CommandText = "SELECT SUBSTRING(physical_name, 1, CHARINDEX('master.mdf', LOWER(physical_name)) - 1) FROM sys.master_files WHERE database_id = 1 AND file_id = 1"
+    $dataPath = $cmdPath.ExecuteScalar()
+
+    if ($dataPath -eq $null -or $dataPath -eq "") {
+        $dataPath = "C:\\Program Files\\Microsoft SQL Server\\MSSQL16.SQLEXPRESS\\MSSQL\\DATA\\"
+    }
+
+    $mdfPath = Join-Path $dataPath "${database}.mdf"
+
+    # 3. Check if physical files exist on disk
+    $mdfExists = Test-Path $mdfPath
+
+    if ($mdfExists) {
+        Write-Output "INFO: Orphaned physical database files found at $mdfPath. Attempting to attach..."
+        try {
+            $cmdAttach = $conn.CreateCommand()
+            $cmdAttach.CommandText = "CREATE DATABASE [${database}] ON (FILENAME = '$mdfPath') FOR ATTACH"
+            $cmdAttach.ExecuteNonQuery()
+            $conn.Close()
+            Write-Output "SUCCESS (ATTACHED)"
+            exit 0
+        } catch {
+            # Fallback to rebuild log if log file is missing or mismatched
+            try {
+                $cmdAttachRebuild = $conn.CreateCommand()
+                $cmdAttachRebuild.CommandText = "CREATE DATABASE [${database}] ON (FILENAME = '$mdfPath') FOR ATTACH_REBUILD_LOG"
+                $cmdAttachRebuild.ExecuteNonQuery()
+                $conn.Close()
+                Write-Output "SUCCESS (ATTACHED_REBUILD)"
+                exit 0
+            } catch {
+                $attachErr = $_.Exception.Message
+                Write-Output "ERROR: Orphaned database files exist at $mdfPath, but attach failed: $attachErr"
+                exit 1
+            }
+        }
+    } else {
+        # 4. Standard clean database creation
+        $cmdCreate = $conn.CreateCommand()
+        $cmdCreate.CommandText = "CREATE DATABASE [${database}]"
+        $cmdCreate.ExecuteNonQuery()
+        $conn.Close()
+        Write-Output "SUCCESS"
+        exit 0
+    }
 } catch {
     $msg = $_.Exception.Message
     if ($_.Exception.InnerException) {
