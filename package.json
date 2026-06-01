@@ -12,7 +12,7 @@
     "dev:desktop": "concurrently -k -n \"next,electron\" -c \"cyan,magenta\" \"npm run dev\" \"wait-on http://localhost:3000 && npm run electron\"",
     "build:next": "next build",
     "postbuild:next": "node scripts/copy-standalone-assets.js",
-    "electron:build": "npm run build:next && npm run postbuild:next && electron-builder"
+    "electron:build": "npm run build:next && npm run postbuild:next && npx prisma generate && electron-builder"
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
