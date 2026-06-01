@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { getUninvoicedDataAction, generateSupplierInvoiceAction, editSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import { calculateSupplierDeductions } from "@/lib/financial";
-import { cn } from "@/lib/utils";
+import { cn, getLocalDateString } from "@/lib/utils";
 import { toast } from "sonner";
 import { ADJUSTMENT_TYPES_SUPPLIER } from "@/lib/constants";
 import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
@@ -46,6 +46,11 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
   const [data, setData] = useState({ intakes: [], advances: [] });
   const [selectedIntakes, setSelectedIntakes] = useState([]);
   const [selectedAdvances, setSelectedAdvances] = useState([]);
+  const [entryDate, setEntryDate] = useState(
+    initialInvoice?.entryDate 
+      ? getLocalDateString(initialInvoice.entryDate) 
+      : getLocalDateString()
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Per-intake adjustments state: { [intakeId]: [adjustments] }
@@ -301,6 +306,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
     formData.append("intakeIds", JSON.stringify(selectedIntakes));
     formData.append("advanceIds", JSON.stringify(selectedAdvances));
     formData.append("adjustmentsByIntake", JSON.stringify(adjustmentsByIntake));
+    formData.append("entryDate", entryDate);
 
     if (initialInvoice) {
       formData.append("invoiceId", initialInvoice.id);
@@ -630,6 +636,20 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
 
           {/* Right Columns: Billing Summary */}
           <div className="space-y-6">
+            {/* Settlement Date Picker */}
+            <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+              <label htmlFor="settlementEntryDate" className="block text-xs font-black uppercase tracking-wider text-muted-foreground">
+                Settlement Date
+              </label>
+              <input
+                id="settlementEntryDate"
+                type="date"
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+                className="w-full rounded-xl border bg-background px-4 py-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-primary transition-all font-mono"
+              />
+            </div>
+
             {/* Financial Summary Card */}
             <div className="rounded-2xl bg-primary p-6 text-primary-foreground shadow-xl shadow-primary/10 space-y-6">
               <h3 className="font-bold text-lg flex items-center gap-2 border-b border-white/20 pb-4">

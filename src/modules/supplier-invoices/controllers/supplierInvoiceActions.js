@@ -21,8 +21,9 @@ export async function generateSupplierInvoiceAction(formData) {
     const intakeIds = JSON.parse(formData.get("intakeIds") || "[]");
     const advanceIds = JSON.parse(formData.get("advanceIds") || "[]");
     const adjustmentsByIntake = JSON.parse(formData.get("adjustmentsByIntake") || "{}");
+    const entryDate = formData.get("entryDate");
 
-    const invoice = await SupplierInvoiceService.generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake);
+    const invoice = await SupplierInvoiceService.generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake, entryDate);
     
     safeRevalidatePath("/supplier-invoices");
     return { success: true, data: invoice };
@@ -147,8 +148,9 @@ export async function editSupplierInvoiceAction(formData) {
     const intakeIds = JSON.parse(formData.get("intakeIds") || "[]");
     const advanceIds = JSON.parse(formData.get("advanceIds") || "[]");
     const adjustmentsByIntake = JSON.parse(formData.get("adjustmentsByIntake") || "{}");
+    const entryDate = formData.get("entryDate");
 
-    const newInvoice = await SupplierInvoiceService.editInvoice(invoiceId, intakeIds, advanceIds, adjustmentsByIntake);
+    const newInvoice = await SupplierInvoiceService.editInvoice(invoiceId, intakeIds, advanceIds, adjustmentsByIntake, entryDate);
     
     safeRevalidatePath(`/supplier-invoices/${invoiceId}`);
     safeRevalidatePath("/supplier-invoices");

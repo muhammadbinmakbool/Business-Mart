@@ -10,6 +10,7 @@ import { Scale, User, DollarSign, Box, X, XCircle } from "lucide-react";
 import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
+import { getLocalDateString } from "@/lib/utils";
 
 export default function EditIntakeForm({ intake, suppliers, products, buyers = [] }) {
   const router = useRouter();
@@ -321,7 +322,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
             name="entryDate"
             type="date"
             required
-            defaultValue={new Date(intake.entryDate).toISOString().split('T')[0]}
+            defaultValue={getLocalDateString(intake.entryDate)}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>

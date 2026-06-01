@@ -101,7 +101,8 @@ export function mapSaleToPrintModel(sale) {
 export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summaryAdjustments = []) {
   return {
     documentId: invoice.invoiceNumber || `SET-${invoice.id}`,
-    entryDate: format(new Date(invoice.createdAt), "dd MMM yyyy, hh:mm a"),
+    entryDate: format(new Date(invoice.entryDate || invoice.createdAt), "dd MMM yyyy"),
+    systemTimestamp: format(new Date(invoice.createdAt), "dd MMM yyyy, hh:mm a"),
     version: invoice.version,
     status: invoice.status,
     isOutdated: invoice.isOutdated,

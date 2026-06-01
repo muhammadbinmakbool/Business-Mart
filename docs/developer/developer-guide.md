@@ -59,6 +59,29 @@ To balance flexibility with correctness, the system implements:
 - **Financial Boundary**: ONLY `financial.js` is permitted to implement math formulas. All totals are derived from source items/adjustments on every save.
 - **Immutable Identifiers**: Primary identifiers like `saleNumber` must never be modified once generated.
 
+---
+
+## Local-Calendar Date Handling Rules (Temporal Accuracy)
+
+To prevent post-midnight back-dating and timezone-offset date drift across Intake, Sale, and Supplier Settlement modules, the system follows a strict local-calendar temporal architecture.
+
+### 1. The Local Calendar Helper (`getLocalDateString`)
+- **Location**: `src/lib/utils.js`
+- **Rule**: Front-end components MUST NOT initialize date values using UTC-based conversions (e.g., `new Date().toISOString().split("T")[0]`). This shifts the local date backwards/forwards depending on the timezone offset (especially crucial for post-midnight 12:00 AM - 5:00 AM operations in PKT UTC+5).
+- **Utility**: `getLocalDateString(date)` retrieves the calendar year, month, and day based on the user's local system time and outputs a timezone-safe `YYYY-MM-DD` string.
+
+### 2. User-Defined Entry Dates
+- All transactional entities (Intake, Sales, Settlements) MUST support explicit user-managed entry dates.
+- **Backend Services**: Server-side defaults (e.g. `new Date()`) are overridden. Database models accept an explicit `entryDate` parameter passed from forms.
+- **Supplier Settlements**: The settlement creation flow (`InvoiceGenerator.js`) includes a dedicated, explicit "Settlement Date" picker. This date is passed to `generateInvoice` and `editInvoice` service calls, while `regenerateInvoice` preserves the version's original `entryDate`.
+
+### 3. Separation of Real-Time Auditing (Status Update Timestamp)
+- **Local Date (`entryDate`)**: Represents the logical calendar day of the transaction (chosen or verified by the user).
+- **System Timestamp (`createdAt`)**: Serves as the immutable real-time clock auditable record of when the entry was created or its status updated.
+- **Print Nomenclature**: Print templates and localization maps represent this system time strictly as **"Status Update Timestamp"** (`systemTime` in localization dictionaries) to prevent ambiguity and ensure transparent processing histories.
+
+---
+
 ## Tech Stack
 - **Framework**: Next.js (App Router)
 - **Database**: MSSQL via Prisma ORM

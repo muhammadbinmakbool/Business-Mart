@@ -10,7 +10,7 @@ export class SupplierInvoiceService {
   /**
    * Generates a new supplier invoice snapshot.
    */
-  static async generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake = {}) {
+  static async generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake = {}, entryDate = null) {
     // 1. Fetch live data for event records
     const parsedIntakeIds = Array.from(new Set(intakeIds.map(id => {
       const str = String(id);
@@ -112,6 +112,7 @@ export class SupplierInvoiceService {
       {
         invoiceNumber,
         partyId: parseInt(partyId),
+        entryDate: entryDate ? new Date(entryDate) : new Date(),
         totalGrossValue,
         totalDeductions,
         totalAdvances,
@@ -265,6 +266,7 @@ export class SupplierInvoiceService {
          data: {
            invoiceNumber: oldInvoice.invoiceNumber,
            partyId: oldInvoice.partyId,
+           entryDate: oldInvoice.entryDate,
            totalGrossValue,
            totalDeductions,
            totalAdvances,
@@ -352,7 +354,7 @@ export class SupplierInvoiceService {
   /**
    * Edits an invoice by generating a new version with updated selections and adjustments.
    */
-  static async editInvoice(oldInvoiceId, newIntakeIds, newAdvanceIds, newAdjustmentsByIntake) {
+  static async editInvoice(oldInvoiceId, newIntakeIds, newAdvanceIds, newAdjustmentsByIntake, entryDate = null) {
     const oldInvoice = await SupplierInvoiceRepository.getById(oldInvoiceId);
     if (!oldInvoice) throw new Error("Invoice not found");
 
@@ -480,6 +482,7 @@ export class SupplierInvoiceService {
         data: {
           invoiceNumber,
           partyId: oldInvoice.partyId,
+          entryDate: entryDate ? new Date(entryDate) : oldInvoice.entryDate,
           totalGrossValue,
           totalDeductions,
           totalAdvances,

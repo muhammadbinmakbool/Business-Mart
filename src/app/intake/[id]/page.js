@@ -86,7 +86,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                 </div>
               </div>
               <div className="space-y-1">
-                <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">System Timestamp</span>
+                <span className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Status Update Timestamp</span>
                 <div className="flex items-center gap-2 font-medium text-muted-foreground text-sm">
                   <Clock className="h-4 w-4" />
                   {format(new Date(intake.createdAt), "dd MMM yyyy, hh:mm a")}

@@ -6,7 +6,7 @@ import { createSaleAction, updateSaleAction } from "@/modules/sales/controllers/
 import { getUnbilledTracksAction } from "@/modules/sales/controllers/trackActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
+import { cn, getLocalDateString } from "@/lib/utils";
 import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/financial";
 import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate, convertRate, convertFromBase, UNIT_IDS } from "@/lib/units";
 import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
@@ -24,8 +24,8 @@ export default function SaleForm({ buyers, products, initialData = null }) {
   const [partyId, setPartyId] = useState(initialData?.partyId?.toString() || "");
   const [entryDate, setEntryDate] = useState(
     initialData?.entryDate 
-      ? new Date(initialData.entryDate).toISOString().split("T")[0] 
-      : new Date().toISOString().split("T")[0]
+      ? getLocalDateString(initialData.entryDate) 
+      : getLocalDateString()
   );
   const [notes, setNotes] = useState(initialData?.notes || "");
   const [items, setItems] = useState(

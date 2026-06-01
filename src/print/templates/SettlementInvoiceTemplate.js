@@ -36,8 +36,10 @@ export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
             <div className="grid grid-cols-2 gap-y-1.5 text-xs">
               <div className="text-slate-500">{t("invoiceVersion", locale)}:</div>
               <div className="font-bold text-slate-800">V{data.version}</div>
-              <div className="text-slate-500">{t("generated", locale)}:</div>
+              <div className="text-slate-500">{t("date", locale)}:</div>
               <div className="font-mono text-slate-600">{data.entryDate}</div>
+              <div className="text-slate-500">{t("systemTime", locale)}:</div>
+              <div className="font-mono text-slate-600">{data.systemTimestamp}</div>
               {data.isOutdated && (
                 <div className="col-span-2 text-[9px] text-rose-600 font-bold uppercase tracking-wider mt-1 animate-pulse">
                   ⚠️ {t("outdatedWarning", locale)}

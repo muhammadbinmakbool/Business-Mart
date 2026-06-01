@@ -10,6 +10,7 @@ import { getUnitsByCategory, normalizeQuantity, convertFromBase, UNIT_IDS, DEFAU
 import { getPreferredWeightUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
+import { getLocalDateString } from "@/lib/utils";
 
 export default function IntakeForm({ suppliers, products }) {
   const router = useRouter();
@@ -302,7 +303,7 @@ export default function IntakeForm({ suppliers, products }) {
             name="entryDate"
             type="date"
             required
-            defaultValue={new Date().toISOString().split('T')[0]}
+            defaultValue={getLocalDateString()}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
