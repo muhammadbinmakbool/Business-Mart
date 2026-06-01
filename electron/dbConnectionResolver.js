@@ -176,10 +176,11 @@ function testPrismaFallback(server, database, trustedConnection, user, password)
   }
   connectionString += `;encrypt=true;trustServerCertificate=true;connectionTimeout=5;poolSize=1;`;
 
+  const clientPath = path.join(__dirname, '..', 'prisma', 'client').replace('app.asar', 'app.asar.unpacked').replace(/\\/g, '\\\\');
   const tempScriptPath = path.join(os.tmpdir(), `bm-db-fallback-${Date.now()}.js`);
   try {
     const scriptContent = `
-      const { PrismaClient } = require('@prisma/client');
+      const { PrismaClient } = require('${clientPath}');
       async function test() {
         const prisma = new PrismaClient({
           datasources: { db: { url: ${JSON.stringify(connectionString)} } }
