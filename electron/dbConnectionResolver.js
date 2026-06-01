@@ -85,7 +85,7 @@ function testNativeConnection(server, database, trustedConnection, user, passwor
   const tempPsPath = path.join(os.tmpdir(), `bm-db-test-${Date.now()}.ps1`);
   try {
     const psContent = `
-$connString = ${JSON.stringify(adonetConnString)}
+$connString = "${adonetConnString.replace(/"/g, '`"')}"
 try {
     $conn = New-Object System.Data.SqlClient.SqlConnection($connString)
     $conn.Open()
