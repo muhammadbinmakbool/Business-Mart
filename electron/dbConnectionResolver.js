@@ -296,6 +296,28 @@ function runMigrationsAndSeed(connectionString) {
   }
 }
 
+// Helper to construct highly standard, compliant Prisma SQL Server connection URLs
+function buildPrismaConnectionString(server, database, trustedConnection, user, password) {
+  let connectionString = '';
+  // Avoid placing backslashes in URL hostnames to prevent CJS/URI specification parse errors
+  if (server.includes('\\')) {
+    const parts = server.split('\\');
+    const host = parts[0] || '.';
+    const instance = parts[1];
+    connectionString = `sqlserver://${host};database=${database};instanceName=${instance}`;
+  } else {
+    connectionString = `sqlserver://${server};database=${database}`;
+  }
+
+  if (trustedConnection) {
+    connectionString += `;integratedSecurity=true`;
+  } else {
+    connectionString += `;user=${user};password=${password}`;
+  }
+  connectionString += `;encrypt=true;trustServerCertificate=true;connectionTimeout=10;poolSize=5;`;
+  return connectionString;
+}
+
 // Main Connection Resolution Loop
 function resolveDatabaseConnection(configHint) {
   const database = (configHint && configHint.database) || 'business_mart';
@@ -314,14 +336,7 @@ function resolveDatabaseConnection(configHint) {
 
     if (testResult.success) {
       console.log(`[DB Resolver] SUCCESS! Resolved working SQL Server instance natively: ${server}`);
-      
-      let connectionString = `sqlserver://${server};database=${database}`;
-      if (trustedConnection) {
-        connectionString += `;integratedSecurity=true`;
-      } else {
-        connectionString += `;user=${user};password=${password}`;
-      }
-      connectionString += `;encrypt=true;trustServerCertificate=true;connectionTimeout=10;poolSize=5;`;
+      const connectionString = buildPrismaConnectionString(server, database, trustedConnection, user, password);
 
       return {
         success: true,
@@ -333,14 +348,7 @@ function resolveDatabaseConnection(configHint) {
       };
     } else if (testResult.reason === 'DB_NOT_FOUND') {
       console.log(`[DB Resolver] Server reachable at [${server}], but database [${database}] is missing.`);
-      
-      let connectionString = `sqlserver://${server};database=${database}`;
-      if (trustedConnection) {
-        connectionString += `;integratedSecurity=true`;
-      } else {
-        connectionString += `;user=${user};password=${password}`;
-      }
-      connectionString += `;encrypt=true;trustServerCertificate=true;connectionTimeout=10;poolSize=5;`;
+      const connectionString = buildPrismaConnectionString(server, database, trustedConnection, user, password);
 
       if (!firstMissingDbCandidate) {
         firstMissingDbCandidate = {
