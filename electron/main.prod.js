@@ -11,21 +11,39 @@ let serverProcess;
 const PORT = process.env.PORT || 3000;
 const HOST = '127.0.0.1';
 
+// Helper to resolve the correct writable configuration path for user settings
+function getWritableConfigPath() {
+  try {
+    const userDataPath = app.getPath('userData');
+    return path.join(userDataPath, 'config.json');
+  } catch (e) {
+    // Fallback if app properties are not yet initialized
+    return path.join(__dirname, '..', 'resources', 'config.json');
+  }
+}
+
 // Load SQL Server Connection configuration from config.json
 // Returns raw config shape: { server, database, user, password, trustedConnection }
 // This is the SAME shape that resolveDatabaseConnection() and testNativeConnection() expect.
 function loadDatabaseConfig() {
+  const writablePath = getWritableConfigPath();
   const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
-  const prodConfigPath = path.join(__dirname, '..', '..', 'config.json');
-  const nestedProdConfigPath = path.join(__dirname, '..', '..', 'resources', 'config.json');
+  const prodConfigPath = path.join(process.resourcesPath, 'config.json');
+  const nestedProdConfigPath = path.join(process.resourcesPath, 'resources', 'config.json');
 
   let configPath = '';
-  if (fs.existsSync(prodConfigPath)) {
+  if (fs.existsSync(writablePath)) {
+    configPath = writablePath;
+    console.log(`[DB Config] Active Writable User Configuration Found: ${configPath}`);
+  } else if (fs.existsSync(prodConfigPath)) {
     configPath = prodConfigPath;
+    console.log(`[DB Config] Default Production Configuration Found: ${configPath}`);
   } else if (fs.existsSync(nestedProdConfigPath)) {
     configPath = nestedProdConfigPath;
+    console.log(`[DB Config] Default Nested Production Configuration Found: ${configPath}`);
   } else if (fs.existsSync(devConfigPath)) {
     configPath = devConfigPath;
+    console.log(`[DB Config] Development Configuration Found: ${configPath}`);
   }
 
   let dbConfig = {
@@ -35,7 +53,6 @@ function loadDatabaseConfig() {
   };
 
   if (configPath) {
-    console.log(`[DB Config] Active Configuration File Found: ${path.resolve(configPath)}`);
     try {
       const fileContent = fs.readFileSync(configPath, 'utf8');
       const parsed = JSON.parse(fileContent);
@@ -252,20 +269,9 @@ function killServerProcess() {
 
 // Save manual configuration changes back to config.json
 function saveDatabaseConfig(newDbConfig) {
-  const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
-  const prodConfigPath = path.join(__dirname, '..', '..', 'config.json');
-  const nestedProdConfigPath = path.join(__dirname, '..', '..', 'resources', 'config.json');
-
-  let configPath = prodConfigPath; // Default write path in production
-
-  if (fs.existsSync(prodConfigPath)) {
-    configPath = prodConfigPath;
-  } else if (fs.existsSync(nestedProdConfigPath)) {
-    configPath = nestedProdConfigPath;
-  } else if (fs.existsSync(devConfigPath)) {
-    configPath = devConfigPath;
-  }
-
+  const configPath = getWritableConfigPath();
+  console.log(`[DB Config] Attempting to save config.json to writable user path: ${configPath}`);
+  
   try {
     const parentDir = path.dirname(configPath);
     if (!fs.existsSync(parentDir)) {
@@ -273,11 +279,26 @@ function saveDatabaseConfig(newDbConfig) {
     }
     fs.writeFileSync(configPath, JSON.stringify({ db: newDbConfig }, null, 2), 'utf8');
     console.log(`[DB Config] Saved updated database config to: ${configPath}`);
-    return true;
   } catch (err) {
-    console.error(`[DB Config] Failed to save config to: ${configPath}`, err);
-    return false;
+    console.error(`[DB Config] Failed to save config to writable path: ${configPath}`, err);
   }
+
+  // If in development mode, also write back to the workspace resources folder so it is updated in source control
+  if (!app.isPackaged) {
+    const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
+    try {
+      const devParentDir = path.dirname(devConfigPath);
+      if (!fs.existsSync(devParentDir)) {
+        fs.mkdirSync(devParentDir, { recursive: true });
+      }
+      fs.writeFileSync(devConfigPath, JSON.stringify({ db: newDbConfig }, null, 2), 'utf8');
+      console.log(`[DB Config] Dev mode: Also saved config back to workspace resources path: ${devConfigPath}`);
+    } catch (err) {
+      console.warn(`[DB Config] Dev mode: Could not write copy to workspace path: ${devConfigPath}`);
+    }
+  }
+
+  return true;
 }
 
 let resolvedDbState = null;

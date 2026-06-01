@@ -4,6 +4,8 @@ import { ChevronLeft } from "lucide-react";
 import { PartyService } from "@/modules/parties/services/PartyService";
 import AdvanceForm from "./AdvanceForm";
 
+export const dynamic = "force-dynamic";
+
 export default async function CreateAdvancePage() {
   const parties = await PartyService.listParties();
   const suppliers = parties.filter(p => p.isActive && (p.partyType === "SUPPLIER" || p.partyType === "BOTH"));

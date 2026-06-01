@@ -5,6 +5,8 @@ import { PartyService } from "@/modules/parties/services/PartyService";
 import { ProductService } from "@/modules/products/services/ProductService";
 import IntakeForm from "./IntakeForm";
 
+export const dynamic = "force-dynamic";
+
 export default async function CreateIntakePage() {
   const [suppliers, products] = await Promise.all([
     PartyService.listParties(), // We'll filter for suppliers in the component or just show all
