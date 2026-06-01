@@ -89,6 +89,18 @@ $connString = "${adonetConnString.replace(/"/g, '`"')}"
 try {
     $conn = New-Object System.Data.SqlClient.SqlConnection($connString)
     $conn.Open()
+    
+    # Explicitly check if the database exists to prevent ADO.NET fallback to master
+    $cmd = $conn.CreateCommand()
+    $cmd.CommandText = "SELECT db_id('${database}')"
+    $dbId = $cmd.ExecuteScalar()
+    if ($dbId -eq [System.DBNull]::Value -or $dbId -eq $null) {
+        $conn.Close()
+        Write-Output "ERROR:DB_NOT_FOUND"
+        Write-Output "DETAILS: Requested database '${database}' does not exist on this SQL Server instance."
+        exit 1
+    }
+    
     $conn.Close()
     Write-Output "SUCCESS"
     exit 0
@@ -98,7 +110,7 @@ try {
         $msg += " " + $_.Exception.InnerException.Message
     }
     
-    if ($msg -like "*Cannot open database*") {
+    if ($msg -like "*Cannot open database*" -or $msg -like "*database*does not exist*") {
         Write-Output "ERROR:DB_NOT_FOUND"
     } elseif ($msg -like "*Login failed*") {
         Write-Output "ERROR:AUTH_FAILED"
