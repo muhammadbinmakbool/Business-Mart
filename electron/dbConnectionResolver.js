@@ -360,7 +360,12 @@ function runMigrationsAndSeed(server, database, trustedConnection, user, passwor
     
     // 1. Run migrations deploy
     const migrationResult = spawnSync(process.execPath, [prismaCliPath, 'migrate', 'deploy', '--schema', schemaPath], {
-      env: { ...process.env, DATABASE_URL: connectionString, ELECTRON_RUN_AS_NODE: '1' },
+      env: { 
+        ...process.env, 
+        DATABASE_URL: connectionString, 
+        ELECTRON_RUN_AS_NODE: '1',
+        NODE_PATH: path.join(__dirname, '..', 'node_modules')
+      },
       encoding: 'utf8'
     });
     
@@ -379,7 +384,12 @@ function runMigrationsAndSeed(server, database, trustedConnection, user, passwor
     // 2. Run seed JS file
     console.log('[DB Resolver] Deploy complete. Launching database seed script...');
     const seedResult = spawnSync(process.execPath, [seedJsPath], {
-      env: { ...process.env, DATABASE_URL: connectionString, ELECTRON_RUN_AS_NODE: '1' },
+      env: { 
+        ...process.env, 
+        DATABASE_URL: connectionString, 
+        ELECTRON_RUN_AS_NODE: '1',
+        NODE_PATH: path.join(__dirname, '..', 'node_modules')
+      },
       encoding: 'utf8'
     });
     
