@@ -341,8 +341,8 @@ app.whenReady().then(async () => {
   ipcMain.handle('test-and-save-config', async (event, configPayload) => {
     console.log('[IPC] Testing manual database settings override...');
     const resolved = resolveDatabaseConnection(configPayload);
-    if (resolved && resolved.success === true) {
-      console.log('[IPC] Manual database override successful. Saving configuration...');
+    if (resolved && (resolved.success === true || resolved.reason === 'database_missing')) {
+      console.log('[IPC] Manual database override validated (Active DB or Reachable Server with Missing DB). Saving configuration...');
       saveDatabaseConfig(configPayload);
       
       // Delay relaunch slightly to allow response to complete and files to flush
