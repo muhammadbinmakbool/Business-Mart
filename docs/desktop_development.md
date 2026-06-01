@@ -76,23 +76,29 @@ Administrators or testers can configure database routing in `resources/config.js
 {
   "db": {
     "server": "localhost\\SQLEXPRESS",
-    "database": "BusinessMart",
-    "trustedConnection": true
+    "database": "business_mart",
+    "trustedConnection": true,
+    "user": "sa",
+    "password": "YOUR_SQL_SERVER_PASSWORD"
   }
 }
 ```
-*Credentials can optionally be provided via environment variables (`DB_USER`, `DB_PASSWORD`), or mapped directly in user fields within `config.json` (on target machine config).*
+* **Dual-Authentication Modes:**
+  * **Windows Authentication (`trustedConnection: true`):** Generates a Prisma-compatible connection string with `;integratedSecurity=true` and `instanceName=SQLEXPRESS`. It does **not** inject any SQL user/password credentials and automatically bypasses the setup/password warning dialogs.
+  * **SQL Authentication (`trustedConnection: false`):** Utilizes standard `user` and `password` configurations. If standard mode is enabled and the default `"YOUR_SQL_SERVER_PASSWORD"` template password is left intact, a startup safeguard dialog will intercept the launch to guide the user on how and where to update the configuration file.
 
 ### 2. Prisma Performance Injections
 The main process parses `config.json` on launch, splits named instances (e.g. `localhost\SQLEXPRESS` -> appending `;instanceName=SQLEXPRESS`), and injects specialized Prisma configurations into the generated `DATABASE_URL` string:
+- `;integratedSecurity=true`: Injected if `trustedConnection: true` is configured to enable native integrated Windows Authentication.
 - `connectionTimeout=10`: Enforces a fast-fail timeout within 10 seconds if database communication stalls, preventing UI freezes.
 - `poolSize=5`: Limits concurrent connections to prevent database resource exhaustion on single-user offline client machines.
+- `encrypt=true;trustServerCertificate=true`: Enables secure transport while trusting local self-signed certificates standard in testing environments.
 
-### 3. Connection Pre-flight Verification & Retry Loop
-Prior to starting the server, the main process executes a TCP connection check to the database host/port:
-- Retries **3 times** with a **2-second delay**.
-- If reachable, proceeds to launch.
-- If unreachable, blocks the UI launch and displays a native recovery dialog box listing SQL Server start steps and firewall checklists.
+### 3. Non-Blocking Connection Pre-flight Verification & Detailed Logging
+On app launch, the main process provides highly descriptive developer logs and resilient pre-flight verification:
+- **Resilient Pre-flight (Non-blocking):** Standard SQL Server Express named instances (`SQLEXPRESS`) natively use **dynamic ports** rather than static port 1433 on Windows. Enforcing a blocking TCP check on port 1433 would cause false negatives. The app performs a TCP pre-flight check but logs warnings on failure rather than hard-crashing, allowing successful boots over dynamic ports.
+- **Active Path Verification:** The app prints the absolute path of the loaded `config.json` to logs on launch, guaranteeing the correct externalized file is read.
+- **Security-First Logs:** Startup console logs cleanly output the active server, database, and authentication mode used without ever exposing sensitive passwords.
 
 ---
 

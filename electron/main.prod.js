@@ -14,33 +14,37 @@ const HOST = '127.0.0.1';
 function loadDatabaseConfig() {
   const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
   const prodConfigPath = path.join(__dirname, '..', '..', 'config.json');
+  const nestedProdConfigPath = path.join(__dirname, '..', '..', 'resources', 'config.json');
 
   let configPath = '';
   if (fs.existsSync(prodConfigPath)) {
     configPath = prodConfigPath;
+  } else if (fs.existsSync(nestedProdConfigPath)) {
+    configPath = nestedProdConfigPath;
   } else if (fs.existsSync(devConfigPath)) {
     configPath = devConfigPath;
   }
 
   let dbConfig = {
-    server: 'localhost',
+    server: 'localhost\\SQLEXPRESS',
     database: 'business_mart',
     trustedConnection: true
   };
 
   if (configPath) {
+    console.log(`[DB Config] Active Configuration File Found: ${path.resolve(configPath)}`);
     try {
       const fileContent = fs.readFileSync(configPath, 'utf8');
       const parsed = JSON.parse(fileContent);
       if (parsed && parsed.db) {
         dbConfig = parsed.db;
-        console.log(`[DB Config] Loaded configuration from: ${configPath}`);
+        console.log(`[DB Config] Successfully parsed configuration details from: ${configPath}`);
       }
     } catch (err) {
       console.error(`[DB Config] Failed to parse config file: ${configPath}`, err);
     }
   } else {
-    console.log('[DB Config] No config.json found. Using default parameters.');
+    console.log('[DB Config] No config.json found in any resolved paths. Using defaults.');
   }
 
   // Override with environment variables if present
@@ -74,9 +78,13 @@ function loadDatabaseConfig() {
     connectionString += `;instanceName=${instanceName}`;
   }
 
-  // Handle credentials
-  if (!trustedConnection) {
+  // Handle credentials & integrated security
+  if (trustedConnection) {
+    connectionString += `;integratedSecurity=true`;
+    console.log(`[DB Config] Mode: Windows Authentication (Integrated Security). Server: ${server}, Database: ${database}`);
+  } else {
     connectionString += `;user=${user};password=${password}`;
+    console.log(`[DB Config] Mode: SQL Authentication (User: ${user}). Server: ${server}, Database: ${database}`);
   }
 
   // Append latency, pooling and fast-fail parameters for robust production use
@@ -85,7 +93,10 @@ function loadDatabaseConfig() {
   return {
     connectionString,
     host,
-    port: port || '1433' // Default SQL Server port
+    port: port || '1433', // Default SQL Server port
+    password,
+    configPath,
+    trustedConnection
   };
 }
 
@@ -275,19 +286,29 @@ function killServerProcess() {
 app.whenReady().then(async () => {
   const dbInfo = loadDatabaseConfig();
 
-  // 1. Verify SQL Server Connectivity
-  const isDbConnected = await verifyDatabaseConnectivity(dbInfo.host, parseInt(dbInfo.port));
-  if (!isDbConnected) {
+  // Check if placeholder database password is still used
+  if (dbInfo.password === 'YOUR_SQL_SERVER_PASSWORD') {
     dialog.showErrorBox(
-      'Database Connection Failed',
-      `Could not establish a connection to SQL Server at ${dbInfo.host}:${dbInfo.port}.\n\n` +
-      `Please ensure:\n` +
-      `1. SQL Server database service is running locally or at the specified IP address.\n` +
-      `2. Your database configuration in resources/config.json is correct.\n` +
-      `3. Firewall rules allow traffic on port ${dbInfo.port}.`
+      'Database Password Configuration Required',
+      `You are currently using the default placeholder database password.\n\n` +
+      `Please update 'config.json' with your actual SQL Server database credentials.\n\n` +
+      `📂 Configuration File Location:\n` +
+      `${dbInfo.configPath ? path.resolve(dbInfo.configPath) : 'resources/config.json'}\n\n` +
+      `Open the file, replace "YOUR_SQL_SERVER_PASSWORD" with your real SQL Server password, save it, and restart the application.`
     );
     app.quit();
     return;
+  }
+
+  // 1. Verify SQL Server Connectivity (Non-blocking warning to avoid false negatives on dynamic ports/named instances)
+  const isDbConnected = await verifyDatabaseConnectivity(dbInfo.host, parseInt(dbInfo.port));
+  if (!isDbConnected) {
+    console.warn(
+      `[DB Verify] Pre-flight reachability check to ${dbInfo.host}:${dbInfo.port} failed. ` +
+      `Proceeding with server boot anyway as SQL Server might be using dynamic ports or named instances.`
+    );
+  } else {
+    console.log(`[DB Verify] SQL Server is reachable on port ${dbInfo.port}.`);
   }
 
   // 2. Spawn Standalone server

@@ -10,7 +10,8 @@ export default async function proxy(request) {
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/api/html2pdf") ||
-    pathname === "/favicon.ico"
+    pathname === "/favicon.ico" ||
+    pathname.match(/\.(png|svg|ico|jpg|jpeg|gif|webp)$/i)
   ) {
     return NextResponse.next();
   }

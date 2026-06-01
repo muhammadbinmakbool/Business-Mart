@@ -33,5 +33,11 @@
     "node_modules/prisma/**/*",
     "prisma/**/*",
     ".next/standalone/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "resources/config.json",
+      "to": "config.json"
+    }
   ]
 }
