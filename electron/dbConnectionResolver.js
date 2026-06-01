@@ -120,6 +120,17 @@ try {
     try { fs.unlinkSync(tempPsPath); } catch (e) {}
 
     const output = result.stdout ? result.stdout.trim() : '';
+    const hasStructuredError = output.includes('ERROR:DB_NOT_FOUND') || 
+                               output.includes('ERROR:AUTH_FAILED') || 
+                               output.includes('ERROR:INSTANCE_NOT_FOUND') ||
+                               output.includes('ERROR:NETWORK_ERROR');
+
+    // Safe fallback if PowerShell is blocked, restricted, or not available
+    if (result.status !== 0 && !hasStructuredError) {
+      console.warn('[DB Resolver] Native PowerShell check blocked or unsupported. Falling back to Prisma health check...');
+      return testPrismaFallback(server, database, trustedConnection, user, password);
+    }
+
     if (result.status === 0 && output.includes('SUCCESS')) {
       return { success: true };
     } else {
@@ -138,6 +149,71 @@ try {
     }
   } catch (err) {
     try { fs.unlinkSync(tempPsPath); } catch (e) {}
+    console.warn('[DB Resolver] Exception running native PowerShell check. Falling back to Prisma health check...');
+    return testPrismaFallback(server, database, trustedConnection, user, password);
+  }
+}
+
+// Standalone Prisma health check fallback if PowerShell is blocked/restricted
+function testPrismaFallback(server, database, trustedConnection, user, password) {
+  let connectionString = `sqlserver://${server};database=${database}`;
+  if (trustedConnection) {
+    connectionString += `;integratedSecurity=true`;
+  } else {
+    connectionString += `;user=${user};password=${password}`;
+  }
+  connectionString += `;encrypt=true;trustServerCertificate=true;connectionTimeout=5;poolSize=1;`;
+
+  const tempScriptPath = path.join(os.tmpdir(), `bm-db-fallback-${Date.now()}.js`);
+  try {
+    const scriptContent = `
+      const { PrismaClient } = require('@prisma/client');
+      async function test() {
+        const prisma = new PrismaClient({
+          datasources: { db: { url: ${JSON.stringify(connectionString)} } }
+        });
+        try {
+          await prisma.$queryRaw\`SELECT 1 as [test]\`;
+          await prisma.$disconnect();
+          process.exit(0);
+        } catch (err) {
+          const errMsg = err.message || '';
+          console.error(errMsg);
+          await prisma.$disconnect();
+          if (
+            errMsg.includes('does not exist') || 
+            (errMsg.includes('database') && errMsg.includes('exist')) ||
+            errMsg.includes('P2010')
+          ) {
+            process.exit(2); // Database Missing
+          } else if (errMsg.includes('Authentication failed') || errMsg.includes('credentials') || errMsg.includes('P2015')) {
+            process.exit(3); // Auth Failed
+          }
+          process.exit(1);
+        }
+      }
+      test();
+    `;
+    fs.writeFileSync(tempScriptPath, scriptContent, 'utf8');
+
+    const result = spawnSync(process.execPath, [tempScriptPath], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      encoding: 'utf8'
+    });
+
+    try { fs.unlinkSync(tempScriptPath); } catch (e) {}
+
+    if (result.status === 0) {
+      return { success: true };
+    } else if (result.status === 2) {
+      return { success: false, reason: 'DB_NOT_FOUND', error: result.stderr || 'Database does not exist.' };
+    } else if (result.status === 3) {
+      return { success: false, reason: 'AUTH_FAILED', error: result.stderr || 'Authentication failed.' };
+    } else {
+      return { success: false, reason: 'NETWORK_ERROR', error: result.stderr || 'Connection timed out or host unreachable.' };
+    }
+  } catch (err) {
+    try { fs.unlinkSync(tempScriptPath); } catch (e) {}
     return { success: false, reason: 'NETWORK_ERROR', error: err.message };
   }
 }
