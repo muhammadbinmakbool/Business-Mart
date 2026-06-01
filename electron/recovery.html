@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Database Configuration Recovery — Business Mart</title>
+  <title>Database Configuration Setup — Business Mart</title>
   <style>
     :root {
       --bg-gradient-start: #0f172a;
@@ -66,7 +66,7 @@
       margin-bottom: 10px;
     }
 
-    h1 {
+    h1, h2 {
       font-size: 24px;
       font-weight: 600;
       letter-spacing: -0.5px;
@@ -223,7 +223,7 @@
       border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 10px;
       padding: 15px;
-      max-height: 150px;
+      max-height: 180px;
       overflow-y: auto;
       font-family: 'Consolas', monospace;
       font-size: 11.5px;
@@ -235,65 +235,98 @@
       margin-bottom: 5px;
       line-height: 1.4;
     }
+
+    .prompt-box {
+      text-align: center;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    .prompt-actions {
+      margin-top: 25px;
+    }
   </style>
 </head>
 <body>
 
   <div class="container">
-    <div class="logo-container">
-      <div class="logo-icon">📡</div>
-      <h1>SQL Connection Configuration</h1>
-      <p class="subtitle">Business Mart was unable to resolve a working database connection automatically. Please customize your SQL Server parameters below.</p>
-    </div>
-
-    <div class="status-panel">
-      <div class="status-icon">⚠️</div>
-      <div class="status-content">
-        <strong>Error details:</strong> No local SQL Server instances responded. Please verify that your local SQL Server Service is active.
+    
+    <!-- 1. Database Missing Explicit Prompt View -->
+    <div id="missingDbPrompt" class="prompt-box" style="display: none;">
+      <div class="logo-icon">📦</div>
+      <h2>Database Not Found</h2>
+      <p class="subtitle" style="margin-top: 10px;">
+        A reachable SQL Server was successfully detected at <strong id="detectedServerText" style="color: var(--text-main);"></strong>, but the database <strong id="detectedDbText" style="color: var(--text-main);"></strong> does not exist on it.
+      </p>
+      
+      <div class="prompt-actions">
+        <button class="btn" id="createDbBtn">
+          <div class="loader" id="createDbLoader"></div>
+          <span>Yes, Create & Bootstrap Database</span>
+        </button>
+        
+        <button class="btn" id="openManualBtn" style="background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.1); margin-top: 15px; box-shadow: none;">
+          No, Customize Settings Manually
+        </button>
       </div>
     </div>
 
-    <form id="resolver-form">
-      <div class="form-group">
-        <label for="server">SQL Server Host / Instance Name</label>
-        <input type="text" id="server" required placeholder="e.g. localhost\SQLEXPRESS or .\SQLEXPRESS">
-        <div id="instances-list"></div>
+    <!-- 2. Standard Configuration / Dead Server View -->
+    <div id="standardConfigView">
+      <div class="logo-container">
+        <div class="logo-icon">📡</div>
+        <h1>SQL Connection Setup</h1>
+        <p class="subtitle">Business Mart was unable to resolve an active database connection automatically. Please review and save your SQL Server credentials below.</p>
       </div>
 
-      <div class="row">
-        <div class="form-group">
-          <label for="database">Database Name</label>
-          <input type="text" id="database" required placeholder="e.g. business_mart">
-        </div>
-
-        <div class="form-group">
-          <label for="authMode">Authentication Mode</label>
-          <select id="authMode">
-            <option value="windows">Windows Authentication</option>
-            <option value="sql">SQL Server Authentication</option>
-          </select>
+      <div class="status-panel">
+        <div class="status-icon">⚠️</div>
+        <div class="status-content">
+          <strong>Connection failed:</strong> Local database engine was unreachable. Please verify that your local SQL Server instance is active and running.
         </div>
       </div>
 
-      <div class="sql-auth-fields" id="sqlAuthContainer">
+      <form id="resolver-form">
+        <div class="form-group">
+          <label for="server">SQL Server Host / Instance Name</label>
+          <input type="text" id="server" required placeholder="e.g. localhost\SQLEXPRESS or .\SQLEXPRESS">
+          <div id="instances-list"></div>
+        </div>
+
         <div class="row">
           <div class="form-group">
-            <label for="username">SQL Username</label>
-            <input type="text" id="username" placeholder="e.g. sa">
+            <label for="database">Database Name</label>
+            <input type="text" id="database" required placeholder="e.g. business_mart">
           </div>
 
           <div class="form-group">
-            <label for="password">SQL Password</label>
-            <input type="password" id="password" placeholder="Enter SQL password">
+            <label for="authMode">Authentication Mode</label>
+            <select id="authMode">
+              <option value="windows">Windows Authentication</option>
+              <option value="sql">SQL Server Authentication</option>
+            </select>
           </div>
         </div>
-      </div>
 
-      <button type="submit" class="btn" id="submitBtn">
-        <div class="loader" id="btnLoader"></div>
-        <span id="btnText">Test & Apply Connection</span>
-      </button>
-    </form>
+        <div class="sql-auth-fields" id="sqlAuthContainer">
+          <div class="row">
+            <div class="form-group">
+              <label for="username">SQL Username</label>
+              <input type="text" id="username" placeholder="e.g. sa">
+            </div>
+
+            <div class="form-group">
+              <label for="password">SQL Password</label>
+              <input type="password" id="password" placeholder="Enter SQL password">
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn" id="submitBtn">
+          <div class="loader" id="btnLoader"></div>
+          <span id="btnText">Test & Apply Connection</span>
+        </button>
+      </form>
+    </div>
 
     <div class="log-panel" id="logPanel"></div>
   </div>
@@ -312,28 +345,99 @@
     const logPanel = document.getElementById('logPanel');
     const instancesList = document.getElementById('instances-list');
 
+    const missingDbPrompt = document.getElementById('missingDbPrompt');
+    const standardConfigView = document.getElementById('standardConfigView');
+
+    function log(message) {
+      logPanel.style.display = 'block';
+      const line = document.createElement('div');
+      line.className = 'log-line';
+      line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logPanel.appendChild(line);
+      logPanel.scrollTop = logPanel.scrollHeight;
+    }
+
     // Populate detected instances and default config on load
     window.addEventListener('DOMContentLoaded', async () => {
       try {
         if (window.ELECTRON_ENV) {
-          // Expose standard defaults
           databaseInput.value = 'business_mart';
           serverInput.value = 'localhost\\SQLEXPRESS';
           
-          const config = await window.ELECTRON_ENV.getConfig();
-          if (config) {
-            if (config.server) serverInput.value = config.server;
-            if (config.database) databaseInput.value = config.database;
-            if (config.trustedConnection === false) {
-              authModeSelect.value = 'sql';
-              sqlAuthContainer.style.display = 'block';
-              if (config.user) usernameInput.value = config.user;
-              if (config.password && config.password !== 'YOUR_SQL_SERVER_PASSWORD') {
-                passwordInput.value = config.password;
+          const payload = await window.ELECTRON_ENV.getConfig();
+          if (payload) {
+            const config = payload.config;
+            const dbState = payload.resolvedDbState;
+
+            if (config) {
+              if (config.server) serverInput.value = config.server;
+              if (config.database) databaseInput.value = config.database;
+              if (config.trustedConnection === false) {
+                authModeSelect.value = 'sql';
+                sqlAuthContainer.style.display = 'block';
+                if (config.user) usernameInput.value = config.user;
+                if (config.password && config.password !== 'YOUR_SQL_SERVER_PASSWORD') {
+                  passwordInput.value = config.password;
+                }
               }
+            }
+
+            // Expose a beautiful prompt if database exists on server but hasn't been created yet
+            if (dbState && dbState.reason === 'database_missing') {
+              standardConfigView.style.display = 'none';
+              missingDbPrompt.style.display = 'block';
+              document.getElementById('detectedServerText').textContent = dbState.server;
+              document.getElementById('detectedDbText').textContent = dbState.database;
+
+              // Action for create button
+              document.getElementById('createDbBtn').addEventListener('click', async () => {
+                const createBtn = document.getElementById('createDbBtn');
+                const loader = document.getElementById('createDbLoader');
+                createBtn.disabled = true;
+                loader.style.display = 'block';
+                createBtn.querySelector('span').textContent = 'Creating & Bootstrapping...';
+                logPanel.innerHTML = '';
+                log(`Initiating explicit CREATE DATABASE [${dbState.database}] on ${dbState.server}...`);
+
+                try {
+                  // Save settings first
+                  await window.ELECTRON_ENV.testAndSaveConfig({
+                    server: dbState.server,
+                    database: dbState.database,
+                    trustedConnection: dbState.trustedConnection,
+                    user: dbState.user,
+                    password: config ? config.password : ''
+                  });
+
+                  // Run creation
+                  const result = await window.ELECTRON_ENV.createAndBootstrapDb(dbState.connectionString);
+                  if (result && result.success) {
+                    log('Success! Database created, schema migrated, and seeded!');
+                    log('Launching ERP application...');
+                    createBtn.querySelector('span').textContent = 'Launching App!';
+                  } else {
+                    log(`Bootstrap failed: ${result.error}`);
+                    createBtn.disabled = false;
+                    loader.style.display = 'none';
+                    createBtn.querySelector('span').textContent = 'Yes, Create & Bootstrap Database';
+                  }
+                } catch (e) {
+                  log(`Fatal bootstrap exception: ${e.message}`);
+                  createBtn.disabled = false;
+                  loader.style.display = 'none';
+                  createBtn.querySelector('span').textContent = 'Yes, Create & Bootstrap Database';
+                }
+              });
+
+              // Toggle to manual override layout
+              document.getElementById('openManualBtn').addEventListener('click', () => {
+                missingDbPrompt.style.display = 'none';
+                standardConfigView.style.display = 'block';
+              });
             }
           }
 
+          // Load detected instances from registry scan
           const instances = await window.ELECTRON_ENV.getInstances();
           if (instances && instances.length > 0) {
             instancesList.innerHTML = '<span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 8px;">Detected SQL Instances (Click to fill):</span>';
@@ -366,15 +470,6 @@
       }
     });
 
-    function log(message) {
-      logPanel.style.display = 'block';
-      const line = document.createElement('div');
-      line.className = 'log-line';
-      line.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
-      logPanel.appendChild(line);
-      logPanel.scrollTop = logPanel.scrollHeight;
-    }
-
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       
@@ -400,7 +495,6 @@
           log('Success! Connection fully verified.');
           log('Restarting application in standalone mode...');
           btnText.textContent = 'Applying & Launching!';
-          // Let electron restart automatically on backend
         } else {
           log(`Failed: ${result.error || 'Server unreachable or connection timed out.'}`);
           submitBtn.disabled = false;

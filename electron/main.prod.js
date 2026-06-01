@@ -318,6 +318,8 @@ function saveDatabaseConfig(newDbConfig) {
   }
 }
 
+let resolvedDbState = null;
+
 app.whenReady().then(async () => {
   // 1. Set up safe IPC handlers for the Recovery Screen UI
   ipcMain.handle('get-sql-instances', async () => {
@@ -326,7 +328,11 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('get-current-config', async () => {
     try {
-      return loadDatabaseConfig();
+      const config = loadDatabaseConfig();
+      return {
+        config,
+        resolvedDbState
+      };
     } catch (e) {
       return null;
     }
@@ -335,7 +341,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('test-and-save-config', async (event, configPayload) => {
     console.log('[IPC] Testing manual database settings override...');
     const resolved = resolveDatabaseConnection(configPayload);
-    if (resolved && resolved.connectionString) {
+    if (resolved && resolved.success === true) {
       console.log('[IPC] Manual database override successful. Saving configuration...');
       saveDatabaseConfig(configPayload);
       
@@ -349,17 +355,54 @@ app.whenReady().then(async () => {
     } else {
       return { 
         success: false, 
-        error: 'Could not establish connection with these parameters. Please check server active status and credentials.' 
+        error: resolved && resolved.reason === 'database_missing'
+          ? `SQL Server is active, but database '${configPayload.database}' does not exist.`
+          : 'Could not establish connection with these parameters. Please check server active status and credentials.' 
       };
     }
+  });
+
+  ipcMain.handle('create-and-bootstrap-db', async (event, connectionString) => {
+    console.log('[IPC] Manual DB Bootstrap requested. Starting creation...');
+    const { createDatabase, runMigrationsAndSeed } = require('./dbConnectionResolver');
+    
+    const dbCreated = createDatabase(connectionString);
+    if (!dbCreated) {
+      return { 
+        success: false, 
+        error: 'Could not create SQL Server database. Check that your user has CREATE DATABASE privileges or contact your system administrator.' 
+      };
+    }
+
+    console.log('[IPC] Database created successfully. Running migrations and seed...');
+    const bootstrapped = runMigrationsAndSeed(connectionString);
+    if (!bootstrapped) {
+      return { 
+        success: false, 
+        error: 'Database was created, but schema migrations and seeding failed. Please check SQL Server logs.' 
+      };
+    }
+
+    console.log('[IPC] Database successfully bootstrapped! Relaunching application...');
+    setTimeout(() => {
+      app.relaunch();
+      app.exit(0);
+    }, 500);
+
+    return { success: true };
   });
 
   // 2. Resolve Working Database Connection dynamically
   const initialDbInfo = loadDatabaseConfig();
   const resolvedDb = resolveDatabaseConnection(initialDbInfo);
+  resolvedDbState = resolvedDb;
 
-  if (!resolvedDb) {
-    console.error('[DB Boot] FAILED to resolve any working SQL Server connection. Launching Recovery Configuration UI...');
+  if (!resolvedDb || resolvedDb.success === false) {
+    if (resolvedDb && resolvedDb.reason === 'database_missing') {
+      console.error(`[DB Boot] Reachable SQL Server found at [${resolvedDb.server}], but database [${resolvedDb.database}] is missing. Spawning Setup UI...`);
+    } else {
+      console.error('[DB Boot] FAILED to resolve any working SQL Server connection. Launching Recovery Configuration UI...');
+    }
     createWindow(true); // Open window in Recovery Mode
     return;
   }

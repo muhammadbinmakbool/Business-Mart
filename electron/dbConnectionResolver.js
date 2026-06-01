@@ -213,6 +213,8 @@ function resolveDatabaseConnection(configHint) {
   const candidates = getCandidateServers(configHint);
   console.log('[DB Resolver] Strategic candidate servers:', candidates);
 
+  let firstMissingDbCandidate = null;
+
   for (const server of candidates) {
     let connectionString = `sqlserver://${server};database=${database}`;
     
@@ -230,35 +232,35 @@ function resolveDatabaseConnection(configHint) {
     if (testResult.success) {
       console.log(`[DB Resolver] SUCCESS! Resolved working SQL Server instance: ${server}`);
       return {
+        success: true,
         connectionString,
         server,
         database,
         trustedConnection,
-        user,
-        configResolved: true
+        user
       };
     } else if (testResult.reason === 'database_missing') {
       console.log(`[DB Resolver] Server reachable at [${server}], but database [${database}] is missing.`);
-      
-      // Auto DB Bootstrap
-      const dbCreated = createDatabase(connectionString);
-      if (dbCreated) {
-        const migrated = runMigrationsAndSeed(connectionString);
-        if (migrated) {
-          console.log(`[DB Resolver] SUCCESS! Database created and bootstrapped at: ${server}`);
-          return {
-            connectionString,
-            server,
-            database,
-            trustedConnection,
-            user,
-            configResolved: true
-          };
-        }
+      if (!firstMissingDbCandidate) {
+        firstMissingDbCandidate = {
+          success: false,
+          reason: 'database_missing',
+          connectionString,
+          server,
+          database,
+          trustedConnection,
+          user
+        };
       }
     } else {
       console.log(`[DB Resolver] Candidate [${server}] failed: Unreachable.`);
     }
+  }
+
+  // If no working database was found, but we found a server where the database is missing, return it
+  if (firstMissingDbCandidate) {
+    console.log(`[DB Resolver] No active database found, but detected server with missing DB: ${firstMissingDbCandidate.server}`);
+    return firstMissingDbCandidate;
   }
 
   console.error('[DB Resolver] FAILED: All candidates exhausted. No active SQL Server resolved.');
@@ -267,5 +269,7 @@ function resolveDatabaseConnection(configHint) {
 
 module.exports = {
   resolveDatabaseConnection,
-  getLocalSQLInstances
+  getLocalSQLInstances,
+  createDatabase,
+  runMigrationsAndSeed
 };
