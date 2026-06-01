@@ -403,17 +403,15 @@
                 log(`Initiating explicit CREATE DATABASE [${dbState.database}] on ${dbState.server}...`);
 
                 try {
-                  // Save settings first
-                  await window.ELECTRON_ENV.testAndSaveConfig({
+                  // Bug 3c fix: Pass raw config params directly — NO testAndSaveConfig call.
+                  // createAndBootstrapDb now handles: save config → create DB → migrate → seed → relaunch
+                  const result = await window.ELECTRON_ENV.createAndBootstrapDb({
                     server: dbState.server,
                     database: dbState.database,
                     trustedConnection: dbState.trustedConnection,
                     user: dbState.user,
                     password: config ? config.password : ''
                   });
-
-                  // Run creation
-                  const result = await window.ELECTRON_ENV.createAndBootstrapDb(dbState.connectionString);
                   if (result && result.success) {
                     log('Success! Database created, schema migrated, and seeded!');
                     log('Launching ERP application...');

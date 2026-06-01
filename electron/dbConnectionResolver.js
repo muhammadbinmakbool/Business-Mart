@@ -231,25 +231,28 @@ function testPrismaFallback(server, database, trustedConnection, user, password)
 }
 
 // Create database via system 'master' connection
-function createDatabase(connectionString) {
-  const dbName = getDatabaseName(connectionString);
-  const masterConnectionString = connectionString.replace(/database=[^;]+/, 'database=master');
+// Accepts raw config params to build connection strings internally — no URL parsing.
+function createDatabase(server, database, trustedConnection, user, password) {
+  const masterConnUrl = buildPrismaConnectionString(server, 'master', trustedConnection, user, password);
   
-  console.log(`[DB Resolver] Auto-creating database: [${dbName}] ...`);
+  console.log(`[DB Resolver] Auto-creating database: [${database}] on server [${server}] ...`);
+  console.log(`[DB Resolver] Master connection URL: ${masterConnUrl.replace(/password=[^;]*/, 'password=***')}`);
   const tempScriptPath = path.join(os.tmpdir(), `bm-db-create-${Date.now()}.js`);
   try {
+    // Write the connection URL to a temp env file to avoid any escaping issues in script content
     const scriptContent = `
       const { PrismaClient } = require('@prisma/client');
       async function create() {
         const prisma = new PrismaClient({
-          datasources: { db: { url: ${JSON.stringify(masterConnectionString)} } }
+          datasources: { db: { url: process.env.BM_MASTER_URL } }
         });
         try {
-          await prisma.$executeRawUnsafe("CREATE DATABASE [${dbName}]");
+          await prisma.$executeRawUnsafe("CREATE DATABASE [${database}]");
+          console.log('CREATE DATABASE succeeded.');
           await prisma.$disconnect();
           process.exit(0);
         } catch (err) {
-          console.error(err.message);
+          console.error('CREATE DATABASE failed:', err.message);
           await prisma.$disconnect();
           process.exit(1);
         }
@@ -259,9 +262,12 @@ function createDatabase(connectionString) {
     fs.writeFileSync(tempScriptPath, scriptContent, 'utf8');
 
     const result = spawnSync(process.execPath, [tempScriptPath], {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', BM_MASTER_URL: masterConnUrl },
       encoding: 'utf8'
     });
+
+    console.log('[DB Resolver] Create DB stdout:', result.stdout);
+    if (result.stderr) console.error('[DB Resolver] Create DB stderr:', result.stderr);
 
     try { fs.unlinkSync(tempScriptPath); } catch (e) {}
     return result.status === 0;
@@ -273,7 +279,9 @@ function createDatabase(connectionString) {
 }
 
 // Run migrations and seeds programmatically
-function runMigrationsAndSeed(connectionString) {
+// Accepts raw config params to build connection strings internally.
+function runMigrationsAndSeed(server, database, trustedConnection, user, password) {
+  const connectionString = buildPrismaConnectionString(server, database, trustedConnection, user, password);
   try {
     const prismaCliPath = path.join(__dirname, '..', 'node_modules', 'prisma', 'build', 'index.js').replace('app.asar', 'app.asar.unpacked');
     const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma').replace('app.asar', 'app.asar.unpacked');

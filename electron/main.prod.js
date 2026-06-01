@@ -11,7 +11,9 @@ let serverProcess;
 const PORT = process.env.PORT || 3000;
 const HOST = '127.0.0.1';
 
-// Load SQL Server Connection configuration and build Prisma DATABASE_URL
+// Load SQL Server Connection configuration from config.json
+// Returns raw config shape: { server, database, user, password, trustedConnection }
+// This is the SAME shape that resolveDatabaseConnection() and testNativeConnection() expect.
 function loadDatabaseConfig() {
   const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
   const prodConfigPath = path.join(__dirname, '..', '..', 'config.json');
@@ -48,57 +50,17 @@ function loadDatabaseConfig() {
     console.log('[DB Config] No config.json found in any resolved paths. Using defaults.');
   }
 
-  // Override with environment variables if present
-  const server = dbConfig.server || 'localhost';
-  const database = dbConfig.database || 'business_mart';
-  const user = process.env.DB_USER || dbConfig.user || 'sa';
-  const password = process.env.DB_PASSWORD || dbConfig.password || 'Password123';
-  const trustedConnection = dbConfig.trustedConnection;
-
-  // Build connection string
-  let host = server;
-  let port = '';
-  let instanceName = '';
-
-  if (server.includes('\\')) {
-    const parts = server.split('\\');
-    host = parts[0];
-    instanceName = parts[1];
-  } else if (server.includes(':')) {
-    const parts = server.split(':');
-    host = parts[0];
-    port = parts[1];
-  }
-
-  let connectionString = `sqlserver://${host}`;
-  if (port) {
-    connectionString += `:${port}`;
-  }
-  connectionString += `;database=${database}`;
-  if (instanceName) {
-    connectionString += `;instanceName=${instanceName}`;
-  }
-
-  // Handle credentials & integrated security
-  if (trustedConnection) {
-    connectionString += `;integratedSecurity=true`;
-    console.log(`[DB Config] Mode: Windows Authentication (Integrated Security). Server: ${server}, Database: ${database}`);
-  } else {
-    connectionString += `;user=${user};password=${password}`;
-    console.log(`[DB Config] Mode: SQL Authentication (User: ${user}). Server: ${server}, Database: ${database}`);
-  }
-
-  // Append latency, pooling and fast-fail parameters for robust production use
-  connectionString += `;encrypt=true;trustServerCertificate=true;connectionTimeout=10;poolSize=5;`;
-
-  return {
-    connectionString,
-    host,
-    port: port || '1433', // Default SQL Server port
-    password,
-    configPath,
-    trustedConnection
+  // Normalize with environment variable overrides
+  const config = {
+    server: dbConfig.server || 'localhost\\SQLEXPRESS',
+    database: dbConfig.database || 'business_mart',
+    trustedConnection: dbConfig.trustedConnection !== false, // default true
+    user: process.env.DB_USER || dbConfig.user || 'sa',
+    password: process.env.DB_PASSWORD || dbConfig.password || ''
   };
+
+  console.log(`[DB Config] Loaded: server=${config.server}, database=${config.database}, trustedConnection=${config.trustedConnection}`);
+  return config;
 }
 
 // Perform TCP pre-flight verification to SQL Server
@@ -340,52 +302,60 @@ app.whenReady().then(async () => {
 
   ipcMain.handle('test-and-save-config', async (event, configPayload) => {
     console.log('[IPC] Testing manual database settings override...');
-    const resolved = resolveDatabaseConnection(configPayload);
-    if (resolved && (resolved.success === true || resolved.reason === 'database_missing')) {
-      console.log('[IPC] Manual database override validated (Active DB or Reachable Server with Missing DB). Saving configuration...');
+    console.log(`[IPC] Target: server=${configPayload.server}, database=${configPayload.database}, trustedConnection=${configPayload.trustedConnection}`);
+    
+    // Bug 2 fix: Test the EXACT server the user specified — no candidate scanning.
+    const { testNativeConnection } = require('./dbConnectionResolver');
+    const test = testNativeConnection(
+      configPayload.server,
+      configPayload.database,
+      configPayload.trustedConnection,
+      configPayload.user,
+      configPayload.password
+    );
+
+    if (test.success) {
+      // DB exists and is accessible — save config and relaunch into the app
+      console.log('[IPC] Connection fully verified. Saving configuration...');
       saveDatabaseConfig(configPayload);
-      
-      // Delay relaunch slightly to allow response to complete and files to flush
-      setTimeout(() => {
-        app.relaunch();
-        app.exit(0);
-      }, 500);
-
+      setTimeout(() => { app.relaunch(); app.exit(0); }, 500);
       return { success: true };
+    } else if (test.reason === 'DB_NOT_FOUND') {
+      // Server is reachable, credentials work, but DB doesn't exist yet.
+      // Save config so relaunch picks it up, then relaunch into recovery with database_missing state.
+      console.log(`[IPC] Server reachable but database '${configPayload.database}' missing. Saving config and relaunching...`);
+      saveDatabaseConfig(configPayload);
+      setTimeout(() => { app.relaunch(); app.exit(0); }, 500);
+      return { success: true, reason: 'database_missing' };
     } else {
-      // Analyze native connection error for highly actionable user feedback
-      const { testNativeConnection } = require('./dbConnectionResolver');
-      const test = testNativeConnection(
-        configPayload.server,
-        configPayload.database,
-        configPayload.trustedConnection,
-        configPayload.user,
-        configPayload.password
-      );
-
+      // Hard failure: auth, instance not found, or network error
       let errorMessage = 'Could not establish connection. Please check server active status and credentials.';
-      if (test.reason === 'DB_NOT_FOUND') {
-        errorMessage = `SQL Server is active, but database '${configPayload.database}' does not exist on it.`;
-      } else if (test.reason === 'AUTH_FAILED') {
+      if (test.reason === 'AUTH_FAILED') {
         errorMessage = `Authentication failed: The provided SQL credentials or Windows account are not valid.`;
       } else if (test.reason === 'INSTANCE_NOT_FOUND') {
         errorMessage = `SQL Server instance '${configPayload.server}' was not found or is unreachable.`;
       } else if (test.error) {
         errorMessage = `Connection failed: ${test.error}`;
       }
-
-      return { 
-        success: false, 
-        error: errorMessage
-      };
+      return { success: false, error: errorMessage };
     }
   });
 
-  ipcMain.handle('create-and-bootstrap-db', async (event, connectionString) => {
-    console.log('[IPC] Manual DB Bootstrap requested. Starting creation...');
+  // Bug 3b fix: Accept raw config params, save config, create+migrate+seed, THEN relaunch.
+  // No premature relaunch. No connection string parsing.
+  ipcMain.handle('create-and-bootstrap-db', async (event, configParams) => {
+    console.log('[IPC] Manual DB Bootstrap requested.');
+    console.log(`[IPC] Bootstrap target: server=${configParams.server}, database=${configParams.database}`);
     const { createDatabase, runMigrationsAndSeed } = require('./dbConnectionResolver');
     
-    const dbCreated = createDatabase(connectionString);
+    // Step 1: Save the config so it persists for the final relaunch
+    saveDatabaseConfig(configParams);
+
+    // Step 2: Create the database
+    const dbCreated = createDatabase(
+      configParams.server, configParams.database,
+      configParams.trustedConnection, configParams.user, configParams.password
+    );
     if (!dbCreated) {
       return { 
         success: false, 
@@ -393,8 +363,12 @@ app.whenReady().then(async () => {
       };
     }
 
+    // Step 3: Run migrations and seed
     console.log('[IPC] Database created successfully. Running migrations and seed...');
-    const bootstrapped = runMigrationsAndSeed(connectionString);
+    const bootstrapped = runMigrationsAndSeed(
+      configParams.server, configParams.database,
+      configParams.trustedConnection, configParams.user, configParams.password
+    );
     if (!bootstrapped) {
       return { 
         success: false, 
@@ -402,12 +376,9 @@ app.whenReady().then(async () => {
       };
     }
 
+    // Step 4: Only relaunch AFTER everything succeeded
     console.log('[IPC] Database successfully bootstrapped! Relaunching application...');
-    setTimeout(() => {
-      app.relaunch();
-      app.exit(0);
-    }, 500);
-
+    setTimeout(() => { app.relaunch(); app.exit(0); }, 500);
     return { success: true };
   });
 
