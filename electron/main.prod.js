@@ -1,9 +1,10 @@
-const { app, BrowserWindow, Menu, dialog } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
 const http = require('http');
 const { spawn } = require('child_process');
+const { resolveDatabaseConnection, getLocalSQLInstances } = require('./dbConnectionResolver');
 
 let mainWindow;
 let serverProcess;
@@ -236,7 +237,7 @@ function checkServerHealth(url, timeoutMs = 10000) {
   });
 }
 
-function createWindow() {
+function createWindow(isRecovery = false) {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -252,22 +253,26 @@ function createWindow() {
 
   Menu.setApplicationMenu(null);
 
-  mainWindow.loadURL(`http://${HOST}:${PORT}`);
+  if (isRecovery) {
+    mainWindow.loadFile(path.join(__dirname, 'recovery.html'));
+  } else {
+    mainWindow.loadURL(`http://${HOST}:${PORT}`);
 
-  mainWindow.webContents.on('will-navigate', (event, url) => {
-    try {
-      const allowedOrigin = `http://${HOST}:${PORT}`;
-      const parsedUrl = new URL(url);
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+      try {
+        const allowedOrigin = `http://${HOST}:${PORT}`;
+        const parsedUrl = new URL(url);
 
-      if (parsedUrl.origin !== allowedOrigin) {
+        if (parsedUrl.origin !== allowedOrigin) {
+          event.preventDefault();
+          console.warn(`Blocked external navigation to: ${url}`);
+        }
+      } catch (err) {
         event.preventDefault();
-        console.warn(`Blocked external navigation to: ${url}`);
+        console.error(`Blocked malformed URL navigation: ${url}`, err);
       }
-    } catch (err) {
-      event.preventDefault();
-      console.error(`Blocked malformed URL navigation: ${url}`, err);
-    }
-  });
+    });
+  }
 
   mainWindow.on('closed', () => {
     mainWindow = null;
@@ -283,41 +288,91 @@ function killServerProcess() {
   }
 }
 
-app.whenReady().then(async () => {
-  const dbInfo = loadDatabaseConfig();
+// Save manual configuration changes back to config.json
+function saveDatabaseConfig(newDbConfig) {
+  const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
+  const prodConfigPath = path.join(__dirname, '..', '..', 'config.json');
+  const nestedProdConfigPath = path.join(__dirname, '..', '..', 'resources', 'config.json');
 
-  // Check if placeholder database password is still used
-  if (dbInfo.password === 'YOUR_SQL_SERVER_PASSWORD') {
-    dialog.showErrorBox(
-      'Database Password Configuration Required',
-      `You are currently using the default placeholder database password.\n\n` +
-      `Please update 'config.json' with your actual SQL Server database credentials.\n\n` +
-      `📂 Configuration File Location:\n` +
-      `${dbInfo.configPath ? path.resolve(dbInfo.configPath) : 'resources/config.json'}\n\n` +
-      `Open the file, replace "YOUR_SQL_SERVER_PASSWORD" with your real SQL Server password, save it, and restart the application.`
-    );
-    app.quit();
+  let configPath = prodConfigPath; // Default write path in production
+
+  if (fs.existsSync(prodConfigPath)) {
+    configPath = prodConfigPath;
+  } else if (fs.existsSync(nestedProdConfigPath)) {
+    configPath = nestedProdConfigPath;
+  } else if (fs.existsSync(devConfigPath)) {
+    configPath = devConfigPath;
+  }
+
+  try {
+    const parentDir = path.dirname(configPath);
+    if (!fs.existsSync(parentDir)) {
+      fs.mkdirSync(parentDir, { recursive: true });
+    }
+    fs.writeFileSync(configPath, JSON.stringify({ db: newDbConfig }, null, 2), 'utf8');
+    console.log(`[DB Config] Saved updated database config to: ${configPath}`);
+    return true;
+  } catch (err) {
+    console.error(`[DB Config] Failed to save config to: ${configPath}`, err);
+    return false;
+  }
+}
+
+app.whenReady().then(async () => {
+  // 1. Set up safe IPC handlers for the Recovery Screen UI
+  ipcMain.handle('get-sql-instances', async () => {
+    return getLocalSQLInstances();
+  });
+
+  ipcMain.handle('get-current-config', async () => {
+    try {
+      return loadDatabaseConfig();
+    } catch (e) {
+      return null;
+    }
+  });
+
+  ipcMain.handle('test-and-save-config', async (event, configPayload) => {
+    console.log('[IPC] Testing manual database settings override...');
+    const resolved = resolveDatabaseConnection(configPayload);
+    if (resolved && resolved.connectionString) {
+      console.log('[IPC] Manual database override successful. Saving configuration...');
+      saveDatabaseConfig(configPayload);
+      
+      // Delay relaunch slightly to allow response to complete and files to flush
+      setTimeout(() => {
+        app.relaunch();
+        app.exit(0);
+      }, 500);
+
+      return { success: true };
+    } else {
+      return { 
+        success: false, 
+        error: 'Could not establish connection with these parameters. Please check server active status and credentials.' 
+      };
+    }
+  });
+
+  // 2. Resolve Working Database Connection dynamically
+  const initialDbInfo = loadDatabaseConfig();
+  const resolvedDb = resolveDatabaseConnection(initialDbInfo);
+
+  if (!resolvedDb) {
+    console.error('[DB Boot] FAILED to resolve any working SQL Server connection. Launching Recovery Configuration UI...');
+    createWindow(true); // Open window in Recovery Mode
     return;
   }
 
-  // 1. Verify SQL Server Connectivity (Non-blocking warning to avoid false negatives on dynamic ports/named instances)
-  const isDbConnected = await verifyDatabaseConnectivity(dbInfo.host, parseInt(dbInfo.port));
-  if (!isDbConnected) {
-    console.warn(
-      `[DB Verify] Pre-flight reachability check to ${dbInfo.host}:${dbInfo.port} failed. ` +
-      `Proceeding with server boot anyway as SQL Server might be using dynamic ports or named instances.`
-    );
-  } else {
-    console.log(`[DB Verify] SQL Server is reachable on port ${dbInfo.port}.`);
-  }
+  console.log(`[DB Boot] SUCCESS! Spawning standalone Next.js server with dynamic host: ${resolvedDb.server}`);
 
-  // 2. Spawn Standalone server
-  const processStarted = spawnStandaloneServer(dbInfo.connectionString);
+  // 3. Spawn Standalone server
+  const processStarted = spawnStandaloneServer(resolvedDb.connectionString);
   if (!processStarted) {
     return;
   }
 
-  // 3. Health check loop
+  // 4. Health check loop
   console.log('[Server Health] Starting health check polling...');
   const isHealthy = await checkServerHealth(`http://${HOST}:${PORT}/`);
   if (!isHealthy) {
@@ -332,11 +387,11 @@ app.whenReady().then(async () => {
   }
 
   console.log('[Server Health] Next.js is healthy and online! Spawning UI...');
-  createWindow();
+  createWindow(false); // Open window in Live App Mode
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow();
+      createWindow(false);
     }
   });
 });
