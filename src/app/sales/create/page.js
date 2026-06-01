@@ -5,6 +5,8 @@ import SaleForm from "./SaleForm";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function CreateSalePage() {
   const [parties, products] = await Promise.all([
     PartyService.listParties(),

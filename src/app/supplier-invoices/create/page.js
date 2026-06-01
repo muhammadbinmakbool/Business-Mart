@@ -4,6 +4,8 @@ import { ChevronLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import InvoiceGenerator from "./InvoiceGenerator";
 
+export const dynamic = "force-dynamic";
+
 export default async function CreateSupplierInvoicePage() {
   // Query active suppliers (SUPPLIER or BOTH) with uninvoiced intakes whose status is SOLD
   const suppliers = await prisma.party.findMany({

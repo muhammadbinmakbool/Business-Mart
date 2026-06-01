@@ -348,6 +348,9 @@
     const missingDbPrompt = document.getElementById('missingDbPrompt');
     const standardConfigView = document.getElementById('standardConfigView');
 
+    // Global active state to coordinate bootstrap execution
+    let activeDbState = null;
+
     function log(message) {
       logPanel.style.display = 'block';
       const line = document.createElement('div');
@@ -356,6 +359,57 @@
       logPanel.appendChild(line);
       logPanel.scrollTop = logPanel.scrollHeight;
     }
+
+    // Action for creating and bootstrapping database
+    document.getElementById('createDbBtn').addEventListener('click', async () => {
+      if (!activeDbState) {
+        log('Error: No active configuration state to bootstrap.');
+        return;
+      }
+
+      const confirmed = confirm(`Are you sure? This will initialize the new empty database [${activeDbState.database}] on SQL Server [${activeDbState.server}].`);
+      if (!confirmed) return;
+
+      const createBtn = document.getElementById('createDbBtn');
+      const loader = document.getElementById('createDbLoader');
+      createBtn.disabled = true;
+      loader.style.display = 'block';
+      createBtn.querySelector('span').textContent = 'Creating & Bootstrapping...';
+      logPanel.innerHTML = '';
+      log(`Initiating explicit CREATE DATABASE [${activeDbState.database}] on ${activeDbState.server}...`);
+
+      try {
+        const result = await window.ELECTRON_ENV.createAndBootstrapDb({
+          server: activeDbState.server,
+          database: activeDbState.database,
+          trustedConnection: activeDbState.trustedConnection,
+          user: activeDbState.user,
+          password: activeDbState.password || ''
+        });
+
+        if (result && result.success) {
+          log('SUCCESS! Database successfully created, standard schema migrated, and seeded!');
+          log('Restarting ERP system to connect...');
+          createBtn.querySelector('span').textContent = 'Launching App!';
+        } else {
+          log(`Bootstrap FAILED: ${result.error || 'Check local user rights and SQL logs.'}`);
+          createBtn.disabled = false;
+          loader.style.display = 'none';
+          createBtn.querySelector('span').textContent = 'Yes, Create & Bootstrap Database';
+        }
+      } catch (e) {
+        log(`Fatal bootstrap exception: ${e.message}`);
+        createBtn.disabled = false;
+        loader.style.display = 'none';
+        createBtn.querySelector('span').textContent = 'Yes, Create & Bootstrap Database';
+      }
+    });
+
+    // Action to toggle manual settings override layout
+    document.getElementById('openManualBtn').addEventListener('click', () => {
+      missingDbPrompt.style.display = 'none';
+      standardConfigView.style.display = 'block';
+    });
 
     // Populate detected instances and default config on load
     window.addEventListener('DOMContentLoaded', async () => {
@@ -382,59 +436,20 @@
               }
             }
 
-            // Expose a beautiful prompt if database exists on server but hasn't been created yet
+            // Expose prompt if database exists on server but hasn't been created yet
             if (dbState && dbState.reason === 'database_missing') {
+              activeDbState = {
+                server: dbState.server,
+                database: dbState.database,
+                trustedConnection: dbState.trustedConnection,
+                user: dbState.user,
+                password: config ? config.password : ''
+              };
+
               standardConfigView.style.display = 'none';
               missingDbPrompt.style.display = 'block';
-              document.getElementById('detectedServerText').textContent = dbState.server;
-              document.getElementById('detectedDbText').textContent = dbState.database;
-
-              // Action for create button
-              document.getElementById('createDbBtn').addEventListener('click', async () => {
-                const confirmed = confirm("Are you sure? This will initialize a new empty Business Mart database.");
-                if (!confirmed) return;
-
-                const createBtn = document.getElementById('createDbBtn');
-                const loader = document.getElementById('createDbLoader');
-                createBtn.disabled = true;
-                loader.style.display = 'block';
-                createBtn.querySelector('span').textContent = 'Creating & Bootstrapping...';
-                logPanel.innerHTML = '';
-                log(`Initiating explicit CREATE DATABASE [${dbState.database}] on ${dbState.server}...`);
-
-                try {
-                  // Bug 3c fix: Pass raw config params directly — NO testAndSaveConfig call.
-                  // createAndBootstrapDb now handles: save config → create DB → migrate → seed → relaunch
-                  const result = await window.ELECTRON_ENV.createAndBootstrapDb({
-                    server: dbState.server,
-                    database: dbState.database,
-                    trustedConnection: dbState.trustedConnection,
-                    user: dbState.user,
-                    password: config ? config.password : ''
-                  });
-                  if (result && result.success) {
-                    log('Success! Database created, schema migrated, and seeded!');
-                    log('Launching ERP application...');
-                    createBtn.querySelector('span').textContent = 'Launching App!';
-                  } else {
-                    log(`Bootstrap failed: ${result.error}`);
-                    createBtn.disabled = false;
-                    loader.style.display = 'none';
-                    createBtn.querySelector('span').textContent = 'Yes, Create & Bootstrap Database';
-                  }
-                } catch (e) {
-                  log(`Fatal bootstrap exception: ${e.message}`);
-                  createBtn.disabled = false;
-                  loader.style.display = 'none';
-                  createBtn.querySelector('span').textContent = 'Yes, Create & Bootstrap Database';
-                }
-              });
-
-              // Toggle to manual override layout
-              document.getElementById('openManualBtn').addEventListener('click', () => {
-                missingDbPrompt.style.display = 'none';
-                standardConfigView.style.display = 'block';
-              });
+              document.getElementById('detectedServerText').textContent = activeDbState.server;
+              document.getElementById('detectedDbText').textContent = activeDbState.database;
             }
           }
 
@@ -493,9 +508,32 @@
       try {
         const result = await window.ELECTRON_ENV.testAndSaveConfig(configPayload);
         if (result && result.success) {
-          log('Success! Connection fully verified.');
-          log('Restarting application in standalone mode...');
-          btnText.textContent = 'Applying & Launching!';
+          if (result.reason === 'database_missing') {
+            log('Server is reachable, but database is missing.');
+            log('Transitioning to bootstrap creation screen...');
+            
+            // Instantly transition to the bootstrap view
+            activeDbState = {
+              server: configPayload.server,
+              database: configPayload.database,
+              trustedConnection: configPayload.trustedConnection,
+              user: configPayload.user,
+              password: configPayload.password
+            };
+            
+            standardConfigView.style.display = 'none';
+            missingDbPrompt.style.display = 'block';
+            document.getElementById('detectedServerText').textContent = activeDbState.server;
+            document.getElementById('detectedDbText').textContent = activeDbState.database;
+            
+            submitBtn.disabled = false;
+            btnLoader.style.display = 'none';
+            btnText.textContent = 'Test & Apply Connection';
+          } else {
+            log('Success! Connection fully verified.');
+            log('Restarting application in standalone mode...');
+            btnText.textContent = 'Applying & Launching!';
+          }
         } else {
           log(`Failed: ${result.error || 'Server unreachable or connection timed out.'}`);
           submitBtn.disabled = false;

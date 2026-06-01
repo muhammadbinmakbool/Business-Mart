@@ -343,10 +343,21 @@ app.whenReady().then(async () => {
       return { success: true };
     } else if (test.reason === 'DB_NOT_FOUND') {
       // Server is reachable, credentials work, but DB doesn't exist yet.
-      // Save config so relaunch picks it up, then relaunch into recovery with database_missing state.
-      console.log(`[IPC] Server reachable but database '${configPayload.database}' missing. Saving config and relaunching...`);
+      // Save config in background, but DO NOT relaunch immediately.
+      // Return success with reason: 'database_missing' so the UI can show the bootstrap button instantly!
+      console.log(`[IPC] Server reachable but database '${configPayload.database}' missing. Saving config and notifying UI...`);
       saveDatabaseConfig(configPayload);
-      setTimeout(() => { app.relaunch(); app.exit(0); }, 500);
+      
+      // Update the resolvedDbState so the next bootstrap IPC call uses the correct state
+      resolvedDbState = {
+        success: false,
+        reason: 'database_missing',
+        server: configPayload.server,
+        database: configPayload.database,
+        trustedConnection: configPayload.trustedConnection,
+        user: configPayload.user
+      };
+      
       return { success: true, reason: 'database_missing' };
     } else {
       // Hard failure: auth, instance not found, or network error

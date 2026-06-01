@@ -231,49 +231,63 @@ function testPrismaFallback(server, database, trustedConnection, user, password)
 }
 
 // Create database via system 'master' connection
-// Accepts raw config params to build connection strings internally — no URL parsing.
+// Accepts raw config params to build connection natively via ADO.NET and PowerShell.
 function createDatabase(server, database, trustedConnection, user, password) {
-  const masterConnUrl = buildPrismaConnectionString(server, 'master', trustedConnection, user, password);
-  
-  console.log(`[DB Resolver] Auto-creating database: [${database}] on server [${server}] ...`);
-  console.log(`[DB Resolver] Master connection URL: ${masterConnUrl.replace(/password=[^;]*/, 'password=***')}`);
-  const tempScriptPath = path.join(os.tmpdir(), `bm-db-create-${Date.now()}.js`);
-  try {
-    // Write the connection URL to a temp env file to avoid any escaping issues in script content
-    const scriptContent = `
-      const { PrismaClient } = require('@prisma/client');
-      async function create() {
-        const prisma = new PrismaClient({
-          datasources: { db: { url: process.env.BM_MASTER_URL } }
-        });
-        try {
-          await prisma.$executeRawUnsafe("CREATE DATABASE [${database}]");
-          console.log('CREATE DATABASE succeeded.');
-          await prisma.$disconnect();
-          process.exit(0);
-        } catch (err) {
-          console.error('CREATE DATABASE failed:', err.message);
-          await prisma.$disconnect();
-          process.exit(1);
-        }
-      }
-      create();
-    `;
-    fs.writeFileSync(tempScriptPath, scriptContent, 'utf8');
+  console.log(`[DB Resolver] Auto-creating database [${database}] on server [${server}] natively via ADO.NET PowerShell...`);
 
-    const result = spawnSync(process.execPath, [tempScriptPath], {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', BM_MASTER_URL: masterConnUrl },
+  let adonetConnString = `Server=${server};Database=master;Encrypt=True;TrustServerCertificate=True;Connection Timeout=10;`;
+  if (trustedConnection) {
+    adonetConnString += `Integrated Security=True;`;
+  } else {
+    adonetConnString += `User ID=${user};Password=${password};`;
+  }
+
+  const tempPsPath = path.join(os.tmpdir(), `bm-db-create-${Date.now()}.ps1`);
+  try {
+    const psContent = `
+$connString = "${adonetConnString.replace(/"/g, '`"')}"
+try {
+    $conn = New-Object System.Data.SqlClient.SqlConnection($connString)
+    $conn.Open()
+    
+    $cmd = $conn.CreateCommand()
+    $cmd.CommandText = "CREATE DATABASE [${database}]"
+    $cmd.ExecuteNonQuery()
+    
+    $conn.Close()
+    Write-Output "SUCCESS"
+    exit 0
+} catch {
+    $msg = $_.Exception.Message
+    if ($_.Exception.InnerException) {
+        $msg += " " + $_.Exception.InnerException.Message
+    }
+    Write-Output "ERROR: $msg"
+    exit 1
+}
+`;
+    fs.writeFileSync(tempPsPath, psContent, 'utf8');
+
+    const result = spawnSync('powershell', ['-ExecutionPolicy', 'Bypass', '-File', tempPsPath], {
       encoding: 'utf8'
     });
 
-    console.log('[DB Resolver] Create DB stdout:', result.stdout);
-    if (result.stderr) console.error('[DB Resolver] Create DB stderr:', result.stderr);
+    try { fs.unlinkSync(tempPsPath); } catch (e) {}
 
-    try { fs.unlinkSync(tempScriptPath); } catch (e) {}
-    return result.status === 0;
+    const output = result.stdout ? result.stdout.trim() : '';
+    console.log('[DB Resolver] Native Create DB output:', output);
+    if (result.stderr) console.error('[DB Resolver] Native Create DB stderr:', result.stderr);
+
+    if (result.status === 0 && output.includes('SUCCESS')) {
+      console.log(`[DB Resolver] Database [${database}] created successfully natively.`);
+      return true;
+    } else {
+      console.error(`[DB Resolver] Native database creation failed: ${output}`);
+      return false;
+    }
   } catch (err) {
-    try { fs.unlinkSync(tempScriptPath); } catch (e) {}
-    console.error('[DB Resolver] Exception during CREATE DATABASE:', err.message);
+    try { fs.unlinkSync(tempPsPath); } catch (e) {}
+    console.error('[DB Resolver] Exception during native CREATE DATABASE:', err.message);
     return false;
   }
 }
