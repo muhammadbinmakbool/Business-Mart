@@ -66,39 +66,71 @@ npm run electron:build
 
 ---
 
-## 🔌 Offline Resilience & Database Connection Management
+## 🔌 Smart Database Connection Resolver & Offline Resilience
 
-To ensure full compatibility with diverse offline machines and target local/network SQL Server installations, database mapping is calculated entirely at launch time.
+To ensure seamless "zero-configuration" operations across diverse client systems, corporate environments, and local enterprise SQL Server instances, the application implements a multi-layered **Smart Connection Resolver** at [electron/dbConnectionResolver.js](file:///d:/Projects/Next%20JS/electron/dbConnectionResolver.js).
 
-### 1. Connection Schema (`resources/config.json`)
-Administrators or testers can configure database routing in `resources/config.json` placed in the installation's root directory:
-```json
-{
-  "db": {
-    "server": "localhost\\SQLEXPRESS",
-    "database": "business_mart",
-    "trustedConnection": true,
-    "user": "sa",
-    "password": "YOUR_SQL_SERVER_PASSWORD"
-  }
-}
 ```
-* **Dual-Authentication Modes:**
-  * **Windows Authentication (`trustedConnection: true`):** Generates a Prisma-compatible connection string with `;integratedSecurity=true` and `instanceName=SQLEXPRESS`. It does **not** inject any SQL user/password credentials and automatically bypasses the setup/password warning dialogs.
-  * **SQL Authentication (`trustedConnection: false`):** Utilizes standard `user` and `password` configurations. If standard mode is enabled and the default `"YOUR_SQL_SERVER_PASSWORD"` template password is left intact, a startup safeguard dialog will intercept the launch to guide the user on how and where to update the configuration file.
+                 +-----------------------------------------+
+                 | Load db configuration from config.json  |
+                 +-----------------------------------------+
+                                     ||
+                                     \/
+                 +-----------------------------------------+
+                 | Scan Windows Registry for SQL Instances |
+                 +-----------------------------------------+
+                                     ||
+                                     \/
+                 +-----------------------------------------+
+                 | Generate Prioritized Server Candidates   |
+                 +-----------------------------------------+
+                                     ||
+                                     \/
+                 +-----------------------------------------+
+                 |    Test Connection (Dual-Layer check)   |
+                 |      1. Primary ADO.NET via PowerShell  |
+                 |      2. Fallback standalone Prisma JS   |
+                 +-----------------------------------------+
+                                     ||
+                                     \/
+                 +-----------------------------------------+
+                 |   Classify Connectivity Error Details   |
+                 |  DB_NOT_FOUND / AUTH_FAILED / etc.      |
+                 +-----------------------------------------+
+                                     ||
+                                     \/
+                 +-----------------------------------------+
+                 | Prompt Setup recovery HTML overlay UI   |
+                 |    * Accidental click safety guard      |
+                 +-----------------------------------------+
+```
 
-### 2. Prisma Performance Injections
-The main process parses `config.json` on launch, splits named instances (e.g. `localhost\SQLEXPRESS` -> appending `;instanceName=SQLEXPRESS`), and injects specialized Prisma configurations into the generated `DATABASE_URL` string:
-- `;integratedSecurity=true`: Injected if `trustedConnection: true` is configured to enable native integrated Windows Authentication.
-- `connectionTimeout=10`: Enforces a fast-fail timeout within 10 seconds if database communication stalls, preventing UI freezes.
-- `poolSize=5`: Limits concurrent connections to prevent database resource exhaustion on single-user offline client machines.
-- `encrypt=true;trustServerCertificate=true`: Enables secure transport while trusting local self-signed certificates standard in testing environments.
+### 1. Registry Scanning & Candidate Resolution Strategy
+The resolver dynamically queries the Windows Registry (`HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL`) at startup to discover installed SQL Server instances (e.g. `SQLEXPRESS`, `SQLEXPRESS01`). It then generates an ordered list of connection candidates:
+1. **Configured Server:** Prioritizes the server host explicitly declared in `config.json`.
+2. **Registry Discovered Instances:** Combines detected instances with local loopbacks (`localhost`, `127.0.0.1`, `.`).
+3. **Standard Instance Fallbacks:** Includes standard default combinations (`localhost\SQLEXPRESS`, `localhost\SQLEXPRESS01`).
+4. **Bare Hosts:** Falls back to root hosts without named instances.
 
-### 3. Non-Blocking Connection Pre-flight Verification & Detailed Logging
-On app launch, the main process provides highly descriptive developer logs and resilient pre-flight verification:
-- **Resilient Pre-flight (Non-blocking):** Standard SQL Server Express named instances (`SQLEXPRESS`) natively use **dynamic ports** rather than static port 1433 on Windows. Enforcing a blocking TCP check on port 1433 would cause false negatives. The app performs a TCP pre-flight check but logs warnings on failure rather than hard-crashing, allowing successful boots over dynamic ports.
-- **Active Path Verification:** The app prints the absolute path of the loaded `config.json` to logs on launch, guaranteeing the correct externalized file is read.
-- **Security-First Logs:** Startup console logs cleanly output the active server, database, and authentication mode used without ever exposing sensitive passwords.
+*Resilience Note: If the registry scan is blocked by system administrators or dynamic keys are missing, the scanner catches the error, logs a clean warning, and gracefully relies on the extensive fallback host candidate list.*
+
+### 2. Resilient Dual-Layer Health Verification
+To avoid slow boot times and false positives, the system operates a robust dual-layer connection health check:
+- **Layer 1: Native ADO.NET (Primary):** Spawns a lightweight native .NET `SqlConnection` check via a PowerShell child script. This executes in milliseconds, uses the OS-level SQL driver, and bypasses the overhead of heavy Node engines or Prisma clients.
+- **Layer 2: Prisma JS Client (Fallback):** If PowerShell execution policies are restricted (`Restricted`, `AllSigned`), corporate group policies block script runs, or native .NET SQL wrappers are unavailable, the engine catches the exception and falls back to a standalone JS Prisma connection health verification check.
+
+### 3. Precise Connectivity Error Classifications
+When connection validation fails, the resolver analyzes error strings and maps them to highly actionable, specific classifications, which are then passed to the main process and UI:
+* **`DB_NOT_FOUND`:** Reached the target database instance successfully, but the database named `business_mart` does not exist on it.
+* **`AUTH_FAILED`:** Reached the SQL Server, but the provided login credentials or Windows domain accounts failed authentication.
+* **`INSTANCE_NOT_FOUND`:** The specific SQL Server instance name was not found or is inactive.
+* **`NETWORK_ERROR`:** General TCP network failures, firewall blockages, or connection timeouts.
+
+### 4. Setup Recovery UI & Accidental Click Safeguard
+If a working database connection cannot be resolved automatically, the Electron shell suspends Next.js server spawning and loads a focused glassmorphic setup overlay:
+* **Explicit User Database Creation:** If the database is missing (`DB_NOT_FOUND`), instead of silently auto-mutating or overriding target databases in production, the recovery UI displays a clean modal explanation prompting: *"Database Not Found. Create it?"*
+* **Accidental Click Guard:** The bootstrapping action is locked behind an explicit confirmation safety check: `"Are you sure? This will initialize a new empty Business Mart database."` ensuring administrators never trigger unintended initializations.
+* **Hot Relaunching:** Clicking yes triggers the dynamic DB creation query and runs the standalone migrations (`prisma migrate deploy`) and seeding (`prisma/seed.js`) programmatically, showing real-time feedback before hot-relaunching the application.
 
 ---
 
