@@ -294,6 +294,7 @@ try {
 
 // Run migrations and seeds programmatically
 // Accepts raw config params to build connection strings internally.
+// Returns { success: boolean, error?: string }
 function runMigrationsAndSeed(server, database, trustedConnection, user, password) {
   const connectionString = buildPrismaConnectionString(server, database, trustedConnection, user, password);
   try {
@@ -308,11 +309,17 @@ function runMigrationsAndSeed(server, database, trustedConnection, user, passwor
       env: { ...process.env, DATABASE_URL: connectionString, ELECTRON_RUN_AS_NODE: '1' },
       encoding: 'utf8'
     });
-    console.log('[DB Resolver] Migrations Output:', migrationResult.stdout);
+    
+    const migrationStdout = migrationResult.stdout || '';
+    const migrationStderr = migrationResult.stderr || '';
+    console.log('[DB Resolver] Migrations Output:', migrationStdout);
 
     if (migrationResult.status !== 0) {
-      console.error('[DB Resolver] Migrations Failed:', migrationResult.stderr);
-      return false;
+      console.error('[DB Resolver] Migrations Failed:', migrationStderr);
+      return {
+        success: false,
+        error: `Migrations failed (exit code ${migrationResult.status}).\n\nStderr:\n${migrationStderr}\n\nStdout:\n${migrationStdout}`
+      };
     }
 
     // 2. Run seed JS file
@@ -321,12 +328,26 @@ function runMigrationsAndSeed(server, database, trustedConnection, user, passwor
       env: { ...process.env, DATABASE_URL: connectionString, ELECTRON_RUN_AS_NODE: '1' },
       encoding: 'utf8'
     });
-    console.log('[DB Resolver] Seed Output:', seedResult.stdout);
     
-    return seedResult.status === 0;
+    const seedStdout = seedResult.stdout || '';
+    const seedStderr = seedResult.stderr || '';
+    console.log('[DB Resolver] Seed Output:', seedStdout);
+    
+    if (seedResult.status !== 0) {
+      console.error('[DB Resolver] Seeding Failed:', seedStderr);
+      return {
+        success: false,
+        error: `Database created and migrated successfully, but seeding failed (exit code ${seedResult.status}).\n\nStderr:\n${seedStderr}\n\nStdout:\n${seedStdout}`
+      };
+    }
+    
+    return { success: true };
   } catch (err) {
     console.error('[DB Resolver] Exception during migrations & seeding:', err.message);
-    return false;
+    return {
+      success: false,
+      error: `Exception during migrations & seeding: ${err.message}`
+    };
   }
 }
 

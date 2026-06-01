@@ -397,14 +397,14 @@ app.whenReady().then(async () => {
 
     // Step 3: Run migrations and seed
     console.log('[IPC] Database created successfully. Running migrations and seed...');
-    const bootstrapped = runMigrationsAndSeed(
+    const bootstrapResult = runMigrationsAndSeed(
       configParams.server, configParams.database,
       configParams.trustedConnection, configParams.user, configParams.password
     );
-    if (!bootstrapped) {
+    if (!bootstrapResult.success) {
       return { 
         success: false, 
-        error: 'Database was created, but schema migrations and seeding failed. Please check SQL Server logs.' 
+        error: bootstrapResult.error || 'Database was created, but schema migrations and seeding failed.' 
       };
     }
 

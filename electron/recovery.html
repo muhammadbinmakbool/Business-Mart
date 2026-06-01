@@ -392,7 +392,14 @@
           log('Restarting ERP system to connect...');
           createBtn.querySelector('span').textContent = 'Launching App!';
         } else {
-          log(`Bootstrap FAILED: ${result.error || 'Check local user rights and SQL logs.'}`);
+          log('Bootstrap FAILED!');
+          if (result.error) {
+            result.error.split('\n').forEach(line => {
+              if (line.trim()) log(line);
+            });
+          } else {
+            log('Check local user rights and SQL logs.');
+          }
           createBtn.disabled = false;
           loader.style.display = 'none';
           createBtn.querySelector('span').textContent = 'Yes, Create & Bootstrap Database';
