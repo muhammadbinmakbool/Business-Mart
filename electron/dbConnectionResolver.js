@@ -73,55 +73,72 @@ function getCandidateServers(configHint) {
   return Array.from(new Set(candidates));
 }
 
-// Test connectivity of a connection string using short-lived node child process
-function testPrismaConnection(connectionString) {
-  const tempScriptPath = path.join(os.tmpdir(), `bm-db-test-${Date.now()}.js`);
-  try {
-    const scriptContent = `
-      const { PrismaClient } = require('@prisma/client');
-      async function test() {
-        const prisma = new PrismaClient({
-          datasources: { db: { url: ${JSON.stringify(connectionString)} } }
-        });
-        try {
-          await prisma.$queryRaw\`SELECT 1 as [test]\`;
-          await prisma.$disconnect();
-          process.exit(0);
-        } catch (err) {
-          const errMsg = err.message || '';
-          console.error(errMsg);
-          await prisma.$disconnect();
-          if (
-            errMsg.includes('does not exist') || 
-            (errMsg.includes('database') && errMsg.includes('exist')) ||
-            errMsg.includes('P2010')
-          ) {
-            process.exit(2); // Specific exit code for Database Missing but Server Active
-          }
-          process.exit(1);
-        }
-      }
-      test();
-    `;
-    fs.writeFileSync(tempScriptPath, scriptContent, 'utf8');
+// Test connection natively using ADO.NET and PowerShell
+function testNativeConnection(server, database, trustedConnection, user, password) {
+  let adonetConnString = `Server=${server};Database=${database};Encrypt=True;TrustServerCertificate=True;Connection Timeout=3;`;
+  if (trustedConnection) {
+    adonetConnString += `Integrated Security=True;`;
+  } else {
+    adonetConnString += `User ID=${user};Password=${password};`;
+  }
 
-    const result = spawnSync(process.execPath, [tempScriptPath], {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+  const tempPsPath = path.join(os.tmpdir(), `bm-db-test-${Date.now()}.ps1`);
+  try {
+    const psContent = `
+$connString = ${JSON.stringify(adonetConnString)}
+try {
+    $conn = New-Object System.Data.SqlClient.SqlConnection($connString)
+    $conn.Open()
+    $conn.Close()
+    Write-Output "SUCCESS"
+    exit 0
+} catch {
+    $msg = $_.Exception.Message
+    if ($_.Exception.InnerException) {
+        $msg += " " + $_.Exception.InnerException.Message
+    }
+    
+    if ($msg -like "*Cannot open database*") {
+        Write-Output "ERROR:DB_NOT_FOUND"
+    } elseif ($msg -like "*Login failed*") {
+        Write-Output "ERROR:AUTH_FAILED"
+    } elseif ($msg -like "*network-related*" -or $msg -like "*instance-specific*" -or $msg -like "*provider:*") {
+        Write-Output "ERROR:INSTANCE_NOT_FOUND"
+    } else {
+        Write-Output "ERROR:NETWORK_ERROR"
+    }
+    Write-Output "DETAILS: $msg"
+    exit 1
+}
+`;
+    fs.writeFileSync(tempPsPath, psContent, 'utf8');
+
+    const result = spawnSync('powershell', ['-ExecutionPolicy', 'Bypass', '-File', tempPsPath], {
       encoding: 'utf8'
     });
 
-    try { fs.unlinkSync(tempScriptPath); } catch (e) {}
+    try { fs.unlinkSync(tempPsPath); } catch (e) {}
 
-    if (result.status === 0) {
+    const output = result.stdout ? result.stdout.trim() : '';
+    if (result.status === 0 && output.includes('SUCCESS')) {
       return { success: true };
-    } else if (result.status === 2) {
-      return { success: false, reason: 'database_missing' };
     } else {
-      return { success: false, reason: 'server_unreachable', error: result.stderr };
+      let reason = 'NETWORK_ERROR';
+      let details = output;
+      if (output.includes('ERROR:DB_NOT_FOUND')) reason = 'DB_NOT_FOUND';
+      else if (output.includes('ERROR:AUTH_FAILED')) reason = 'AUTH_FAILED';
+      else if (output.includes('ERROR:INSTANCE_NOT_FOUND')) reason = 'INSTANCE_NOT_FOUND';
+      
+      const detailsMatch = output.match(/DETAILS:\s*(.*)/s);
+      if (detailsMatch) {
+        details = detailsMatch[1].trim();
+      }
+
+      return { success: false, reason, error: details };
     }
   } catch (err) {
-    try { fs.unlinkSync(tempScriptPath); } catch (e) {}
-    return { success: false, reason: 'script_failure', error: err.message };
+    try { fs.unlinkSync(tempPsPath); } catch (e) {}
+    return { success: false, reason: 'NETWORK_ERROR', error: err.message };
   }
 }
 
@@ -216,21 +233,20 @@ function resolveDatabaseConnection(configHint) {
   let firstMissingDbCandidate = null;
 
   for (const server of candidates) {
-    let connectionString = `sqlserver://${server};database=${database}`;
-    
-    // Inject dynamic connection string parameters
-    if (trustedConnection) {
-      connectionString += `;integratedSecurity=true`;
-    } else {
-      connectionString += `;user=${user};password=${password}`;
-    }
-    connectionString += `;encrypt=true;trustServerCertificate=true;connectionTimeout=10;poolSize=5;`;
-
-    console.log(`[DB Resolver] Testing candidate: ${server} ...`);
-    const testResult = testPrismaConnection(connectionString);
+    console.log(`[DB Resolver] Testing candidate natively: ${server} ...`);
+    const testResult = testNativeConnection(server, database, trustedConnection, user, password);
 
     if (testResult.success) {
-      console.log(`[DB Resolver] SUCCESS! Resolved working SQL Server instance: ${server}`);
+      console.log(`[DB Resolver] SUCCESS! Resolved working SQL Server instance natively: ${server}`);
+      
+      let connectionString = `sqlserver://${server};database=${database}`;
+      if (trustedConnection) {
+        connectionString += `;integratedSecurity=true`;
+      } else {
+        connectionString += `;user=${user};password=${password}`;
+      }
+      connectionString += `;encrypt=true;trustServerCertificate=true;connectionTimeout=10;poolSize=5;`;
+
       return {
         success: true,
         connectionString,
@@ -239,8 +255,17 @@ function resolveDatabaseConnection(configHint) {
         trustedConnection,
         user
       };
-    } else if (testResult.reason === 'database_missing') {
+    } else if (testResult.reason === 'DB_NOT_FOUND') {
       console.log(`[DB Resolver] Server reachable at [${server}], but database [${database}] is missing.`);
+      
+      let connectionString = `sqlserver://${server};database=${database}`;
+      if (trustedConnection) {
+        connectionString += `;integratedSecurity=true`;
+      } else {
+        connectionString += `;user=${user};password=${password}`;
+      }
+      connectionString += `;encrypt=true;trustServerCertificate=true;connectionTimeout=10;poolSize=5;`;
+
       if (!firstMissingDbCandidate) {
         firstMissingDbCandidate = {
           success: false,
@@ -253,7 +278,7 @@ function resolveDatabaseConnection(configHint) {
         };
       }
     } else {
-      console.log(`[DB Resolver] Candidate [${server}] failed: Unreachable.`);
+      console.log(`[DB Resolver] Candidate [${server}] failed: Unreachable (${testResult.reason}). Details: ${testResult.error}`);
     }
   }
 
@@ -271,5 +296,6 @@ module.exports = {
   resolveDatabaseConnection,
   getLocalSQLInstances,
   createDatabase,
-  runMigrationsAndSeed
+  runMigrationsAndSeed,
+  testNativeConnection
 };

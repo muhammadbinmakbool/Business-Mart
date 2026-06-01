@@ -353,11 +353,30 @@ app.whenReady().then(async () => {
 
       return { success: true };
     } else {
+      // Analyze native connection error for highly actionable user feedback
+      const { testNativeConnection } = require('./dbConnectionResolver');
+      const test = testNativeConnection(
+        configPayload.server,
+        configPayload.database,
+        configPayload.trustedConnection,
+        configPayload.user,
+        configPayload.password
+      );
+
+      let errorMessage = 'Could not establish connection. Please check server active status and credentials.';
+      if (test.reason === 'DB_NOT_FOUND') {
+        errorMessage = `SQL Server is active, but database '${configPayload.database}' does not exist on it.`;
+      } else if (test.reason === 'AUTH_FAILED') {
+        errorMessage = `Authentication failed: The provided SQL credentials or Windows account are not valid.`;
+      } else if (test.reason === 'INSTANCE_NOT_FOUND') {
+        errorMessage = `SQL Server instance '${configPayload.server}' was not found or is unreachable.`;
+      } else if (test.error) {
+        errorMessage = `Connection failed: ${test.error}`;
+      }
+
       return { 
         success: false, 
-        error: resolved && resolved.reason === 'database_missing'
-          ? `SQL Server is active, but database '${configPayload.database}' does not exist.`
-          : 'Could not establish connection with these parameters. Please check server active status and credentials.' 
+        error: errorMessage
       };
     }
   });

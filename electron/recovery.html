@@ -391,6 +391,9 @@
 
               // Action for create button
               document.getElementById('createDbBtn').addEventListener('click', async () => {
+                const confirmed = confirm("Are you sure? This will initialize a new empty Business Mart database.");
+                if (!confirmed) return;
+
                 const createBtn = document.getElementById('createDbBtn');
                 const loader = document.getElementById('createDbLoader');
                 createBtn.disabled = true;
