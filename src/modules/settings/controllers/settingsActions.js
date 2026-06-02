@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import fs from "fs/promises";
+import path from "path";
 
 export async function getSettings() {
   try {
@@ -221,6 +223,125 @@ export async function savePrintSettingsAction(printSettings) {
     return { success: false, error: error.message || "Failed to save print settings" };
   }
 }
+
+const DEFAULT_GENERAL_SETTINGS = {
+  businessName: "Rehmania & Company",
+  businessShortName: "R&C",
+  phoneNumber: "0301-6782024",
+  businessEmail: "info@rehmania-grain.com",
+  address: "Grain Market, Rahim Yar Khan, Punjab, Pakistan",
+  logoPath: "",
+  currencyCode: "PKR",
+  currencySymbol: "Rs.",
+  defaultLanguage: "en",
+  timezone: "Asia/Karachi",
+  dateFormat: "DD/MM/YYYY",
+  decimalPlaces: 2
+};
+
+/**
+ * Retrieves the general system settings from the database.
+ */
+export async function getGeneralSettingsAction() {
+  try {
+    const record = await prisma.systemSetting.findUnique({
+      where: { key: "general_settings" }
+    });
+
+    if (!record) {
+      return { success: true, settings: DEFAULT_GENERAL_SETTINGS };
+    }
+
+    const parsed = JSON.parse(record.value);
+    return {
+      success: true,
+      settings: {
+        ...DEFAULT_GENERAL_SETTINGS,
+        ...parsed
+      }
+    };
+  } catch (error) {
+    console.error("Failed to load general settings:", error);
+    return { success: false, error: error.message || "Failed to load general settings" };
+  }
+}
+
+/**
+ * Saves/Upserts the general system settings in the database.
+ */
+export async function saveGeneralSettingsAction(settings) {
+  try {
+    if (!settings || !settings.businessName || !settings.businessName.trim()) {
+      return { success: false, error: "Business Name is required" };
+    }
+
+    const record = await prisma.systemSetting.findUnique({
+      where: { key: "general_settings" }
+    });
+
+    let parsed = {};
+    if (record) {
+      try {
+        parsed = JSON.parse(record.value);
+      } catch (e) {
+        console.error("Failed to parse existing general settings JSON:", e);
+      }
+    }
+
+    const updated = {
+      ...DEFAULT_GENERAL_SETTINGS,
+      ...parsed,
+      ...settings,
+      // Ensure specific types
+      decimalPlaces: settings.decimalPlaces !== undefined ? parseInt(settings.decimalPlaces) : (parsed.decimalPlaces || 2)
+    };
+
+    const settingsValue = JSON.stringify(updated);
+
+    await prisma.systemSetting.upsert({
+      where: { key: "general_settings" },
+      update: { value: settingsValue },
+      create: { key: "general_settings", value: settingsValue }
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to save general settings:", error);
+    return { success: false, error: error.message || "Failed to save general settings" };
+  }
+}
+
+/**
+ * Handles logo file upload and saves it to local disk in public/uploads/
+ */
+export async function uploadLogoAction(formData) {
+  try {
+    const file = formData.get("logo");
+    if (!file || typeof file === "string") {
+      return { success: false, error: "No file uploaded" };
+    }
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const ext = path.extname(file.name) || ".png";
+    const filename = `company-logo-${Date.now()}${ext}`;
+    const publicDir = path.join(process.cwd(), "public", "uploads");
+    
+    // Ensure directory exists
+    await fs.mkdir(publicDir, { recursive: true });
+
+    const filePath = path.join(publicDir, filename);
+    await fs.writeFile(filePath, buffer);
+
+    return { success: true, logoPath: `/uploads/${filename}` };
+  } catch (error) {
+    console.error("Failed to upload company logo:", error);
+    return { success: false, error: error.message || "Failed to upload logo file" };
+  }
+}
+
 
 
 

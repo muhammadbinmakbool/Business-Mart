@@ -4,13 +4,14 @@ import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 /**
  * Format currency with default symbol and local number formatting.
  */
-export function formatCurrency(amount, locale = "en", currencySymbol = null) {
+export function formatCurrency(amount, locale = "en", currencySymbol = null, decimalPlaces = 2) {
   const num = typeof amount === "string" ? parseFloat(amount.replace(/,/g, "")) : amount;
   if (isNaN(num)) return amount;
   
+  const precision = typeof decimalPlaces === "number" ? decimalPlaces : 2;
   const formattedNum = Number(num).toLocaleString(locale === "ur" ? "ur-PK" : "en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision
   });
   
   const symbol = currencySymbol || PRINT_CONFIG.defaultCurrency;

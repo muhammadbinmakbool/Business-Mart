@@ -3,12 +3,13 @@ import BasePrintLayout from "./BasePrintLayout";
 import { PRINT_TYPOGRAPHY } from "../theme/typography";
 import { PRINT_LAYOUT } from "../theme/layout";
 import { t } from "../localization/locale";
-import { formatCurrency, formatWeight } from "../localization/formatters";
+import { formatCurrency as formatCurrencyRaw, formatWeight } from "../localization/formatters";
 import { UNIT_IDS } from "@/lib/units";
 
 export default function SettlementInvoiceTemplate({ data, locale = "en", printConfig }) {
   const isRTL = locale === "ur";
   const cur = printConfig?.defaultCurrency;
+  const formatCurrency = (amount) => formatCurrencyRaw(amount, locale, cur, printConfig?.decimalPlaces);
 
   return (
     <BasePrintLayout

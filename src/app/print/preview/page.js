@@ -5,7 +5,7 @@ import { format, startOfMonth, endOfMonth } from "date-fns";
 import { printStyles } from "@/print/styles/printStyles";
 import { resolvePrintTemplate } from "@/print/registry";
 import { LedgerService } from "@/modules/ledger/services/LedgerService";
-import { getPrintSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
 import PrintPreviewFrame from "./PrintPreviewFrame";
 
 export default async function PrintPreviewPage({ searchParams: searchParamsPromise }) {
@@ -15,8 +15,14 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
   const id = idStr ? parseInt(idStr) : null;
   const locale = searchParams.locale || "en";
 
-  const settingsResult = await getPrintSettingsAction();
-  const printConfig = settingsResult?.success ? settingsResult.settings : null;
+  const [settingsResult, generalSettingsResult] = await Promise.all([
+    getPrintSettingsAction(),
+    getGeneralSettingsAction()
+  ]);
+  const printConfig = {
+    ...(settingsResult?.success ? settingsResult.settings : {}),
+    ...(generalSettingsResult?.success ? generalSettingsResult.settings : {})
+  };
 
   let content = null;
   let errorMsg = "";

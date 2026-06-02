@@ -35,9 +35,16 @@ export default function BasePrintLayout({
         <div className="flex justify-between items-start border-b pb-4 mb-6 relative z-10 rtl:flex-row-reverse">
           <div className={`flex items-start gap-3 ${isRTL ? "flex-row-reverse text-right" : "text-left"}`}>
             {activeConfig.showLogo && (
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white font-black text-lg select-none">
-                B
-              </div>
+              activeConfig.logoUrl ? (
+                <div className="relative h-12 w-12 shrink-0 border bg-white overflow-hidden flex items-center justify-center rounded-lg shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={activeConfig.logoUrl} alt="Logo" className="object-contain max-h-full max-w-full" />
+                </div>
+              ) : (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white font-black text-lg select-none">
+                  {activeConfig.businessShortName || (activeConfig.companyName ? activeConfig.companyName.substring(0, 1) : "B")}
+                </div>
+              )
             )}
             <div>
               <h1 className="text-2xl font-black tracking-tight text-slate-800 uppercase">

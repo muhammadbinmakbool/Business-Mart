@@ -12,16 +12,17 @@ import ResponsiveHeader from "@/components/ResponsiveHeader";
 import Alert from "@/components/ui/Alert";
 import { formatMaundWeight } from "@/lib/display-units";
 import { UNIT_IDS, getUnitLabel } from "@/lib/units";
-import { getPrintSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
 
 export default async function SupplierInvoiceDetailPage({ params, searchParams: searchParamsPromise }) {
   const { id } = await params;
   const searchParams = searchParamsPromise ? await searchParamsPromise : {};
   const backUrl = searchParams.backUrl || "/supplier-invoices";
   
-  const [result, settingsResult] = await Promise.all([
+  const [result, settingsResult, generalSettingsResult] = await Promise.all([
     getSupplierInvoiceAction(id),
-    getPrintSettingsAction()
+    getPrintSettingsAction(),
+    getGeneralSettingsAction()
   ]);
   
   if (!result.success) {
@@ -36,7 +37,10 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
   }
 
   const invoice = result.data;
-  const printConfig = settingsResult?.success ? settingsResult.settings : null;
+  const printConfig = {
+    ...(settingsResult?.success ? settingsResult.settings : {}),
+    ...(generalSettingsResult?.success ? generalSettingsResult.settings : {})
+  };
 
   // Recalculate per-intake breakdown using snapshot values and nested adjustments from SupplierInvoiceItems
   const { intakeBreakdowns } = calculateSupplierDeductions(

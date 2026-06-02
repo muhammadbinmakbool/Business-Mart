@@ -17,6 +17,7 @@ import UsersManagement from "./UsersManagement";
 import AdjustmentVisibilityCard from "./AdjustmentVisibilityCard";
 import DefaultsCard from "./DefaultsCard";
 import PrintSettingsCard from "./PrintSettingsCard";
+import GeneralSettingsCard from "./GeneralSettingsCard";
 import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
 
 function SettingsContent() {
@@ -137,7 +138,7 @@ function SettingsContent() {
             }`}
           >
             <Sliders className="h-4 w-4" />
-            Default Products
+            Default Products & Units
           </button>
 
           <button 
@@ -161,32 +162,9 @@ function SettingsContent() {
         {/* Right Content Pane */}
         <div className="md:col-span-4 space-y-6">
           {activeTab === "general" && (
-            <>
-              {/* Card 1: Branding Information */}
-              <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-4 animate-in fade-in duration-200">
-                <div className="flex items-center gap-2 border-b pb-3">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  <h3 className="font-bold text-base">Organization Profile</h3>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground font-medium">Business Name</span>
-                    <div className="font-bold">Rehmania & Company Grain Market</div>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground font-medium">Contact Phone</span>
-                    <div className="font-semibold">+92 300 1234567</div>
-                  </div>
-                  <div className="space-y-1 sm:col-span-2">
-                    <span className="text-xs text-muted-foreground font-medium">Address</span>
-                    <div className="font-semibold">Grain Market, Ghalla Mandi, Punjab, Pakistan</div>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground italic pt-2">
-                  Note: Branding settings are currently read-only and loaded from the print configuration module.
-                </p>
-              </div>
-            </>
+            <div className="animate-in fade-in duration-200">
+              <GeneralSettingsCard />
+            </div>
           )}
 
           {activeTab === "security" && (

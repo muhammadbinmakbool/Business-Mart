@@ -36,8 +36,18 @@ export function getMergedDocumentConfig(settings) {
     showSignatures: settings.showSignatures !== undefined ? settings.showSignatures : DOCUMENT_CONFIG.showSignatures,
     showDuplicateLabel: settings.showDuplicateLabel !== undefined ? settings.showDuplicateLabel : DOCUMENT_CONFIG.showDuplicateLabel,
     footerNotes: settings.footerNotes !== undefined ? settings.footerNotes : DOCUMENT_CONFIG.footerNotes,
-    defaultCurrency: settings.defaultCurrency || DOCUMENT_CONFIG.defaultCurrency,
-    autoPrintAfterSave: settings.autoPrintAfterSave !== undefined ? settings.autoPrintAfterSave : DOCUMENT_CONFIG.autoPrintAfterSave
+    defaultCurrency: settings.currencySymbol || settings.defaultCurrency || DOCUMENT_CONFIG.defaultCurrency,
+    autoPrintAfterSave: settings.autoPrintAfterSave !== undefined ? settings.autoPrintAfterSave : DOCUMENT_CONFIG.autoPrintAfterSave,
+    
+    // Merge General settings fields
+    companyName: settings.businessName || DOCUMENT_CONFIG.companyName,
+    companyPhone: settings.phoneNumber || DOCUMENT_CONFIG.companyPhone,
+    companyAddress: settings.address || DOCUMENT_CONFIG.companyAddress,
+    companyEmail: settings.businessEmail || DOCUMENT_CONFIG.companyEmail,
+    logoUrl: settings.logoPath || DOCUMENT_CONFIG.logoUrl || "",
+    currencyCode: settings.currencyCode || "PKR",
+    decimalPlaces: settings.decimalPlaces !== undefined ? parseInt(settings.decimalPlaces) : 2,
+    dateFormat: settings.dateFormat || "DD/MM/YYYY"
   };
 }
 

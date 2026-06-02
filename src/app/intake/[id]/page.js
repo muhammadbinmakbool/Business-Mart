@@ -9,7 +9,7 @@ import StatusUpdateButtons from "./StatusUpdateButtons";
 import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { convertRate, normalizeQuantity, getUnitLabel, UNIT_IDS } from "@/lib/units";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
-import { getPrintSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
 
 export default async function IntakeDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
@@ -23,12 +23,16 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
 
   const intake = JSON.parse(JSON.stringify(rawIntake));
 
-  const [parties, settingsResult] = await Promise.all([
+  const [parties, settingsResult, generalSettingsResult] = await Promise.all([
     PartyService.listParties(),
-    getPrintSettingsAction()
+    getPrintSettingsAction(),
+    getGeneralSettingsAction()
   ]);
   const buyers = parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH"));
-  const printConfig = settingsResult?.success ? settingsResult.settings : null;
+  const printConfig = {
+    ...(settingsResult?.success ? settingsResult.settings : {}),
+    ...(generalSettingsResult?.success ? generalSettingsResult.settings : {})
+  };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

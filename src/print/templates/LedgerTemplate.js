@@ -3,12 +3,13 @@ import BasePrintLayout from "./BasePrintLayout";
 import { PRINT_TYPOGRAPHY } from "../theme/typography";
 import { PRINT_LAYOUT } from "../theme/layout";
 import { t } from "../localization/locale";
-import { formatCurrency } from "../localization/formatters";
+import { formatCurrency as formatCurrencyRaw } from "../localization/formatters";
 
 export default function LedgerTemplate({ data, locale = "en", printConfig }) {
   const isMatched = data.summary?.isMatched;
   const isRTL = locale === "ur";
   const cur = printConfig?.defaultCurrency;
+  const formatCurrency = (amount) => formatCurrencyRaw(amount, locale, cur, printConfig?.decimalPlaces);
 
   return (
     <BasePrintLayout

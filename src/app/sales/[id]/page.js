@@ -19,16 +19,17 @@ import { deleteSaleAction, updateSaleStatusAction } from "@/modules/sales/contro
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { formatMaundWeight } from "@/lib/display-units";
 import { UNIT_IDS, getUnitLabel } from "@/lib/units";
-import { getPrintSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
 
 export default async function SaleDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
   const searchParams = searchParamsPromise ? await searchParamsPromise : {};
   const backUrl = searchParams.backUrl || "/sales";
 
-  const [sale, settingsResult] = await Promise.all([
+  const [sale, settingsResult, generalSettingsResult] = await Promise.all([
     SaleService.getSale(params.id),
-    getPrintSettingsAction()
+    getPrintSettingsAction(),
+    getGeneralSettingsAction()
   ]);
 
   if (!sale) {
@@ -41,7 +42,10 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
     );
   }
 
-  const printConfig = settingsResult?.success ? settingsResult.settings : null;
+  const printConfig = {
+    ...(settingsResult?.success ? settingsResult.settings : {}),
+    ...(generalSettingsResult?.success ? generalSettingsResult.settings : {})
+  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20">
