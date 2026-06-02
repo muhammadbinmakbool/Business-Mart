@@ -127,3 +127,10 @@ To enforce these filters:
    const visibleAdjustmentTypes = getVisibleAdjustments(ADJUSTMENT_TYPES_SUPPLIER, settings);
    ```
 4. The dropdown selectors render only `visibleAdjustmentTypes`, preventing users from introducing disabled billing charges onto new transactions.
+
+### 6.3 Ledger, Settlement & Report Views
+To maintain a single source of truth across all modules, ledger summaries and settlement reports also query the same `adjustments_visibility` settings:
+1. The ledger page loads the visibility mappings on the server and passes them down.
+2. The client UI dynamically hides or displays corresponding adjustment columns (Commission, Labour, Rent, Kaat) in ledger matching lists and print templates.
+3. This prevents layout clutter and ensures disabled adjustment types are not displayed in active ledger reporting tables.
+
