@@ -74,6 +74,12 @@
 }
 
 @layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
+  main {
+    scrollbar-gutter: stable;
+  }
   * {
     @apply border-border;
   }

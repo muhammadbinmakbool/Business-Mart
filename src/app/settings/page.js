@@ -8,7 +8,8 @@ import {
   ArrowRight, 
   ExternalLink,
   Sliders,
-  ShieldAlert
+  ShieldAlert,
+  Database
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useEffect } from "react";
@@ -205,6 +206,14 @@ function SettingsContent() {
             Activity & Audit Settings
           </button>
 
+          <Link
+            href="/settings/maintenance"
+            className="w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+          >
+            <Database className="h-4 w-4" />
+            System Maintenance
+          </Link>
+
           <button className="w-full text-left px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground flex items-center gap-2 opacity-40 cursor-not-allowed" disabled>
             <Building2 className="h-4 w-4" />
             Branding Profile
@@ -213,102 +222,84 @@ function SettingsContent() {
 
         {/* Right Content Pane */}
         <div className="md:col-span-4 space-y-6">
-          {activeTab === "general" && (
-            <div className="animate-in fade-in duration-200">
-              <GeneralSettingsCard />
-            </div>
-          )}
+          <div className={activeTab === "general" ? "animate-in fade-in duration-200" : "hidden"}>
+            <GeneralSettingsCard />
+          </div>
 
-          {activeTab === "security" && (
-            <div className="rounded-2xl border bg-card p-6 shadow-sm animate-in fade-in duration-200">
-              <UsersManagement />
-            </div>
-          )}
+          <div className={activeTab === "security" ? "rounded-2xl border bg-card p-6 shadow-sm animate-in fade-in duration-200" : "hidden"}>
+            <UsersManagement />
+          </div>
 
-          {activeTab === "adjustments" && (
-            <div className="animate-in fade-in duration-200">
-              <AdjustmentVisibilityCard />
-            </div>
-          )}
+          <div className={activeTab === "adjustments" ? "animate-in fade-in duration-200" : "hidden"}>
+            <AdjustmentVisibilityCard />
+          </div>
 
-          {activeTab === "defaults" && (
-            <div className="space-y-6 animate-in fade-in duration-200">
-              <DefaultsCard />
-              <DisplayUnitSettingsCard />
-            </div>
-          )}
+          <div className={activeTab === "defaults" ? "space-y-6 animate-in fade-in duration-200" : "hidden"}>
+            <DefaultsCard />
+            <DisplayUnitSettingsCard />
+          </div>
 
-          {activeTab === "print" && (
-            <div className="space-y-6 animate-in fade-in duration-200">
-              <PrintSettingsCard />
+          <div className={activeTab === "print" ? "space-y-6 animate-in fade-in duration-200" : "hidden"}>
+            <PrintSettingsCard />
+            
+            {/* Card 2: Print Subsystem Customizer */}
+            <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-6">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center gap-2">
+                  <Printer className="h-5 w-5 text-emerald-500" />
+                  <h3 className="font-bold text-base">Print Subsystem Customization</h3>
+                </div>
+                <Link
+                  href="/print/preview?type=sale"
+                  className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                >
+                  Launch Editor <ExternalLink className="h-3 w-3" />
+                </Link>
+              </div>
               
-              {/* Card 2: Print Subsystem Customizer */}
-              <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-6">
-                <div className="flex items-center justify-between border-b pb-3">
-                  <div className="flex items-center gap-2">
-                    <Printer className="h-5 w-5 text-emerald-500" />
-                    <h3 className="font-bold text-base">Print Subsystem Customization</h3>
-                  </div>
-                  <Link
-                    href="/print/preview?type=sale"
-                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
-                  >
-                    Launch Editor <ExternalLink className="h-3 w-3" />
-                  </Link>
-                </div>
-                
-                <p className="text-sm text-muted-foreground">
-                  Business Mart features a high-fidelity, styling-isolated print subsystem. Customize, design, and live-preview templates below.
-                </p>
+              <p className="text-sm text-muted-foreground">
+                Business Mart features a high-fidelity, styling-isolated print subsystem. Customize, design, and live-preview templates below.
+              </p>
 
-                <div className="grid grid-cols-1 gap-4">
-                  {templates.map((tpl) => (
-                    <div
-                      key={tpl.type}
-                      className="group relative rounded-xl border p-4 hover:bg-muted/30 transition-all flex items-center justify-between"
-                    >
-                      <div className="space-y-1 pr-4">
-                        <h4 className="font-bold text-sm text-card-foreground group-hover:text-primary transition-colors">
-                          {tpl.name}
-                        </h4>
-                        <p className="text-xs text-muted-foreground">{tpl.description}</p>
-                      </div>
-                      <Link
-                        href={tpl.path}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-all"
-                      >
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
+              <div className="grid grid-cols-1 gap-4">
+                {templates.map((tpl) => (
+                  <div
+                    key={tpl.type}
+                    className="group relative rounded-xl border p-4 hover:bg-muted/30 transition-all flex items-center justify-between"
+                  >
+                    <div className="space-y-1 pr-4">
+                      <h4 className="font-bold text-sm text-card-foreground group-hover:text-primary transition-colors">
+                        {tpl.name}
+                      </h4>
+                      <p className="text-xs text-muted-foreground">{tpl.description}</p>
                     </div>
-                  ))}
-                </div>
+                    <Link
+                      href={tpl.path}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground group-hover:bg-primary group-hover:text-primary-foreground transition-all"
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                ))}
               </div>
             </div>
-          )}
+          </div>
 
-          {activeTab === "inventory" && (
-            <div className="animate-in fade-in duration-200">
-              <InventorySettingsCard />
-            </div>
-          )}
+          <div className={activeTab === "inventory" ? "animate-in fade-in duration-200" : "hidden"}>
+            <InventorySettingsCard />
+          </div>
 
-          {activeTab === "settlement-ledger" && (
-            <div className="animate-in fade-in duration-200">
-              <SettlementLedgerSettingsCard />
-            </div>
-          )}
+          <div className={activeTab === "settlement-ledger" ? "animate-in fade-in duration-200" : "hidden"}>
+            <SettlementLedgerSettingsCard />
+          </div>
 
-          {activeTab === "activity-audit" && (
-            <div className="animate-in fade-in duration-200">
-              <ActivityAuditSettingsCard />
-            </div>
-          )}
+          <div className={activeTab === "activity-audit" ? "animate-in fade-in duration-200" : "hidden"}>
+            <ActivityAuditSettingsCard />
+          </div>
 
-          {activeTab === "intake-workflow" && (
-            <div className="animate-in fade-in duration-200">
-              <IntakeWorkflowSettingsCard />
-            </div>
-          )}
+          <div className={activeTab === "intake-workflow" ? "animate-in fade-in duration-200" : "hidden"}>
+            <IntakeWorkflowSettingsCard />
+          </div>
         </div>
       </div>
     </div>
