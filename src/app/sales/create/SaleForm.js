@@ -175,6 +175,8 @@ export default function SaleForm({ buyers, products, initialData = null, setting
     }));
   }, []);
 
+
+
   // Handlers
   const addItem = () => setItems([...items, { 
     productId: "", 

@@ -3,13 +3,32 @@ export const dynamic = "force-dynamic";
 import React from "react";
 import { MarketInsightService } from "@/modules/market-insight/services/MarketInsightService";
 import { ProductService } from "@/modules/products/services/ProductService";
+import { prisma } from "@/lib/prisma";
 import MarketInsightDashboardClient from "./MarketInsightDashboardClient";
 
 export default async function MarketInsightDashboardPage({ searchParams: searchParamsPromise }) {
   const searchParams = await searchParamsPromise;
   const period = searchParams.period || "30d";
-  const productId = searchParams.productId ? parseInt(searchParams.productId) : null;
+  const productIdParam = searchParams.productId;
   const auditFilter = searchParams.auditFilter || "ACTIVE"; // ACTIVE, ARCHIVED, ALL
+
+  let productId = null;
+  if (productIdParam === "all") {
+    productId = null;
+  } else if (productIdParam) {
+    productId = parseInt(productIdParam);
+  } else {
+    // Check default preferences from settings
+    const settingsRecord = await prisma.systemSetting.findUnique({
+      where: { key: "adjustment_visibility" }
+    });
+    const settings = settingsRecord ? JSON.parse(settingsRecord.value) : {};
+    const defaults = settings?.defaults || {};
+    const defaultProductVal = defaults.activeMarketProductId || defaults.productId || null;
+    if (defaultProductVal) {
+      productId = parseInt(defaultProductVal);
+    }
+  }
 
   const products = await ProductService.listProducts();
   const activeRates = await MarketInsightService.listRates("ACTIVE");
@@ -30,3 +49,4 @@ export default async function MarketInsightDashboardPage({ searchParams: searchP
     />
   );
 }
+

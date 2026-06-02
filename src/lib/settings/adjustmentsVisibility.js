@@ -36,3 +36,11 @@ export function getVisibleAdjustments(list, settings) {
   if (!Array.isArray(list)) return [];
   return list.filter(type => shouldShowAdjustment(type, settings));
 }
+
+import { getSettings, updateSettings } from "@/modules/settings/controllers/settingsActions";
+
+export const settingsService = {
+  getSettings,
+  updateSettings
+};
+

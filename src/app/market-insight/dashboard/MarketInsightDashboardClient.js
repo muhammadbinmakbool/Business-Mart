@@ -58,12 +58,13 @@ export default function MarketInsightDashboardClient({
   function handleProductFilterChange(prodId) {
     const params = new URLSearchParams(window.location.search);
     if (prodId === "ALL") {
-      params.delete("productId");
+      params.set("productId", "all");
     } else {
       params.set("productId", prodId);
     }
     router.push(`?${params.toString()}`);
   }
+
 
   function handleAuditFilterChange(filter) {
     const params = new URLSearchParams(window.location.search);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 
 import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { showToast } from "@/components/ui/Toast";
@@ -12,7 +12,7 @@ import Modal from "@/components/ui/Modal";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getLocalDateString } from "@/lib/utils";
 
-export default function IntakeForm({ suppliers, products }) {
+export default function IntakeForm({ suppliers, products, settings }) {
   const router = useRouter();
   const formRef = useRef(null);
   const supplierRef = useRef(null);
@@ -22,6 +22,19 @@ export default function IntakeForm({ suppliers, products }) {
   const [grossWeightVal, setGrossWeightVal] = useState("");
   const [bagCountVal, setBagCountVal] = useState("");
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
+
+  const defaultProductVal = settings?.defaults?.activeMarketProductId || settings?.defaults?.productId || "";
+
+  useEffect(() => {
+    if (defaultProductVal) {
+      const defaultProductStr = defaultProductVal.toString();
+      const prodExists = products.some(p => p.id === parseInt(defaultProductStr));
+      if (prodExists) {
+        handleProductChange(defaultProductStr);
+      }
+    }
+  }, []);
+
 
   const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
   const isBagProduct = selectedProduct && (selectedProduct.primaryUnit === "BAG" || selectedProduct.category === "BAG");

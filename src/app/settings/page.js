@@ -15,6 +15,7 @@ import { Suspense, useEffect } from "react";
 import DisplayUnitSettingsCard from "./DisplayUnitSettingsCard";
 import UsersManagement from "./UsersManagement";
 import AdjustmentVisibilityCard from "./AdjustmentVisibilityCard";
+import DefaultsCard from "./DefaultsCard";
 import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
 
 function SettingsContent() {
@@ -38,10 +39,11 @@ function SettingsContent() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "security" || tab === "general" || tab === "adjustments") {
+    if (tab === "security" || tab === "general" || tab === "adjustments" || tab === "defaults") {
       setActiveTab(tab);
     }
   }, [searchParams]);
+
 
   if (!authorized) {
     return (
@@ -123,6 +125,18 @@ function SettingsContent() {
           >
             <Sliders className="h-4 w-4" />
             Adjustments Visibility
+          </button>
+
+          <button 
+            onClick={() => setActiveTab("defaults")}
+            className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === "defaults"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            }`}
+          >
+            <Sliders className="h-4 w-4" />
+            Defaults
           </button>
 
           <button className="w-full text-left px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground flex items-center gap-2 opacity-40 cursor-not-allowed" disabled>
@@ -218,6 +232,12 @@ function SettingsContent() {
           {activeTab === "adjustments" && (
             <div className="animate-in fade-in duration-200">
               <AdjustmentVisibilityCard />
+            </div>
+          )}
+
+          {activeTab === "defaults" && (
+            <div className="animate-in fade-in duration-200">
+              <DefaultsCard />
             </div>
           )}
         </div>

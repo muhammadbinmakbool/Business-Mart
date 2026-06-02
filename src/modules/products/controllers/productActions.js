@@ -63,3 +63,14 @@ export async function deleteProductAction(id, confirmPassword) {
     return { error: error.message || "Failed to delete product" };
   }
 }
+
+export async function getActiveProductsAction() {
+  try {
+    const products = await ProductService.listProducts();
+    return { success: true, products: products.filter(p => p.isActive) };
+  } catch (error) {
+    console.error("Failed to fetch active products:", error);
+    return { success: false, error: error.message || "Failed to load products" };
+  }
+}
+
