@@ -3,7 +3,7 @@ import BasePrintLayout from "./BasePrintLayout";
 import { PRINT_TYPOGRAPHY } from "../theme/typography";
 import { PRINT_LAYOUT } from "../theme/layout";
 import { t } from "../localization/locale";
-import { formatCurrency as formatCurrencyRaw } from "../localization/formatters";
+import { formatCurrency as formatCurrencyRaw } from "@/lib/formatters/financialFormatter";
 
 export default function LedgerTemplate({ data, locale = "en", printConfig }) {
   const isMatched = data.summary?.isMatched;

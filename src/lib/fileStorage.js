@@ -13,7 +13,7 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), "public", 
  * @param {string} category - Category prefix for sorting/naming
  * @returns {Promise<string>} Relative URL path
  */
-export async function storeFile(file, category = "logo") {
+export async function storeFile(file, category = "file") {
   if (!file) throw new Error("No file provided");
 
   const bytes = await file.arrayBuffer();

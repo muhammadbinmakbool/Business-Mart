@@ -1,5 +1,5 @@
-import { round } from "../financial";
-import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "../units";
+import { round } from "@/lib/financial";
+import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 
 /**
  * Formats a currency value using the core financial `round` logic and locale-specific grouping.

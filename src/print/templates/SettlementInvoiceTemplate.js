@@ -3,7 +3,7 @@ import BasePrintLayout from "./BasePrintLayout";
 import { PRINT_TYPOGRAPHY } from "../theme/typography";
 import { PRINT_LAYOUT } from "../theme/layout";
 import { t } from "../localization/locale";
-import { formatCurrency as formatCurrencyRaw, formatWeight } from "../localization/formatters";
+import { formatCurrency as formatCurrencyRaw, formatWeight } from "@/lib/formatters/financialFormatter";
 import { UNIT_IDS } from "@/lib/units";
 
 export default function SettlementInvoiceTemplate({ data, locale = "en", printConfig }) {
