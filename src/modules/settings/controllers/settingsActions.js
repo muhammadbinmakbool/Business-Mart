@@ -412,18 +412,9 @@ export async function saveSettlementLedgerSettingsAction(settings) {
       return { success: false, error: "Invalid settings data" };
     }
 
-    const parsedVisibility = settings.defaultAdjustmentVisibility || {};
-    const defaultVisibility = DEFAULT_SETTLEMENT_LEDGER_SETTINGS.defaultAdjustmentVisibility;
-
     // Build standard structure to filter out arbitrary fields
     const updated = {
       reconciliationTolerance: settings.reconciliationTolerance !== undefined ? parseFloat(settings.reconciliationTolerance) : DEFAULT_SETTLEMENT_LEDGER_SETTINGS.reconciliationTolerance,
-      defaultAdjustmentVisibility: {
-        commission: parsedVisibility.commission !== undefined ? !!parsedVisibility.commission : defaultVisibility.commission,
-        labour: parsedVisibility.labour !== undefined ? !!parsedVisibility.labour : defaultVisibility.labour,
-        rent: parsedVisibility.rent !== undefined ? !!parsedVisibility.rent : defaultVisibility.rent,
-        kaat: parsedVisibility.kaat !== undefined ? !!parsedVisibility.kaat : defaultVisibility.kaat
-      },
       autoMarkOutdatedInvoices: settings.autoMarkOutdatedInvoices !== undefined ? !!settings.autoMarkOutdatedInvoices : DEFAULT_SETTLEMENT_LEDGER_SETTINGS.autoMarkOutdatedInvoices,
       requireConfirmationBeforeRegeneration: settings.requireConfirmationBeforeRegeneration !== undefined ? !!settings.requireConfirmationBeforeRegeneration : DEFAULT_SETTLEMENT_LEDGER_SETTINGS.requireConfirmationBeforeRegeneration
     };

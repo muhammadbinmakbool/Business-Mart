@@ -1,6 +1,6 @@
 # Settlement & Ledger Settings Subsystem Documentation
 
-The Settlement & Ledger Settings subsystem manages operational configuration flags for the reconciliation process, adjustment visibility, and confirmation behaviors inside Business Mart.
+The Settlement & Ledger Settings subsystem manages operational configuration flags for the reconciliation process and confirmation behaviors inside Business Mart.
 
 ---
 
@@ -29,12 +29,6 @@ settlement_ledger_settings
 ```json
 {
   "reconciliationTolerance": 1.00,
-  "defaultAdjustmentVisibility": {
-    "commission": true,
-    "labour": true,
-    "rent": true,
-    "kaat": true
-  },
   "autoMarkOutdatedInvoices": true,
   "requireConfirmationBeforeRegeneration": true
 }
@@ -49,18 +43,19 @@ settlement_ledger_settings
 - **Purpose**: Defines the maximum threshold (in Rs.) below which a buyer-supplier billing mismatch is dynamically considered "Matched" on the ledger dashboard.
 - **Integration**: Passed dynamically as the `tolerance` argument into the central reconciliation engine (`calculateReconciliationSummary(invoices, sales, tolerance)`). The logic check itself remains inside `src/lib/reconciliation.js`.
 
-### 2. Default Adjustment Visibility (`defaultAdjustmentVisibility`)
-- **Default**: `{ "commission": true, "labour": true, "rent": true, "kaat": true }`
-- **Purpose**: Governs client-side rendering visibility on preview layers and detail sections.
-- **Boundary**: Has no influence on totals calculation; hidden adjustments are still mathematically calculated and deducted.
-
-### 3. Auto Mark Outdated Invoices (`autoMarkOutdatedInvoices`)
+### 2. Auto Mark Outdated Invoices (`autoMarkOutdatedInvoices`)
 - **Default**: `true`
 - **Purpose**: Triggers warnings and outdated badges in lists and pages if underlying quantities change. No database state mutation is automatically executed.
 
-### 4. Require Confirmation Before Regeneration (`requireConfirmationBeforeRegeneration`)
+### 3. Require Confirmation Before Regeneration (`requireConfirmationBeforeRegeneration`)
 - **Default**: `true`
 - **Purpose**: Toggles modal safety dialog prompts when regenerating historic invoice periods to prevent unintended overrides.
+
+---
+
+## 🛡️ Global Adjustment Visibility Rule
+- Adjustment visibility settings are managed centrally and globally under the `adjustments_visibility` settings tab.
+- This tab is the single source of truth for visibility of adjustments in transaction creation forms, ledger preview pages, and printed receipt templates. Settlement & Ledger settings must not override or redefine this domain visibility.
 
 ---
 
@@ -76,3 +71,4 @@ graph TD
     F -->|Authority Calculation| G[Match / Mismatch Result]
     G -->|Render State| E
 ```
+

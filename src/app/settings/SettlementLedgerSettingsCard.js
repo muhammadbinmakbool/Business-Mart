@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Sliders, Pencil, X, Check, AlertTriangle, Settings2, Eye } from "lucide-react";
+import { Sliders, Pencil, X, Check, AlertTriangle, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { getSettlementLedgerSettingsAction, saveSettlementLedgerSettingsAction } from "@/modules/settings/controllers/settingsActions";
 
@@ -12,12 +12,6 @@ export default function SettlementLedgerSettingsCard() {
   const [initialSettings, setInitialSettings] = useState(null);
   const [settings, setSettings] = useState({
     reconciliationTolerance: 1.00,
-    defaultAdjustmentVisibility: {
-      commission: true,
-      labour: true,
-      rent: true,
-      kaat: true
-    },
     autoMarkOutdatedInvoices: true,
     requireConfirmationBeforeRegeneration: true
   });
@@ -38,17 +32,6 @@ export default function SettlementLedgerSettingsCard() {
 
   const handleChange = (key, value) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const handleNestedToggle = (key) => {
-    if (!isEditing) return;
-    setSettings((prev) => ({
-      ...prev,
-      defaultAdjustmentVisibility: {
-        ...prev.defaultAdjustmentVisibility,
-        [key]: !prev.defaultAdjustmentVisibility[key]
-      }
-    }));
   };
 
   const handleToggle = (key) => {
@@ -140,7 +123,7 @@ export default function SettlementLedgerSettingsCard() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Configure reconciliation tolerances, default invoice display visibility toggles, and regeneration confirmation dialog parameters.
+        Configure reconciliation tolerances and regeneration confirmation dialog parameters.
       </p>
 
       {/* Warning Alert if Editing */}
@@ -148,7 +131,7 @@ export default function SettlementLedgerSettingsCard() {
         <div className="flex items-start gap-3 rounded-xl border border-indigo-200/50 bg-indigo-50/50 p-4 text-xs text-indigo-800 leading-relaxed dark:border-indigo-900/30 dark:bg-indigo-950/20 dark:text-indigo-300">
           <AlertTriangle className="h-4 w-4 text-indigo-600 shrink-0 mt-0.5" />
           <div>
-            <span className="font-bold">Caution:</span> Modifying these options alters reconciliation flags and visibility layouts globally. The core ledger reconciliation matching engine remains the sole authority for calculations, but the input parameters and UI validations will update.
+            <span className="font-bold">Caution:</span> Modifying these options alters reconciliation validation thresholds globally. The core ledger reconciliation matching engine remains the sole authority for calculations.
           </div>
         </div>
       )}
@@ -170,94 +153,6 @@ export default function SettlementLedgerSettingsCard() {
               className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
             />
             <span className="text-[10px] text-muted-foreground block">Max difference (Rs.) allowed to mark live ledger transactions as matched.</span>
-          </div>
-        </div>
-
-        {/* Adjustment Visibility Toggles */}
-        <div className="border-t pt-6 space-y-4">
-          <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-widest">
-            Default Adjustment Type Visibility
-          </h4>
-          <p className="text-xs text-muted-foreground">
-            Configure which adjustment deductions are displayed on settlement lists, previews, and invoice generated layers.
-          </p>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {/* Commission */}
-            <div className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${!isEditing ? "bg-muted/10" : "bg-muted/20"}`}>
-              <span className="text-xs font-semibold">Commission</span>
-              <button
-                type="button"
-                disabled={!isEditing}
-                onClick={() => handleNestedToggle("commission")}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                  settings.defaultAdjustmentVisibility?.commission ? "bg-primary" : "bg-muted-foreground/30"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${
-                    settings.defaultAdjustmentVisibility?.commission ? "translate-x-4" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Labour */}
-            <div className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${!isEditing ? "bg-muted/10" : "bg-muted/20"}`}>
-              <span className="text-xs font-semibold">Labour</span>
-              <button
-                type="button"
-                disabled={!isEditing}
-                onClick={() => handleNestedToggle("labour")}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                  settings.defaultAdjustmentVisibility?.labour ? "bg-primary" : "bg-muted-foreground/30"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${
-                    settings.defaultAdjustmentVisibility?.labour ? "translate-x-4" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Rent */}
-            <div className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${!isEditing ? "bg-muted/10" : "bg-muted/20"}`}>
-              <span className="text-xs font-semibold">Rent</span>
-              <button
-                type="button"
-                disabled={!isEditing}
-                onClick={() => handleNestedToggle("rent")}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                  settings.defaultAdjustmentVisibility?.rent ? "bg-primary" : "bg-muted-foreground/30"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${
-                    settings.defaultAdjustmentVisibility?.rent ? "translate-x-4" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Kaat */}
-            <div className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${!isEditing ? "bg-muted/10" : "bg-muted/20"}`}>
-              <span className="text-xs font-semibold">Kaat</span>
-              <button
-                type="button"
-                disabled={!isEditing}
-                onClick={() => handleNestedToggle("kaat")}
-                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
-                  settings.defaultAdjustmentVisibility?.kaat ? "bg-primary" : "bg-muted-foreground/30"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${
-                    settings.defaultAdjustmentVisibility?.kaat ? "translate-x-4" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
           </div>
         </div>
 
