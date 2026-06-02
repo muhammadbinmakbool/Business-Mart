@@ -8,7 +8,7 @@ import { printStyles } from "../styles/printStyles";
  * dynamically inside the iframe's context, forcing html2canvas to execute
  * in the isolated context without inheritance of parent document's Tailwind v4 colors.
  */
-export function renderIsolatedPrint({ htmlString, orientation, generationType, filename }) {
+export function renderIsolatedPrint({ htmlString, orientation, paperSize = "a4", generationType, filename }) {
   return new Promise((resolve, reject) => {
     // 1. Create target iframe element
     const iframe = document.createElement("iframe");
@@ -46,7 +46,7 @@ export function renderIsolatedPrint({ htmlString, orientation, generationType, f
     const pageStyleNode = doc.createElement("style");
     pageStyleNode.textContent = `
       @page {
-        size: A4 ${orientation};
+        size: ${paperSize.toUpperCase()} ${orientation};
         margin: ${orientation === "landscape" ? "10mm" : "15mm 12mm 15mm 12mm"};
       }
     `;
@@ -98,7 +98,7 @@ export function renderIsolatedPrint({ htmlString, orientation, generationType, f
               },
               jsPDF: {
                 unit: "mm",
-                format: "a4",
+                format: paperSize.toLowerCase(),
                 orientation: orientation
               }
             };

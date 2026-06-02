@@ -6,8 +6,9 @@ import { t } from "../localization/locale";
 import { formatCurrency, formatWeight, formatBags } from "../localization/formatters";
 import { UNIT_IDS } from "@/lib/units";
 
-export default function IntakeReceiptTemplate({ data, locale = "en" }) {
+export default function IntakeReceiptTemplate({ data, locale = "en", printConfig }) {
   const isRTL = locale === "ur";
+  const cur = printConfig?.defaultCurrency;
 
   return (
     <BasePrintLayout
@@ -16,6 +17,7 @@ export default function IntakeReceiptTemplate({ data, locale = "en" }) {
       date={data.entryDate}
       status={data.status}
       locale={locale}
+      config={printConfig}
     >
       <div className="space-y-6">
         {/* Parties and Info Section */}
@@ -100,11 +102,11 @@ export default function IntakeReceiptTemplate({ data, locale = "en" }) {
                   </div>
                   <div className="text-slate-500">{t("sellingRate", locale)}:</div>
                   <div className="font-bold text-right text-slate-800">
-                    {formatCurrency(data.soldDetails.rate, locale)} / {data.soldDetails.rateUnit === UNIT_IDS.MAUND || data.soldDetails.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : data.soldDetails.rateUnit}
+                    {formatCurrency(data.soldDetails.rate, locale, cur)} / {data.soldDetails.rateUnit === UNIT_IDS.MAUND || data.soldDetails.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : data.soldDetails.rateUnit}
                   </div>
                   <div className="text-slate-500 border-t pt-1">{t("totalBaseValue", locale)}:</div>
                   <div className="font-black text-right text-emerald-700 border-t pt-1 text-sm">
-                    {formatCurrency(data.soldDetails.baseAmount, locale)}
+                    {formatCurrency(data.soldDetails.baseAmount, locale, cur)}
                   </div>
                 </div>
               </div>

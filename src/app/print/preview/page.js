@@ -5,6 +5,7 @@ import { format, startOfMonth, endOfMonth } from "date-fns";
 import { printStyles } from "@/print/styles/printStyles";
 import { resolvePrintTemplate } from "@/print/registry";
 import { LedgerService } from "@/modules/ledger/services/LedgerService";
+import { getPrintSettingsAction } from "@/modules/settings/controllers/settingsActions";
 import PrintPreviewFrame from "./PrintPreviewFrame";
 
 export default async function PrintPreviewPage({ searchParams: searchParamsPromise }) {
@@ -13,6 +14,9 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
   const idStr = searchParams.id;
   const id = idStr ? parseInt(idStr) : null;
   const locale = searchParams.locale || "en";
+
+  const settingsResult = await getPrintSettingsAction();
+  const printConfig = settingsResult?.success ? settingsResult.settings : null;
 
   let content = null;
   let errorMsg = "";
@@ -38,7 +42,7 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
           errorMsg = "No Intake Transactions found in database.";
         } else {
           const { Component, mappedData } = resolvePrintTemplate("intake", intake);
-          content = <Component data={mappedData} locale={locale} />;
+          content = <Component data={mappedData} locale={locale} printConfig={printConfig} />;
           docIdText = intake.intakeNumber;
         }
         break;
@@ -69,7 +73,7 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
           errorMsg = "No Sale Transactions found in database.";
         } else {
           const { Component, mappedData } = resolvePrintTemplate("sale", sale);
-          content = <Component data={mappedData} locale={locale} />;
+          content = <Component data={mappedData} locale={locale} printConfig={printConfig} />;
           docIdText = sale.saleNumber;
         }
         break;
@@ -155,7 +159,7 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
             invoice.version || null,
             [intakeBreakdowns, summaryAdjustments]
           );
-          content = <Component data={mappedData} locale={locale} />;
+          content = <Component data={mappedData} locale={locale} printConfig={printConfig} />;
           docIdText = invoice.invoiceNumber;
         }
         break;
@@ -180,7 +184,7 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
         };
 
         const { Component, mappedData } = resolvePrintTemplate("ledger", data);
-        content = <Component data={mappedData} locale={locale} />;
+        content = <Component data={mappedData} locale={locale} printConfig={printConfig} />;
         docIdText = `${start} to ${end}`;
         break;
       }

@@ -19,6 +19,8 @@ export default function ResponsiveActions({
   deleteRedirect,
   extraActions, // Node for custom buttons (e.g. RegenerateButton, StatusUpdateButtons)
   statusBadge,   // Node for displaying status badge
+  locale = "en",
+  printConfig = null,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -35,12 +37,12 @@ export default function ResponsiveActions({
   }, []);
 
   const handlePrint = () => {
-    triggerPrint(printType, printData);
+    triggerPrint(printType, printData, locale, printConfig);
     setIsOpen(false);
   };
 
   const handleDownload = () => {
-    triggerDownloadPDF(printType, printData, printFilename);
+    triggerDownloadPDF(printType, printData, printFilename, locale, printConfig);
     setIsOpen(false);
   };
 

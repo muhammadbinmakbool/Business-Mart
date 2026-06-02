@@ -9,6 +9,7 @@ import StatusUpdateButtons from "./StatusUpdateButtons";
 import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { convertRate, normalizeQuantity, getUnitLabel, UNIT_IDS } from "@/lib/units";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
+import { getPrintSettingsAction } from "@/modules/settings/controllers/settingsActions";
 
 export default async function IntakeDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
@@ -22,8 +23,12 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
 
   const intake = JSON.parse(JSON.stringify(rawIntake));
 
-  const parties = await PartyService.listParties();
+  const [parties, settingsResult] = await Promise.all([
+    PartyService.listParties(),
+    getPrintSettingsAction()
+  ]);
   const buyers = parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH"));
+  const printConfig = settingsResult?.success ? settingsResult.settings : null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -39,6 +44,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
         printType="intake"
         printData={intake}
         printFilename={`Intake-${intake.intakeNumber || intake.id}`}
+        printConfig={printConfig}
         deleteId={intake.id}
         deleteAction={deleteIntakeAction}
         deleteLabel="Intake"

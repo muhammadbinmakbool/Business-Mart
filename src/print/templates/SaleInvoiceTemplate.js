@@ -6,8 +6,9 @@ import { t } from "../localization/locale";
 import { formatCurrency, formatWeight } from "../localization/formatters";
 import { UNIT_IDS } from "@/lib/units";
 
-export default function SaleInvoiceTemplate({ data, locale = "en" }) {
+export default function SaleInvoiceTemplate({ data, locale = "en", printConfig }) {
   const isRTL = locale === "ur";
+  const cur = printConfig?.defaultCurrency;
 
   return (
     <BasePrintLayout
@@ -16,6 +17,7 @@ export default function SaleInvoiceTemplate({ data, locale = "en" }) {
       date={data.entryDate}
       status={data.status}
       locale={locale}
+      config={printConfig}
     >
       <div className="space-y-6">
         {/* Parties and Invoice Meta */}
@@ -63,10 +65,10 @@ export default function SaleInvoiceTemplate({ data, locale = "en" }) {
                     {formatWeight(item.weight, item.unit, locale)}
                   </td>
                   <td className={PRINT_TYPOGRAPHY.tableBodyCellRight}>
-                    {formatCurrency(item.rate, locale)} / {item.rateUnit === UNIT_IDS.MAUND || item.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : item.rateUnit}
+                    {formatCurrency(item.rate, locale, cur)} / {item.rateUnit === UNIT_IDS.MAUND || item.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : item.rateUnit}
                   </td>
                   <td className={`${PRINT_TYPOGRAPHY.tableBodyCellRight} text-slate-800 font-bold`}>
-                    {formatCurrency(item.amount, locale)}
+                    {formatCurrency(item.amount, locale, cur)}
                   </td>
                 </tr>
               ))}
@@ -103,7 +105,7 @@ export default function SaleInvoiceTemplate({ data, locale = "en" }) {
                       {adj.method}
                     </td>
                     <td className={`px-4 py-2.5 text-right font-bold ${adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"}`}>
-                      {adj.direction === "ADD" ? "+" : "-"} {formatCurrency(adj.amount, locale)}
+                      {adj.direction === "ADD" ? "+" : "-"} {formatCurrency(adj.amount, locale, cur)}
                     </td>
                   </tr>
                 ))}
@@ -118,13 +120,13 @@ export default function SaleInvoiceTemplate({ data, locale = "en" }) {
             <div className="p-4 space-y-2.5 text-xs font-mono">
               <div className="flex justify-between items-center text-slate-500 rtl:flex-row-reverse">
                 <span>{t("baseTotalVal", locale)}:</span>
-                <span className="font-bold text-slate-700">{formatCurrency(data.totals.baseAmount, locale)}</span>
+                <span className="font-bold text-slate-700">{formatCurrency(data.totals.baseAmount, locale, cur)}</span>
               </div>
               {data.adjustments && data.adjustments.length > 0 && (
                 <div className="flex justify-between items-center text-slate-500 rtl:flex-row-reverse">
                   <span>{t("totalAdjs", locale)}:</span>
                   <span className={`font-bold ${Number(data.totals.totalAdjustments.replace(/,/g, '')) >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                    {data.totals.adjustmentsDirection} {formatCurrency(data.totals.totalAdjustments, locale)}
+                    {data.totals.adjustmentsDirection} {formatCurrency(data.totals.totalAdjustments, locale, cur)}
                   </span>
                 </div>
               )}
@@ -135,12 +137,13 @@ export default function SaleInvoiceTemplate({ data, locale = "en" }) {
               <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 rtl:flex-row-reverse">
                 <span className="font-bold text-slate-800">{t("finalInvTotal", locale)}:</span>
                 <span className="text-lg font-black print-text-primary">
-                  {formatCurrency(data.totals.finalAmount, locale)}
+                  {formatCurrency(data.totals.finalAmount, locale, cur)}
                 </span>
               </div>
             </div>
           </div>
         </div>
+
 
         {/* Notes */}
         {data.notes && (

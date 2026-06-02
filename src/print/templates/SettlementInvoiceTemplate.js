@@ -6,8 +6,9 @@ import { t } from "../localization/locale";
 import { formatCurrency, formatWeight } from "../localization/formatters";
 import { UNIT_IDS } from "@/lib/units";
 
-export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
+export default function SettlementInvoiceTemplate({ data, locale = "en", printConfig }) {
   const isRTL = locale === "ur";
+  const cur = printConfig?.defaultCurrency;
 
   return (
     <BasePrintLayout
@@ -16,6 +17,7 @@ export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
       date={data.entryDate}
       status={data.status}
       locale={locale}
+      config={printConfig}
     >
       <div className="space-y-6">
         {/* Parties and Version metadata */}
@@ -77,10 +79,10 @@ export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
                       {formatWeight(item.weight, item.unit, locale)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {formatCurrency(item.rate, locale)} / {item.rateUnit === UNIT_IDS.MAUND || item.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : item.rateUnit}
+                      {formatCurrency(item.rate, locale, cur)} / {item.rateUnit === UNIT_IDS.MAUND || item.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : item.rateUnit}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-slate-800">
-                      {formatCurrency(item.grossAmount, locale)}
+                      {formatCurrency(item.grossAmount, locale, cur)}
                     </td>
                   </tr>
 
@@ -94,12 +96,12 @@ export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
                             <span key={aIdx}>
                               {adj.type} ({adj.description}):{" "}
                               <span className={`font-bold ${adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"}`}>
-                                {adj.direction === "ADD" ? "+" : "-"}{formatCurrency(adj.amount, locale)}
+                                {adj.direction === "ADD" ? "+" : "-"}{formatCurrency(adj.amount, locale, cur)}
                               </span>
                             </span>
                           ))}
                           <span className="font-bold print-text-primary pl-2 rtl:pl-0 rtl:pr-2">
-                            {t("netIntake", locale)}: {formatCurrency(item.netAmount, locale)}
+                            {t("netIntake", locale)}: {formatCurrency(item.netAmount, locale, cur)}
                           </span>
                         </div>
                       </td>
@@ -140,7 +142,7 @@ export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
                       {adj.rule}
                     </td>
                     <td className={`px-4 py-2.5 text-right font-bold ${adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"}`}>
-                      {adj.direction === "ADD" ? "+" : "-"} {formatCurrency(adj.amount, locale)}
+                      {adj.direction === "ADD" ? "+" : "-"} {formatCurrency(adj.amount, locale, cur)}
                     </td>
                   </tr>
                 ))}
@@ -164,7 +166,7 @@ export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
                     <div className="font-bold text-slate-700">{t("advanceAdjusted", locale)}</div>
                     <div className="text-[10px] text-slate-400 italic">{adv.notes}</div>
                   </div>
-                  <div className="font-bold text-rose-600">- {formatCurrency(adv.amount, locale)}</div>
+                  <div className="font-bold text-rose-600">- {formatCurrency(adv.amount, locale, cur)}</div>
                 </div>
               ))}
             </div>
@@ -177,20 +179,20 @@ export default function SettlementInvoiceTemplate({ data, locale = "en" }) {
             <div className="p-4 space-y-2.5 text-xs font-mono">
               <div className="flex justify-between items-center text-slate-500 rtl:flex-row-reverse">
                 <span>{t("totalGrossValue", locale)}:</span>
-                <span className="font-bold text-slate-700">{formatCurrency(data.totals.grossValue, locale)}</span>
+                <span className="font-bold text-slate-700">{formatCurrency(data.totals.grossValue, locale, cur)}</span>
               </div>
               <div className="flex justify-between items-center text-slate-500 rtl:flex-row-reverse">
                 <span>{t("totalDeductions", locale)}:</span>
-                <span className="font-bold text-rose-600">- {formatCurrency(data.totals.deductions, locale)}</span>
+                <span className="font-bold text-rose-600">- {formatCurrency(data.totals.deductions, locale, cur)}</span>
               </div>
               <div className="flex justify-between items-center text-slate-500 rtl:flex-row-reverse">
                 <span>{t("advancesDeducted", locale)}:</span>
-                <span className="font-bold text-rose-600">- {formatCurrency(data.totals.advances, locale)}</span>
+                <span className="font-bold text-rose-600">- {formatCurrency(data.totals.advances, locale, cur)}</span>
               </div>
               <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 rtl:flex-row-reverse">
                 <span className="font-bold text-slate-800">{t("netPayableAmount", locale)}:</span>
                 <span className="text-lg font-black print-text-primary">
-                  {formatCurrency(data.totals.finalPayable, locale)}
+                  {formatCurrency(data.totals.finalPayable, locale, cur)}
                 </span>
               </div>
             </div>

@@ -5,9 +5,10 @@ import { PRINT_LAYOUT } from "../theme/layout";
 import { t } from "../localization/locale";
 import { formatCurrency } from "../localization/formatters";
 
-export default function LedgerTemplate({ data, locale = "en" }) {
+export default function LedgerTemplate({ data, locale = "en", printConfig }) {
   const isMatched = data.summary?.isMatched;
   const isRTL = locale === "ur";
+  const cur = printConfig?.defaultCurrency;
 
   return (
     <BasePrintLayout
@@ -16,6 +17,7 @@ export default function LedgerTemplate({ data, locale = "en" }) {
       status={isMatched ? "MATCHED" : "MISMATCH / DRIFT"}
       landscape={true}
       locale={locale}
+      config={printConfig}
     >
       <div className="space-y-6">
         {/* Filters and Meta Details */}
@@ -82,19 +84,19 @@ export default function LedgerTemplate({ data, locale = "en" }) {
             <div className="p-4 space-y-2 text-xs font-mono">
               <div className="flex justify-between items-center text-slate-500 rtl:flex-row-reverse">
                 <span>Gross Purchase Value:</span>
-                <span>{formatCurrency(data.summary?.supplier.gross, locale)}</span>
+                <span>{formatCurrency(data.summary?.supplier.gross, locale, cur)}</span>
               </div>
               <div className="flex justify-between items-center text-slate-500 rtl:flex-row-reverse">
                 <span>Total Refraction Deductions:</span>
-                <span className="text-rose-600">- {formatCurrency(data.summary?.supplier.deductions, locale)}</span>
+                <span className="text-rose-600">- {formatCurrency(data.summary?.supplier.deductions, locale, cur)}</span>
               </div>
               <div className="flex justify-between items-center text-slate-500 rtl:flex-row-reverse">
                 <span>Advances Deducted:</span>
-                <span className="text-rose-600">- {formatCurrency(data.summary?.supplier.advances, locale)}</span>
+                <span className="text-rose-600">- {formatCurrency(data.summary?.supplier.advances, locale, cur)}</span>
               </div>
               <div className="flex justify-between items-center pt-2 border-t font-black text-slate-800 rtl:flex-row-reverse">
                 <span>Total Net Supplier Settlements:</span>
-                <span className="text-sm">{formatCurrency(data.summary?.supplier.net, locale)}</span>
+                <span className="text-sm">{formatCurrency(data.summary?.supplier.net, locale, cur)}</span>
               </div>
             </div>
           </div>
@@ -112,17 +114,17 @@ export default function LedgerTemplate({ data, locale = "en" }) {
             <div className="p-4 space-y-2 text-xs font-mono">
               <div className="flex justify-between items-center text-slate-500 rtl:flex-row-reverse">
                 <span>Base Sale Value:</span>
-                <span>{formatCurrency(data.summary?.buyer.base, locale)}</span>
+                <span>{formatCurrency(data.summary?.buyer.base, locale, cur)}</span>
               </div>
               <div className="flex justify-between items-center text-slate-500 rtl:flex-row-reverse">
                 <span>Total Billing Adjustments:</span>
                 <span className={Number(data.summary?.buyer.adjustments.replace(/,/g, '')) >= 0 ? "text-emerald-600" : "text-rose-600"}>
-                  {formatCurrency(data.summary?.buyer.adjustments, locale)}
+                  {formatCurrency(data.summary?.buyer.adjustments, locale, cur)}
                 </span>
               </div>
               <div className="flex justify-between items-center pt-2 border-t font-black text-slate-800 rtl:flex-row-reverse">
                 <span>Total Net Buyer Billing:</span>
-                <span className="text-sm">{formatCurrency(data.summary?.buyer.net, locale)}</span>
+                <span className="text-sm">{formatCurrency(data.summary?.buyer.net, locale, cur)}</span>
               </div>
             </div>
           </div>
@@ -144,7 +146,7 @@ export default function LedgerTemplate({ data, locale = "en" }) {
           </div>
           <div className="text-right">
             <span className="text-[9px] uppercase font-bold tracking-wider block opacity-70">{t("driftDifference", locale)}</span>
-            <span className="text-lg font-black">{isMatched ? formatCurrency(0, locale) : formatCurrency(data.summary?.difference, locale)}</span>
+            <span className="text-lg font-black">{isMatched ? formatCurrency(0, locale, cur) : formatCurrency(data.summary?.difference, locale, cur)}</span>
           </div>
         </div>
 
@@ -177,7 +179,7 @@ export default function LedgerTemplate({ data, locale = "en" }) {
                           <div className="text-[8px] text-slate-400">{inv.date}</div>
                         </td>
                         <td className="px-3 py-2 truncate max-w-[120px]">{inv.party}</td>
-                        <td className="px-3 py-2 text-right font-bold text-slate-800">{formatCurrency(inv.net, locale)}</td>
+                        <td className="px-3 py-2 text-right font-bold text-slate-800">{formatCurrency(inv.net, locale, cur)}</td>
                       </tr>
                     ))
                   )}
@@ -213,7 +215,7 @@ export default function LedgerTemplate({ data, locale = "en" }) {
                           <div className="text-[8px] text-slate-400">{sale.date}</div>
                         </td>
                         <td className="px-3 py-2 truncate max-w-[120px]">{sale.party}</td>
-                        <td className="px-3 py-2 text-right font-bold text-slate-800">{formatCurrency(sale.net, locale)}</td>
+                        <td className="px-3 py-2 text-right font-bold text-slate-800">{formatCurrency(sale.net, locale, cur)}</td>
                       </tr>
                     ))
                   )}

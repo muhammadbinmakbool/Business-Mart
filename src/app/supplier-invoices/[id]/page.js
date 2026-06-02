@@ -12,12 +12,17 @@ import ResponsiveHeader from "@/components/ResponsiveHeader";
 import Alert from "@/components/ui/Alert";
 import { formatMaundWeight } from "@/lib/display-units";
 import { UNIT_IDS, getUnitLabel } from "@/lib/units";
+import { getPrintSettingsAction } from "@/modules/settings/controllers/settingsActions";
 
 export default async function SupplierInvoiceDetailPage({ params, searchParams: searchParamsPromise }) {
   const { id } = await params;
   const searchParams = searchParamsPromise ? await searchParamsPromise : {};
   const backUrl = searchParams.backUrl || "/supplier-invoices";
-  const result = await getSupplierInvoiceAction(id);
+  
+  const [result, settingsResult] = await Promise.all([
+    getSupplierInvoiceAction(id),
+    getPrintSettingsAction()
+  ]);
   
   if (!result.success) {
     return (
@@ -31,6 +36,7 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
   }
 
   const invoice = result.data;
+  const printConfig = settingsResult?.success ? settingsResult.settings : null;
 
   // Recalculate per-intake breakdown using snapshot values and nested adjustments from SupplierInvoiceItems
   const { intakeBreakdowns } = calculateSupplierDeductions(
@@ -103,6 +109,7 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
           summaryAdjustments
         }}
         printFilename={`Settlement-${invoice.invoiceNumber || invoice.id}`}
+        printConfig={printConfig}
         deleteId={invoice.id}
         deleteAction={deleteSupplierInvoiceAction}
         deleteLabel="Supplier Invoice"

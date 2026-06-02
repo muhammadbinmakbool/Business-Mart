@@ -19,12 +19,17 @@ import { deleteSaleAction, updateSaleStatusAction } from "@/modules/sales/contro
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { formatMaundWeight } from "@/lib/display-units";
 import { UNIT_IDS, getUnitLabel } from "@/lib/units";
+import { getPrintSettingsAction } from "@/modules/settings/controllers/settingsActions";
 
 export default async function SaleDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
   const searchParams = searchParamsPromise ? await searchParamsPromise : {};
   const backUrl = searchParams.backUrl || "/sales";
-  const sale = await SaleService.getSale(params.id);
+
+  const [sale, settingsResult] = await Promise.all([
+    SaleService.getSale(params.id),
+    getPrintSettingsAction()
+  ]);
 
   if (!sale) {
     return (
@@ -35,6 +40,8 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
       </div>
     );
   }
+
+  const printConfig = settingsResult?.success ? settingsResult.settings : null;
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20">
@@ -65,6 +72,7 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
         printType="sale"
         printData={sale}
         printFilename={`Sale-${sale.saleNumber || sale.id}`}
+        printConfig={printConfig}
         deleteId={sale.id}
         deleteAction={deleteSaleAction}
         deleteLabel="Sale Invoice"

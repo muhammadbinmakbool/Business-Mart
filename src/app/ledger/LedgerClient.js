@@ -43,7 +43,8 @@ export default function LedgerClient({
   initialSales = [], 
   suppliers = [], 
   buyers = [], 
-  initialSessions = [] 
+  initialSessions = [],
+  printConfig = null
 }) {
   const [activeTab, setActiveTab] = useState("LIVE"); // LIVE | HISTORY
   const [searchQuery, setSearchQuery] = useState("");
@@ -266,6 +267,7 @@ export default function LedgerClient({
               type="ledger"
               data={printDataLive}
               filename={`Ledger-Live-${format(new Date(), "yyyy-MM-dd")}`}
+              printConfig={printConfig}
             />
             <button
               onClick={() => setShowSaveForm(true)}
@@ -545,6 +547,7 @@ export default function LedgerClient({
                 type="ledger"
                 data={printDataHistory}
                 filename={`Ledger-Snapshot-${viewingSessionDetails.session.title.replace(/\s+/g, "-")}`}
+                printConfig={printConfig}
               />
               <button
                 onClick={() => handleToggleLock(viewingSessionDetails.session.id)}

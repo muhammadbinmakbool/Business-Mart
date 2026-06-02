@@ -100,7 +100,10 @@ export const DOC_DICTIONARY = {
     netSettled: "Net Settled",
     netBilled: "Net Billed",
     noSupplierSettlements: "No supplier settlements",
-    noBuyerSales: "No buyer sales"
+    noBuyerSales: "No buyer sales",
+    preparedBy: "Prepared By",
+    authorizedSignature: "Authorized Signature",
+    duplicateCopy: "Duplicate Copy"
   },
   ur: {
     companyPhone: "فون",
@@ -193,7 +196,10 @@ export const DOC_DICTIONARY = {
     netSettled: "خالص تصفیہ",
     netBilled: "خالص بل",
     noSupplierSettlements: "کوئی سپلائر تصفیہ نہیں ہے",
-    noBuyerSales: "کوئی خریدار فروخت نہیں ہے"
+    noBuyerSales: "کوئی خریدار فروخت نہیں ہے",
+    preparedBy: "تیار کنندہ",
+    authorizedSignature: "مجاز دستخط",
+    duplicateCopy: "ڈپلیکیٹ کاپی"
   }
 };
 

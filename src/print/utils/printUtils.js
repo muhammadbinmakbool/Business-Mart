@@ -6,7 +6,7 @@ import { resolvePrintTemplate } from "../registry";
 /**
  * Renders the chosen React template to a static HTML string and returns its page orientation.
  */
-function renderTemplateToHTML(templateType, data, locale = "en") {
+function renderTemplateToHTML(templateType, data, locale = "en", printConfig = null) {
   let mapperArgs = [];
   let rawData = data;
 
@@ -23,7 +23,7 @@ function renderTemplateToHTML(templateType, data, locale = "en") {
     mapperArgs
   );
 
-  const htmlString = renderToString(<Component data={mappedData} locale={locale} />);
+  const htmlString = renderToString(<Component data={mappedData} locale={locale} printConfig={printConfig} />);
 
   return { htmlString, orientation };
 }
@@ -31,11 +31,12 @@ function renderTemplateToHTML(templateType, data, locale = "en") {
 /**
  * Triggers native system printing on the rendered isolated layout.
  */
-export function triggerPrint(templateType, data, locale = "en") {
-  const { htmlString, orientation } = renderTemplateToHTML(templateType, data, locale);
+export function triggerPrint(templateType, data, locale = "en", printConfig = null) {
+  const { htmlString, orientation } = renderTemplateToHTML(templateType, data, locale, printConfig);
   renderIsolatedPrint({
     htmlString,
-    orientation,
+    orientation: printConfig?.orientation?.toLowerCase() || orientation,
+    paperSize: printConfig?.paperSize?.toLowerCase() || "a4",
     generationType: "print"
   });
 }
@@ -43,13 +44,15 @@ export function triggerPrint(templateType, data, locale = "en") {
 /**
  * Generates and downloads a PDF of the rendered isolated layout.
  */
-export async function triggerDownloadPDF(templateType, data, filename, locale = "en") {
-  const { htmlString, orientation } = renderTemplateToHTML(templateType, data, locale);
+export async function triggerDownloadPDF(templateType, data, filename, locale = "en", printConfig = null) {
+  const { htmlString, orientation } = renderTemplateToHTML(templateType, data, locale, printConfig);
   await renderIsolatedPrint({
     htmlString,
-    orientation,
+    orientation: printConfig?.orientation?.toLowerCase() || orientation,
+    paperSize: printConfig?.paperSize?.toLowerCase() || "a4",
     generationType: "pdf",
     filename
   });
 }
+
 

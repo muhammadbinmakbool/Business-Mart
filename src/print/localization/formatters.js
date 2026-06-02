@@ -4,7 +4,7 @@ import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 /**
  * Format currency with default symbol and local number formatting.
  */
-export function formatCurrency(amount, locale = "en") {
+export function formatCurrency(amount, locale = "en", currencySymbol = null) {
   const num = typeof amount === "string" ? parseFloat(amount.replace(/,/g, "")) : amount;
   if (isNaN(num)) return amount;
   
@@ -13,11 +13,12 @@ export function formatCurrency(amount, locale = "en") {
     maximumFractionDigits: 2
   });
   
-  const symbol = PRINT_CONFIG.defaultCurrency;
+  const symbol = currencySymbol || PRINT_CONFIG.defaultCurrency;
   
   // Format based on locale: e.g. Rs. 1,234.56
   return `${symbol} ${formattedNum}`;
 }
+
 
 /**
  * Format weights based on the unit and locale (translating unit tags like MAUND or KG).
