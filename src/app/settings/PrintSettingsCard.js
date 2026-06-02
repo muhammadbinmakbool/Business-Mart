@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Printer, Layout, FileText, Eye, Landmark, Settings2 } from "lucide-react";
+import { Printer, Layout, FileText, Eye, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { getPrintSettingsAction, savePrintSettingsAction } from "@/modules/settings/controllers/settingsActions";
 
@@ -88,7 +88,7 @@ export default function PrintSettingsCard() {
 
       <form onSubmit={handleSave} className="space-y-8">
         {/* Core Layout Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
           {/* Default Template */}
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
@@ -132,20 +132,6 @@ export default function PrintSettingsCard() {
               <option value="PORTRAIT">Portrait</option>
               <option value="LANDSCAPE">Landscape</option>
             </select>
-          </div>
-
-          {/* Default Currency Symbol */}
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-1.5">
-              <Landmark className="h-3.5 w-3.5 text-emerald-500" /> Currency Symbol
-            </label>
-            <input
-              type="text"
-              value={settings.defaultCurrency}
-              onChange={(e) => handleChange("defaultCurrency", e.target.value)}
-              placeholder="e.g. Rs."
-              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-            />
           </div>
         </div>
 

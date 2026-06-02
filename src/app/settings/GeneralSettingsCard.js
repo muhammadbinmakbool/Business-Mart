@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Building2, Phone, Mail, MapPin, Image as ImageIcon, Landmark, Globe, Clock, Calendar, Check, AlertTriangle } from "lucide-react";
+import { Building2, Phone, Mail, MapPin, Image as ImageIcon, Landmark, Globe, Clock, Calendar, Check, AlertTriangle, Pencil, X } from "lucide-react";
 import { toast } from "sonner";
 import { getGeneralSettingsAction, saveGeneralSettingsAction, uploadLogoAction } from "@/modules/settings/controllers/settingsActions";
 
 export default function GeneralSettingsCard() {
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [initialSettings, setInitialSettings] = useState(null);
   const [settings, setSettings] = useState({
     businessName: "Rehmania & Company",
     businessShortName: "R&C",
@@ -31,6 +33,7 @@ export default function GeneralSettingsCard() {
       const res = await getGeneralSettingsAction();
       if (res.success) {
         setSettings(res.settings);
+        setInitialSettings(res.settings);
         if (res.settings.logoPath) {
           setLogoPreview(res.settings.logoPath);
         }
@@ -45,7 +48,6 @@ export default function GeneralSettingsCard() {
   const handleLogoChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Basic size validation (2MB limit)
       if (file.size > 2 * 1024 * 1024) {
         toast.error("Logo file size must be less than 2MB");
         return;
@@ -63,6 +65,15 @@ export default function GeneralSettingsCard() {
 
   const handleChange = (key, value) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleCancel = () => {
+    if (initialSettings) {
+      setSettings(initialSettings);
+      setLogoPreview(initialSettings.logoPath || "");
+      setLogoFile(null);
+    }
+    setIsEditing(false);
   };
 
   const handleSave = async (e) => {
@@ -102,6 +113,8 @@ export default function GeneralSettingsCard() {
       toast.success("General settings saved successfully!");
       setLogoFile(null);
       setSettings(finalSettings);
+      setInitialSettings(finalSettings);
+      setIsEditing(false);
     } else {
       toast.error(res.error || "Failed to save general settings.");
     }
@@ -118,9 +131,20 @@ export default function GeneralSettingsCard() {
 
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-6 animate-in fade-in duration-200 text-card-foreground">
-      <div className="flex items-center gap-2 border-b pb-3">
-        <Building2 className="h-5 w-5 text-primary" />
-        <h3 className="font-bold text-base">General Settings & Organization Profile</h3>
+      <div className="flex justify-between items-center border-b pb-3">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-5 w-5 text-primary" />
+          <h3 className="font-bold text-base">General Settings & Organization Profile</h3>
+        </div>
+        {!isEditing && (
+          <button
+            type="button"
+            onClick={() => setIsEditing(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold transition-all cursor-pointer shadow-sm"
+          >
+            <Pencil className="h-3.5 w-3.5" /> Edit Profile & Settings
+          </button>
+        )}
       </div>
 
       <p className="text-sm text-muted-foreground">
@@ -138,10 +162,11 @@ export default function GeneralSettingsCard() {
             <input
               type="text"
               required
+              disabled={!isEditing}
               value={settings.businessName}
               onChange={(e) => handleChange("businessName", e.target.value)}
               placeholder="e.g. Rehmania & Company"
-              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
             />
           </div>
 
@@ -152,10 +177,11 @@ export default function GeneralSettingsCard() {
             </label>
             <input
               type="text"
+              disabled={!isEditing}
               value={settings.businessShortName}
               onChange={(e) => handleChange("businessShortName", e.target.value)}
               placeholder="e.g. R&C"
-              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
             />
           </div>
 
@@ -166,10 +192,11 @@ export default function GeneralSettingsCard() {
             </label>
             <input
               type="text"
+              disabled={!isEditing}
               value={settings.phoneNumber}
               onChange={(e) => handleChange("phoneNumber", e.target.value)}
               placeholder="e.g. 0301-6782024"
-              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
             />
           </div>
 
@@ -180,10 +207,11 @@ export default function GeneralSettingsCard() {
             </label>
             <input
               type="email"
+              disabled={!isEditing}
               value={settings.businessEmail}
               onChange={(e) => handleChange("businessEmail", e.target.value)}
               placeholder="e.g. info@rehmania-grain.com"
-              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
             />
           </div>
 
@@ -194,10 +222,11 @@ export default function GeneralSettingsCard() {
             </label>
             <textarea
               rows={2}
+              disabled={!isEditing}
               value={settings.address}
               onChange={(e) => handleChange("address", e.target.value)}
               placeholder="e.g. Grain Market, Rahim Yar Khan, Punjab, Pakistan"
-              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60"
+              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 placeholder:text-muted-foreground/60 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
             />
           </div>
         </div>
@@ -215,7 +244,7 @@ export default function GeneralSettingsCard() {
                 <img src={logoPreview} alt="Logo preview" className="object-contain max-h-full max-w-full" />
               </div>
             ) : (
-              <div className="h-20 w-20 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center text-muted-foreground">
+              <div className="h-20 w-20 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center text-muted-foreground bg-background">
                 <ImageIcon className="h-6 w-6 opacity-30" />
                 <span className="text-[10px] mt-1 font-semibold uppercase tracking-wider">No Logo</span>
               </div>
@@ -223,15 +252,19 @@ export default function GeneralSettingsCard() {
 
             <div className="flex-1 space-y-2 text-center sm:text-left">
               <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
-                <label className="bg-primary text-primary-foreground hover:bg-primary/90 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all shadow-sm">
-                  Upload Custom File
-                  <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
+                <label className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all shadow-sm flex items-center gap-1.5 ${
+                  isEditing 
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90" 
+                    : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
+                }`}>
+                  Upload Custom Logo
+                  {isEditing && <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />}
                 </label>
-                {logoPreview && (
+                {logoPreview && isEditing && (
                   <button
                     type="button"
                     onClick={handleRemoveLogo}
-                    className="border border-destructive/30 hover:border-destructive hover:bg-destructive/10 text-destructive px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                    className="border border-destructive/30 hover:border-destructive hover:bg-destructive/10 text-destructive px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer"
                   >
                     Remove Logo
                   </button>
@@ -257,9 +290,10 @@ export default function GeneralSettingsCard() {
                 <Landmark className="h-3.5 w-3.5 text-primary" /> Currency Symbol
               </label>
               <select
+                disabled={!isEditing}
                 value={settings.currencySymbol}
                 onChange={(e) => handleChange("currencySymbol", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
               >
                 <option value="Rs.">Rs. (PKR Symbol)</option>
                 <option value="$">$ (USD Symbol)</option>
@@ -275,9 +309,10 @@ export default function GeneralSettingsCard() {
                 <Landmark className="h-3.5 w-3.5 text-primary" /> Currency Code
               </label>
               <select
+                disabled={!isEditing}
                 value={settings.currencyCode}
                 onChange={(e) => handleChange("currencyCode", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
               >
                 <option value="PKR">PKR (Pakistani Rupee)</option>
                 <option value="USD">USD (US Dollar)</option>
@@ -293,9 +328,10 @@ export default function GeneralSettingsCard() {
                 <Landmark className="h-3.5 w-3.5 text-primary" /> Decimal Places (Precision)
               </label>
               <select
+                disabled={!isEditing}
                 value={settings.decimalPlaces}
                 onChange={(e) => handleChange("decimalPlaces", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
               >
                 <option value="0">0 (e.g. 5,000)</option>
                 <option value="1">1 (e.g. 5,000.0)</option>
@@ -311,9 +347,10 @@ export default function GeneralSettingsCard() {
                 <Globe className="h-3.5 w-3.5 text-primary" /> Default Language
               </label>
               <select
+                disabled={!isEditing}
                 value={settings.defaultLanguage}
                 onChange={(e) => handleChange("defaultLanguage", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
               >
                 <option value="en">English</option>
                 <option value="ur">Urdu (اردو)</option>
@@ -326,9 +363,10 @@ export default function GeneralSettingsCard() {
                 <Clock className="h-3.5 w-3.5 text-primary" /> Timezone
               </label>
               <select
+                disabled={!isEditing}
                 value={settings.timezone}
                 onChange={(e) => handleChange("timezone", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
               >
                 <option value="Asia/Karachi">Asia/Karachi (GMT+5)</option>
                 <option value="UTC">UTC (Universal Time)</option>
@@ -341,9 +379,10 @@ export default function GeneralSettingsCard() {
                 <Calendar className="h-3.5 w-3.5 text-primary" /> Date Format
               </label>
               <select
+                disabled={!isEditing}
                 value={settings.dateFormat}
                 onChange={(e) => handleChange("dateFormat", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
               >
                 <option value="DD/MM/YYYY">DD/MM/YYYY (e.g. 31/12/2026)</option>
                 <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 12/31/2026)</option>
@@ -353,22 +392,36 @@ export default function GeneralSettingsCard() {
           </div>
         </div>
 
-        {/* Save Button */}
-        <div className="flex justify-end pt-5 border-t">
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-primary text-primary-foreground hover:bg-primary/95 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
-          >
-            {saving ? (
-              <>Saving Settings...</>
-            ) : (
-              <>
-                <Check className="h-4 w-4" /> Save General Settings
-              </>
-            )}
-          </button>
-        </div>
+        {/* Action Button Panel */}
+        {isEditing ? (
+          <div className="flex justify-end gap-3 pt-5 border-t">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="border border-input hover:bg-accent hover:text-accent-foreground px-5 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <X className="h-4 w-4" /> Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="bg-primary text-primary-foreground hover:bg-primary/95 px-5 py-2.5 rounded-lg text-sm font-semibold transition-all shadow-sm disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+            >
+              {saving ? (
+                <>Saving Settings...</>
+              ) : (
+                <>
+                  <Check className="h-4 w-4" /> Save General Settings
+                </>
+              )}
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 p-3 rounded-xl border border-primary/20 bg-primary/5 text-xs text-primary font-medium">
+            <AlertTriangle className="h-4 w-4" />
+            <span>Settings editing is locked. Click the "Edit Profile & Settings" button at the top to modify these configurations.</span>
+          </div>
+        )}
       </form>
     </div>
   );

@@ -8,6 +8,7 @@ import { DOCUMENT_CONFIG } from "../config/documentConfig";
 export const PRINT_CONFIG = {
   paperSize: DOCUMENT_CONFIG.paperSize || "A4",
   defaultCurrency: DOCUMENT_CONFIG.defaultCurrency || "Rs.",
+  decimalPlaces: DOCUMENT_CONFIG.decimalPlaces !== undefined ? DOCUMENT_CONFIG.decimalPlaces : 2,
   systemVersion: DOCUMENT_CONFIG.systemVersion || "v1.0",
   margins: {
     portrait: "15mm 12mm 15mm 12mm",
