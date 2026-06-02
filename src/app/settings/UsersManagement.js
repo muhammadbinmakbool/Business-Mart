@@ -40,6 +40,13 @@ export default function UsersManagement() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [activeUser, setActiveUser] = useState(null);
 
+  // Details Modal states
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [selectedUserForDetails, setSelectedUserForDetails] = useState(null);
+  const [isModalEditMode, setIsModalEditMode] = useState(false);
+  const [phoneDetails, setPhoneDetails] = useState("");
+  const [addressDetails, setAddressDetails] = useState("");
+
   // Form states
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -65,6 +72,34 @@ export default function UsersManagement() {
     loadSession();
     fetchUsers();
   }, []);
+
+  const handleOpenDetails = (user) => {
+    setSelectedUserForDetails(user);
+    setPhoneDetails(user.phoneNumber || "");
+    setAddressDetails(user.address || "");
+    setIsModalEditMode(false);
+    setIsDetailsOpen(true);
+  };
+
+  const handleSaveDetails = async (e) => {
+    if (e) e.preventDefault();
+    
+    const formData = new FormData();
+    formData.append("phoneNumber", phoneDetails);
+    formData.append("address", addressDetails);
+
+    startTransition(async () => {
+      const res = await updateUserAction(selectedUserForDetails.id, formData);
+      if (res?.success) {
+        toast.success("User profile updated successfully");
+        setIsModalEditMode(false);
+        setIsDetailsOpen(false);
+        fetchUsers();
+      } else {
+        toast.error(res?.error || "Failed to update profile");
+      }
+    });
+  };
 
   const handleOpenCreate = () => {
     setName("");
@@ -307,6 +342,12 @@ export default function UsersManagement() {
                         return (
                           <div className="flex items-center justify-end gap-2">
                             <button
+                              onClick={() => handleOpenDetails(u)}
+                              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-accent text-accent-foreground hover:bg-accent/80 transition-colors cursor-pointer mr-1"
+                            >
+                              View Details
+                            </button>
+                            <button
                               onClick={() => handleOpenEdit(u)}
                               disabled={isTargetProtected}
                               className={`p-1.5 rounded-lg transition-colors ${
@@ -412,6 +453,155 @@ export default function UsersManagement() {
             </select>
           </div>
         </form>
+      </Modal>
+
+      {/* User Details & Profile Edit Modal */}
+      <Modal
+        isOpen={isDetailsOpen}
+        onClose={() => setIsDetailsOpen(false)}
+        title="User Profile Details"
+        type="info"
+        size="md"
+        footer={
+          <div className="border-t px-6 py-4 bg-muted/20 flex justify-end gap-3 font-medium shrink-0">
+            {isModalEditMode ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsModalEditMode(false)}
+                  className="px-4 py-2 border rounded-lg text-sm hover:bg-accent transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveDetails}
+                  disabled={isPending}
+                  className="px-5 py-2 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/95 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isPending ? "Saving..." : "Save Changes"}
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsDetailsOpen(false)}
+                  className="px-4 py-2 border rounded-lg text-sm hover:bg-accent transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsModalEditMode(true)}
+                  className="px-5 py-2 rounded-lg text-sm font-semibold bg-primary text-primary-foreground hover:bg-primary/95 transition-colors cursor-pointer"
+                >
+                  Edit Profile
+                </button>
+              </>
+            )}
+          </div>
+        }
+      >
+        <div className="space-y-4 text-sm">
+          {isModalEditMode ? (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground font-semibold">Full Name (Read-only)</span>
+                <div className="font-semibold text-foreground bg-muted/30 px-3 py-2 rounded-lg border">{selectedUserForDetails?.name || "Unnamed"}</div>
+              </div>
+              <div className="space-y-1">
+                <span className="text-xs text-muted-foreground font-semibold">Email Address (Read-only)</span>
+                <div className="font-semibold text-foreground bg-muted/30 px-3 py-2 rounded-lg border">{selectedUserForDetails?.email}</div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Phone Number</label>
+                <input
+                  type="text"
+                  placeholder="E.g. +92 300 1234567"
+                  value={phoneDetails}
+                  onChange={(e) => setPhoneDetails(e.target.value)}
+                  className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Address</label>
+                <textarea
+                  placeholder="Enter full address"
+                  value={addressDetails}
+                  onChange={(e) => setAddressDetails(e.target.value)}
+                  className="w-full min-h-[80px] p-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-xs text-muted-foreground font-semibold">Full Name</span>
+                  <div className="font-bold text-foreground">{selectedUserForDetails?.name || "Unnamed"}</div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-xs text-muted-foreground font-semibold">Role</span>
+                  <div>
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      selectedUserForDetails?.role === "ADMIN" 
+                        ? "bg-primary/10 text-primary border border-primary/20" 
+                        : "bg-muted text-muted-foreground border"
+                    }`}>
+                      <Shield className="h-3.5 w-3.5" />
+                      {selectedUserForDetails?.role}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1 border-t pt-3">
+                <span className="text-xs text-muted-foreground font-semibold">Email Address</span>
+                <div className="font-semibold text-foreground">{selectedUserForDetails?.email}</div>
+              </div>
+
+              <div className="space-y-1 border-t pt-3">
+                <span className="text-xs text-muted-foreground font-semibold">Phone Number</span>
+                <div className="font-semibold text-foreground">
+                  {selectedUserForDetails?.phoneNumber ? (
+                    selectedUserForDetails.phoneNumber
+                  ) : (
+                    <span className="text-muted-foreground italic text-xs">Not Set</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1 border-t pt-3">
+                <span className="text-xs text-muted-foreground font-semibold">Address</span>
+                <div className="font-semibold text-foreground">
+                  {selectedUserForDetails?.address ? (
+                    selectedUserForDetails.address
+                  ) : (
+                    <span className="text-muted-foreground italic text-xs">Not Set</span>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1 border-t pt-3">
+                <span className="text-xs text-muted-foreground font-semibold">Created At</span>
+                <div className="text-muted-foreground text-xs font-medium">
+                  {selectedUserForDetails?.createdAt ? (
+                    new Date(selectedUserForDetails.createdAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })
+                  ) : (
+                    "N/A"
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </Modal>
 
       {/* Edit User Modal */}

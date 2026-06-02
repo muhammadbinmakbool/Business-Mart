@@ -65,37 +65,56 @@ export async function createUserAction(formData) {
 export async function updateUserAction(id, formData) {
   const confirmPassword = formData.get("confirmPassword");
   const newRole = formData.get("role");
+  const email = formData.get("email");
+  const name = formData.get("name");
+  const password = formData.get("password");
+  const phoneNumber = formData.get("phoneNumber");
+  const address = formData.get("address");
 
   try {
     const targetUser = await UserService.getUser(id);
 
-    await assertSensitiveAction({
-      actionName: "Update Operator Profile",
-      confirmPassword,
-      customAssertion: (session) => {
-        if (!canManageUserRole(session.role, targetUser.role)) {
-          throw new Error("Forbidden: You cannot modify this account");
-        }
-        if (newRole) {
-          if (!canManageUserRole(session.role, newRole)) {
-            throw new Error(`Forbidden: You cannot promote an operator to ${newRole}`);
+    // Only require sensitive re-auth if authentication or role variables are modified
+    const isSensitiveUpdate = (email && email !== targetUser.email) ||
+                              (name && name !== targetUser.name) ||
+                              (newRole && newRole !== targetUser.role) ||
+                              (password);
+
+    if (isSensitiveUpdate) {
+      await assertSensitiveAction({
+        actionName: "Update Operator Profile",
+        confirmPassword,
+        customAssertion: (session) => {
+          if (!canManageUserRole(session.role, targetUser.role)) {
+            throw new Error("Forbidden: You cannot modify this account");
           }
-          if (!canEditSelfRole(session.userId, id, newRole, targetUser.role)) {
-            throw new Error("Forbidden: Lockout protection activated. You cannot change your own role.");
+          if (newRole) {
+            if (!canManageUserRole(session.role, newRole)) {
+              throw new Error(`Forbidden: You cannot promote an operator to ${newRole}`);
+            }
+            if (!canEditSelfRole(session.userId, id, newRole, targetUser.role)) {
+              throw new Error("Forbidden: Lockout protection activated. You cannot change your own role.");
+            }
           }
         }
+      });
+    } else {
+      const session = await getSession();
+      if (!session || (session.role !== USER_ROLES.SUPER_ADMIN && session.role !== USER_ROLES.ADMIN)) {
+        throw new Error("Unauthorized access to user profile updates");
       }
-    });
+      if (!canManageUserRole(session.role, targetUser.role)) {
+        throw new Error("Forbidden: You cannot modify this account");
+      }
+    }
 
     const data = {};
-    const email = formData.get("email");
-    const name = formData.get("name");
-    const password = formData.get("password");
-
     if (email) data.email = email;
     if (name) data.name = name;
     if (password) data.password = password;
     if (newRole) data.role = newRole;
+    if (formData.has("phoneNumber")) data.phoneNumber = phoneNumber || null;
+    if (formData.has("address")) data.address = address || null;
 
     await UserService.updateUser(id, data);
     revalidatePath("/settings");

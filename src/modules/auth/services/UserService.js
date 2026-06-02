@@ -34,13 +34,17 @@ export class UserService {
   }
 
   static async updateUser(id, data) {
-    const validated = updateUserSchema.parse(data);
+    const { phoneNumber, address, ...rest } = data;
+    const validated = updateUserSchema.parse(rest);
 
     const updateData = {};
     if (validated.email !== undefined) updateData.email = validated.email;
     if (validated.name !== undefined) updateData.name = validated.name;
     if (validated.role !== undefined) updateData.role = validated.role;
     if (validated.isActive !== undefined) updateData.isActive = validated.isActive;
+    
+    if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
+    if (address !== undefined) updateData.address = address;
 
     // Only hash and update password if a new one is provided
     if (validated.password) {
