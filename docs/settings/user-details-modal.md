@@ -29,15 +29,15 @@ prisma/
 src/
 ├── app/
 │   └── settings/
-│       └── UsersManagement.js              # Users management list and UserDetailsModal integration
+│       └── UsersManagement.js              # Users management list, UserDetailsModal, Add User Modal, Edit User Modal integration
 ├── modules/
 │   └── auth/
 │       ├── controllers/
-│       │   └── userActions.js              # Server Action: updateUserAction
+│       │   └── userActions.js              # Server Actions: createUserAction, updateUserAction
 │       ├── repositories/
 │       │   └── UserRepository.js           # select query phoneNumber / address column fields
 │       └── services/
-│           └── UserService.js              # UserService.updateUser handles phoneNumber / address
+│           └── UserService.js              # UserService.createUser & updateUser handle phoneNumber / address
 ```
 
 ---
@@ -80,22 +80,32 @@ select: {
 }
 ```
 
-### 4.2 UserService update mapping
-`UserService.updateUser` splits off the newly introduced profile fields prior to schema validation:
+### 4.2 UserService updates
+`UserService.createUser` and `UserService.updateUser` split off the newly introduced profile fields prior to schema validation:
 ```javascript
+  static async createUser(data) {
+    const { phoneNumber, address, ...rest } = data;
+    const validated = createUserSchema.parse(rest);
+    // ...
+    return UserRepository.create({
+      // ...
+      phoneNumber: phoneNumber || null,
+      address: address || null,
+    });
+  }
+
   static async updateUser(id, data) {
     const { phoneNumber, address, ...rest } = data;
     const validated = updateUserSchema.parse(rest);
-
-    const updateData = {};
     // ...
     if (phoneNumber !== undefined) updateData.phoneNumber = phoneNumber;
     if (address !== undefined) updateData.address = address;
     // ...
 ```
 
-### 4.3 userActions conditional bypass
-`updateUserAction` in `userActions.js` evaluates if the incoming payload contains sensitive variables. If none are present, `assertSensitiveAction` is bypassed to avoid presenting password prompt popups:
+### 4.3 userActions updates
+- `createUserAction` reads `phoneNumber` and `address` from `formData` and includes them in the creation payload.
+- `updateUserAction` in `userActions.js` evaluates if the incoming payload contains sensitive variables. If none are present, `assertSensitiveAction` is bypassed to avoid presenting password prompt popups:
 ```javascript
     const isSensitiveUpdate = (email && email !== targetUser.email) ||
                               (name && name !== targetUser.name) ||
@@ -105,11 +115,22 @@ select: {
 
 ---
 
-## 5. Frontend UI Modal Integration
+## 5. Frontend UI Integration in UsersManagement.js
 
+### 5.1 User Details Modal
 - Renders inside `/settings?tab=security`.
 - Clicking the **View Details** button on any user row triggers `handleOpenDetails(user)` and displays the Details modal.
 - Integrates `isModalEditMode` state switches:
   - **Read mode**: Renders profile values or "Not Set" indicators. Shows **Edit Profile** and **Close** controls.
   - **Edit mode**: Shows inline text inputs and textareas for Phone Number and Address, along with **Save Changes** and **Cancel** buttons.
 - On save, `handleSaveDetails` sends a `FormData` payload containing the profile fields via `updateUserAction`, triggers a toast, closes the modal, and calls `fetchUsers()` to update the main settings list table view.
+
+### 5.2 Add Operator Modal (`isCreateOpen`)
+- Form contains new input fields for **Phone Number** and **Address**.
+- Fields are bound to state variables `phone` and `address`, and appended to `formData` upon submission.
+
+### 5.3 Edit Operator Modal (`isEditOpen`)
+- Form contains new input fields for **Phone Number** and **Address**.
+- Existing values are initialized in `handleOpenEdit` using `setPhone(user.phoneNumber)` and `setAddress(user.address)`.
+- Input fields allow updating these details, along with changing the password using the existing password change input field.
+- Submitting the form appends these fields to `formData` to execute the database update.
