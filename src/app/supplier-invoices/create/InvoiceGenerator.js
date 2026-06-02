@@ -22,8 +22,9 @@ import { cn, getLocalDateString } from "@/lib/utils";
 import { toast } from "sonner";
 import { ADJUSTMENT_TYPES_SUPPLIER } from "@/lib/constants";
 import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 
-export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
+export default function InvoiceGenerator({ suppliers, initialInvoice = null, settings = null }) {
   const router = useRouter();
   const [step, setStep] = useState(initialInvoice ? 2 : 1);
 
@@ -53,12 +54,14 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const visibleAdjustmentTypes = getVisibleAdjustments(ADJUSTMENT_TYPES_SUPPLIER, settings);
+
   // Per-intake adjustments state: { [intakeId]: [adjustments] }
   const [adjustmentsByIntake, setAdjustmentsByIntake] = useState({});
   const [activeIntakeForAdjustment, setActiveIntakeForAdjustment] = useState(null);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   const [currentAdjustment, setCurrentAdjustment] = useState({
-    adjustmentType: ADJUSTMENT_TYPES_SUPPLIER[0] || "Labour",
+    adjustmentType: visibleAdjustmentTypes[0] || ADJUSTMENT_TYPES_SUPPLIER[0] || "Labour",
     method: "PERCENTAGE",
     direction: "SUBTRACT",
     value: "",
@@ -722,7 +725,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null }) {
                       onChange={e => setCurrentAdjustment({...currentAdjustment, adjustmentType: e.target.value})}
                       className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-card-foreground"
                     >
-                      {ADJUSTMENT_TYPES_SUPPLIER.map(type => (
+                      {visibleAdjustmentTypes.map(type => (
                         <option key={type} value={type}>{type}</option>
                       ))}
                     </select>

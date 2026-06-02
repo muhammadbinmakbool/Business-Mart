@@ -50,6 +50,12 @@ export default async function EditSalePage({ params: paramsPromise }) {
   const buyers = parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH"));
   const activeProducts = products.filter(p => p.isActive);
 
+  const { prisma } = await import("@/lib/prisma");
+  const settingsRecord = await prisma.systemSetting.findUnique({
+    where: { key: "adjustment_visibility" }
+  });
+  const settings = settingsRecord ? JSON.parse(settingsRecord.value) : { adjustmentVisibility: {} };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20">
       <div className="flex items-center gap-4">
@@ -66,7 +72,7 @@ export default async function EditSalePage({ params: paramsPromise }) {
       </div>
 
       <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <SaleForm buyers={buyers} products={activeProducts} initialData={sale} />
+        <SaleForm buyers={buyers} products={activeProducts} initialData={sale} settings={settings} />
       </div>
     </div>
   );

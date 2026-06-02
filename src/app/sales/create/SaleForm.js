@@ -14,8 +14,9 @@ import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
 import Alert from "@/components/ui/Alert";
 import Modal from "@/components/ui/Modal";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
+import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 
-export default function SaleForm({ buyers, products, initialData = null }) {
+export default function SaleForm({ buyers, products, initialData = null, settings = null }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
@@ -48,12 +49,14 @@ export default function SaleForm({ buyers, products, initialData = null }) {
     })) || []
   );
   
+  const visibleAdjustmentTypes = getVisibleAdjustments(ADJUSTMENT_TYPES_BUYER, settings);
+
   // UI State
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   const [isNewBuyer, setIsNewBuyer] = useState(false);
   const [newBuyerData, setNewBuyerData] = useState({ name: "", phoneNumber: "", address: "", notes: "" });
   const [currentAdjustment, setCurrentAdjustment] = useState({ 
-    adjustmentType: "Commission", 
+    adjustmentType: visibleAdjustmentTypes[0] || ADJUSTMENT_TYPES_BUYER[0] || "Commission", 
     method: "PERCENTAGE", 
     value: "", 
     direction: "ADD",
@@ -808,7 +811,7 @@ export default function SaleForm({ buyers, products, initialData = null }) {
               onChange={e => setCurrentAdjustment({...currentAdjustment, adjustmentType: e.target.value})}
               className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
             >
-              {ADJUSTMENT_TYPES_BUYER.map(type => (
+              {visibleAdjustmentTypes.map(type => (
                 <option key={type} value={type}>{type}</option>
               ))}
             </select>

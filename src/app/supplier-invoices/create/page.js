@@ -44,6 +44,11 @@ export default async function CreateSupplierInvoicePage() {
     orderBy: { name: "asc" }
   });
 
+  const settingsRecord = await prisma.systemSetting.findUnique({
+    where: { key: "adjustment_visibility" }
+  });
+  const settings = settingsRecord ? JSON.parse(settingsRecord.value) : { adjustmentVisibility: {} };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       <div className="flex items-center gap-4">
@@ -59,7 +64,7 @@ export default async function CreateSupplierInvoicePage() {
         </div>
       </div>
 
-      <InvoiceGenerator suppliers={JSON.parse(JSON.stringify(suppliers))} />
+      <InvoiceGenerator suppliers={JSON.parse(JSON.stringify(suppliers))} settings={settings} />
     </div>
   );
 }
