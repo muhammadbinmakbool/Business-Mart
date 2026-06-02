@@ -3,7 +3,7 @@ import {
   formatCurrency as baseFormatCurrency, 
   formatWeight as baseFormatWeight, 
   formatBags as baseFormatBags 
-} from "@/lib/formatters/financialFormatter";
+} from "@/lib/financial/format";
 
 /**
  * Format currency with default symbol and local number formatting.

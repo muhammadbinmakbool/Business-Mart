@@ -1,8 +1,8 @@
-import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { round } from "../financial";
+import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "../units";
 
 /**
- * Formats a currency value based on locale, custom symbol, and precision.
- * This is the application-wide source of truth for display formatting of money.
+ * Formats a currency value using the core financial `round` logic and locale-specific grouping.
  * 
  * @param {number|string} amount - The currency amount to format
  * @param {string} locale - 'en' or 'ur'
@@ -15,7 +15,11 @@ export function formatCurrency(amount, locale = "en", currencySymbol = "Rs.", de
   if (num === null || num === undefined || isNaN(num)) return amount;
   
   const precision = typeof decimalPlaces === "number" ? decimalPlaces : 2;
-  const formattedNum = Number(num).toLocaleString(locale === "ur" ? "ur-PK" : "en-US", {
+  
+  // Enforce the core rounding logic from financial.js
+  const roundedAmount = round(num, precision);
+  
+  const formattedNum = Number(roundedAmount).toLocaleString(locale === "ur" ? "ur-PK" : "en-US", {
     minimumFractionDigits: precision,
     maximumFractionDigits: precision
   });
@@ -25,7 +29,7 @@ export function formatCurrency(amount, locale = "en", currencySymbol = "Rs.", de
 }
 
 /**
- * Formats weights with dynamic support for Maund (MND) and Kilograms (KG).
+ * Formats weights with support for Maund (MND) and Kilograms (KG).
  * Handles Urdu translation (RTL) and fractional Maund parsing.
  * 
  * @param {number|string} weight - Weight amount
