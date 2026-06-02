@@ -137,7 +137,7 @@ function SettingsContent() {
             }`}
           >
             <Sliders className="h-4 w-4" />
-            Defaults
+            Default Products
           </button>
 
           <button 

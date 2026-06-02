@@ -300,7 +300,7 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
           </div>
         ) : (
           <div className="flex-1">
-            <PrintPreviewFrame printStyles={printStyles}>
+            <PrintPreviewFrame printStyles={printStyles} printConfig={printConfig}>
               {content}
             </PrintPreviewFrame>
           </div>

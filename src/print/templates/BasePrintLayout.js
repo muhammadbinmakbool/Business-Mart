@@ -19,10 +19,11 @@ export default function BasePrintLayout({
   const activeConfig = getMergedDocumentConfig(config);
 
   const displayWatermark = showWatermark !== null ? showWatermark : activeConfig.showWatermark;
+  const isLandscape = landscape || activeConfig.orientation === "LANDSCAPE";
 
   return (
     <div className="print-page" dir={isRTL ? "rtl" : "ltr"}>
-      <div className={`print-container p-6 ${landscape ? "print-landscape" : ""}`}>
+      <div className={`print-container p-6 ${isLandscape ? "print-landscape" : ""}`}>
         {/* Watermark */}
         {displayWatermark && (
           <div className="print-watermark">
