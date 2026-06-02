@@ -117,9 +117,24 @@ When editing print templates (`src/print/templates/*.js`), follow these rules:
 
 ---
 
-## 🎨 Global Branding Configuration
+## 🎨 Global Branding Configuration & Priority Rules
 
-Company name, address, phone, email, watermark text and system version can be edited in `src/print/config/documentConfig.js`.
+Company profile information, branding, watermark toggles, page orientation, and precision preferences are resolved using `getMergedDocumentConfig(printSettings, generalSettings)` (from `src/print/config/documentConfig.js`).
+- **Identity Layer (General Settings)** takes precedence for identity and precision configurations.
+- **Presentation Layer (Print Settings)** handles page layout/orientation overrides.
+
+---
+
+## 🧮 Unified Output Formatting (Anti-Drift Rule)
+
+To prevent financial calculations from drifting between printable documents (e.g., invoices, receipts) and application ledger tables, **the printing subsystem does not define its own rounding or formatting logic.**
+
+- All templates must import formatting functions exclusively from the core system formatter:
+  ```javascript
+  import { formatCurrency, formatWeight, formatBags } from "@/lib/formatters/financialFormatter";
+  ```
+- **Underlying Rounding**: The `financialFormatter` delegates all rounding operations to the core calculation rounding engine `round(value, decimals)` defined in `src/lib/financial.js` to enforce strict transactional consistency.
+- No local print-wrapper formatting files or custom math helpers are permitted under `src/print/`.
 
 ---
 

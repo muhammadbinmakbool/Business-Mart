@@ -47,24 +47,35 @@ This separation keeps identity properties isolated from `print_settings` and `ad
 
 ---
 
-## 🔗 Integration Architecture
+## 🔗 Integration Architecture & Configuration Priority
 
-Print templates and reporting components must stay database-agnostic. To fetch settings data:
+Print templates, reporting views, and financial components must stay database-agnostic. To fetch settings data:
 1. Controllers or Server Pages fetch `getGeneralSettingsAction()` and `getPrintSettingsAction()` in parallel.
-2. The objects are merged client-side/server-side and passed downstream as a single `printConfig` prop.
-3. The merge handler `getMergedDocumentConfig(settings)` maps general values to existing template-supported keys:
-   - `businessName` ➡️ `companyName`
-   - `address` ➡️ `companyAddress`
-   - `phoneNumber` ➡️ `companyPhone`
-   - `businessEmail` ➡️ `companyEmail`
-   - `logoPath` ➡️ `logoUrl`
-   - `currencySymbol` ➡️ `defaultCurrency`
-   - `decimalPlaces` ➡️ `decimalPlaces`
-   - `dateFormat` ➡️ `dateFormat`
+2. The settings are merged using the strict multi-tier hierarchy in `getMergedDocumentConfig(printSettings, generalSettings)`:
+   - **Identity Layer (General Settings)** takes absolute precedence for branding, profile information, currency symbols, and precision decimal places.
+   - **Presentation Layer (Print Settings)** overrides layout visibility controls and template-specific configuration.
+   - **System Defaults** act as final fallbacks.
+
+The merge handler maps keys downstream for templates:
+- `businessName` ➡️ `companyName`
+- `address` ➡️ `companyAddress`
+- `phoneNumber` ➡️ `companyPhone`
+- `businessEmail` ➡️ `companyEmail`
+- `logoPath` ➡️ `logoUrl`
+- `currencySymbol` ➡️ `defaultCurrency`
+- `decimalPlaces` ➡️ `decimalPlaces`
+- `dateFormat` ➡️ `dateFormat`
 
 ---
 
-## 🚀 Usage & Future Extension Guidelines
+## 🚀 Usage & File Storage Guidelines
 
-- **Logo Upload**: Uploaded files are written directly to the server's local disk under `public/uploads/` with a cache-busting timestamp prefix. Only the relative path `/uploads/filename` is saved to the database.
-- **Precision (Decimal Places)**: Templates use the custom `formatCurrency` wrapper, which accepts the dynamic `decimalPlaces` preference to enforce consistent rounding and rendering decimals.
+- **Persistent File Storage (`src/lib/fileStorage.js`)**: Uploaded assets (like company logos or receipts) are managed by a generic, reusable filesystem storage utility.
+  - Files are stored in a persistent directory configured via `process.env.UPLOAD_DIR` (falling back to a local `public/uploads` directory).
+  - Filenames are sanitized (removing special characters and spaces, appending unique timestamps).
+  - **Orphan Cleanup**: Replaced files are automatically deleted from the disk in the action layer to prevent directory bloat.
+
+- **Precision & Rounding (`src/lib/formatters/financialFormatter.js`)**:
+  - All output-boundary formatting (currency, weight, bag count) is unified under a single source of truth: `src/lib/formatters/financialFormatter.js`.
+  - To prevent floating-point rounding discrepancies and ERP financial drift, the formatter imports and applies the core `round` math function from `src/lib/financial.js`.
+  - **No print-specific or module-specific rounding logic is allowed in any other subsystem.** All UI, print templates, and reports must reference the single `financialFormatter` utility.
