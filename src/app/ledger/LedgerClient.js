@@ -44,8 +44,11 @@ export default function LedgerClient({
   suppliers = [], 
   buyers = [], 
   initialSessions = [],
-  printConfig = null
+  printConfig = null,
+  settlementSettings = null
 }) {
+  const tolerance = settlementSettings?.reconciliationTolerance !== undefined ? Number(settlementSettings.reconciliationTolerance) : DEFAULT_TOLERANCE;
+
   const [activeTab, setActiveTab] = useState("LIVE"); // LIVE | HISTORY
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSupplierId, setSelectedSupplierId] = useState("ALL");
@@ -124,8 +127,8 @@ export default function LedgerClient({
 
   // 2. Centralized live calculations invocation (NO INLINE FORMULAS)
   const liveSummary = useMemo(() => {
-    return calculateReconciliationSummary(filteredInvoices, filteredSales, DEFAULT_TOLERANCE);
-  }, [filteredInvoices, filteredSales]);
+    return calculateReconciliationSummary(filteredInvoices, filteredSales, tolerance);
+  }, [filteredInvoices, filteredSales, tolerance]);
 
   const selectedSupplierName = useMemo(() => {
     if (selectedSupplierId === "ALL") return "All Suppliers";
@@ -177,7 +180,7 @@ export default function LedgerClient({
           activeCount: viewingSessionDetails.session.buyerInvoiceCount,
         },
         difference: viewingSessionDetails.session.difference,
-        matched: Math.abs(Number(viewingSessionDetails.session.difference)) <= 1.00
+        matched: Math.abs(Number(viewingSessionDetails.session.difference)) <= tolerance
       },
       isSavedSession: true,
       drift: viewingSessionDetails.drift
@@ -441,7 +444,7 @@ export default function LedgerClient({
                         {formatRs(sess.buyerTotal)}
                       </td>
                       <td className="px-6 py-4 text-right font-bold">
-                        <span className={Math.abs(Number(sess.difference)) <= 1.00 ? "text-emerald-600" : "text-rose-600"}>
+                        <span className={Math.abs(Number(sess.difference)) <= tolerance ? "text-emerald-600" : "text-rose-600"}>
                           {formatRs(sess.difference)}
                         </span>
                       </td>

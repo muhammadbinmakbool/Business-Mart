@@ -3,13 +3,13 @@ export const dynamic = "force-dynamic";
 import React from "react";
 import { prisma } from "@/lib/prisma";
 import { LedgerService } from "@/modules/ledger/services/LedgerService";
-import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { getPrintSettingsAction, getGeneralSettingsAction, getSettlementLedgerSettingsAction } from "@/modules/settings/controllers/settingsActions";
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 import LedgerClient from "./LedgerClient";
 
 export default async function LedgerPage() {
   // Query active parties for filtering
-  const [parties, liveData, sessionsResult, settingsResult, generalSettingsResult] = await Promise.all([
+  const [parties, liveData, sessionsResult, settingsResult, generalSettingsResult, settlementSettingsResult] = await Promise.all([
     prisma.party.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" }
@@ -17,7 +17,8 @@ export default async function LedgerPage() {
     LedgerService.getLiveReconciliationData(),
     LedgerService.listSessions(),
     getPrintSettingsAction(),
-    getGeneralSettingsAction()
+    getGeneralSettingsAction(),
+    getSettlementLedgerSettingsAction()
   ]);
 
   const suppliers = parties.filter(p => p.partyType === "SUPPLIER" || p.partyType === "BOTH");
@@ -35,6 +36,7 @@ export default async function LedgerPage() {
       buyers={JSON.parse(JSON.stringify(buyers))}
       initialSessions={sessionsResult}
       printConfig={printConfig}
+      settlementSettings={settlementSettingsResult?.success ? settlementSettingsResult.settings : {}}
     />
   );
 }

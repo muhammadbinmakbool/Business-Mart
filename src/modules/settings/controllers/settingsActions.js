@@ -6,6 +6,7 @@ import fs from "fs/promises";
 import path from "path";
 import { storeFile, deleteFile } from "@/lib/fileStorage";
 import { getInventorySettings, DEFAULT_INVENTORY_SETTINGS } from "@/lib/settings/inventorySettings";
+import { getSettlementLedgerSettings, DEFAULT_SETTLEMENT_LEDGER_SETTINGS } from "@/lib/settings/settlementLedgerSettings";
 
 export async function getSettings() {
   try {
@@ -388,6 +389,65 @@ export async function saveInventorySettingsAction(settings) {
     return { success: false, error: error.message || "Failed to save inventory settings" };
   }
 }
+
+/**
+ * Action to fetch settlement & ledger settings.
+ */
+export async function getSettlementLedgerSettingsAction() {
+  try {
+    const settings = await getSettlementLedgerSettings();
+    return { success: true, settings };
+  } catch (error) {
+    console.error("Failed to get settlement & ledger settings action:", error);
+    return { success: false, error: error.message || "Failed to fetch settlement & ledger settings" };
+  }
+}
+
+/**
+ * Action to save settlement & ledger settings.
+ */
+export async function saveSettlementLedgerSettingsAction(settings) {
+  try {
+    if (!settings || typeof settings !== "object") {
+      return { success: false, error: "Invalid settings data" };
+    }
+
+    const parsedVisibility = settings.defaultAdjustmentVisibility || {};
+    const defaultVisibility = DEFAULT_SETTLEMENT_LEDGER_SETTINGS.defaultAdjustmentVisibility;
+
+    // Build standard structure to filter out arbitrary fields
+    const updated = {
+      reconciliationTolerance: settings.reconciliationTolerance !== undefined ? parseFloat(settings.reconciliationTolerance) : DEFAULT_SETTLEMENT_LEDGER_SETTINGS.reconciliationTolerance,
+      defaultAdjustmentVisibility: {
+        commission: parsedVisibility.commission !== undefined ? !!parsedVisibility.commission : defaultVisibility.commission,
+        labour: parsedVisibility.labour !== undefined ? !!parsedVisibility.labour : defaultVisibility.labour,
+        rent: parsedVisibility.rent !== undefined ? !!parsedVisibility.rent : defaultVisibility.rent,
+        kaat: parsedVisibility.kaat !== undefined ? !!parsedVisibility.kaat : defaultVisibility.kaat
+      },
+      autoMarkOutdatedInvoices: settings.autoMarkOutdatedInvoices !== undefined ? !!settings.autoMarkOutdatedInvoices : DEFAULT_SETTLEMENT_LEDGER_SETTINGS.autoMarkOutdatedInvoices,
+      requireConfirmationBeforeRegeneration: settings.requireConfirmationBeforeRegeneration !== undefined ? !!settings.requireConfirmationBeforeRegeneration : DEFAULT_SETTLEMENT_LEDGER_SETTINGS.requireConfirmationBeforeRegeneration
+    };
+
+    if (isNaN(updated.reconciliationTolerance) || updated.reconciliationTolerance < 0) {
+      return { success: false, error: "Reconciliation tolerance must be a non-negative number" };
+    }
+
+    const settingsValue = JSON.stringify(updated);
+
+    await prisma.systemSetting.upsert({
+      where: { key: "settlement_ledger_settings" },
+      update: { value: settingsValue },
+      create: { key: "settlement_ledger_settings", value: settingsValue }
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to save settlement & ledger settings action:", error);
+    return { success: false, error: error.message || "Failed to save settlement & ledger settings" };
+  }
+}
+
 
 
 
