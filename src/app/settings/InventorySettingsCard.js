@@ -35,11 +35,12 @@ export default function InventorySettingsCard() {
 
   const handleChange = (key, value) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
+    setIsEditing(true);
   };
 
   const handleToggle = (key) => {
-    if (!isEditing) return;
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+    setIsEditing(true);
   };
 
   const handleCancel = () => {
@@ -147,9 +148,8 @@ export default function InventorySettingsCard() {
             </label>
             <select
               value={settings.inventorySnapshotFrequency}
-              disabled={!isEditing}
               onChange={(e) => handleChange("inventorySnapshotFrequency", e.target.value)}
-              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="REALTIME">Real-Time Refresh</option>
               <option value="DAILY">Daily Snapshots</option>
@@ -183,16 +183,15 @@ export default function InventorySettingsCard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Negative Stock Allowed */}
-            <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${!isEditing ? "bg-muted/10" : "bg-muted/20"}`}>
+            <div className="flex items-center justify-between p-4 rounded-xl border transition-colors bg-muted/20">
               <div className="space-y-0.5 pr-4">
                 <span className="text-sm font-semibold block">Allow Negative Stock</span>
                 <span className="text-xs text-muted-foreground">If enabled, sales transactions can bypass current physical balance limits.</span>
               </div>
               <button
                 type="button"
-                disabled={!isEditing}
                 onClick={() => handleToggle("negativeStockAllowed")}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                   settings.negativeStockAllowed ? "bg-primary" : "bg-muted-foreground/30"
                 }`}
               >
@@ -205,16 +204,15 @@ export default function InventorySettingsCard() {
             </div>
 
             {/* Auto Normalize Units */}
-            <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${!isEditing ? "bg-muted/10" : "bg-muted/20"}`}>
+            <div className="flex items-center justify-between p-4 rounded-xl border transition-colors bg-muted/20">
               <div className="space-y-0.5 pr-4">
                 <span className="text-sm font-semibold block">Auto Normalize Units</span>
                 <span className="text-xs text-muted-foreground">Automatically reconcile intake and sale quantities to standard metric system.</span>
               </div>
               <button
                 type="button"
-                disabled={!isEditing}
                 onClick={() => handleToggle("autoNormalizeUnits")}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                   settings.autoNormalizeUnits ? "bg-primary" : "bg-muted-foreground/30"
                 }`}
               >
@@ -227,16 +225,15 @@ export default function InventorySettingsCard() {
             </div>
 
             {/* Low Stock Alerts Enabled */}
-            <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${!isEditing ? "bg-muted/10" : "bg-muted/20"}`}>
+            <div className="flex items-center justify-between p-4 rounded-xl border transition-colors bg-muted/20">
               <div className="space-y-0.5 pr-4">
                 <span className="text-sm font-semibold block">Enable Low Stock Alerts</span>
                 <span className="text-xs text-muted-foreground">Enables red caution badges on products drop below the specified threshold.</span>
               </div>
               <button
                 type="button"
-                disabled={!isEditing}
                 onClick={() => handleToggle("lowStockAlertEnabled")}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                   settings.lowStockAlertEnabled ? "bg-primary" : "bg-muted-foreground/30"
                 }`}
               >
@@ -249,16 +246,15 @@ export default function InventorySettingsCard() {
             </div>
 
             {/* Show Only Active Products */}
-            <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${!isEditing ? "bg-muted/10" : "bg-muted/20"}`}>
+            <div className="flex items-center justify-between p-4 rounded-xl border transition-colors bg-muted/20">
               <div className="space-y-0.5 pr-4">
                 <span className="text-sm font-semibold block">Show Only Active Products</span>
                 <span className="text-xs text-muted-foreground">Filters out inactive/archived products from standard intakes and sales select inputs.</span>
               </div>
               <button
                 type="button"
-                disabled={!isEditing}
                 onClick={() => handleToggle("showOnlyActiveProducts")}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                   settings.showOnlyActiveProducts ? "bg-primary" : "bg-muted-foreground/30"
                 }`}
               >

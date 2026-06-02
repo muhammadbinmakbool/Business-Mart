@@ -32,11 +32,12 @@ export default function SettlementLedgerSettingsCard() {
 
   const handleChange = (key, value) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
+    setIsEditing(true);
   };
 
   const handleToggle = (key) => {
-    if (!isEditing) return;
     setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+    setIsEditing(true);
   };
 
   const handleCancel = () => {
@@ -164,16 +165,15 @@ export default function SettlementLedgerSettingsCard() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Auto Mark Outdated Invoices */}
-            <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${!isEditing ? "bg-muted/10" : "bg-muted/20"}`}>
+            <div className="flex items-center justify-between p-4 rounded-xl border transition-colors bg-muted/20">
               <div className="space-y-0.5 pr-4">
                 <span className="text-sm font-semibold block">Auto Mark Outdated Invoices</span>
                 <span className="text-xs text-muted-foreground">Applies visual warning tags on invoice views if linked transactional intake values differ from generated invoice snapshots.</span>
               </div>
               <button
                 type="button"
-                disabled={!isEditing}
                 onClick={() => handleToggle("autoMarkOutdatedInvoices")}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                   settings.autoMarkOutdatedInvoices ? "bg-primary" : "bg-muted-foreground/30"
                 }`}
               >
@@ -186,16 +186,15 @@ export default function SettlementLedgerSettingsCard() {
             </div>
 
             {/* Require Confirmation Before Regeneration */}
-            <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${!isEditing ? "bg-muted/10" : "bg-muted/20"}`}>
+            <div className="flex items-center justify-between p-4 rounded-xl border transition-colors bg-muted/20">
               <div className="space-y-0.5 pr-4">
                 <span className="text-sm font-semibold block">Require Confirmation Before Regeneration</span>
                 <span className="text-xs text-muted-foreground">Force a safety double-confirmation prompt dialog modal before regenerating previously saved invoice periods.</span>
               </div>
               <button
                 type="button"
-                disabled={!isEditing}
                 onClick={() => handleToggle("requireConfirmationBeforeRegeneration")}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                   settings.requireConfirmationBeforeRegeneration ? "bg-primary" : "bg-muted-foreground/30"
                 }`}
               >

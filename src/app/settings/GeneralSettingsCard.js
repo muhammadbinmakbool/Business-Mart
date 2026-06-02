@@ -65,6 +65,7 @@ export default function GeneralSettingsCard() {
 
   const handleChange = (key, value) => {
     setSettings((prev) => ({ ...prev, [key]: value }));
+    setIsEditing(true);
   };
 
   const handleCancel = () => {
@@ -252,15 +253,11 @@ export default function GeneralSettingsCard() {
 
             <div className="flex-1 space-y-2 text-center sm:text-left">
               <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start">
-                <label className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all shadow-sm flex items-center gap-1.5 ${
-                  isEditing 
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                    : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
-                }`}>
+                <label className="px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all shadow-sm flex items-center gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
                   Upload Custom Logo
-                  {isEditing && <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />}
+                  <input type="file" accept="image/*" onChange={handleLogoChange} className="hidden" />
                 </label>
-                {logoPreview && isEditing && (
+                {logoPreview && (
                   <button
                     type="button"
                     onClick={handleRemoveLogo}
@@ -290,10 +287,9 @@ export default function GeneralSettingsCard() {
                 <Landmark className="h-3.5 w-3.5 text-primary" /> Currency Symbol
               </label>
               <select
-                disabled={!isEditing}
                 value={settings.currencySymbol}
                 onChange={(e) => handleChange("currencySymbol", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="Rs.">Rs. (PKR Symbol)</option>
                 <option value="$">$ (USD Symbol)</option>
@@ -309,10 +305,9 @@ export default function GeneralSettingsCard() {
                 <Landmark className="h-3.5 w-3.5 text-primary" /> Currency Code
               </label>
               <select
-                disabled={!isEditing}
                 value={settings.currencyCode}
                 onChange={(e) => handleChange("currencyCode", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="PKR">PKR (Pakistani Rupee)</option>
                 <option value="USD">USD (US Dollar)</option>
@@ -328,10 +323,9 @@ export default function GeneralSettingsCard() {
                 <Landmark className="h-3.5 w-3.5 text-primary" /> Decimal Places (Precision)
               </label>
               <select
-                disabled={!isEditing}
                 value={settings.decimalPlaces}
                 onChange={(e) => handleChange("decimalPlaces", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="0">0 (e.g. 5,000)</option>
                 <option value="1">1 (e.g. 5,000.0)</option>
@@ -347,10 +341,9 @@ export default function GeneralSettingsCard() {
                 <Globe className="h-3.5 w-3.5 text-primary" /> Default Language
               </label>
               <select
-                disabled={!isEditing}
                 value={settings.defaultLanguage}
                 onChange={(e) => handleChange("defaultLanguage", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="en">English</option>
                 <option value="ur">Urdu (اردو)</option>
@@ -363,10 +356,9 @@ export default function GeneralSettingsCard() {
                 <Clock className="h-3.5 w-3.5 text-primary" /> Timezone
               </label>
               <select
-                disabled={!isEditing}
                 value={settings.timezone}
                 onChange={(e) => handleChange("timezone", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="Asia/Karachi">Asia/Karachi (GMT+5)</option>
                 <option value="UTC">UTC (Universal Time)</option>
@@ -379,10 +371,9 @@ export default function GeneralSettingsCard() {
                 <Calendar className="h-3.5 w-3.5 text-primary" /> Date Format
               </label>
               <select
-                disabled={!isEditing}
                 value={settings.dateFormat}
                 onChange={(e) => handleChange("dateFormat", e.target.value)}
-                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-muted/10"
+                className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 <option value="DD/MM/YYYY">DD/MM/YYYY (e.g. 31/12/2026)</option>
                 <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 12/31/2026)</option>
