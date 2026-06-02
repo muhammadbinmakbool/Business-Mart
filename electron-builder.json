@@ -14,10 +14,12 @@
     ".next/standalone/**/*",
     "public/**/*",
     "prisma/**/*",
-    "resources/**/*"
+    "resources/**/*",
+    "Assets/**/*"
   ],
   "win": {
-    "target": "nsis"
+    "target": "nsis",
+    "icon": "Assets/Icon/icon.ico"
   },
   "nsis": {
     "oneClick": false,
@@ -25,7 +27,9 @@
     "createDesktopShortcut": "always",
     "createStartMenuShortcut": true,
     "shortcutName": "Business Mart",
-    "runAfterFinish": true
+    "runAfterFinish": true,
+    "installerIcon": "Assets/Icon/icon.ico",
+    "uninstallerIcon": "Assets/Icon/icon.ico"
   },
   "asar": true,
   "asarUnpack": [

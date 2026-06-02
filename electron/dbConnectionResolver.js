@@ -146,11 +146,10 @@ try {
     if (result.status === 0 && output.includes('SUCCESS')) {
       return { success: true };
     } else {
-      let reason = 'NETWORK_ERROR';
+      let reason = 'UNREACHABLE';
       let details = output;
       if (output.includes('ERROR:DB_NOT_FOUND')) reason = 'DB_NOT_FOUND';
       else if (output.includes('ERROR:AUTH_FAILED')) reason = 'AUTH_FAILED';
-      else if (output.includes('ERROR:INSTANCE_NOT_FOUND')) reason = 'INSTANCE_NOT_FOUND';
       
       const detailsMatch = output.match(/DETAILS:\s*(.*)/s);
       if (detailsMatch) {
@@ -223,11 +222,11 @@ function testPrismaFallback(server, database, trustedConnection, user, password)
     } else if (result.status === 3) {
       return { success: false, reason: 'AUTH_FAILED', error: result.stderr || 'Authentication failed.' };
     } else {
-      return { success: false, reason: 'NETWORK_ERROR', error: result.stderr || 'Connection timed out or host unreachable.' };
+      return { success: false, reason: 'UNREACHABLE', error: result.stderr || 'Connection timed out or host unreachable.' };
     }
   } catch (err) {
     try { fs.unlinkSync(tempScriptPath); } catch (e) {}
-    return { success: false, reason: 'NETWORK_ERROR', error: err.message };
+    return { success: false, reason: 'UNREACHABLE', error: err.message };
   }
 }
 
@@ -418,15 +417,24 @@ function runMigrationsAndSeed(server, database, trustedConnection, user, passwor
 
 // Helper to construct highly standard, compliant Prisma SQL Server connection URLs
 function buildPrismaConnectionString(server, database, trustedConnection, user, password) {
-  let connectionString = '';
+  let host = server;
+  let instance = '';
+
   // Avoid placing backslashes in URL hostnames to prevent CJS/URI specification parse errors
   if (server.includes('\\')) {
     const parts = server.split('\\');
-    const host = parts[0] || '.';
-    const instance = parts[1];
-    connectionString = `sqlserver://${host};database=${database};instanceName=${instance}`;
-  } else {
-    connectionString = `sqlserver://${server};database=${database}`;
+    host = parts[0] || 'localhost';
+    instance = parts[1];
+  }
+
+  // Normalize host name dot to localhost (Rust driver does not support dot as hostname)
+  if (host === '.' || host === '127.0.0.1') {
+    host = 'localhost';
+  }
+
+  let connectionString = `sqlserver://${host};database=${database}`;
+  if (instance) {
+    connectionString += `;instanceName=${instance}`;
   }
 
   if (trustedConnection) {
@@ -438,62 +446,64 @@ function buildPrismaConnectionString(server, database, trustedConnection, user, 
   return connectionString;
 }
 
-// Main Connection Resolution Loop
+// Main Connection Resolution Loop (Simple Try -> Success/Fail Flow)
 function resolveDatabaseConnection(configHint) {
-  const database = (configHint && configHint.database) || 'business_mart';
-  const trustedConnection = configHint ? configHint.trustedConnection : true;
-  const user = (configHint && configHint.user) || 'sa';
-  const password = (configHint && configHint.password) || '';
-
-  const candidates = getCandidateServers(configHint);
-  console.log('[DB Resolver] Strategic candidate servers:', candidates);
-
-  let firstMissingDbCandidate = null;
-
-  for (const server of candidates) {
-    console.log(`[DB Resolver] Testing candidate natively: ${server} ...`);
-    const testResult = testNativeConnection(server, database, trustedConnection, user, password);
-
-    if (testResult.success) {
-      console.log(`[DB Resolver] SUCCESS! Resolved working SQL Server instance natively: ${server}`);
-      const connectionString = buildPrismaConnectionString(server, database, trustedConnection, user, password);
-
-      return {
-        success: true,
-        connectionString,
-        server,
-        database,
-        trustedConnection,
-        user
-      };
-    } else if (testResult.reason === 'DB_NOT_FOUND') {
-      console.log(`[DB Resolver] Server reachable at [${server}], but database [${database}] is missing.`);
-      const connectionString = buildPrismaConnectionString(server, database, trustedConnection, user, password);
-
-      if (!firstMissingDbCandidate) {
-        firstMissingDbCandidate = {
-          success: false,
-          reason: 'database_missing',
-          connectionString,
-          server,
-          database,
-          trustedConnection,
-          user
-        };
-      }
-    } else {
-      console.log(`[DB Resolver] Candidate [${server}] failed: Unreachable (${testResult.reason}). Details: ${testResult.error}`);
-    }
+  if (!configHint || !configHint.database || !configHint.server) {
+    console.error('[DB Resolver] FAILED: Strict config check failed. Missing server or database in configuration parameters.');
+    return { 
+      success: false, 
+      mode: 'CONFIG_ERROR',
+      message: 'Database configuration is invalid or missing required properties.',
+      debugError: 'configHint object was empty or missing server/database fields.'
+    };
   }
 
-  // If no working database was found, but we found a server where the database is missing, return it
-  if (firstMissingDbCandidate) {
-    console.log(`[DB Resolver] No active database found, but detected server with missing DB: ${firstMissingDbCandidate.server}`);
-    return firstMissingDbCandidate;
-  }
+  const database = configHint.database;
+  const server = configHint.server;
+  const trustedConnection = configHint.trustedConnection === true;
+  const user = configHint.user || '';
+  const password = configHint.password || '';
 
-  console.error('[DB Resolver] FAILED: All candidates exhausted. No active SQL Server resolved.');
-  return null;
+  console.log(`[DB Resolver] Strategic Connection Try: Target Server [${server}], Database [${database}] ...`);
+
+  // Try the configured server natively
+  const testResult = testNativeConnection(server, database, trustedConnection, user, password);
+
+  if (testResult.success) {
+    console.log(`[DB Resolver] SUCCESS! Resolved working SQL Server instance: ${server}`);
+    const connectionString = buildPrismaConnectionString(server, database, trustedConnection, user, password);
+
+    return {
+      success: true,
+      mode: 'SUCCESS',
+      connectionString,
+      server,
+      database
+    };
+  } else if (testResult.reason === 'DB_NOT_FOUND') {
+    console.log(`[DB Resolver] Server reachable at [${server}], but database [${database}] is missing.`);
+
+    return {
+      success: false,
+      mode: 'BOOTSTRAP_REQUIRED',
+      message: `Database '${database}' was not found on server '${server}'.`,
+      debugError: testResult.error
+    };
+  } else {
+    // Standardized modes: 'UNREACHABLE'
+    const mode = 'UNREACHABLE';
+    const message = testResult.reason === 'AUTH_FAILED' 
+      ? 'Authentication failed. Please verify your username and password.'
+      : 'Cannot connect to SQL Server instance. Ensure the host is online and TCP/IP is enabled.';
+
+    console.error(`[DB Resolver] Connection failed: ${mode} (${testResult.reason}). Details: ${testResult.error}`);
+    return {
+      success: false,
+      mode,
+      message,
+      debugError: testResult.error
+    };
+  }
 }
 
 module.exports = {

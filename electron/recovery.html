@@ -444,12 +444,12 @@
             }
 
             // Expose prompt if database exists on server but hasn't been created yet
-            if (dbState && dbState.reason === 'database_missing') {
+            if (dbState && dbState.mode === 'BOOTSTRAP_REQUIRED') {
               activeDbState = {
-                server: dbState.server,
-                database: dbState.database,
-                trustedConnection: dbState.trustedConnection,
-                user: dbState.user,
+                server: config ? config.server : 'localhost\\SQLEXPRESS',
+                database: config ? config.database : 'business_mart',
+                trustedConnection: config ? config.trustedConnection : true,
+                user: config ? config.user : '',
                 password: config ? config.password : ''
               };
 
@@ -515,7 +515,7 @@
       try {
         const result = await window.ELECTRON_ENV.testAndSaveConfig(configPayload);
         if (result && result.success) {
-          if (result.reason === 'database_missing') {
+          if (result.mode === 'BOOTSTRAP_REQUIRED') {
             log('Server is reachable, but database is missing.');
             log('Transitioning to bootstrap creation screen...');
             

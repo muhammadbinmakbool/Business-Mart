@@ -344,27 +344,27 @@ app.whenReady().then(async () => {
     } else if (test.reason === 'DB_NOT_FOUND') {
       // Server is reachable, credentials work, but DB doesn't exist yet.
       // Save config in background, but DO NOT relaunch immediately.
-      // Return success with reason: 'database_missing' so the UI can show the bootstrap button instantly!
+      // Return success with mode: 'BOOTSTRAP_REQUIRED' so the UI can show the bootstrap button instantly!
       console.log(`[IPC] Server reachable but database '${configPayload.database}' missing. Saving config and notifying UI...`);
       saveDatabaseConfig(configPayload);
       
       // Update the resolvedDbState so the next bootstrap IPC call uses the correct state
       resolvedDbState = {
         success: false,
-        reason: 'database_missing',
+        mode: 'BOOTSTRAP_REQUIRED',
         server: configPayload.server,
         database: configPayload.database,
         trustedConnection: configPayload.trustedConnection,
         user: configPayload.user
       };
       
-      return { success: true, reason: 'database_missing' };
+      return { success: true, mode: 'BOOTSTRAP_REQUIRED' };
     } else {
       // Hard failure: auth, instance not found, or network error
       let errorMessage = 'Could not establish connection. Please check server active status and credentials.';
       if (test.reason === 'AUTH_FAILED') {
         errorMessage = `Authentication failed: The provided SQL credentials or Windows account are not valid.`;
-      } else if (test.reason === 'INSTANCE_NOT_FOUND') {
+      } else if (test.reason === 'UNREACHABLE') {
         errorMessage = `SQL Server instance '${configPayload.server}' was not found or is unreachable.`;
       } else if (test.error) {
         errorMessage = `Connection failed: ${test.error}`;
@@ -420,8 +420,8 @@ app.whenReady().then(async () => {
   resolvedDbState = resolvedDb;
 
   if (!resolvedDb || resolvedDb.success === false) {
-    if (resolvedDb && resolvedDb.reason === 'database_missing') {
-      console.error(`[DB Boot] Reachable SQL Server found at [${resolvedDb.server}], but database [${resolvedDb.database}] is missing. Spawning Setup UI...`);
+    if (resolvedDb && resolvedDb.mode === 'BOOTSTRAP_REQUIRED') {
+      console.error(`[DB Boot] Reachable SQL Server found at [${initialDbInfo.server}], but database [${initialDbInfo.database}] is missing. Spawning Setup UI...`);
     } else {
       console.error('[DB Boot] FAILED to resolve any working SQL Server connection. Launching Recovery Configuration UI...');
     }
