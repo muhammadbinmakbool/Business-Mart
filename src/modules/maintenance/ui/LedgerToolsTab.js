@@ -50,7 +50,7 @@ export default function LedgerToolsTab() {
         <button
           onClick={handleRebuild}
           disabled={isProcessing}
-          className="flex items-center justify-center gap-2 w-full md:w-auto px-5 py-2.5 bg-blue-655 hover:bg-blue-600 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50"
+          className="flex items-center justify-center gap-2 w-full md:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-50"
         >
           {isProcessing ? (
             <>
