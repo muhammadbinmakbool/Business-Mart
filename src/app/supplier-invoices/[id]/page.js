@@ -13,6 +13,7 @@ import Alert from "@/components/ui/Alert";
 import { formatMaundWeight } from "@/lib/display-units";
 import { UNIT_IDS, getUnitLabel } from "@/lib/units";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { SupplierWorkflowEngine } from "@/modules/supplier-invoices/workflow/SupplierWorkflowEngine";
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 
 export default async function SupplierInvoiceDetailPage({ params, searchParams: searchParamsPromise }) {
@@ -84,6 +85,8 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
     });
   });
 
+  const allowedActions = await SupplierWorkflowEngine.getAllowedActions(invoice);
+
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20">
       <ResponsiveHeader
@@ -124,7 +127,7 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
             {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
               <RegenerateButton invoiceId={invoice.id} />
             )}
-            <StatusUpdater id={invoice.id} currentStatus={invoice.status} disabled={invoice.status === "SUPERSEDED"} />
+            <StatusUpdater id={invoice.id} currentStatus={invoice.status} disabled={invoice.status === "SUPERSEDED"} allowedActions={allowedActions} />
           </div>
         }
       />

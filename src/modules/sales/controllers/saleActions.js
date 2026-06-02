@@ -58,9 +58,9 @@ export async function deleteSaleAction(id, confirmPassword) {
   }
 }
 
-export async function updateSaleStatusAction(id, status) {
+export async function updateSaleStatusAction(id, status, notes) {
   try {
-    const sale = await SaleService.updateStatus(id, status);
+    const sale = await SaleService.updateStatus(id, status, notes);
     revalidatePath(`/sales/${id}`);
     revalidatePath("/sales");
     return { success: true, data: JSON.parse(JSON.stringify(sale)) };

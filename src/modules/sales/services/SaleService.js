@@ -9,7 +9,7 @@ import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { withOwnership } from "@/lib/session";
-
+import { SalesWorkflowEngine } from "../workflow/SalesWorkflowEngine";
 export class SaleService {
   /**
    * Derives current available stock for a product from its snapshot quantity.
@@ -461,7 +461,7 @@ export class SaleService {
     return updatedSale;
   }
 
-  static async updateStatus(id, status) {
+  static async updateStatus(id, status, notes) {
     const updated = await prisma.$transaction(async (tx) => {
       const sale = await tx.saleTransaction.findUnique({
         where: { id: parseInt(id) },
@@ -473,6 +473,12 @@ export class SaleService {
       const newStatus = status;
 
       if (oldStatus !== "CANCELLED" && newStatus === "CANCELLED") {
+        const allowedActions = await SalesWorkflowEngine.getAllowedActions(sale);
+        if (!allowedActions.state.canCancel) {
+          throw new Error("Cannot cancel this sale.");
+        }
+        await SalesWorkflowEngine.validateCancellation(notes);
+
         // Reset isBilled and clear link on SalesTrack records for this cancelled sale
         await tx.salesTrack.updateMany({
           where: { saleTransactionId: parseInt(id) },
@@ -502,7 +508,10 @@ export class SaleService {
         data: { 
           status,
           paidAmount,
-          paymentStatus
+          paymentStatus,
+          notes: (newStatus === "CANCELLED" && notes)
+            ? (sale.notes ? `${sale.notes} | Cancellation Reason: ${notes}` : `Cancellation Reason: ${notes}`)
+            : sale.notes
         }
       });
     });

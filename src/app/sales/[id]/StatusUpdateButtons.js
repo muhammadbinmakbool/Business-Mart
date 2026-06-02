@@ -4,16 +4,24 @@ import React, { useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle, XCircle, Clock, MoreVertical, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Modal from "@/components/ui/Modal";
 
-export default function StatusUpdateButtons({ id, currentStatus, updateAction }) {
+export default function StatusUpdateButtons({ id, currentStatus, updateAction, allowedActions = {} }) {
   const [isUpdating, setIsUpdating] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [showCancelNotesModal, setShowCancelNotesModal] = useState(false);
+  const [cancelNotes, setCancelNotes] = useState("");
 
   async function handleUpdate(status) {
     if (status === currentStatus) return;
     
-    setIsUpdating(true);
     setIsOpen(false);
+    if (status === "CANCELLED" && allowedActions.rules?.requiresCancellationNotes) {
+      setShowCancelNotesModal(true);
+      return;
+    }
+
+    setIsUpdating(true);
     try {
       const result = await updateAction(id, status);
       if (result?.error) {
@@ -25,6 +33,28 @@ export default function StatusUpdateButtons({ id, currentStatus, updateAction })
       toast.error("Failed to update status");
     } finally {
       setIsUpdating(false);
+    }
+  }
+
+  async function submitCancellation() {
+    if (allowedActions.rules?.requiresCancellationNotes && (!cancelNotes || cancelNotes.trim().length === 0)) {
+      toast.error("Cancellation notes are required");
+      return;
+    }
+    setShowCancelNotesModal(false);
+    setIsUpdating(true);
+    try {
+      const result = await updateAction(id, "CANCELLED", cancelNotes);
+      if (result?.error) {
+        toast.error(result.error);
+      } else {
+        toast.success("Status updated to CANCELLED");
+      }
+    } catch (error) {
+      toast.error("Failed to update status");
+    } finally {
+      setIsUpdating(false);
+      setCancelNotes("");
     }
   }
 
@@ -74,6 +104,34 @@ export default function StatusUpdateButtons({ id, currentStatus, updateAction })
           </div>
         </>
       )}
+
+      {/* Cancellation Notes Prompt Modal */}
+      <Modal
+        isOpen={showCancelNotesModal}
+        onClose={() => {
+          setShowCancelNotesModal(false);
+          setCancelNotes("");
+        }}
+        title="Reason for Cancellation"
+        description="Cancellation notes are required"
+        type="warning"
+        confirmLabel="Confirm Cancellation"
+        onConfirm={submitCancellation}
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Please provide a brief reason for cancelling this sale invoice.
+          </p>
+          <textarea
+            required
+            rows={3}
+            placeholder="Enter reason..."
+            value={cancelNotes}
+            onChange={(e) => setCancelNotes(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+          />
+        </div>
+      </Modal>
     </div>
   );
 }

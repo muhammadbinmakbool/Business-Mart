@@ -20,6 +20,7 @@ import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { formatMaundWeight } from "@/lib/display-units";
 import { UNIT_IDS, getUnitLabel } from "@/lib/units";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { SalesWorkflowEngine } from "@/modules/sales/workflow/SalesWorkflowEngine";
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 
 export default async function SaleDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
@@ -47,6 +48,8 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
     settingsResult?.success ? settingsResult.settings : {},
     generalSettingsResult?.success ? generalSettingsResult.settings : {}
   );
+
+  const allowedActions = await SalesWorkflowEngine.getAllowedActions(sale);
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20">
@@ -87,6 +90,7 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
             id={sale.id} 
             currentStatus={sale.status} 
             updateAction={updateSaleStatusAction} 
+            allowedActions={allowedActions}
           />
         }
       />

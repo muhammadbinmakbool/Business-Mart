@@ -21,6 +21,7 @@ import GeneralSettingsCard from "./GeneralSettingsCard";
 import InventorySettingsCard from "./InventorySettingsCard";
 import SettlementLedgerSettingsCard from "./SettlementLedgerSettingsCard";
 import ActivityAuditSettingsCard from "./ActivityAuditSettingsCard";
+import IntakeWorkflowSettingsCard from "./IntakeWorkflowSettingsCard";
 import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
 
 function SettingsContent() {
@@ -44,7 +45,7 @@ function SettingsContent() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "security" || tab === "general" || tab === "adjustments" || tab === "defaults" || tab === "print" || tab === "inventory" || tab === "settlement-ledger" || tab === "activity-audit") {
+    if (tab === "security" || tab === "general" || tab === "adjustments" || tab === "defaults" || tab === "print" || tab === "inventory" || tab === "settlement-ledger" || tab === "activity-audit" || tab === "intake-workflow") {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -181,6 +182,18 @@ function SettingsContent() {
           </button>
 
           <button 
+            onClick={() => setActiveTab("intake-workflow")}
+            className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === "intake-workflow"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            }`}
+          >
+            <Sliders className="h-4 w-4" />
+            Intake Workflow
+          </button>
+
+          <button 
             onClick={() => setActiveTab("activity-audit")}
             className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === "activity-audit"
@@ -288,6 +301,12 @@ function SettingsContent() {
           {activeTab === "activity-audit" && (
             <div className="animate-in fade-in duration-200">
               <ActivityAuditSettingsCard />
+            </div>
+          )}
+
+          {activeTab === "intake-workflow" && (
+            <div className="animate-in fade-in duration-200">
+              <IntakeWorkflowSettingsCard />
             </div>
           )}
         </div>

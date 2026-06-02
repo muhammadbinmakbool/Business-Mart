@@ -8,6 +8,7 @@ import { storeFile, deleteFile } from "@/lib/fileStorage";
 import { getInventorySettings, DEFAULT_INVENTORY_SETTINGS } from "@/lib/settings/inventorySettings";
 import { getSettlementLedgerSettings, DEFAULT_SETTLEMENT_LEDGER_SETTINGS } from "@/lib/settings/settlementLedgerSettings";
 import { getActivityAuditSettings, DEFAULT_ACTIVITY_AUDIT_SETTINGS } from "@/lib/settings/activityAuditSettings";
+import { WorkflowSettingsProvider, DEFAULT_INTAKE_WORKFLOW_SETTINGS } from "@/modules/workflow/core/WorkflowSettingsProvider";
 
 export async function getSettings() {
   try {
@@ -488,6 +489,58 @@ export async function saveActivityAuditSettingsAction(settings) {
   } catch (error) {
     console.error("Failed to save activity & audit settings action:", error);
     return { success: false, error: error.message || "Failed to save activity & audit settings" };
+  }
+}
+
+/**
+ * Action to fetch intake workflow settings.
+ */
+export async function getIntakeWorkflowSettingsAction() {
+  try {
+    const settings = await WorkflowSettingsProvider.loadSettings();
+    return { success: true, settings };
+  } catch (error) {
+    console.error("Failed to get intake workflow settings action:", error);
+    return { success: false, error: error.message || "Failed to fetch intake workflow settings" };
+  }
+}
+
+/**
+ * Action to save intake workflow settings.
+ */
+export async function saveIntakeWorkflowSettingsAction(settings) {
+  try {
+    if (!settings || typeof settings !== "object") {
+      return { success: false, error: "Invalid settings data" };
+    }
+
+    const defaultIntakeStatus = settings.defaultIntakeStatus;
+    if (defaultIntakeStatus !== "PENDING" && defaultIntakeStatus !== "COMPLETED") {
+      return { success: false, error: "Default status must be PENDING or COMPLETED" };
+    }
+
+    // Build standard structure, autoCreateSalesTrack is system-enforced to true
+    const updated = {
+      defaultIntakeStatus,
+      enablePartialSelling: settings.enablePartialSelling !== undefined ? !!settings.enablePartialSelling : DEFAULT_INTAKE_WORKFLOW_SETTINGS.enablePartialSelling,
+      requireBuyerBeforeSelling: settings.requireBuyerBeforeSelling !== undefined ? !!settings.requireBuyerBeforeSelling : DEFAULT_INTAKE_WORKFLOW_SETTINGS.requireBuyerBeforeSelling,
+      autoCreateSalesTrack: true, // Force to true in DB payload
+      requireCancellationNotes: settings.requireCancellationNotes !== undefined ? !!settings.requireCancellationNotes : DEFAULT_INTAKE_WORKFLOW_SETTINGS.requireCancellationNotes
+    };
+
+    const settingsValue = JSON.stringify(updated);
+
+    await prisma.systemSetting.upsert({
+      where: { key: "intake_workflow_settings" },
+      update: { value: settingsValue },
+      create: { key: "intake_workflow_settings", value: settingsValue }
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to save intake workflow settings action:", error);
+    return { success: false, error: error.message || "Failed to save intake workflow settings" };
   }
 }
 

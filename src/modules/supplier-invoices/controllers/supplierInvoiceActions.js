@@ -68,7 +68,7 @@ export async function listSupplierInvoicesAction() {
   }
 }
 
-export async function updateInvoiceStatusAction(id, status) {
+export async function updateInvoiceStatusAction(id, status, notes) {
   try {
     const { prisma } = await import("@/lib/prisma");
 
@@ -78,6 +78,15 @@ export async function updateInvoiceStatusAction(id, status) {
 
     if (!currentInvoice) {
       throw new Error("Invoice not found");
+    }
+
+    if (status === "CANCELLED" && currentInvoice.status !== "CANCELLED") {
+      const { SupplierWorkflowEngine } = await import("@/modules/supplier-invoices/workflow/SupplierWorkflowEngine");
+      const allowedActions = await SupplierWorkflowEngine.getAllowedActions(currentInvoice);
+      if (!allowedActions.state.canCancel) {
+        throw new Error("Cannot cancel this supplier invoice.");
+      }
+      await SupplierWorkflowEngine.validateCancellation(notes);
     }
 
     let paidAmount = 0;
@@ -93,7 +102,10 @@ export async function updateInvoiceStatusAction(id, status) {
       data: {
         status,
         paidAmount,
-        paymentStatus
+        paymentStatus,
+        notes: (status === "CANCELLED" && notes)
+          ? (currentInvoice.notes ? `${currentInvoice.notes} | Cancellation Reason: ${notes}` : `Cancellation Reason: ${notes}`)
+          : currentInvoice.notes
       }
     });
 

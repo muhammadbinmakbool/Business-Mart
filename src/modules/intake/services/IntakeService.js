@@ -11,6 +11,7 @@ import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 import { calculateIntakeState } from "@/lib/financial";
 import { withOwnership } from "@/lib/session";
+import { IntakeWorkflowEngine } from "../workflow/IntakeWorkflowEngine";
 
 
 export class IntakeService {
@@ -117,6 +118,7 @@ export class IntakeService {
     const isBagProduct = product && (product.primaryUnit === "BAG" || product.category === "BAG");
 
     const ownership = await withOwnership();
+    const finalStatus = validated.status || (await IntakeWorkflowEngine.getDefaultStatus());
 
     const intake = await prisma.$transaction(async (tx) => {
       // 1. Get next number
@@ -139,7 +141,7 @@ export class IntakeService {
           rate: validated.rate ?? null,
           rateUnit: validated.rateUnit || (isBagProduct ? "BAG" : DEFAULT_WEIGHT_UNIT),
           notes: validated.notes,
-          status: validated.status || "PENDING",
+          status: finalStatus,
           entryDate: validated.entryDate,
           bagCount: validated.bagCount,
           intakeNumber: nextNumber,
@@ -176,6 +178,7 @@ export class IntakeService {
     const { buyerPartyId, ...rest } = data;
     const validated = intakeSchema.partial().parse(rest);
     const ownership = await withOwnership();
+    const workflowSettings = await getIntakeWorkflowSettings();
     
     return prisma.$transaction(async (tx) => {
       // 1. Get current state
@@ -206,6 +209,14 @@ export class IntakeService {
       }
 
       // Validation Rule: If transitioning away from SOLD, CLEARED, or PARTIAL to PENDING or CANCELLED, verify/delete unbilled SalesTrack and block if included in Supplier Settlement
+      if (newStatus === "CANCELLED" && oldStatus !== "CANCELLED") {
+        const allowedActions = await IntakeWorkflowEngine.getAllowedActions(current);
+        if (!allowedActions.state.canCancel) {
+          throw new Error("Cannot cancel this intake.");
+        }
+        await IntakeWorkflowEngine.validateCancellation(rest.notes || validated.notes);
+      }
+
       if ((oldStatus === "SOLD" || oldStatus === "CLEARED" || oldStatus === "PARTIAL") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
         // Check for Supplier Settlement linkage
         const supplierInvoiceItem = await tx.supplierInvoiceItem.findFirst({

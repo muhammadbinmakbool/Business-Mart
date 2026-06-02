@@ -10,6 +10,7 @@ import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { convertRate, normalizeQuantity, getUnitLabel, UNIT_IDS } from "@/lib/units";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { IntakeWorkflowEngine } from "@/modules/intake/workflow/IntakeWorkflowEngine";
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 
 export default async function IntakeDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
@@ -34,6 +35,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
     settingsResult?.success ? settingsResult.settings : {},
     generalSettingsResult?.success ? generalSettingsResult.settings : {}
   );
+  const allowedActions = await IntakeWorkflowEngine.getAllowedActions(intake);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -247,7 +249,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
         <div className="space-y-6">
           <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Status Lifecycle</h2>
-            <StatusUpdateButtons intakeId={intake.id} currentStatus={intake.status} intake={intake} buyers={buyers} />
+            <StatusUpdateButtons intakeId={intake.id} currentStatus={intake.status} intake={intake} buyers={buyers} allowedActions={allowedActions} />
           </div>
         </div>
       </div>

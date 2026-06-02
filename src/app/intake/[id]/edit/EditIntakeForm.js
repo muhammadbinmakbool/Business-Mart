@@ -12,7 +12,7 @@ import Modal from "@/components/ui/Modal";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getLocalDateString } from "@/lib/utils";
 
-export default function EditIntakeForm({ intake, suppliers, products, buyers = [] }) {
+export default function EditIntakeForm({ intake, suppliers, products, buyers = [], allowedActions = {} }) {
   const router = useRouter();
 
   // Controlled States
@@ -152,7 +152,8 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     }
 
     if (status === "SOLD") {
-      if (!buyerPartyId) {
+      const requireBuyer = allowedActions.rules?.requiresBuyer;
+      if (requireBuyer && !buyerPartyId) {
         showToast.error("Please select a buyer Party");
         setIsSubmitting(false);
         return;
@@ -364,6 +365,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
                 <User className="h-3.5 w-3.5" /> Buyer Party
               </label>
               <select
+                required={allowedActions.rules?.requiresBuyer}
                 value={buyerPartyId}
                 onChange={e => setBuyerPartyId(e.target.value)}
                 className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"

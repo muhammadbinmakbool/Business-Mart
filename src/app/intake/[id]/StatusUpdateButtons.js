@@ -9,9 +9,13 @@ import { calculateIntakeNetWeight, UNIT_IDS, getUnitLabel } from "@/lib/units";
 import { getPreferredRateUnit, getPreferredWeightUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
 
-export default function StatusUpdateButtons({ intakeId, currentStatus, intake, buyers = [] }) {
+export default function StatusUpdateButtons({ intakeId, currentStatus, intake, buyers = [], allowedActions = {} }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Cancellation state
+  const [showCancelNotesModal, setShowCancelNotesModal] = useState(false);
+  const [cancelNotes, setCancelNotes] = useState("");
 
   // Form State
   const [buyerPartyId, setBuyerPartyId] = useState("");
@@ -97,6 +101,12 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
       }
     }
 
+    if (status === "CANCELLED" && allowedActions.rules?.requiresCancellationNotes) {
+      setRevertStatusTarget(status);
+      setShowCancelNotesModal(true);
+      return;
+    }
+
     setLoading(true);
     const result = await updateIntakeStatusAction(intakeId, status);
     setLoading(false);
@@ -107,9 +117,33 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     }
   }
 
+  async function submitCancellation() {
+    if (allowedActions.rules?.requiresCancellationNotes && (!cancelNotes || cancelNotes.trim().length === 0)) {
+      showToast.error("Cancellation notes are required");
+      return;
+    }
+    setShowCancelNotesModal(false);
+    setLoading(true);
+    const result = await updateIntakeStatusAction(intakeId, "CANCELLED", cancelNotes);
+    setLoading(false);
+    setCancelNotes("");
+    setRevertStatusTarget(null);
+
+    if (result?.error) {
+      showToast.error(result.error);
+    } else {
+      showToast.success("Status updated to CANCELLED");
+    }
+  }
+
   async function confirmRevertStatus() {
     setShowUnbilledConfirmModal(false);
     if (!revertStatusTarget) return;
+
+    if (revertStatusTarget === "CANCELLED" && workflowSettings.requireCancellationNotes) {
+      setShowCancelNotesModal(true);
+      return;
+    }
 
     setLoading(true);
     const result = await updateIntakeStatusAction(intakeId, revertStatusTarget);
@@ -125,7 +159,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
   async function handleSellSubmit(e) {
     e.preventDefault();
-    if (!buyerPartyId) {
+    if (allowedActions.rules?.requiresBuyer && !buyerPartyId) {
       showToast.error("Please select a buyer");
       return;
     }
@@ -279,7 +313,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                   <User className="h-3.5 w-3.5" /> Buyer
                 </label>
                 <select
-                  required
+                  required={allowedActions.rules?.requiresBuyer}
                   value={buyerPartyId}
                   onChange={e => setBuyerPartyId(e.target.value)}
                   className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
@@ -292,49 +326,51 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
               </div>
 
               {/* Optional Partial Sale Toggle */}
-              <div className="bg-muted/30 p-4 rounded-xl border border-border/60 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <label className="text-sm font-bold text-foreground">Partial Sale</label>
-                    <p className="text-xs text-muted-foreground">Sell a fraction of the remaining intake</p>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={isPartialSale}
-                    onChange={(e) => {
-                      setIsPartialSale(e.target.checked);
-                      if (!e.target.checked) {
-                        setSoldQuantity(maxRemaining.toString());
-                      }
-                    }}
-                    className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer animate-none"
-                  />
-                </div>
-
-                {isPartialSale && (
-                  <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                        <Scale className="h-3.5 w-3.5" /> Sold Quantity ({intake?.unit})
-                      </label>
-                      <span className="text-[10px] font-semibold text-amber-600 font-mono">
-                        Max Available: {maxRemaining.toLocaleString()} {intake?.unit}
-                      </span>
+              {allowedActions.rules?.supportsPartialSell && (
+                <div className="bg-muted/30 p-4 rounded-xl border border-border/60 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <label className="text-sm font-bold text-foreground">Partial Sale</label>
+                      <p className="text-xs text-muted-foreground">Sell a fraction of the remaining intake</p>
                     </div>
                     <input
-                      required
-                      type="number"
-                      step="0.01"
-                      placeholder={`Enter weight in ${intake?.unit}...`}
-                      value={soldQuantity}
-                      onChange={e => setSoldQuantity(e.target.value)}
-                      max={maxRemaining}
-                      min={0.01}
-                      className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono"
+                      type="checkbox"
+                      checked={isPartialSale}
+                      onChange={(e) => {
+                        setIsPartialSale(e.target.checked);
+                        if (!e.target.checked) {
+                          setSoldQuantity(maxRemaining.toString());
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer animate-none"
                     />
                   </div>
-                )}
-              </div>
+
+                  {isPartialSale && (
+                    <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
+                          <Scale className="h-3.5 w-3.5" /> Sold Quantity ({intake?.unit})
+                        </label>
+                        <span className="text-[10px] font-semibold text-amber-600 font-mono">
+                          Max Available: {maxRemaining.toLocaleString()} {intake?.unit}
+                        </span>
+                      </div>
+                      <input
+                        required
+                        type="number"
+                        step="0.01"
+                        placeholder={`Enter weight in ${intake?.unit}...`}
+                        value={soldQuantity}
+                        onChange={e => setSoldQuantity(e.target.value)}
+                        max={maxRemaining}
+                        min={0.01}
+                        className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono"
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Selling Rate */}
               <div className="grid grid-cols-3 gap-4">
@@ -588,6 +624,35 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
           <div className="bg-rose-50 dark:bg-rose-950/20 p-3.5 rounded-lg border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-300 leading-normal">
             <strong>How to resolve:</strong> You must first edit or delete the associated Supplier Invoice <strong>{supplierInvoiceItem?.invoice?.invoiceNumber || ""}</strong> in the Supplier Invoices module to exclude this intake before you can revert its status here.
           </div>
+        </div>
+      </Modal>
+
+      {/* Cancellation Notes Prompt Modal */}
+      <Modal
+        isOpen={showCancelNotesModal}
+        onClose={() => {
+          setShowCancelNotesModal(false);
+          setCancelNotes("");
+          setRevertStatusTarget(null);
+        }}
+        title="Reason for Cancellation"
+        description="Cancellation notes are required"
+        type="warning"
+        confirmLabel="Confirm Cancellation"
+        onConfirm={submitCancellation}
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Please provide a brief reason for cancelling this intake transaction.
+          </p>
+          <textarea
+            required
+            rows={3}
+            placeholder="Enter reason..."
+            value={cancelNotes}
+            onChange={(e) => setCancelNotes(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+          />
         </div>
       </Modal>
     </>

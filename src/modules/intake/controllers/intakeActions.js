@@ -40,9 +40,9 @@ export async function createIntakeAction(formData) {
   }
 }
 
-export async function updateIntakeStatusAction(id, status) {
+export async function updateIntakeStatusAction(id, status, notes) {
   try {
-    await IntakeService.updateIntake(id, { status });
+    await IntakeService.updateIntake(id, { status, notes });
     revalidatePath("/intake");
     revalidatePath(`/intake/${id}`);
     return { success: true };
