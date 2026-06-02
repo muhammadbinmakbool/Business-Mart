@@ -10,6 +10,7 @@ import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { convertRate, normalizeQuantity, getUnitLabel, UNIT_IDS } from "@/lib/units";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 
 export default async function IntakeDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
@@ -29,10 +30,10 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
     getGeneralSettingsAction()
   ]);
   const buyers = parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH"));
-  const printConfig = {
-    ...(settingsResult?.success ? settingsResult.settings : {}),
-    ...(generalSettingsResult?.success ? generalSettingsResult.settings : {})
-  };
+  const printConfig = getMergedDocumentConfig(
+    settingsResult?.success ? settingsResult.settings : {},
+    generalSettingsResult?.success ? generalSettingsResult.settings : {}
+  );
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

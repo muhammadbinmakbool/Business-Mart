@@ -4,6 +4,7 @@ import React from "react";
 import { prisma } from "@/lib/prisma";
 import { LedgerService } from "@/modules/ledger/services/LedgerService";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 import LedgerClient from "./LedgerClient";
 
 export default async function LedgerPage() {
@@ -21,10 +22,10 @@ export default async function LedgerPage() {
 
   const suppliers = parties.filter(p => p.partyType === "SUPPLIER" || p.partyType === "BOTH");
   const buyers = parties.filter(p => p.partyType === "BUYER" || p.partyType === "BOTH");
-  const printConfig = {
-    ...(settingsResult?.success ? settingsResult.settings : {}),
-    ...(generalSettingsResult?.success ? generalSettingsResult.settings : {})
-  };
+  const printConfig = getMergedDocumentConfig(
+    settingsResult?.success ? settingsResult.settings : {},
+    generalSettingsResult?.success ? generalSettingsResult.settings : {}
+  );
 
   return (
     <LedgerClient

@@ -13,6 +13,7 @@ import Alert from "@/components/ui/Alert";
 import { formatMaundWeight } from "@/lib/display-units";
 import { UNIT_IDS, getUnitLabel } from "@/lib/units";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 
 export default async function SupplierInvoiceDetailPage({ params, searchParams: searchParamsPromise }) {
   const { id } = await params;
@@ -37,10 +38,10 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
   }
 
   const invoice = result.data;
-  const printConfig = {
-    ...(settingsResult?.success ? settingsResult.settings : {}),
-    ...(generalSettingsResult?.success ? generalSettingsResult.settings : {})
-  };
+  const printConfig = getMergedDocumentConfig(
+    settingsResult?.success ? settingsResult.settings : {},
+    generalSettingsResult?.success ? generalSettingsResult.settings : {}
+  );
 
   // Recalculate per-intake breakdown using snapshot values and nested adjustments from SupplierInvoiceItems
   const { intakeBreakdowns } = calculateSupplierDeductions(

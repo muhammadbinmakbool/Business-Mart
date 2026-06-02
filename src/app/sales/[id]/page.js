@@ -20,6 +20,7 @@ import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { formatMaundWeight } from "@/lib/display-units";
 import { UNIT_IDS, getUnitLabel } from "@/lib/units";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 
 export default async function SaleDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
@@ -42,10 +43,10 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
     );
   }
 
-  const printConfig = {
-    ...(settingsResult?.success ? settingsResult.settings : {}),
-    ...(generalSettingsResult?.success ? generalSettingsResult.settings : {})
-  };
+  const printConfig = getMergedDocumentConfig(
+    settingsResult?.success ? settingsResult.settings : {},
+    generalSettingsResult?.success ? generalSettingsResult.settings : {}
+  );
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-20">

@@ -1,0 +1,82 @@
+import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+
+/**
+ * Formats a currency value based on locale, custom symbol, and precision.
+ * This is the application-wide source of truth for display formatting of money.
+ * 
+ * @param {number|string} amount - The currency amount to format
+ * @param {string} locale - 'en' or 'ur'
+ * @param {string} currencySymbol - e.g. 'Rs.', '$', 'AED'
+ * @param {number} decimalPlaces - Precision
+ * @returns {string} Formatted currency string
+ */
+export function formatCurrency(amount, locale = "en", currencySymbol = "Rs.", decimalPlaces = 2) {
+  const num = typeof amount === "string" ? parseFloat(amount.replace(/,/g, "")) : amount;
+  if (num === null || num === undefined || isNaN(num)) return amount;
+  
+  const precision = typeof decimalPlaces === "number" ? decimalPlaces : 2;
+  const formattedNum = Number(num).toLocaleString(locale === "ur" ? "ur-PK" : "en-US", {
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision
+  });
+  
+  const symbol = currencySymbol || "Rs.";
+  return `${symbol} ${formattedNum}`;
+}
+
+/**
+ * Formats weights with dynamic support for Maund (MND) and Kilograms (KG).
+ * Handles Urdu translation (RTL) and fractional Maund parsing.
+ * 
+ * @param {number|string} weight - Weight amount
+ * @param {string} unit - 'KG', 'MAUND', etc.
+ * @param {string} locale - 'en' or 'ur'
+ * @returns {string} Formatted weight string
+ */
+export function formatWeight(weight, unit = DEFAULT_WEIGHT_UNIT, locale = "en") {
+  const num = typeof weight === "string" ? parseFloat(weight.replace(/,/g, "")) : weight;
+  
+  if ((unit === UNIT_IDS.MAUND || unit === "MND") && !isNaN(num)) {
+    const wholeMaunds = Math.floor(num);
+    const remainderKg = Math.round((num - wholeMaunds) * 40);
+    
+    if (remainderKg > 0 && remainderKg < 40) {
+      if (locale === "ur") {
+        return `${wholeMaunds} من ${remainderKg} کلو`;
+      }
+      return `${wholeMaunds} MND ${remainderKg} KG`;
+    }
+  }
+
+  const formattedWeight = isNaN(num) ? weight : Number(num).toLocaleString(locale === "ur" ? "ur-PK" : "en-US");
+  
+  let translatedUnit = unit;
+  if (locale === "ur") {
+    if (unit === UNIT_IDS.MAUND || unit === "MND") translatedUnit = "من";
+    else if (unit === UNIT_IDS.KG) translatedUnit = "کلو";
+  } else {
+    if (unit === UNIT_IDS.MAUND) translatedUnit = "MND";
+  }
+  
+  return `${formattedWeight} ${translatedUnit}`;
+}
+
+/**
+ * Formats bag counts.
+ * 
+ * @param {number|string} bagCount - Number of bags
+ * @param {string} locale - 'en' or 'ur'
+ * @returns {string} Formatted bags string
+ */
+export function formatBags(bagCount, locale = "en") {
+  if (bagCount === null || bagCount === undefined || bagCount === "") {
+    return locale === "ur" ? "دستیاب نہیں" : "N/A";
+  }
+  const num = typeof bagCount === "string" ? parseFloat(bagCount.replace(/,/g, "")) : bagCount;
+  const formattedCount = isNaN(num) ? bagCount : Number(num).toLocaleString(locale === "ur" ? "ur-PK" : "en-US");
+  
+  if (locale === "ur") {
+    return `${formattedCount} بوریاں`;
+  }
+  return `${formattedCount} Bags`;
+}

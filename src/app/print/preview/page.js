@@ -6,6 +6,7 @@ import { printStyles } from "@/print/styles/printStyles";
 import { resolvePrintTemplate } from "@/print/registry";
 import { LedgerService } from "@/modules/ledger/services/LedgerService";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 import PrintPreviewFrame from "./PrintPreviewFrame";
 
 export default async function PrintPreviewPage({ searchParams: searchParamsPromise }) {
@@ -19,10 +20,10 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
     getPrintSettingsAction(),
     getGeneralSettingsAction()
   ]);
-  const printConfig = {
-    ...(settingsResult?.success ? settingsResult.settings : {}),
-    ...(generalSettingsResult?.success ? generalSettingsResult.settings : {})
-  };
+  const printConfig = getMergedDocumentConfig(
+    settingsResult?.success ? settingsResult.settings : {},
+    generalSettingsResult?.success ? generalSettingsResult.settings : {}
+  );
 
   let content = null;
   let errorMsg = "";

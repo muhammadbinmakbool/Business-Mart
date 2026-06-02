@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import fs from "fs/promises";
 import path from "path";
+import { storeFile, deleteFile } from "@/lib/fileStorage";
 
 export async function getSettings() {
   try {
@@ -283,8 +284,13 @@ export async function saveGeneralSettingsAction(settings) {
     if (record) {
       try {
         parsed = JSON.parse(record.value);
+        
+        // Overwrite/cleanup old logo from filesystem if replaced
+        if (parsed.logoPath && parsed.logoPath !== settings.logoPath) {
+          await deleteFile(parsed.logoPath);
+        }
       } catch (e) {
-        console.error("Failed to parse existing general settings JSON:", e);
+        console.error("Failed to parse existing general settings or clean old logo:", e);
       }
     }
 
@@ -313,7 +319,7 @@ export async function saveGeneralSettingsAction(settings) {
 }
 
 /**
- * Handles logo file upload and saves it to local disk in public/uploads/
+ * Handles logo file upload and saves it to local disk via fileStorage abstraction.
  */
 export async function uploadLogoAction(formData) {
   try {
@@ -322,20 +328,8 @@ export async function uploadLogoAction(formData) {
       return { success: false, error: "No file uploaded" };
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
-    const ext = path.extname(file.name) || ".png";
-    const filename = `company-logo-${Date.now()}${ext}`;
-    const publicDir = path.join(process.cwd(), "public", "uploads");
-    
-    // Ensure directory exists
-    await fs.mkdir(publicDir, { recursive: true });
-
-    const filePath = path.join(publicDir, filename);
-    await fs.writeFile(filePath, buffer);
-
-    return { success: true, logoPath: `/uploads/${filename}` };
+    const logoPath = await storeFile(file, "logo");
+    return { success: true, logoPath };
   } catch (error) {
     console.error("Failed to upload company logo:", error);
     return { success: false, error: error.message || "Failed to upload logo file" };
