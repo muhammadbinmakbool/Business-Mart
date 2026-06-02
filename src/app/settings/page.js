@@ -20,6 +20,7 @@ import PrintSettingsCard from "./PrintSettingsCard";
 import GeneralSettingsCard from "./GeneralSettingsCard";
 import InventorySettingsCard from "./InventorySettingsCard";
 import SettlementLedgerSettingsCard from "./SettlementLedgerSettingsCard";
+import ActivityAuditSettingsCard from "./ActivityAuditSettingsCard";
 import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
 
 function SettingsContent() {
@@ -43,7 +44,7 @@ function SettingsContent() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "security" || tab === "general" || tab === "adjustments" || tab === "defaults" || tab === "print" || tab === "inventory" || tab === "settlement-ledger") {
+    if (tab === "security" || tab === "general" || tab === "adjustments" || tab === "defaults" || tab === "print" || tab === "inventory" || tab === "settlement-ledger" || tab === "activity-audit") {
       setActiveTab(tab);
     }
   }, [searchParams]);
@@ -179,6 +180,18 @@ function SettingsContent() {
             Settlement & Ledger
           </button>
 
+          <button 
+            onClick={() => setActiveTab("activity-audit")}
+            className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === "activity-audit"
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            }`}
+          >
+            <ShieldAlert className="h-4 w-4" />
+            Activity & Audit Settings
+          </button>
+
           <button className="w-full text-left px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground flex items-center gap-2 opacity-40 cursor-not-allowed" disabled>
             <Building2 className="h-4 w-4" />
             Branding Profile
@@ -269,6 +282,12 @@ function SettingsContent() {
           {activeTab === "settlement-ledger" && (
             <div className="animate-in fade-in duration-200">
               <SettlementLedgerSettingsCard />
+            </div>
+          )}
+
+          {activeTab === "activity-audit" && (
+            <div className="animate-in fade-in duration-200">
+              <ActivityAuditSettingsCard />
             </div>
           )}
         </div>

@@ -7,6 +7,7 @@ import path from "path";
 import { storeFile, deleteFile } from "@/lib/fileStorage";
 import { getInventorySettings, DEFAULT_INVENTORY_SETTINGS } from "@/lib/settings/inventorySettings";
 import { getSettlementLedgerSettings, DEFAULT_SETTLEMENT_LEDGER_SETTINGS } from "@/lib/settings/settlementLedgerSettings";
+import { getActivityAuditSettings, DEFAULT_ACTIVITY_AUDIT_SETTINGS } from "@/lib/settings/activityAuditSettings";
 
 export async function getSettings() {
   try {
@@ -438,6 +439,58 @@ export async function saveSettlementLedgerSettingsAction(settings) {
     return { success: false, error: error.message || "Failed to save settlement & ledger settings" };
   }
 }
+
+/**
+ * Action to fetch activity & audit settings.
+ */
+export async function getActivityAuditSettingsAction() {
+  try {
+    const settings = await getActivityAuditSettings();
+    return { success: true, settings };
+  } catch (error) {
+    console.error("Failed to get activity & audit settings action:", error);
+    return { success: false, error: error.message || "Failed to fetch activity & audit settings" };
+  }
+}
+
+/**
+ * Action to save activity & audit settings.
+ */
+export async function saveActivityAuditSettingsAction(settings) {
+  try {
+    if (!settings || typeof settings !== "object") {
+      return { success: false, error: "Invalid settings data" };
+    }
+
+    const logRetentionDays = parseInt(settings.logRetentionDays, 10);
+    if (isNaN(logRetentionDays) || logRetentionDays < 0) {
+      return { success: false, error: "Log retention days must be a non-negative number" };
+    }
+
+    // Build standard structure to filter out arbitrary fields
+    const updated = {
+      logRetentionDays,
+      trackEdits: settings.trackEdits !== undefined ? !!settings.trackEdits : DEFAULT_ACTIVITY_AUDIT_SETTINGS.trackEdits,
+      showDeletedRecords: settings.showDeletedRecords !== undefined ? !!settings.showDeletedRecords : DEFAULT_ACTIVITY_AUDIT_SETTINGS.showDeletedRecords,
+      allowDestructiveDelete: settings.allowDestructiveDelete !== undefined ? !!settings.allowDestructiveDelete : DEFAULT_ACTIVITY_AUDIT_SETTINGS.allowDestructiveDelete
+    };
+
+    const settingsValue = JSON.stringify(updated);
+
+    await prisma.systemSetting.upsert({
+      where: { key: "activity_audit_settings" },
+      update: { value: settingsValue },
+      create: { key: "activity_audit_settings", value: settingsValue }
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to save activity & audit settings action:", error);
+    return { success: false, error: error.message || "Failed to save activity & audit settings" };
+  }
+}
+
 
 
 

@@ -2,6 +2,17 @@ import { prisma } from "@/lib/prisma";
 
 export class SaleRepository {
   static async getAll() {
+    let whereClause = { isDeleted: false };
+    try {
+      const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+      const settings = await getActivityAuditSettings();
+      if (settings.showDeletedRecords) {
+        whereClause = {};
+      }
+    } catch (error) {
+      console.error("SaleRepository: Failed to load activity audit settings, falling back to showDeletedRecords = false:", error);
+    }
+
     return prisma.saleTransaction.findMany({
       include: {
         party: true,
@@ -9,7 +20,7 @@ export class SaleRepository {
           include: { product: true }
         }
       },
-      where: { isDeleted: false },
+      where: whereClause,
       orderBy: { createdAt: "desc" }
     });
   }

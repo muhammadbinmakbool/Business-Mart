@@ -48,6 +48,13 @@ export async function assertSensitiveAction({
  * @returns {Promise<Object>} The authenticated user's session data
  */
 export async function assertDeletePermission(confirmPassword) {
+  // Enforce administrative destructive deletion settings check
+  const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+  const settings = await getActivityAuditSettings();
+  if (!settings.allowDestructiveDelete) {
+    throw new Error("Destructive record deletion is currently disabled in system settings.");
+  }
+
   return assertSensitiveAction({
     actionName: "Delete Record",
     confirmPassword,

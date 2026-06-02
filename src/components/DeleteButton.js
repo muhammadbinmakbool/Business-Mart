@@ -18,24 +18,35 @@ export default function DeleteButton({
   className
 }) {
   const [currentUser, setCurrentUser] = useState(null);
+  const [destructiveAllowed, setDestructiveAllowed] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    async function loadSession() {
+    async function loadSessionAndSettings() {
       try {
-        const sess = await getActiveSessionAction();
+        const [sess, settingsRes] = await Promise.all([
+          getActiveSessionAction(),
+          (async () => {
+            const { getActivityAuditSettingsAction } = await import("@/modules/settings/controllers/settingsActions");
+            return getActivityAuditSettingsAction();
+          })()
+        ]);
         setCurrentUser(sess);
+        if (settingsRes.success) {
+          setDestructiveAllowed(settingsRes.settings.allowDestructiveDelete);
+        }
       } catch (e) {
         // Fallback for edge cases
       }
     }
-    loadSession();
+    loadSessionAndSettings();
   }, []);
 
-  // 1. Hide delete trigger completely for standard users
+  // 1. Hide delete trigger completely if not loaded, if user is not authorized, or if destructive delete is disabled
   if (!currentUser) return null; // Wait for session load
+  if (!destructiveAllowed) return null; // Hide UI button if disabled in settings
   const isAuthorized = currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN";
   if (!isAuthorized) {
     return null; 

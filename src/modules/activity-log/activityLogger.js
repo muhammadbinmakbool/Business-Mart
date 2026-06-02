@@ -130,6 +130,18 @@ export async function emitActivity({
   businessId,
   meta = {}
 }) {
+  if (action === "UPDATED") {
+    try {
+      const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+      const settings = await getActivityAuditSettings();
+      if (!settings.trackEdits) {
+        return;
+      }
+    } catch (e) {
+      // Ignore settings fetch error to preserve fallback log behavior
+    }
+  }
+
   let resolvedUserId = userId;
   let resolvedUserName = userName;
   let resolvedBusinessId = businessId !== undefined ? businessId : SYSTEM_BUSINESS_ID;
