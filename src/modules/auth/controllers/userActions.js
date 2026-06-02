@@ -33,16 +33,16 @@ export async function listUsersAction() {
 }
 
 export async function createUserAction(formData) {
-  const targetRole = formData.get("role") || USER_ROLES.USER;
   const confirmPassword = formData.get("confirmPassword");
+  const targetRole = formData.get("role");
 
   try {
     await assertSensitiveAction({
-      actionName: "Create Operator",
+      actionName: "Create System Operator",
       confirmPassword,
       customAssertion: (session) => {
         if (!canManageUserRole(session.role, targetRole)) {
-          throw new Error(`Forbidden: Insufficient privileges to create a ${targetRole} operator`);
+          throw new Error("Forbidden: You cannot create an operator with higher privileges than your own");
         }
       }
     });
@@ -52,6 +52,8 @@ export async function createUserAction(formData) {
       name: formData.get("name"),
       password: formData.get("password"),
       role: targetRole,
+      phoneNumber: formData.get("phoneNumber") || null,
+      address: formData.get("address") || null,
     };
 
     await UserService.createUser(data);

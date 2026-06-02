@@ -52,6 +52,8 @@ export default function UsersManagement() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState(USER_ROLES.USER);
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -106,6 +108,8 @@ export default function UsersManagement() {
     setEmail("");
     setPassword("");
     setRole(USER_ROLES.USER);
+    setPhone("");
+    setAddress("");
     setIsCreateOpen(true);
   };
 
@@ -154,6 +158,8 @@ export default function UsersManagement() {
         formData.append("email", email);
         formData.append("password", password);
         formData.append("role", role);
+        formData.append("phoneNumber", phone);
+        formData.append("address", address);
         formData.append("confirmPassword", confirmPassword);
 
         return new Promise((resolve, reject) => {
@@ -180,6 +186,8 @@ export default function UsersManagement() {
     setEmail(user.email || "");
     setPassword(""); // Keep blank to not modify
     setRole(user.role || USER_ROLES.USER);
+    setPhone(user.phoneNumber || "");
+    setAddress(user.address || "");
     setIsEditOpen(true);
   };
 
@@ -201,6 +209,8 @@ export default function UsersManagement() {
           formData.append("password", password);
         }
         formData.append("role", role);
+        formData.append("phoneNumber", phone);
+        formData.append("address", address);
         formData.append("confirmPassword", confirmPassword);
 
         return new Promise((resolve, reject) => {
@@ -452,6 +462,25 @@ export default function UsersManagement() {
               )}
             </select>
           </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Phone Number</label>
+            <input
+              type="text"
+              placeholder="E.g. +92 300 1234567"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Address</label>
+            <textarea
+              placeholder="Enter full address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="w-full min-h-[80px] p-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
         </form>
       </Modal>
 
@@ -659,6 +688,25 @@ export default function UsersManagement() {
                 <option value={USER_ROLES.SUPER_ADMIN}>Super Admin (System Owner)</option>
               )}
             </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Phone Number</label>
+            <input
+              type="text"
+              placeholder="E.g. +92 300 1234567"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-muted-foreground">Address</label>
+            <textarea
+              placeholder="Enter full address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="w-full min-h-[80px] p-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
           </div>
         </form>
       </Modal>

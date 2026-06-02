@@ -15,7 +15,8 @@ export class UserService {
   }
 
   static async createUser(data) {
-    const validated = createUserSchema.parse(data);
+    const { phoneNumber, address, ...rest } = data;
+    const validated = createUserSchema.parse(rest);
 
     // Check for duplicate email
     const existing = await UserRepository.getByEmail(validated.email);
@@ -30,6 +31,8 @@ export class UserService {
       name: validated.name,
       password: hashedPassword,
       role: validated.role || USER_ROLES.USER,
+      phoneNumber: phoneNumber || null,
+      address: address || null,
     });
   }
 
