@@ -186,14 +186,34 @@ function SettingsContent() {
                   Note: Branding settings are currently read-only and loaded from the print configuration module.
                 </p>
               </div>
+            </>
+          )}
 
-              {/* Card 1.5: UI Display Unit Preferences */}
-              <div className="animate-in fade-in duration-200">
-                <DisplayUnitSettingsCard />
-              </div>
+          {activeTab === "security" && (
+            <div className="rounded-2xl border bg-card p-6 shadow-sm animate-in fade-in duration-200">
+              <UsersManagement />
+            </div>
+          )}
 
+          {activeTab === "adjustments" && (
+            <div className="animate-in fade-in duration-200">
+              <AdjustmentVisibilityCard />
+            </div>
+          )}
+
+          {activeTab === "defaults" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <DefaultsCard />
+              <DisplayUnitSettingsCard />
+            </div>
+          )}
+
+          {activeTab === "print" && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              <PrintSettingsCard />
+              
               {/* Card 2: Print Subsystem Customizer */}
-              <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-6 animate-in fade-in duration-200">
+              <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-6">
                 <div className="flex items-center justify-between border-b pb-3">
                   <div className="flex items-center gap-2">
                     <Printer className="h-5 w-5 text-emerald-500" />
@@ -233,30 +253,6 @@ function SettingsContent() {
                   ))}
                 </div>
               </div>
-            </>
-          )}
-
-          {activeTab === "security" && (
-            <div className="rounded-2xl border bg-card p-6 shadow-sm animate-in fade-in duration-200">
-              <UsersManagement />
-            </div>
-          )}
-
-          {activeTab === "adjustments" && (
-            <div className="animate-in fade-in duration-200">
-              <AdjustmentVisibilityCard />
-            </div>
-          )}
-
-          {activeTab === "defaults" && (
-            <div className="animate-in fade-in duration-200">
-              <DefaultsCard />
-            </div>
-          )}
-
-          {activeTab === "print" && (
-            <div className="animate-in fade-in duration-200">
-              <PrintSettingsCard />
             </div>
           )}
         </div>
