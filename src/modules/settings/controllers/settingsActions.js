@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import fs from "fs/promises";
 import path from "path";
 import { storeFile, deleteFile } from "@/lib/fileStorage";
+import { getInventorySettings, DEFAULT_INVENTORY_SETTINGS } from "@/lib/settings/inventorySettings";
 
 export async function getSettings() {
   try {
@@ -335,6 +336,59 @@ export async function uploadLogoAction(formData) {
     return { success: false, error: error.message || "Failed to upload logo file" };
   }
 }
+
+/**
+ * Action to fetch inventory settings.
+ */
+export async function getInventorySettingsAction() {
+  try {
+    const settings = await getInventorySettings();
+    return { success: true, settings };
+  } catch (error) {
+    console.error("Failed to get inventory settings action:", error);
+    return { success: false, error: error.message || "Failed to fetch inventory settings" };
+  }
+}
+
+/**
+ * Action to save inventory settings.
+ */
+export async function saveInventorySettingsAction(settings) {
+  try {
+    if (!settings || typeof settings !== "object") {
+      return { success: false, error: "Invalid settings data" };
+    }
+
+    // Build standard structure to filter out arbitrary fields
+    const updated = {
+      negativeStockAllowed: settings.negativeStockAllowed !== undefined ? !!settings.negativeStockAllowed : DEFAULT_INVENTORY_SETTINGS.negativeStockAllowed,
+      autoNormalizeUnits: settings.autoNormalizeUnits !== undefined ? !!settings.autoNormalizeUnits : DEFAULT_INVENTORY_SETTINGS.autoNormalizeUnits,
+      inventorySnapshotFrequency: settings.inventorySnapshotFrequency || DEFAULT_INVENTORY_SETTINGS.inventorySnapshotFrequency,
+      lowStockThreshold: settings.lowStockThreshold !== undefined ? parseInt(settings.lowStockThreshold, 10) : DEFAULT_INVENTORY_SETTINGS.lowStockThreshold,
+      lowStockAlertEnabled: settings.lowStockAlertEnabled !== undefined ? !!settings.lowStockAlertEnabled : DEFAULT_INVENTORY_SETTINGS.lowStockAlertEnabled,
+      showOnlyActiveProducts: settings.showOnlyActiveProducts !== undefined ? !!settings.showOnlyActiveProducts : DEFAULT_INVENTORY_SETTINGS.showOnlyActiveProducts
+    };
+
+    if (isNaN(updated.lowStockThreshold) || updated.lowStockThreshold < 0) {
+      return { success: false, error: "Low stock threshold must be a non-negative number" };
+    }
+
+    const settingsValue = JSON.stringify(updated);
+
+    await prisma.systemSetting.upsert({
+      where: { key: "inventory_settings" },
+      update: { value: settingsValue },
+      create: { key: "inventory_settings", value: settingsValue }
+    });
+
+    revalidatePath("/settings");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to save inventory settings action:", error);
+    return { success: false, error: error.message || "Failed to save inventory settings" };
+  }
+}
+
 
 
 
