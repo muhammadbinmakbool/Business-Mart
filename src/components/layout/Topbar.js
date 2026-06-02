@@ -5,13 +5,23 @@ import { Sun, Moon, Bell, User, Menu, Settings, LogOut } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { useSidebar } from "./SidebarContext";
 import { logoutAction } from "@/modules/auth/controllers/authActions";
+import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
 import Link from "next/link";
 
 export function Topbar() {
   const { theme, setTheme } = useTheme();
   const { setIsMobileOpen } = useSidebar();
   const [isOpen, setIsOpen] = useState(false);
+  const [session, setSession] = useState(null);
   const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    async function loadSession() {
+      const activeSession = await getActiveSessionAction();
+      setSession(activeSession);
+    }
+    loadSession();
+  }, []);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -47,8 +57,8 @@ export function Topbar() {
           className="relative flex items-center justify-center rounded-full p-2 hover:bg-accent transition-colors"
           title="Toggle Theme"
         >
-          <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+          <Moon className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+          <Sun className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
           <span className="sr-only">Toggle theme</span>
         </button>
         
@@ -63,8 +73,10 @@ export function Topbar() {
             className="flex items-center gap-3 border-l pl-4 hover:opacity-85 transition-all text-left focus:outline-none cursor-pointer"
           >
             <div className="flex flex-col items-end hidden sm:flex">
-              <span className="text-sm font-medium">Admin User</span>
-              <span className="text-xs text-muted-foreground">Administrator</span>
+              <span className="text-sm font-medium">{session?.userName || "Admin User"}</span>
+              <span className="text-xs text-muted-foreground">
+                {session ? (session.role === "SUPER_ADMIN" || session.role === "ADMIN" ? "Admin" : "User") : "Admin"}
+              </span>
             </div>
             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center hover:scale-105 active:scale-95 transition-all">
               <User className="h-5 w-5 text-primary" />
@@ -75,8 +87,10 @@ export function Topbar() {
           {isOpen && (
             <div className="absolute right-0 mt-2.5 w-56 rounded-xl border bg-card text-card-foreground shadow-xl z-50 p-1.5 animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="px-3 py-2 border-b text-xs text-muted-foreground sm:hidden">
-                <p className="font-semibold text-foreground">Admin User</p>
-                <p>Administrator</p>
+                <p className="font-semibold text-foreground">{session?.userName || "Admin User"}</p>
+                <p>
+                  {session ? (session.role === "SUPER_ADMIN" || session.role === "ADMIN" ? "Admin" : "User") : "Admin"}
+                </p>
               </div>
 
               <Link

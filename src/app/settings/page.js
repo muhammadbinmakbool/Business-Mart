@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { 
-  Building2, 
   Printer, 
   ArrowRight, 
   ExternalLink,
@@ -214,10 +213,6 @@ function SettingsContent() {
             System Maintenance
           </Link>
 
-          <button className="w-full text-left px-3 py-2 text-sm font-medium rounded-lg text-muted-foreground flex items-center gap-2 opacity-40 cursor-not-allowed" disabled>
-            <Building2 className="h-4 w-4" />
-            Branding Profile
-          </button>
         </div>
 
         {/* Right Content Pane */}
