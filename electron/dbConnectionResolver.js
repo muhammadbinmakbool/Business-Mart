@@ -569,13 +569,38 @@ function resolveDatabaseConnection(configHint) {
     const dbPath = getSqliteDbPath(database);
     const connectionString = `file:${dbPath}`;
     console.log(`[DB Resolver] Strategic Connection Try (SQLite): Connection string [${connectionString}]`);
-    return {
-      success: true,
-      mode: 'SUCCESS',
-      connectionString,
-      server: 'SQLite',
-      database
-    };
+    
+    if (fs.existsSync(dbPath)) {
+      try {
+        fs.accessSync(dbPath, fs.constants.R_OK | fs.constants.W_OK);
+        console.log(`[DB Resolver] SUCCESS! SQLite file resolved at: ${dbPath}`);
+        return {
+          success: true,
+          mode: 'SUCCESS',
+          connectionString,
+          server: 'SQLite',
+          database
+        };
+      } catch (err) {
+        console.error(`[DB Resolver] SQLite file permission error: ${err.message}`);
+        return {
+          success: false,
+          mode: 'UNREACHABLE',
+          message: `Unable to access SQLite database file at ${dbPath}.`,
+          debugError: err.message
+        };
+      }
+    } else {
+      console.log(`[DB Resolver] BOOTSTRAP REQUIRED: SQLite file does not exist at: ${dbPath}`);
+      return {
+        success: false,
+        mode: 'BOOTSTRAP_REQUIRED',
+        message: `SQLite database file was not found. System needs to run migrations and seed data.`,
+        connectionString,
+        server: 'SQLite',
+        database
+      };
+    }
   }
 
   if (!configHint || !configHint.database || !configHint.server) {

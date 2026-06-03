@@ -455,8 +455,16 @@
 
               standardConfigView.style.display = 'none';
               missingDbPrompt.style.display = 'block';
-              document.getElementById('detectedServerText').textContent = activeDbState.server;
-              document.getElementById('detectedDbText').textContent = activeDbState.database;
+              
+              if (config && config.provider === 'sqlite') {
+                document.getElementById('missingDbPrompt').querySelector('h2').textContent = 'SQLite Database Setup';
+                document.getElementById('missingDbPrompt').querySelector('.logo-icon').textContent = '💾';
+                document.getElementById('missingDbPrompt').querySelector('.subtitle').innerHTML = 
+                  `The SQLite database file <strong style="color: var(--text-main);">${config.database || 'business_mart.db'}</strong> was not found in the AppData directory. The application needs to initialize the database and seed the default administrator credentials.`;
+              } else {
+                document.getElementById('detectedServerText').textContent = activeDbState.server;
+                document.getElementById('detectedDbText').textContent = activeDbState.database;
+              }
             }
           }
 

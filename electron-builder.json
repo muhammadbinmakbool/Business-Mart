@@ -34,7 +34,8 @@
   "asar": true,
   "asarUnpack": [
     "prisma/**/*",
-    ".next/standalone/**/*"
+    ".next/standalone/**/*",
+    "node_modules/prisma/**/*"
   ],
   "extraResources": [
     {
