@@ -16,11 +16,11 @@
     "prepare:mssql": "node scripts/prepare-build.js mssql",
     "prepare:sqlite": "node scripts/prepare-build.js sqlite",
     "dev:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/env-run.js DB_PROVIDER=mssql \"next dev\"",
-    "dev:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite \"next dev\"",
+    "dev:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite DATABASE_URL=file:./prisma/business_mart.db \"npx prisma db push --skip-generate && next dev\"",
     "build:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/env-run.js DB_PROVIDER=mssql \"next build\"",
-    "build:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite \"next build\"",
+    "build:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite DATABASE_URL=file:./prisma/business_mart.db \"next build\"",
     "electron:build:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/env-run.js DB_PROVIDER=mssql \"next build && node scripts/copy-standalone-assets.js && electron-builder\"",
-    "electron:build:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite \"next build && node scripts/copy-standalone-assets.js && electron-builder\""
+    "electron:build:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite DATABASE_URL=file:./prisma/business_mart.db \"next build && node scripts/copy-standalone-assets.js && electron-builder\""
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
