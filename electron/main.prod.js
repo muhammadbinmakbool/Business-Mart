@@ -401,9 +401,22 @@ app.on('window-all-closed', () => {
   }
 });
 
-app.on('will-quit', () => {
-  performShutdownBackup();
-  killServerProcess();
+app.on('will-quit', (event) => {
+  event.preventDefault();
+  
+  if (serverProcess) {
+    console.log('[Teardown] Awaiting Next.js shutdown to flush database writes...');
+    serverProcess.once('exit', () => {
+      console.log('[Teardown] Next.js process exited. Initiating shutdown backup...');
+      performShutdownBackup();
+      app.exit(0);
+    });
+    serverProcess.kill('SIGTERM');
+    serverProcess = null;
+  } else {
+    performShutdownBackup();
+    app.exit(0);
+  }
 });
 
 // Enforce cleanup on unexpected process exit
