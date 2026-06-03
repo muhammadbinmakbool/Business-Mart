@@ -3,8 +3,41 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+// Helper to retrieve the active provider from env or config.json
+function getActiveProvider() {
+  if (process.env.DB_PROVIDER) {
+    return process.env.DB_PROVIDER.toLowerCase();
+  }
+  try {
+    const { app } = require('electron');
+    const userDataPath = app ? app.getPath('userData') : '';
+    const writablePath = userDataPath ? path.join(userDataPath, 'config.json') : '';
+    const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
+    const prodConfigPath = app ? path.join(process.resourcesPath, 'config.json') : '';
+    
+    let configPath = '';
+    if (writablePath && fs.existsSync(writablePath)) configPath = writablePath;
+    else if (prodConfigPath && fs.existsSync(prodConfigPath)) configPath = prodConfigPath;
+    else if (fs.existsSync(devConfigPath)) configPath = devConfigPath;
+    
+    if (configPath) {
+      const fileContent = fs.readFileSync(configPath, 'utf8');
+      const parsed = JSON.parse(fileContent);
+      if (parsed && parsed.db && parsed.db.provider) {
+        return parsed.db.provider.toLowerCase();
+      }
+    }
+  } catch (e) {
+    // Fail silently, default to mssql
+  }
+  return 'mssql';
+}
+
 // Detect available local SQL Server instances via Windows Registry
 function getLocalSQLInstances() {
+  if (getActiveProvider() === 'sqlite') {
+    return [];
+  }
   const instances = [];
   try {
     const cmd = `powershell -Command "(Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Microsoft SQL Server\\Instance Names\\SQL' -ErrorAction SilentlyContinue).psobject.properties.name"`;
@@ -75,6 +108,25 @@ function getCandidateServers(configHint) {
 
 // Test connection natively using ADO.NET and PowerShell
 function testNativeConnection(server, database, trustedConnection, user, password) {
+  if (getActiveProvider() === 'sqlite') {
+    try {
+      const dbFile = database || 'business_mart.db';
+      const dbPath = path.resolve(process.cwd(), dbFile);
+      const dbDir = path.dirname(dbPath);
+      if (!fs.existsSync(dbDir)) {
+        return { success: false, reason: 'UNREACHABLE', error: `Directory ${dbDir} does not exist.` };
+      }
+      if (fs.existsSync(dbPath)) {
+        fs.accessSync(dbPath, fs.constants.R_OK | fs.constants.W_OK);
+      } else {
+        fs.accessSync(dbDir, fs.constants.W_OK);
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, reason: 'UNREACHABLE', error: err.message };
+    }
+  }
+
   let adonetConnString = `Server=${server};Database=${database};Encrypt=True;TrustServerCertificate=True;Connection Timeout=3;`;
   if (trustedConnection) {
     adonetConnString += `Integrated Security=True;`;
@@ -234,6 +286,20 @@ function testPrismaFallback(server, database, trustedConnection, user, password)
 // Accepts raw config params to build connection natively via ADO.NET and PowerShell.
 // Returns { success: boolean, error?: string }
 function createDatabase(server, database, trustedConnection, user, password) {
+  if (getActiveProvider() === 'sqlite') {
+    console.log(`[DB Resolver] Auto-creating SQLite database file [${database}]...`);
+    try {
+      const dbFile = database || 'business_mart.db';
+      const dbPath = path.resolve(process.cwd(), dbFile);
+      if (!fs.existsSync(dbPath)) {
+        fs.writeFileSync(dbPath, '', 'utf8');
+      }
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
   console.log(`[DB Resolver] Auto-creating database [${database}] on server [${server}] natively via ADO.NET PowerShell...`);
 
   let adonetConnString = `Server=${server};Database=master;Encrypt=True;TrustServerCertificate=True;Connection Timeout=10;`;
@@ -350,6 +416,58 @@ try {
 // Accepts raw config params to build connection strings internally.
 // Returns { success: boolean, error?: string }
 function runMigrationsAndSeed(server, database, trustedConnection, user, password) {
+  if (getActiveProvider() === 'sqlite') {
+    const dbFile = database || 'business_mart.db';
+    const dbPath = path.resolve(process.cwd(), dbFile);
+    const connectionString = `file:${dbPath}`;
+    try {
+      const prismaCliPath = path.join(__dirname, '..', 'node_modules', 'prisma', 'build', 'index.js').replace('app.asar', 'app.asar.unpacked');
+      const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma').replace('app.asar', 'app.asar.unpacked');
+      const seedJsPath = path.join(__dirname, '..', 'prisma', 'seed.js').replace('app.asar', 'app.asar.unpacked');
+
+      console.log('[DB Resolver] Deploying SQLite schema migrations...');
+      
+      const migrationResult = spawnSync(process.execPath, [prismaCliPath, 'migrate', 'deploy', '--schema', schemaPath], {
+        env: { 
+          ...process.env, 
+          DATABASE_URL: connectionString, 
+          ELECTRON_RUN_AS_NODE: '1',
+          NODE_PATH: path.join(__dirname, '..', 'node_modules')
+        },
+        encoding: 'utf8'
+      });
+      
+      if (migrationResult.status !== 0) {
+        return {
+          success: false,
+          error: `Migrations failed (exit code ${migrationResult.status}).\n\nStderr:\n${migrationResult.stderr}`
+        };
+      }
+
+      console.log('[DB Resolver] Launching SQLite database seed script...');
+      const seedResult = spawnSync(process.execPath, [seedJsPath], {
+        env: { 
+          ...process.env, 
+          DATABASE_URL: connectionString, 
+          ELECTRON_RUN_AS_NODE: '1',
+          NODE_PATH: path.join(__dirname, '..', 'node_modules')
+        },
+        encoding: 'utf8'
+      });
+      
+      if (seedResult.status !== 0) {
+        return {
+          success: false,
+          error: `Database created and migrated successfully, but seeding failed (exit code ${seedResult.status}).\n\nStderr:\n${seedResult.stderr}`
+        };
+      }
+      
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
   const connectionString = buildPrismaConnectionString(server, database, trustedConnection, user, password);
   try {
     const prismaCliPath = path.join(__dirname, '..', 'node_modules', 'prisma', 'build', 'index.js').replace('app.asar', 'app.asar.unpacked');
@@ -448,6 +566,21 @@ function buildPrismaConnectionString(server, database, trustedConnection, user, 
 
 // Main Connection Resolution Loop (Simple Try -> Success/Fail Flow)
 function resolveDatabaseConnection(configHint) {
+  const provider = getActiveProvider();
+  if (provider === 'sqlite') {
+    const database = configHint ? configHint.database || 'business_mart.db' : 'business_mart.db';
+    const dbPath = path.resolve(process.cwd(), database);
+    const connectionString = `file:${dbPath}`;
+    console.log(`[DB Resolver] Strategic Connection Try (SQLite): Connection string [${connectionString}]`);
+    return {
+      success: true,
+      mode: 'SUCCESS',
+      connectionString,
+      server: 'SQLite',
+      database
+    };
+  }
+
   if (!configHint || !configHint.database || !configHint.server) {
     console.error('[DB Resolver] FAILED: Strict config check failed. Missing server or database in configuration parameters.');
     return { 
