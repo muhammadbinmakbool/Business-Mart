@@ -2,6 +2,7 @@
   "db": {
     "server": "localhost\\SQLEXPRESS",
     "database": "business_mart",
-    "trustedConnection": true
+    "trustedConnection": true,
+    "provider": "mssql"
   }
 }

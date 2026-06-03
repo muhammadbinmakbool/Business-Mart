@@ -12,6 +12,33 @@ function getWritableConfigPath() {
   }
 }
 
+// Resolve provider based on build packaging context
+function getBuildProvider(dbConfig) {
+  if (process.env.DB_PROVIDER) {
+    return process.env.DB_PROVIDER.toLowerCase();
+  }
+  try {
+    if (app && app.isPackaged) {
+      const prodConfigPath = path.join(process.resourcesPath, 'config.json');
+      const nestedProdConfigPath = path.join(process.resourcesPath, 'resources', 'config.json');
+      let configPath = '';
+      if (fs.existsSync(prodConfigPath)) configPath = prodConfigPath;
+      else if (fs.existsSync(nestedProdConfigPath)) configPath = nestedProdConfigPath;
+
+      if (configPath) {
+        const fileContent = fs.readFileSync(configPath, 'utf8');
+        const parsed = JSON.parse(fileContent);
+        if (parsed && parsed.db && parsed.db.provider) {
+          return parsed.db.provider.toLowerCase();
+        }
+      }
+    }
+  } catch (e) {
+    // Fail silently
+  }
+  return (dbConfig && dbConfig.provider) ? dbConfig.provider.toLowerCase() : 'mssql';
+}
+
 function loadDatabaseConfig() {
   const writablePath = getWritableConfigPath();
   const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
@@ -53,8 +80,10 @@ function loadDatabaseConfig() {
     configStatus = 'fallback';
   }
 
+  const provider = getBuildProvider(dbConfig);
+
   return {
-    provider: process.env.DB_PROVIDER || dbConfig.provider || 'mssql',
+    provider,
     server: dbConfig.server || 'localhost\\SQLEXPRESS',
     database: dbConfig.database || 'business_mart',
     trustedConnection: dbConfig.trustedConnection !== false,

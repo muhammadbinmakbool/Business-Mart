@@ -12,7 +12,15 @@
     "dev:desktop": "concurrently -k -n \"next,electron\" -c \"cyan,magenta\" \"npm run dev\" \"wait-on http://localhost:3000 && npm run electron\"",
     "build:next": "next build",
     "postbuild:next": "node scripts/copy-standalone-assets.js",
-    "electron:build": "npm run build:next && npm run postbuild:next && npx prisma generate && electron-builder"
+    "electron:build": "npm run build:next && npm run postbuild:next && npx prisma generate && electron-builder",
+    "prepare:mssql": "node scripts/prepare-build.js mssql",
+    "prepare:sqlite": "node scripts/prepare-build.js sqlite",
+    "dev:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/env-run.js DB_PROVIDER=mssql \"next dev\"",
+    "dev:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite \"next dev\"",
+    "build:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/env-run.js DB_PROVIDER=mssql \"next build\"",
+    "build:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite \"next build\"",
+    "electron:build:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/env-run.js DB_PROVIDER=mssql \"next build && node scripts/copy-standalone-assets.js && electron-builder\"",
+    "electron:build:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite \"next build && node scripts/copy-standalone-assets.js && electron-builder\""
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",

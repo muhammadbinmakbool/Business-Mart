@@ -1,0 +1,368 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  name        String?
+  password    String
+  role        String   @default("USER") // ADMIN | USER
+  isActive    Boolean  @default(true)
+  phoneNumber String?
+  address     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Party {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  phoneNumber        String
+  address            String?
+  notes              String?
+  partyType          String
+  isActive           Boolean             @default(true)
+  userId             Int                 @default(0)
+  businessId         Int                 @default(0)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  intakeAdvances     IntakeAdvance[]
+  intakeTransactions IntakeTransaction[]
+  saleTransactions   SaleTransaction[]
+  supplierInvoices   SupplierInvoice[]
+  supplierTracks     SalesTrack[]        @relation("SupplierTrack")
+  buyerTracks        SalesTrack[]        @relation("BuyerTrack")
+  payments           PartyPayment[]
+  allocations        PartyPaymentAllocation[]
+
+}
+
+model Product {
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  category           String              @default("WEIGHT") // WEIGHT, LIQUID, QUANTITY
+  primaryUnit        String              @default("KG")
+  unitConversion     Decimal? // e.g. 1 BAG = 100 KG
+  quantity           Decimal             @default(0)
+  isActive           Boolean             @default(true)
+  userId             Int                 @default(0)
+  businessId         Int                 @default(0)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  intakeTransactions IntakeTransaction[]
+  saleItems          SaleItem[]
+  salesTracks        SalesTrack[]
+  rates              ProductRate[]
+}
+
+
+model IntakeTransaction {
+  id           Int                   @id @default(autoincrement())
+  intakeNumber String                @unique
+  entryDate    DateTime              @default(now())
+  partyId      Int
+  productId    Int
+  bagCount     Int?
+  rate             Decimal?
+  rateUnit         String                @default("KG")
+  grossWeight      Decimal
+  unit             String                @default("KG")
+  normalizedWeight Decimal               @default(0)
+  Bardana          Decimal?
+  Khot             Decimal?
+  netWeight        Decimal?
+  remainingWeight  Decimal?
+  notes            String?
+  status           String                @default("PENDING")
+  userId           Int                   @default(0)
+  businessId       Int                   @default(0)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+
+  advances     IntakeAdvance[]
+  invoiceItems SupplierInvoiceItem[]
+  salesTracks  SalesTrack[]
+
+
+  party        Party                 @relation(fields: [partyId], references: [id], onUpdate: NoAction)
+  product      Product               @relation(fields: [productId], references: [id], onUpdate: NoAction)
+}
+
+model IntakeAdvance {
+  id                  Int                @id @default(autoincrement())
+  intakeTransactionId Int?
+  partyId             Int
+  amount              Decimal
+  notes               String?
+  supplierInvoiceId   Int?
+  userId              Int                @default(0)
+  businessId          Int                @default(0)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  intakeTransaction   IntakeTransaction? @relation(fields: [intakeTransactionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  party               Party              @relation(fields: [partyId], references: [id], onUpdate: NoAction)
+  supplierInvoice     SupplierInvoice?   @relation(fields: [supplierInvoiceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model SaleTransaction {
+  id               Int                     @id @default(autoincrement())
+  saleNumber       String                  @unique
+  entryDate        DateTime                @default(now())
+  partyId          Int
+  totalWeight      Decimal
+  baseAmount       Decimal
+  totalAdjustments Decimal
+  finalAmount      Decimal
+  status           String                  @default("PENDING")
+  paidAmount       Decimal                 @default(0)
+  paymentStatus    String                  @default("PENDING") // PENDING | PARTIAL | CLEARED
+  notes            String?
+  isDeleted        Boolean                 @default(false)
+  changeLog        String?
+  previousState    String?
+  userId           Int                     @default(0)
+  businessId       Int                     @default(0)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  party            Party                   @relation(fields: [partyId], references: [id], onUpdate: NoAction)
+  items            SaleItem[]
+  adjustments      TransactionAdjustment[]
+  salesTracks      SalesTrack[]
+
+}
+
+model SaleItem {
+  id                  Int                @id @default(autoincrement())
+  saleId              Int
+  productId           Int
+  weight              Decimal
+  unit                String             @default("KG")
+  normalizedWeight    Decimal            @default(0)
+  rate                Decimal
+  rateUnit            String             @default("KG") // DEPRECATED: use unit
+  amount              Decimal
+  userId              Int                @default(0)
+  businessId          Int                @default(0)
+
+  sale                SaleTransaction    @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product             Product            @relation(fields: [productId], references: [id], onUpdate: NoAction)
+  salesTracks         SalesTrack[]
+}
+
+model SalesTrack {
+  id                  Int       @id @default(autoincrement())
+
+  saleTransactionId   Int?
+  saleItemId          Int?
+  intakeTransactionId Int?
+
+  supplierPartyId     Int?
+  buyerPartyId        Int?
+  productId           Int?
+
+  quantity            Decimal
+
+  buyingRate          Decimal?
+  sellingRate         Decimal?
+  rateUnit            String?   @default("KG")
+
+  netWeight           Decimal?
+  baseAmount          Decimal?
+
+  isBilled            Boolean   @default(false)
+  isSettled           Boolean   @default(false)
+
+  notes               String?
+
+  userId              Int       @default(0)
+  businessId          Int       @default(0)
+
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+
+  saleTransaction     SaleTransaction?   @relation(fields: [saleTransactionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  saleItem            SaleItem?          @relation(fields: [saleItemId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  intakeTransaction   IntakeTransaction? @relation(fields: [intakeTransactionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  supplier            Party?             @relation("SupplierTrack", fields: [supplierPartyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  buyer               Party?             @relation("BuyerTrack", fields: [buyerPartyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product             Product?           @relation(fields: [productId], references: [id], onUpdate: NoAction)
+}
+
+
+
+
+model TransactionAdjustment {
+  id               Int             @id @default(autoincrement())
+  saleId           Int
+  adjustmentType   String // Commission, Labour, Rent, Kaat, etc.
+  method           String // FIXED, PERCENTAGE, PER_WEIGHT
+  value            Decimal
+  calculatedAmount Decimal
+  direction        String          @default("ADD") // ADD or SUBTRACT
+  unit             String?
+  userId           Int             @default(0)
+  businessId       Int             @default(0)
+  sale             SaleTransaction @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model SupplierInvoice {
+  id                 Int                         @id @default(autoincrement())
+  invoiceNumber      String                      @unique // SUP-XXXXXX
+  partyId            Int
+  entryDate          DateTime                    @default(now())
+  totalGrossValue    Decimal
+  totalDeductions    Decimal
+  totalAdvances      Decimal
+  finalPayableAmount Decimal
+  status             String                      @default("PENDING") // PENDING | COMPLETED | SUPERSEDED
+  paidAmount         Decimal                     @default(0)
+  paymentStatus      String                      @default("PENDING") // PENDING | PARTIAL | CLEARED
+  isOutdated         Boolean                     @default(false)
+  version            Int                         @default(1)
+  lastCalculatedAt   DateTime                    @default(now())
+  userId             Int                         @default(0)
+  businessId         Int                         @default(0)
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+  party              Party                       @relation(fields: [partyId], references: [id], onUpdate: NoAction)
+  items              SupplierInvoiceItem[]
+  advances           IntakeAdvance[]
+}
+
+model SupplierInvoiceAdjustment {
+  id                    Int                 @id @default(autoincrement())
+  supplierInvoiceItemId Int
+  adjustmentType        String              // Commission, Labour, Rent, Kaat, etc.
+  method                String              // FIXED, PERCENTAGE, PER_WEIGHT
+  value                 Decimal
+  calculatedAmount      Decimal
+  direction             String              @default("ADD") // ADD or SUBTRACT
+  unit                  String?
+  userId                Int                 @default(0)
+  businessId            Int                 @default(0)
+  item                  SupplierInvoiceItem @relation(fields: [supplierInvoiceItemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model SupplierInvoiceItem {
+  id                  Int                         @id @default(autoincrement())
+  supplierInvoiceId   Int
+  intakeTransactionId Int
+  weight              Decimal // SNAPSHOT
+  rate                Decimal // SNAPSHOT
+  amount              Decimal // SNAPSHOT
+  userId              Int                         @default(0)
+  businessId          Int                         @default(0)
+  invoice             SupplierInvoice             @relation(fields: [supplierInvoiceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  intake              IntakeTransaction           @relation(fields: [intakeTransactionId], references: [id], onUpdate: NoAction)
+  adjustments         SupplierInvoiceAdjustment[]
+}
+
+model LedgerSession {
+  id                   Int      @id @default(autoincrement())
+  title                String
+  startDate            DateTime
+  endDate              DateTime
+  supplierTotal        Decimal
+  buyerTotal           Decimal
+  difference           Decimal
+  supplierInvoiceCount Int      @default(0)
+  buyerInvoiceCount    Int      @default(0)
+  status               String   @default("OPEN") // OPEN | LOCKED
+  notes                String?
+  userId               Int      @default(0)
+  businessId           Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model ProductRate {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  rate      Decimal
+  unit      String
+  date      DateTime @default(now())
+  source    String? // e.g. MANUAL, MARKET, WHATSAPP
+  isDeleted Boolean  @default(false)
+  notes     String?
+  createdBy String? // Operator placeholder
+  userId    Int      @default(0)
+  businessId Int     @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  entityType  String // PRODUCT, PARTY, INTAKE, SALE, SETTLEMENT, SYSTEM
+  entityId    Int?
+  action      String // CREATED, UPDATED, DELETED, COMPLETED, CANCELLED, ARCHIVED, SUPERSEDED, SOLD
+  description String?
+  userId      Int      @default(0)
+  userName    String?
+  businessId  Int      @default(0)
+  meta        String?
+  createdAt   DateTime @default(now())
+
+  @@index([entityType])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model PartyPayment {
+  id            Int                      @id @default(autoincrement())
+  partyId       Int
+  paymentNumber String                   @unique
+  paymentType   String                   // CASH_IN, CASH_OUT
+  paymentMethod String?                  // CASH, BANK, JAZZCASH, EASYPAISA, CHEQUE
+  amount        Decimal
+  sourceType    String                   @default("MANUAL") // MANUAL, DIRECT_SALE, DIRECT_SETTLEMENT, SYSTEM
+  sourceId      Int?
+  status        String                   @default("ACTIVE") // ACTIVE, VOIDED, REVERSED
+  entryDate     DateTime                 @default(now())
+  notes         String?
+  userId        Int                      @default(0)
+  businessId    Int                      @default(0)
+  createdAt     DateTime                 @default(now())
+  updatedAt     DateTime                 @updatedAt
+  party         Party                    @relation(fields: [partyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  allocations   PartyPaymentAllocation[]
+
+  @@index([partyId])
+  @@index([paymentNumber])
+  @@index([createdAt])
+}
+
+model PartyPaymentAllocation {
+  id              Int          @id @default(autoincrement())
+  partyId         Int
+  paymentId       Int
+  referenceType   String       // SALE, SETTLEMENT
+  referenceId     Int
+  allocatedAmount Decimal
+  userId          Int          @default(0)
+  businessId      Int          @default(0)
+  createdAt       DateTime     @default(now())
+  party           Party        @relation(fields: [partyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  payment         PartyPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([partyId])
+  @@index([referenceType, referenceId])
+}
+
+model SystemSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
