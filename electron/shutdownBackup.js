@@ -33,15 +33,9 @@ function performShutdownBackup() {
     // Target backup directory
     let targetDir = config.backupDirectory;
     if (!targetDir) {
-      // Fallback: Check if D:\ exists, then E:\, then default to userData/backups
-      if (fs.existsSync('D:\\')) {
-        targetDir = 'D:\\BusinessMartBackups';
-      } else if (fs.existsSync('E:\\')) {
-        targetDir = 'E:\\BusinessMartBackups';
-      } else {
-        const { app } = require('electron');
-        targetDir = path.join(app.getPath('userData'), 'backups');
-      }
+      // Default to sandboxed userData/backups
+      const { app } = require('electron');
+      targetDir = path.join(app.getPath('userData'), 'backups');
     }
 
     // Ensure backup directory exists
@@ -58,8 +52,35 @@ function performShutdownBackup() {
 
     fs.copyFileSync(srcPath, destPath);
     console.log(`[Shutdown Backup] SUCCESS: SQLite database auto-backed up to ${destPath}`);
+
+    // Keep only the latest 20 backups to prevent disk bloat
+    rotateBackups(targetDir, 20);
+
   } catch (err) {
     console.error('[Shutdown Backup] ERROR:', err.message);
+  }
+}
+
+function rotateBackups(targetDir, maxBackups = 20) {
+  try {
+    const files = fs.readdirSync(targetDir)
+      .filter(f => f.startsWith('business_mart_backup_') && f.endsWith('.db'))
+      .map(f => ({
+        name: f,
+        path: path.join(targetDir, f),
+        time: fs.statSync(path.join(targetDir, f)).mtime.getTime()
+      }))
+      .sort((a, b) => b.time - a.time); // newest first
+
+    if (files.length > maxBackups) {
+      const filesToDelete = files.slice(maxBackups);
+      for (const file of filesToDelete) {
+        fs.unlinkSync(file.path);
+        console.log(`[Shutdown Backup Rotation] Pruned old backup: ${file.name}`);
+      }
+    }
+  } catch (err) {
+    console.warn('[Shutdown Backup Rotation] Rotation check failed:', err.message);
   }
 }
 

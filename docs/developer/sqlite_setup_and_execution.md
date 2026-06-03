@@ -29,19 +29,22 @@ To guarantee database stability in packaged builds:
 *   In production (`app.isPackaged === true`), the Electron main process reads the provider strictly from `resources/config.json` inside the read-only installation directory, preventing database corruption from local `userData` configurations.
 
 ### 5. Safe Local Data Persistence
-SQLite database files are resolved by default within Electron's persistent app directory (`app.getPath('userData')`). 
+SQLite database files are resolved strictly within Electron's persistent application directory (`app.getPath('userData')` - e.g. `AppData/Roaming/business-mart/business_mart.db`). 
 
-**Custom Storage Folder (Enterprise resilience)**:
-If you wish to store the SQLite database on a separate drive or partition (e.g., `D:\BusinessData\business_mart.db`) to protect against C:\ drive failures or system OS corruptions, you can specify an absolute file path inside `config.json` under the `"database"` key:
+To prevent user or config errors from polluting other system folders, alternative absolute or relative paths are stripped. The `userData` folder remains the sole authoritative home for the SQLite file.
+
+**Custom Backup Location (Enterprise resilience)**:
+To protect data against C:\ drive failures or system OS corruptions, you can configure an external backup folder on a separate drive or partition (e.g., `D:\BusinessMartBackups`) inside the system's `config.json` file:
 ```json
 {
   "db": {
     "provider": "sqlite",
-    "database": "D:\\BusinessData\\business_mart.db"
-  }
+    "database": "business_mart.db"
+  },
+  "backupDirectory": "D:\\BusinessMartBackups"
 }
 ```
-The connection resolver checks `path.isAbsolute()` and automatically routes all queries and creation tasks to your specified partition, keeping data completely isolated and safe.
+If `"backupDirectory"` is defined, the shutdown auto-backup process will copy the database there on quit (retaining only the latest 20 backup files to prevent disk exhaustion). If not defined, it defaults to the sandboxed `userData/backups` directory.
 
 ---
 

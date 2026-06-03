@@ -48,4 +48,22 @@ try {
   process.exit(1);
 }
 
+// 3. Write or delete .env.local to set local SQLite URL dynamically for Next.js
+const envLocalPath = path.resolve(__dirname, '../.env.local');
+
+try {
+  if (normalizedProvider === 'sqlite') {
+    fs.writeFileSync(envLocalPath, 'DATABASE_URL="file:./prisma/business_mart.db"\n', 'utf8');
+    console.log('[Build Prepare] Created temporary .env.local with SQLite database URL.');
+  } else {
+    if (fs.existsSync(envLocalPath)) {
+      fs.unlinkSync(envLocalPath);
+      console.log('[Build Prepare] Removed temporary .env.local to fall back to MSSQL configuration.');
+    }
+  }
+} catch (err) {
+  console.error('[Build Prepare] ERROR managing .env.local:', err.message);
+  process.exit(1);
+}
+
 console.log('[Build Prepare] Ready!');
