@@ -5,80 +5,12 @@ const net = require('net');
 const http = require('http');
 const { spawn } = require('child_process');
 const { resolveDatabaseConnection, getLocalSQLInstances } = require('./dbConnectionResolver');
+const { getWritableConfigPath, loadDatabaseConfig } = require('./dbConfig');
 
 let mainWindow;
 let serverProcess;
 const PORT = process.env.PORT || 3000;
 const HOST = '127.0.0.1';
-
-// Helper to resolve the correct writable configuration path for user settings
-function getWritableConfigPath() {
-  try {
-    const userDataPath = app.getPath('userData');
-    return path.join(userDataPath, 'config.json');
-  } catch (e) {
-    // Fallback if app properties are not yet initialized
-    return path.join(__dirname, '..', 'resources', 'config.json');
-  }
-}
-
-// Load SQL Server Connection configuration from config.json
-// Returns raw config shape: { server, database, user, password, trustedConnection }
-// This is the SAME shape that resolveDatabaseConnection() and testNativeConnection() expect.
-function loadDatabaseConfig() {
-  const writablePath = getWritableConfigPath();
-  const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
-  const prodConfigPath = path.join(process.resourcesPath, 'config.json');
-  const nestedProdConfigPath = path.join(process.resourcesPath, 'resources', 'config.json');
-
-  let configPath = '';
-  if (fs.existsSync(writablePath)) {
-    configPath = writablePath;
-    console.log(`[DB Config] Active Writable User Configuration Found: ${configPath}`);
-  } else if (fs.existsSync(prodConfigPath)) {
-    configPath = prodConfigPath;
-    console.log(`[DB Config] Default Production Configuration Found: ${configPath}`);
-  } else if (fs.existsSync(nestedProdConfigPath)) {
-    configPath = nestedProdConfigPath;
-    console.log(`[DB Config] Default Nested Production Configuration Found: ${configPath}`);
-  } else if (fs.existsSync(devConfigPath)) {
-    configPath = devConfigPath;
-    console.log(`[DB Config] Development Configuration Found: ${configPath}`);
-  }
-
-  let dbConfig = {
-    server: 'localhost\\SQLEXPRESS',
-    database: 'business_mart',
-    trustedConnection: true
-  };
-
-  if (configPath) {
-    try {
-      const fileContent = fs.readFileSync(configPath, 'utf8');
-      const parsed = JSON.parse(fileContent);
-      if (parsed && parsed.db) {
-        dbConfig = parsed.db;
-        console.log(`[DB Config] Successfully parsed configuration details from: ${configPath}`);
-      }
-    } catch (err) {
-      console.error(`[DB Config] Failed to parse config file: ${configPath}`, err);
-    }
-  } else {
-    console.log('[DB Config] No config.json found in any resolved paths. Using defaults.');
-  }
-
-  // Normalize with environment variable overrides
-  const config = {
-    server: dbConfig.server || 'localhost\\SQLEXPRESS',
-    database: dbConfig.database || 'business_mart',
-    trustedConnection: dbConfig.trustedConnection !== false, // default true
-    user: process.env.DB_USER || dbConfig.user || 'sa',
-    password: process.env.DB_PASSWORD || dbConfig.password || ''
-  };
-
-  console.log(`[DB Config] Loaded: server=${config.server}, database=${config.database}, trustedConnection=${config.trustedConnection}`);
-  return config;
-}
 
 // Perform TCP pre-flight verification to SQL Server
 function testDatabaseReachability(host, port, timeout = 3000) {

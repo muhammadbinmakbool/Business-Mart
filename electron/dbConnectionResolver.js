@@ -2,6 +2,7 @@ const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { loadDatabaseConfig } = require('./dbConfig');
 
 // Helper to retrieve the active provider from env or config.json
 function getActiveProvider() {
@@ -9,28 +10,25 @@ function getActiveProvider() {
     return process.env.DB_PROVIDER.toLowerCase();
   }
   try {
-    const { app } = require('electron');
-    const userDataPath = app ? app.getPath('userData') : '';
-    const writablePath = userDataPath ? path.join(userDataPath, 'config.json') : '';
-    const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
-    const prodConfigPath = app ? path.join(process.resourcesPath, 'config.json') : '';
-    
-    let configPath = '';
-    if (writablePath && fs.existsSync(writablePath)) configPath = writablePath;
-    else if (prodConfigPath && fs.existsSync(prodConfigPath)) configPath = prodConfigPath;
-    else if (fs.existsSync(devConfigPath)) configPath = devConfigPath;
-    
-    if (configPath) {
-      const fileContent = fs.readFileSync(configPath, 'utf8');
-      const parsed = JSON.parse(fileContent);
-      if (parsed && parsed.db && parsed.db.provider) {
-        return parsed.db.provider.toLowerCase();
-      }
-    }
+    const config = loadDatabaseConfig();
+    return (config.provider || 'mssql').toLowerCase();
   } catch (e) {
-    // Fail silently, default to mssql
+    console.warn("[Provider] fallback to mssql due to error:", e.message);
+    return 'mssql';
   }
-  return 'mssql';
+}
+
+// Helper to resolve SQLite file path using Electron userData
+function getSqliteDbPath(databaseName) {
+  const dbFile = databaseName || 'business_mart.db';
+  try {
+    const { app } = require('electron');
+    const userDataPath = app.getPath('userData');
+    return path.join(userDataPath, dbFile);
+  } catch (e) {
+    // Fallback if app properties are not yet initialized (e.g. CLI tools or early boots)
+    return path.resolve(process.cwd(), dbFile);
+  }
 }
 
 // Detect available local SQL Server instances via Windows Registry
@@ -110,8 +108,7 @@ function getCandidateServers(configHint) {
 function testNativeConnection(server, database, trustedConnection, user, password) {
   if (getActiveProvider() === 'sqlite') {
     try {
-      const dbFile = database || 'business_mart.db';
-      const dbPath = path.resolve(process.cwd(), dbFile);
+      const dbPath = getSqliteDbPath(database);
       const dbDir = path.dirname(dbPath);
       if (!fs.existsSync(dbDir)) {
         return { success: false, reason: 'UNREACHABLE', error: `Directory ${dbDir} does not exist.` };
@@ -289,8 +286,7 @@ function createDatabase(server, database, trustedConnection, user, password) {
   if (getActiveProvider() === 'sqlite') {
     console.log(`[DB Resolver] Auto-creating SQLite database file [${database}]...`);
     try {
-      const dbFile = database || 'business_mart.db';
-      const dbPath = path.resolve(process.cwd(), dbFile);
+      const dbPath = getSqliteDbPath(database);
       if (!fs.existsSync(dbPath)) {
         fs.writeFileSync(dbPath, '', 'utf8');
       }
@@ -417,8 +413,7 @@ try {
 // Returns { success: boolean, error?: string }
 function runMigrationsAndSeed(server, database, trustedConnection, user, password) {
   if (getActiveProvider() === 'sqlite') {
-    const dbFile = database || 'business_mart.db';
-    const dbPath = path.resolve(process.cwd(), dbFile);
+    const dbPath = getSqliteDbPath(database);
     const connectionString = `file:${dbPath}`;
     try {
       const prismaCliPath = path.join(__dirname, '..', 'node_modules', 'prisma', 'build', 'index.js').replace('app.asar', 'app.asar.unpacked');
@@ -569,7 +564,7 @@ function resolveDatabaseConnection(configHint) {
   const provider = getActiveProvider();
   if (provider === 'sqlite') {
     const database = configHint ? configHint.database || 'business_mart.db' : 'business_mart.db';
-    const dbPath = path.resolve(process.cwd(), database);
+    const dbPath = getSqliteDbPath(database);
     const connectionString = `file:${dbPath}`;
     console.log(`[DB Resolver] Strategic Connection Try (SQLite): Connection string [${connectionString}]`);
     return {
