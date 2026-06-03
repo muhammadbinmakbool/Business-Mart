@@ -573,17 +573,17 @@ function testSqliteSchema(dbPath) {
           datasources: { db: { url: 'file:${dbPath.replace(/\\/g, '\\\\')}' } }
         });
         try {
-          // Attempt query on User table to verify database is fully migrated and ready
-          await prisma.user.findFirst();
+          // Verify that user tables are migrated and present in sqlite_master
+          const tables = await prisma.$queryRawUnsafe("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_prisma_%';");
           await prisma.$disconnect();
+          if (!tables || tables.length === 0) {
+            process.exit(2); // Schema/Table Missing
+          }
           process.exit(0);
         } catch (err) {
           const errMsg = err.message || '';
           console.error(errMsg);
           await prisma.$disconnect();
-          if (errMsg.includes('does not exist') || errMsg.includes('no such table')) {
-            process.exit(2); // Schema/Table Missing
-          }
           process.exit(1); // Other connection/corruption issue
         }
       }
