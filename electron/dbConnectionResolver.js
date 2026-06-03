@@ -21,6 +21,10 @@ function getActiveProvider() {
 // Helper to resolve SQLite file path using Electron userData
 function getSqliteDbPath(databaseName) {
   const dbFile = databaseName || 'business_mart.db';
+  if (path.isAbsolute(dbFile)) {
+    // If the database target is configured as an absolute path, use it directly (allows storage on separate partition/drive)
+    return dbFile;
+  }
   const { app } = require('electron');
   if (!app) {
     throw new Error('[DB Resolver] Electron app context is not available. Cannot resolve SQLite path.');
