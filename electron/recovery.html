@@ -490,15 +490,16 @@
           databaseInput.value = 'business_mart';
           serverInput.value = 'localhost\\SQLEXPRESS';
           
+          const provider = await window.ELECTRON_ENV.getInstallerProvider();
           const payload = await window.ELECTRON_ENV.getConfig();
           if (payload) {
             const config = payload.config;
             const dbState = payload.resolvedDbState;
 
-            if (config) {
-              if (config.provider === 'sqlite') {
-                applySqliteLayout(config);
-              } else {
+            if (provider === 'sqlite') {
+              applySqliteLayout(config || {});
+            } else {
+              if (config) {
                 if (config.server) serverInput.value = config.server;
                 if (config.database) databaseInput.value = config.database;
                 if (config.trustedConnection === false) {
@@ -515,23 +516,23 @@
             // Expose prompt if database exists on server but hasn't been created yet
             if (dbState && dbState.mode === 'BOOTSTRAP_REQUIRED') {
               activeDbState = {
-                provider: config ? config.provider : 'sqlite',
-                server: config ? config.server : 'SQLite',
-                database: config ? config.database : 'business_mart.db',
-                trustedConnection: config ? config.trustedConnection : true,
-                user: config ? config.user : '',
-                password: config ? config.password : '',
+                provider: provider,
+                server: provider === 'sqlite' ? 'SQLite' : (config ? config.server : 'localhost\\SQLEXPRESS'),
+                database: provider === 'sqlite' ? (config ? config.database : 'business_mart.db') : (config ? config.database : 'business_mart'),
+                trustedConnection: provider === 'sqlite' ? false : (config ? config.trustedConnection : true),
+                user: provider === 'sqlite' ? '' : (config ? config.user : ''),
+                password: provider === 'sqlite' ? '' : (config ? config.password : ''),
                 backupDirectory: config ? config.backupDirectory : ''
               };
 
               standardConfigView.style.display = 'none';
               missingDbPrompt.style.display = 'block';
               
-              if (config && config.provider === 'sqlite') {
+              if (provider === 'sqlite') {
                 document.getElementById('missingDbPrompt').querySelector('h2').textContent = 'SQLite Database Setup';
                 document.getElementById('missingDbPrompt').querySelector('.logo-icon').textContent = '💾';
                 document.getElementById('missingDbPrompt').querySelector('.subtitle').innerHTML = 
-                  `The SQLite database file <strong style="color: var(--text-main);">${config.database || 'business_mart.db'}</strong> was not found in the AppData directory. The application needs to initialize the database and seed the default administrator credentials.`;
+                  `The SQLite database file <strong style="color: var(--text-main);">${activeDbState.database}</strong> was not found in the AppData directory. The application needs to initialize the database and seed the default administrator credentials.`;
               } else {
                 document.getElementById('detectedServerText').textContent = activeDbState.server;
                 document.getElementById('detectedDbText').textContent = activeDbState.database;
@@ -540,9 +541,7 @@
           }
 
           // Load detected instances from registry scan (Only relevant for SQL Server)
-          const payloadData = await window.ELECTRON_ENV.getConfig();
-          const configObj = payloadData ? payloadData.config : null;
-          if (!configObj || configObj.provider !== 'sqlite') {
+          if (provider !== 'sqlite') {
             const instances = await window.ELECTRON_ENV.getInstances();
             if (instances && instances.length > 0) {
               instancesList.innerHTML = '<span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 8px;">Detected SQL Instances (Click to fill):</span>';

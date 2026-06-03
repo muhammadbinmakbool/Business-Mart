@@ -12,11 +12,8 @@ function getWritableConfigPath() {
   }
 }
 
-// Resolve provider based on build packaging context
-function getBuildProvider(dbConfig) {
-  if (process.env.DB_PROVIDER) {
-    return process.env.DB_PROVIDER.toLowerCase();
-  }
+// ONLY reads resources/config.json (build-time frozen config) - NEVER reads userData/config.json
+function getInstallerProvider() {
   try {
     let configPath = '';
     if (app && app.isPackaged) {
@@ -33,13 +30,24 @@ function getBuildProvider(dbConfig) {
       const fileContent = fs.readFileSync(configPath, 'utf8');
       const parsed = JSON.parse(fileContent);
       if (parsed && parsed.db && parsed.db.provider) {
-        return parsed.db.provider.toLowerCase();
+        const prov = parsed.db.provider.toLowerCase();
+        if (prov === 'sqlite' || prov === 'mssql') {
+          return prov;
+        }
       }
     }
   } catch (e) {
     // Fail silently
   }
-  return (dbConfig && dbConfig.provider) ? dbConfig.provider.toLowerCase() : 'mssql';
+  return 'mssql'; // Default fallback
+}
+
+// Resolve provider based on build packaging context
+function getBuildProvider(dbConfig) {
+  if (process.env.DB_PROVIDER) {
+    return process.env.DB_PROVIDER.toLowerCase();
+  }
+  return getInstallerProvider();
 }
 
 function loadDatabaseConfig() {
@@ -87,15 +95,27 @@ function loadDatabaseConfig() {
     configStatus = 'fallback';
   }
 
-  const provider = getBuildProvider(dbConfig);
+  const provider = getBuildProvider();
+
+  // Enforce isolation: sanitize database filename/configuration to prevent parameter leaks
+  let database = dbConfig.database;
+  if (provider === 'sqlite') {
+    if (!database || !database.endsWith('.db') || database === 'business_mart') {
+      database = 'business_mart.db';
+    }
+  } else {
+    if (!database || database.endsWith('.db')) {
+      database = 'business_mart';
+    }
+  }
 
   return {
     provider,
-    server: dbConfig.server || 'localhost\\SQLEXPRESS',
-    database: dbConfig.database || 'business_mart',
-    trustedConnection: dbConfig.trustedConnection !== false,
-    user: process.env.DB_USER || dbConfig.user || 'sa',
-    password: process.env.DB_PASSWORD || dbConfig.password || '',
+    server: provider === 'sqlite' ? 'SQLite' : (dbConfig.server || 'localhost\\SQLEXPRESS'),
+    database,
+    trustedConnection: provider === 'sqlite' ? false : (dbConfig.trustedConnection !== false),
+    user: provider === 'sqlite' ? '' : (process.env.DB_USER || dbConfig.user || 'sa'),
+    password: provider === 'sqlite' ? '' : (process.env.DB_PASSWORD || dbConfig.password || ''),
     backupDirectory: backupDirectory || dbConfig.backupDirectory || '',
     configStatus
   };
@@ -103,5 +123,7 @@ function loadDatabaseConfig() {
 
 module.exports = {
   getWritableConfigPath,
-  loadDatabaseConfig
+  loadDatabaseConfig,
+  getInstallerProvider,
+  getBuildProvider
 };

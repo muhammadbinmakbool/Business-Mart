@@ -303,6 +303,11 @@ app.whenReady().then(async () => {
     return getLocalSQLInstances();
   });
 
+  ipcMain.handle('get-installer-provider', async () => {
+    const { getInstallerProvider } = require('./dbConfig');
+    return getInstallerProvider();
+  });
+
   ipcMain.handle('get-current-config', async () => {
     try {
       const config = loadDatabaseConfig();
