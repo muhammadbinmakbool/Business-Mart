@@ -88,44 +88,50 @@ Modify `src/lib/prisma.js` to log the active provider during initialization. Thi
 ### Step 4: Add Provider Awareness to Electron Resolver
 Update `electron/dbConnectionResolver.js` to support SQLite-based routing internally:
 
-1.  **Add Configuration Loader**:
-    Create a local helper to read environment parameters or parse the app's writable/default `config.json` parameters:
+1.  **Integrate Shared Configuration Utility**:
+    Import the centralized configuration module at the top of the file:
+    ```javascript
+    const { loadDatabaseConfig } = require('./dbConfig');
+    ```
+
+2.  **Simplify Provider Detection with Error Diagnostics**:
+    Use the unified configuration loader and print warning diagnostics on parsing failure:
     ```javascript
     function getActiveProvider() {
       if (process.env.DB_PROVIDER) {
         return process.env.DB_PROVIDER.toLowerCase();
       }
       try {
-        const { app } = require('electron');
-        const userDataPath = app ? app.getPath('userData') : '';
-        const writablePath = userDataPath ? path.join(userDataPath, 'config.json') : '';
-        const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
-        const prodConfigPath = app ? path.join(process.resourcesPath, 'config.json') : '';
-        
-        let configPath = '';
-        if (writablePath && fs.existsSync(writablePath)) configPath = writablePath;
-        else if (prodConfigPath && fs.existsSync(prodConfigPath)) configPath = prodConfigPath;
-        else if (fs.existsSync(devConfigPath)) configPath = devConfigPath;
-        
-        if (configPath) {
-          const fileContent = fs.readFileSync(configPath, 'utf8');
-          const parsed = JSON.parse(fileContent);
-          if (parsed && parsed.db && parsed.db.provider) {
-            return parsed.db.provider.toLowerCase();
-          }
-        }
+        const config = loadDatabaseConfig();
+        return (config.provider || 'mssql').toLowerCase();
       } catch (e) {
-        // Fail silently
+        console.warn("[Provider] fallback to mssql due to error:", e.message);
+        return 'mssql';
       }
-      return 'mssql';
     }
     ```
 
-2.  **Add Branch Checks in Resolver Commands**:
+3.  **Resolve SQLite Files in User Data Directory**:
+    To prevent data loss and ensure path stability inside packaged Electron apps, resolve sqlite files inside the persistent `app.getPath('userData')` folder:
+    ```javascript
+    function getSqliteDbPath(databaseName) {
+      const dbFile = databaseName || 'business_mart.db';
+      try {
+        const { app } = require('electron');
+        const userDataPath = app.getPath('userData');
+        return path.join(userDataPath, dbFile);
+      } catch (e) {
+        // Fallback for CLI engines/migrations before app properties initialize
+        return path.resolve(process.cwd(), dbFile);
+      }
+    }
+    ```
+
+4.  **Add Branch Checks in Resolver Commands**:
     Ensure the methods skip SQL Server specific concepts (Windows Registry scans, ADO.NET PowerShell instances, master database lookups) and handle SQLite path targets natively.
     *   **Instance Scans**: Return `[]` immediately if `sqlite`.
-    *   **Connection Tests**: Verify directory exists and is writable.
-    *   **Migrations**: Execute standard prisma deploy command with file-based URL scheme (`file:./business_mart.db`).
+    *   **Connection Tests**: Verify directory exists and is writable using `getSqliteDbPath()`.
+    *   **Migrations**: Execute standard prisma deploy command with file-based URL scheme (`file:<resolved_path>`).
     *   **Resolution Output**: Return a successful resolution state structure containing the local connection URL.
 
 ---
