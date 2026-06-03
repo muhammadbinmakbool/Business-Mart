@@ -18,19 +18,22 @@ function getBuildProvider(dbConfig) {
     return process.env.DB_PROVIDER.toLowerCase();
   }
   try {
+    let configPath = '';
     if (app && app.isPackaged) {
       const prodConfigPath = path.join(process.resourcesPath, 'config.json');
       const nestedProdConfigPath = path.join(process.resourcesPath, 'resources', 'config.json');
-      let configPath = '';
       if (fs.existsSync(prodConfigPath)) configPath = prodConfigPath;
       else if (fs.existsSync(nestedProdConfigPath)) configPath = nestedProdConfigPath;
+    } else {
+      const devConfigPath = path.join(__dirname, '..', 'resources', 'config.json');
+      if (fs.existsSync(devConfigPath)) configPath = devConfigPath;
+    }
 
-      if (configPath) {
-        const fileContent = fs.readFileSync(configPath, 'utf8');
-        const parsed = JSON.parse(fileContent);
-        if (parsed && parsed.db && parsed.db.provider) {
-          return parsed.db.provider.toLowerCase();
-        }
+    if (configPath) {
+      const fileContent = fs.readFileSync(configPath, 'utf8');
+      const parsed = JSON.parse(fileContent);
+      if (parsed && parsed.db && parsed.db.provider) {
+        return parsed.db.provider.toLowerCase();
       }
     }
   } catch (e) {
