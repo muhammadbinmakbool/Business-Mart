@@ -29,7 +29,19 @@ To guarantee database stability in packaged builds:
 *   In production (`app.isPackaged === true`), the Electron main process reads the provider strictly from `resources/config.json` inside the read-only installation directory, preventing database corruption from local `userData` configurations.
 
 ### 5. Safe Local Data Persistence
-SQLite database files are resolved strictly within Electron's persistent app directory (`app.getPath('userData')`) inside the sub-folder structure, guaranteeing a single path authority across launchers.
+SQLite database files are resolved by default within Electron's persistent app directory (`app.getPath('userData')`). 
+
+**Custom Storage Folder (Enterprise resilience)**:
+If you wish to store the SQLite database on a separate drive or partition (e.g., `D:\BusinessData\business_mart.db`) to protect against C:\ drive failures or system OS corruptions, you can specify an absolute file path inside `config.json` under the `"database"` key:
+```json
+{
+  "db": {
+    "provider": "sqlite",
+    "database": "D:\\BusinessData\\business_mart.db"
+  }
+}
+```
+The connection resolver checks `path.isAbsolute()` and automatically routes all queries and creation tasks to your specified partition, keeping data completely isolated and safe.
 
 ---
 
