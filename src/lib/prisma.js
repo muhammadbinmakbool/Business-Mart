@@ -33,16 +33,39 @@ if (typeof window === "undefined" && !globalForPrisma.prismaGracefulRegistered) 
 
   const gracefulShutdown = async () => {
     console.log("[Prisma] SIGTERM/SIGINT received. Initiating graceful database shutdown...");
+    
+    // 3-second safety watchdog to prevent process from hanging indefinitely
+    const shutdownTimeout = setTimeout(() => {
+      console.warn("[Prisma] Graceful shutdown timed out. Forcing process exit...");
+      process.exit(0);
+    }, 3000);
+    
+    shutdownTimeout.unref();
+
     try {
       if (isSQLite()) {
         console.log("[Prisma] Running SQLite WAL checkpoint (TRUNCATE)...");
-        await prisma.$executeRawUnsafe("PRAGMA wal_checkpoint(TRUNCATE);");
-        console.log("[Prisma] SQLite WAL checkpoint completed.");
+        try {
+          await prisma.$executeRawUnsafe("PRAGMA wal_checkpoint(TRUNCATE);");
+          console.log("[Prisma] SQLite WAL checkpoint completed.");
+        } catch (chkErr) {
+          console.error("[Prisma] SQLite WAL checkpoint failed:", chkErr.message);
+        }
       }
-      await prisma.$disconnect();
-      console.log("[Prisma] Prisma Client disconnected cleanly.");
+      
+      console.log("[Prisma] Disconnecting Prisma Client...");
+      try {
+        await prisma.$disconnect();
+        console.log("[Prisma] Prisma Client disconnected cleanly.");
+      } catch (discErr) {
+        console.error("[Prisma] Prisma disconnect failed:", discErr.message);
+      }
     } catch (err) {
-      console.error("[Prisma] Error during database shutdown:", err);
+      console.error("[Prisma] Error during database shutdown sequence:", err.message);
+    } finally {
+      clearTimeout(shutdownTimeout);
+      console.log("[Prisma] Graceful shutdown sequence finished. Exiting process.");
+      process.exit(0);
     }
   };
 

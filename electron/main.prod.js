@@ -406,7 +406,19 @@ app.on('will-quit', (event) => {
   
   if (serverProcess) {
     console.log('[Teardown] Awaiting Next.js shutdown to flush database writes...');
+    
+    // 5-second fallback watchdog: if Next.js hangs, kill it with SIGKILL and exit app
+    const forceExitTimeout = setTimeout(() => {
+      console.warn('[Teardown] Next.js process failed to exit within 5s. Forcing exit via SIGKILL...');
+      if (serverProcess) {
+        try { serverProcess.kill('SIGKILL'); } catch (e) {}
+      }
+      performShutdownBackup();
+      app.exit(0);
+    }, 5000);
+
     serverProcess.once('exit', () => {
+      clearTimeout(forceExitTimeout);
       console.log('[Teardown] Next.js process exited. Initiating shutdown backup...');
       performShutdownBackup();
       app.exit(0);
