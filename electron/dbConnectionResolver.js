@@ -21,14 +21,15 @@ function getActiveProvider() {
 // Helper to resolve SQLite file path using Electron userData
 function getSqliteDbPath(databaseName) {
   const dbFile = databaseName || 'business_mart.db';
-  try {
-    const { app } = require('electron');
-    const userDataPath = app.getPath('userData');
-    return path.join(userDataPath, dbFile);
-  } catch (e) {
-    // Fallback if app properties are not yet initialized (e.g. CLI tools or early boots)
-    return path.resolve(process.cwd(), dbFile);
+  const { app } = require('electron');
+  if (!app) {
+    throw new Error('[DB Resolver] Electron app context is not available. Cannot resolve SQLite path.');
   }
+  const userDataPath = app.getPath('userData');
+  if (!userDataPath) {
+    throw new Error('[DB Resolver] Electron userData directory is not resolved. Cannot resolve SQLite path.');
+  }
+  return path.join(userDataPath, dbFile);
 }
 
 // Detect available local SQL Server instances via Windows Registry

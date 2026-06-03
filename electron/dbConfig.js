@@ -35,16 +35,22 @@ function loadDatabaseConfig() {
     trustedConnection: true
   };
 
+  let configStatus = 'ok';
   if (configPath) {
     try {
       const fileContent = fs.readFileSync(configPath, 'utf8');
       const parsed = JSON.parse(fileContent);
       if (parsed && parsed.db) {
         dbConfig = parsed.db;
+      } else {
+        configStatus = 'fallback';
       }
     } catch (err) {
+      configStatus = 'error';
       console.warn(`[DB Config] Failed to parse config file: ${configPath}. Defaulting to fallback. Error: ${err.message}`);
     }
+  } else {
+    configStatus = 'fallback';
   }
 
   return {
@@ -53,7 +59,8 @@ function loadDatabaseConfig() {
     database: dbConfig.database || 'business_mart',
     trustedConnection: dbConfig.trustedConnection !== false,
     user: process.env.DB_USER || dbConfig.user || 'sa',
-    password: process.env.DB_PASSWORD || dbConfig.password || ''
+    password: process.env.DB_PASSWORD || dbConfig.password || '',
+    configStatus
   };
 }
 
