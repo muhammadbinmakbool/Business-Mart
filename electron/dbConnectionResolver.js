@@ -561,6 +561,56 @@ function buildPrismaConnectionString(server, database, trustedConnection, user, 
   return connectionString;
 }
 
+// Run a quick schema verification query on SQLite User table to verify schema integrity
+function testSqliteSchema(dbPath) {
+  const clientPath = path.join(__dirname, '..', 'prisma', 'client').replace('app.asar', 'app.asar.unpacked').replace(/\\/g, '\\\\');
+  const tempScriptPath = path.join(os.tmpdir(), `bm-sqlite-check-${Date.now()}.js`);
+  try {
+    const scriptContent = `
+      const { PrismaClient } = require('${clientPath}');
+      async function test() {
+        const prisma = new PrismaClient({
+          datasources: { db: { url: 'file:${dbPath.replace(/\\/g, '\\\\')}' } }
+        });
+        try {
+          // Attempt query on User table to verify database is fully migrated and ready
+          await prisma.user.findFirst();
+          await prisma.$disconnect();
+          process.exit(0);
+        } catch (err) {
+          const errMsg = err.message || '';
+          console.error(errMsg);
+          await prisma.$disconnect();
+          if (errMsg.includes('does not exist') || errMsg.includes('no such table')) {
+            process.exit(2); // Schema/Table Missing
+          }
+          process.exit(1); // Other connection/corruption issue
+        }
+      }
+      test();
+    `;
+    fs.writeFileSync(tempScriptPath, scriptContent, 'utf8');
+
+    const result = spawnSync(process.execPath, [tempScriptPath], {
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+      encoding: 'utf8'
+    });
+
+    try { fs.unlinkSync(tempScriptPath); } catch (e) {}
+
+    if (result.status === 0) {
+      return { success: true };
+    } else if (result.status === 2) {
+      return { success: false, reason: 'SCHEMA_MISSING', error: result.stderr || 'User table missing.' };
+    } else {
+      return { success: false, reason: 'CORRUPTED', error: result.stderr || 'Database corrupted or inaccessible.' };
+    }
+  } catch (err) {
+    try { fs.unlinkSync(tempScriptPath); } catch (e) {}
+    return { success: false, reason: 'CORRUPTED', error: err.message };
+  }
+}
+
 // Main Connection Resolution Loop (Simple Try -> Success/Fail Flow)
 function resolveDatabaseConnection(configHint) {
   const provider = getActiveProvider();
@@ -573,14 +623,29 @@ function resolveDatabaseConnection(configHint) {
     if (fs.existsSync(dbPath)) {
       try {
         fs.accessSync(dbPath, fs.constants.R_OK | fs.constants.W_OK);
-        console.log(`[DB Resolver] SUCCESS! SQLite file resolved at: ${dbPath}`);
-        return {
-          success: true,
-          mode: 'SUCCESS',
-          connectionString,
-          server: 'SQLite',
-          database
-        };
+        
+        // Enforce DB_READY = file exists + schema validated
+        const schemaTest = testSqliteSchema(dbPath);
+        if (schemaTest.success) {
+          console.log(`[DB Resolver] SUCCESS! SQLite file and schema validated at: ${dbPath}`);
+          return {
+            success: true,
+            mode: 'SUCCESS',
+            connectionString,
+            server: 'SQLite',
+            database
+          };
+        } else {
+          console.warn(`[DB Resolver] SQLite file exists at [${dbPath}], but schema verification failed: ${schemaTest.reason}. Error: ${schemaTest.error}`);
+          return {
+            success: false,
+            mode: 'BOOTSTRAP_REQUIRED',
+            message: `SQLite database schema is missing or invalid. Re-running migrations and seeds is required.`,
+            connectionString,
+            server: 'SQLite',
+            database
+          };
+        }
       } catch (err) {
         console.error(`[DB Resolver] SQLite file permission error: ${err.message}`);
         return {
