@@ -152,3 +152,27 @@ Verify that the output contains the console trace:
 Launch development or packaged builds:
 *   In MSSQL mode (default), the app continues communicating with SQL Server instances exactly as before.
 *   In SQLite mode (e.g. running `cross-env DB_PROVIDER=sqlite npm run dev`), the client resolves using the configured file path database and skips named registry scans.
+
+---
+
+## ⚠️ Schema Evolution & Safety Rules
+
+To prevent regressions, compile errors, or discrepancies between installers, developers MUST adhere to the following rules:
+
+### Rule 1: Prevent Schema Drift
+Whenever you modify models, relations, or fields in the active database schema:
+1.  Apply the changes to `prisma/schema.mssql.prisma` (using native SQL Server types).
+2.  Immediately mirror the corresponding changes to `prisma/schema.sqlite.prisma` (removing native `@db.*` annotations).
+Both schemas must remain structural twins at all times.
+
+### Rule 2: Keep Migrations Isolated
+Never mix database engine migrations. 
+*   **MSSQL Migrations** (stored under standard Prisma migration workflows) must only run against MS SQL Server instances.
+*   **SQLite Migrations** (either packaged as static seeds or managed in target folders) must evolve independently.
+Sharing migration folders across differing SQL engines will corrupt upgrade paths.
+
+### Rule 3: Cross-Compile After Schema Changes
+Before deploying or merging changes:
+1.  Run `npm run build:mssql` to verify SQL Server client generation and build integrity.
+2.  Run `npm run build:sqlite` to verify SQLite client generation and build integrity.
+You must compile and verify **both** builds to ensure database dialect discrepancies do not break page generation.
