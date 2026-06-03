@@ -27,6 +27,26 @@ try {
   process.exit(1);
 }
 
+// 1b. Copy targeted migrations folder to default prisma/migrations
+const migrationsSource = path.resolve(__dirname, `../prisma/migrations_${normalizedProvider}`);
+const migrationsDest = path.resolve(__dirname, '../prisma/migrations');
+
+try {
+  if (fs.existsSync(migrationsDest)) {
+    fs.rmSync(migrationsDest, { recursive: true, force: true });
+  }
+  if (fs.existsSync(migrationsSource)) {
+    fs.cpSync(migrationsSource, migrationsDest, { recursive: true });
+    console.log(`[Build Prepare] Coerced ${path.basename(migrationsSource)} -> ${path.basename(migrationsDest)}`);
+  } else {
+    fs.mkdirSync(migrationsDest, { recursive: true });
+    console.log(`[Build Prepare] Created empty migrations directory`);
+  }
+} catch (err) {
+  console.error(`[Build Prepare] ERROR copying migrations folder:`, err.message);
+  process.exit(1);
+}
+
 // 2. Load and write the target provider to resources/config.json
 const configPath = path.resolve(__dirname, '../resources/config.json');
 
