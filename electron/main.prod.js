@@ -6,6 +6,7 @@ const http = require('http');
 const { spawn } = require('child_process');
 const { resolveDatabaseConnection, getLocalSQLInstances } = require('./dbConnectionResolver');
 const { getWritableConfigPath, loadDatabaseConfig } = require('./dbConfig');
+const { performShutdownBackup } = require('./shutdownBackup');
 
 let mainWindow;
 let serverProcess;
@@ -401,6 +402,7 @@ app.on('window-all-closed', () => {
 });
 
 app.on('will-quit', () => {
+  performShutdownBackup();
   killServerProcess();
 });
 
