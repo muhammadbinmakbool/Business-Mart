@@ -5,6 +5,7 @@ import { InventoryService } from "@/modules/products/services/InventoryService";
 import { LedgerService } from "@/modules/ledger/services/LedgerService";
 import { ProductService } from "@/modules/products/services/ProductService";
 import { PartyService } from "@/modules/parties/services/PartyService";
+import { isMSSQL } from "@/lib/database/provider";
 
 const TABLES_DELETE_ORDER = [
   "PartyPaymentAllocation",
@@ -143,7 +144,9 @@ export class MaintenanceService {
         if (records.length === 0) continue;
 
         // SQL Server identity insert capability toggle
-        await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [${table}] ON`);
+        if (isMSSQL()) {
+          await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [${table}] ON`);
+        }
 
         for (const record of records) {
           const deserialized = deserializeRecord(record);
@@ -152,7 +155,9 @@ export class MaintenanceService {
           });
         }
 
-        await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [${table}] OFF`);
+        if (isMSSQL()) {
+          await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [${table}] OFF`);
+        }
       }
     }, {
       timeout: 30000 // Allow up to 30 seconds for complete database restores
@@ -192,20 +197,20 @@ export class MaintenanceService {
 
       // Restore preserved Users
       if (keepUsers && usersToKeep.length > 0) {
-        await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [User] ON`);
+        if (isMSSQL()) await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [User] ON`);
         for (const u of usersToKeep) {
           await tx.user.create({ data: u });
         }
-        await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [User] OFF`);
+        if (isMSSQL()) await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [User] OFF`);
       }
 
       // Restore preserved settings
       if (keepSettings && settingsToKeep.length > 0) {
-        await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [SystemSetting] ON`);
+        if (isMSSQL()) await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [SystemSetting] ON`);
         for (const s of settingsToKeep) {
           await tx.systemSetting.create({ data: s });
         }
-        await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [SystemSetting] OFF`);
+        if (isMSSQL()) await tx.$executeRawUnsafe(`SET IDENTITY_INSERT [SystemSetting] OFF`);
       }
     });
 
