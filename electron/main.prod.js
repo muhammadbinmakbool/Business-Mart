@@ -210,7 +210,38 @@ function saveDatabaseConfig(newDbConfig) {
     if (!fs.existsSync(parentDir)) {
       fs.mkdirSync(parentDir, { recursive: true });
     }
-    fs.writeFileSync(configPath, JSON.stringify({ db: newDbConfig }, null, 2), 'utf8');
+
+    let existingConfig = {};
+    if (fs.existsSync(configPath)) {
+      try {
+        existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf8')) || {};
+      } catch (e) {}
+    }
+
+    const provider = newDbConfig.provider || (existingConfig.db && existingConfig.db.provider) || 'mssql';
+
+    const configData = {
+      db: {
+        provider,
+        ...(provider === 'sqlite' ? {
+          database: newDbConfig.database || 'business_mart.db'
+        } : {
+          server: newDbConfig.server,
+          database: newDbConfig.database,
+          trustedConnection: newDbConfig.trustedConnection,
+          user: newDbConfig.user,
+          password: newDbConfig.password
+        })
+      }
+    };
+
+    if (newDbConfig.backupDirectory !== undefined) {
+      configData.backupDirectory = newDbConfig.backupDirectory;
+    } else if (existingConfig.backupDirectory !== undefined) {
+      configData.backupDirectory = existingConfig.backupDirectory;
+    }
+
+    fs.writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf8');
     console.log(`[DB Config] Saved updated database config to: ${configPath}`);
   } catch (err) {
     console.error(`[DB Config] Failed to save config to writable path: ${configPath}`, err);
@@ -224,7 +255,37 @@ function saveDatabaseConfig(newDbConfig) {
       if (!fs.existsSync(devParentDir)) {
         fs.mkdirSync(devParentDir, { recursive: true });
       }
-      fs.writeFileSync(devConfigPath, JSON.stringify({ db: newDbConfig }, null, 2), 'utf8');
+      
+      let existingDevConfig = {};
+      if (fs.existsSync(devConfigPath)) {
+        try {
+          existingDevConfig = JSON.parse(fs.readFileSync(devConfigPath, 'utf8')) || {};
+        } catch (e) {}
+      }
+      
+      const provider = newDbConfig.provider || (existingDevConfig.db && existingDevConfig.db.provider) || 'mssql';
+      const devConfigData = {
+        db: {
+          provider,
+          ...(provider === 'sqlite' ? {
+            database: newDbConfig.database || 'business_mart.db'
+          } : {
+            server: newDbConfig.server,
+            database: newDbConfig.database,
+            trustedConnection: newDbConfig.trustedConnection,
+            user: newDbConfig.user,
+            password: newDbConfig.password
+          })
+        }
+      };
+
+      if (newDbConfig.backupDirectory !== undefined) {
+        devConfigData.backupDirectory = newDbConfig.backupDirectory;
+      } else if (existingDevConfig.backupDirectory !== undefined) {
+        devConfigData.backupDirectory = existingDevConfig.backupDirectory;
+      }
+
+      fs.writeFileSync(devConfigPath, JSON.stringify(devConfigData, null, 2), 'utf8');
       console.log(`[DB Config] Dev mode: Also saved config back to workspace resources path: ${devConfigPath}`);
     } catch (err) {
       console.warn(`[DB Config] Dev mode: Could not write copy to workspace path: ${devConfigPath}`);

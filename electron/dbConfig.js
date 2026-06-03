@@ -63,6 +63,7 @@ function loadDatabaseConfig() {
   };
 
   let configStatus = 'ok';
+  let backupDirectory = '';
   if (configPath) {
     try {
       const fileContent = fs.readFileSync(configPath, 'utf8');
@@ -71,6 +72,9 @@ function loadDatabaseConfig() {
         dbConfig = parsed.db;
       } else {
         configStatus = 'fallback';
+      }
+      if (parsed && parsed.backupDirectory) {
+        backupDirectory = parsed.backupDirectory;
       }
     } catch (err) {
       configStatus = 'error';
@@ -89,6 +93,7 @@ function loadDatabaseConfig() {
     trustedConnection: dbConfig.trustedConnection !== false,
     user: process.env.DB_USER || dbConfig.user || 'sa',
     password: process.env.DB_PASSWORD || dbConfig.password || '',
+    backupDirectory: backupDirectory || dbConfig.backupDirectory || '',
     configStatus
   };
 }

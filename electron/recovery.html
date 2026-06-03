@@ -350,6 +350,7 @@
 
     // Global active state to coordinate bootstrap execution
     let activeDbState = null;
+    let isSqliteMode = false;
 
     function log(message) {
       logPanel.style.display = 'block';
@@ -360,6 +361,63 @@
       logPanel.scrollTop = logPanel.scrollHeight;
     }
 
+    function applySqliteLayout(config) {
+      isSqliteMode = true;
+      
+      // Update titles and text
+      document.querySelector('#standardConfigView h1').textContent = 'SQLite Connection Setup';
+      document.querySelector('#standardConfigView .logo-icon').textContent = '💾';
+      document.querySelector('#standardConfigView .subtitle').textContent = 
+        'Specify the filename for your SQLite database and configure an optional external backup folder.';
+      
+      const statusPanel = document.querySelector('#standardConfigView .status-panel');
+      if (statusPanel) {
+        statusPanel.querySelector('.status-content').innerHTML = 
+          '<strong>Database check failed:</strong> SQLite database file is missing or contains an invalid schema structure.';
+      }
+
+      // Hide Host / Instance input
+      const serverGroup = serverInput.closest('.form-group');
+      if (serverGroup) {
+        serverGroup.style.display = 'none';
+        serverInput.removeAttribute('required');
+      }
+
+      // Hide Auth Mode select
+      const authGroup = authModeSelect.closest('.form-group');
+      if (authGroup) {
+        authGroup.style.display = 'none';
+      }
+
+      // Change Database input label and placeholder
+      const dbLabel = databaseInput.previousElementSibling;
+      if (dbLabel) {
+        dbLabel.textContent = 'Database Filename (.db)';
+      }
+      databaseInput.placeholder = 'e.g. business_mart.db';
+
+      // Insert Backup Directory field if it doesn't exist yet
+      if (!document.getElementById('backupDir')) {
+        const backupGroup = document.createElement('div');
+        backupGroup.className = 'form-group';
+        backupGroup.innerHTML = `
+          <label for="backupDir">Custom Backup Directory (Optional)</label>
+          <input type="text" id="backupDir" placeholder="e.g. D:\\BusinessMartBackups">
+        `;
+        form.insertBefore(backupGroup, submitBtn);
+      }
+
+      // Populate database filename
+      databaseInput.value = config.database || 'business_mart.db';
+      
+      if (config.backupDirectory) {
+        const backupInput = document.getElementById('backupDir');
+        if (backupInput) {
+          backupInput.value = config.backupDirectory;
+        }
+      }
+    }
+
     // Action for creating and bootstrapping database
     document.getElementById('createDbBtn').addEventListener('click', async () => {
       if (!activeDbState) {
@@ -367,7 +425,7 @@
         return;
       }
 
-      const confirmed = confirm(`Are you sure? This will initialize the new empty database [${activeDbState.database}] on SQL Server [${activeDbState.server}].`);
+      const confirmed = confirm(`Are you sure? This will initialize the new database file [${activeDbState.database}] and run migrations/seeds.`);
       if (!confirmed) return;
 
       const createBtn = document.getElementById('createDbBtn');
@@ -376,15 +434,17 @@
       loader.style.display = 'block';
       createBtn.querySelector('span').textContent = 'Creating & Bootstrapping...';
       logPanel.innerHTML = '';
-      log(`Initiating explicit CREATE DATABASE [${activeDbState.database}] on ${activeDbState.server}...`);
+      log(`Initiating explicit schema migration on [${activeDbState.database}]...`);
 
       try {
         const result = await window.ELECTRON_ENV.createAndBootstrapDb({
-          server: activeDbState.server,
+          provider: activeDbState.provider || 'sqlite',
+          server: activeDbState.server || 'SQLite',
           database: activeDbState.database,
-          trustedConnection: activeDbState.trustedConnection,
-          user: activeDbState.user,
-          password: activeDbState.password || ''
+          trustedConnection: activeDbState.trustedConnection || false,
+          user: activeDbState.user || '',
+          password: activeDbState.password || '',
+          backupDirectory: activeDbState.backupDirectory || ''
         });
 
         if (result && result.success) {
@@ -398,7 +458,7 @@
               if (line.trim()) log(line);
             });
           } else {
-            log('Check local user rights and SQL logs.');
+            log('Check local user rights and system logs.');
           }
           createBtn.disabled = false;
           loader.style.display = 'none';
@@ -431,14 +491,18 @@
             const dbState = payload.resolvedDbState;
 
             if (config) {
-              if (config.server) serverInput.value = config.server;
-              if (config.database) databaseInput.value = config.database;
-              if (config.trustedConnection === false) {
-                authModeSelect.value = 'sql';
-                sqlAuthContainer.style.display = 'block';
-                if (config.user) usernameInput.value = config.user;
-                if (config.password && config.password !== 'YOUR_SQL_SERVER_PASSWORD') {
-                  passwordInput.value = config.password;
+              if (config.provider === 'sqlite') {
+                applySqliteLayout(config);
+              } else {
+                if (config.server) serverInput.value = config.server;
+                if (config.database) databaseInput.value = config.database;
+                if (config.trustedConnection === false) {
+                  authModeSelect.value = 'sql';
+                  sqlAuthContainer.style.display = 'block';
+                  if (config.user) usernameInput.value = config.user;
+                  if (config.password && config.password !== 'YOUR_SQL_SERVER_PASSWORD') {
+                    passwordInput.value = config.password;
+                  }
                 }
               }
             }
@@ -446,11 +510,13 @@
             // Expose prompt if database exists on server but hasn't been created yet
             if (dbState && dbState.mode === 'BOOTSTRAP_REQUIRED') {
               activeDbState = {
-                server: config ? config.server : 'localhost\\SQLEXPRESS',
-                database: config ? config.database : 'business_mart',
+                provider: config ? config.provider : 'sqlite',
+                server: config ? config.server : 'SQLite',
+                database: config ? config.database : 'business_mart.db',
                 trustedConnection: config ? config.trustedConnection : true,
                 user: config ? config.user : '',
-                password: config ? config.password : ''
+                password: config ? config.password : '',
+                backupDirectory: config ? config.backupDirectory : ''
               };
 
               standardConfigView.style.display = 'none';
@@ -468,20 +534,24 @@
             }
           }
 
-          // Load detected instances from registry scan
-          const instances = await window.ELECTRON_ENV.getInstances();
-          if (instances && instances.length > 0) {
-            instancesList.innerHTML = '<span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 8px;">Detected SQL Instances (Click to fill):</span>';
-            instances.forEach(inst => {
-              const badge = document.createElement('span');
-              badge.className = 'detected-badge';
-              badge.textContent = `.\\${inst}`;
-              badge.style.marginRight = '8px';
-              badge.addEventListener('click', () => {
-                serverInput.value = `.\\${inst}`;
+          // Load detected instances from registry scan (Only relevant for SQL Server)
+          const payloadData = await window.ELECTRON_ENV.getConfig();
+          const configObj = payloadData ? payloadData.config : null;
+          if (!configObj || configObj.provider !== 'sqlite') {
+            const instances = await window.ELECTRON_ENV.getInstances();
+            if (instances && instances.length > 0) {
+              instancesList.innerHTML = '<span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 8px;">Detected SQL Instances (Click to fill):</span>';
+              instances.forEach(inst => {
+                const badge = document.createElement('span');
+                badge.className = 'detected-badge';
+                badge.textContent = `.\\${inst}`;
+                badge.style.marginRight = '8px';
+                badge.addEventListener('click', () => {
+                  serverInput.value = `.\\${inst}`;
+                });
+                instancesList.appendChild(badge);
               });
-              instancesList.appendChild(badge);
-            });
+            }
           }
         }
       } catch (err) {
@@ -510,36 +580,62 @@
       logPanel.innerHTML = '';
       log('Starting connection verification flow...');
 
-      const configPayload = {
-        server: serverInput.value.trim(),
-        database: databaseInput.value.trim(),
-        trustedConnection: authModeSelect.value === 'windows',
-        user: usernameInput.value.trim(),
-        password: passwordInput.value.trim()
-      };
+      let configPayload;
+      if (isSqliteMode) {
+        const backupInput = document.getElementById('backupDir');
+        configPayload = {
+          provider: 'sqlite',
+          server: 'SQLite',
+          database: databaseInput.value.trim() || 'business_mart.db',
+          backupDirectory: backupInput ? backupInput.value.trim() : ''
+        };
+      } else {
+        configPayload = {
+          provider: 'mssql',
+          server: serverInput.value.trim(),
+          database: databaseInput.value.trim(),
+          trustedConnection: authModeSelect.value === 'windows',
+          user: usernameInput.value.trim(),
+          password: passwordInput.value.trim()
+        };
+      }
 
-      log(`Attempting to connect to host: ${configPayload.server} ...`);
+      if (isSqliteMode) {
+        log(`Verifying SQLite database filename: ${configPayload.database} ...`);
+      } else {
+        log(`Attempting to connect to host: ${configPayload.server} ...`);
+      }
 
       try {
         const result = await window.ELECTRON_ENV.testAndSaveConfig(configPayload);
         if (result && result.success) {
           if (result.mode === 'BOOTSTRAP_REQUIRED') {
-            log('Server is reachable, but database is missing.');
-            log('Transitioning to bootstrap creation screen...');
+            log('Database is unmigrated or missing.');
+            log('Transitioning to bootstrap setup screen...');
             
             // Instantly transition to the bootstrap view
             activeDbState = {
+              provider: configPayload.provider,
               server: configPayload.server,
               database: configPayload.database,
               trustedConnection: configPayload.trustedConnection,
               user: configPayload.user,
-              password: configPayload.password
+              password: configPayload.password,
+              backupDirectory: configPayload.backupDirectory
             };
             
             standardConfigView.style.display = 'none';
             missingDbPrompt.style.display = 'block';
-            document.getElementById('detectedServerText').textContent = activeDbState.server;
-            document.getElementById('detectedDbText').textContent = activeDbState.database;
+            
+            if (isSqliteMode) {
+              document.getElementById('missingDbPrompt').querySelector('h2').textContent = 'SQLite Database Setup';
+              document.getElementById('missingDbPrompt').querySelector('.logo-icon').textContent = '💾';
+              document.getElementById('missingDbPrompt').querySelector('.subtitle').innerHTML = 
+                `The SQLite database file <strong style="color: var(--text-main);">${configPayload.database}</strong> was not found or is missing schema. The application needs to initialize the database and seed the default administrator credentials.`;
+            } else {
+              document.getElementById('detectedServerText').textContent = activeDbState.server;
+              document.getElementById('detectedDbText').textContent = activeDbState.database;
+            }
             
             submitBtn.disabled = false;
             btnLoader.style.display = 'none';
