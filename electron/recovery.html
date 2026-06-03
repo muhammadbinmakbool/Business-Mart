@@ -425,7 +425,12 @@
         return;
       }
 
-      const confirmed = confirm(`Are you sure? This will initialize the new database file [${activeDbState.database}] and run migrations/seeds.`);
+      let confirmed;
+      if (activeDbState.provider === 'sqlite') {
+        confirmed = confirm(`Are you sure? This will initialize the SQLite database file [${activeDbState.database}] in your AppData directory and seed defaults.`);
+      } else {
+        confirmed = confirm(`Are you sure? This will initialize the new empty database [${activeDbState.database}] on SQL Server [${activeDbState.server}].`);
+      }
       if (!confirmed) return;
 
       const createBtn = document.getElementById('createDbBtn');
