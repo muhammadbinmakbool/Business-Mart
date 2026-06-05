@@ -2,6 +2,7 @@ import { SaleRepository } from "../repositories/SaleRepository";
 import { prisma } from "@/lib/prisma";
 import { PartyService } from "../../parties/services/PartyService";
 import { calculateFinalTotal, calculateAdjustment, round, calculateTransactionTotals, calculateInvoiceClearingState } from "@/lib/financial";
+import { AllocationSummaryHelper } from "../../finance/helpers/allocationSummaryHelper";
 import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
@@ -493,7 +494,7 @@ export class SaleService {
       // Delegate to InventoryService (no-op under intake-driven model)
       await InventoryService.handleSaleStatusUpdated(sale.items, oldStatus, newStatus, tx);
 
-      let paidAmount = sale.paidAmount;
+      let paidAmount = await AllocationSummaryHelper.getPaidAmountForInvoice(tx, "SALE", parseInt(id));
       if (newStatus === "CLEARED") {
         paidAmount = sale.finalAmount;
       } else if (newStatus === "PENDING") {
@@ -598,7 +599,7 @@ export class SaleService {
       if (sale.status === "CANCELLED") throw new Error("Cannot record payment on a cancelled invoice");
 
       const total = Number(sale.finalAmount);
-      const currentPaid = Number(sale.paidAmount || 0);
+      const currentPaid = await AllocationSummaryHelper.getPaidAmountForInvoice(tx, "SALE", saleId);
       const remaining = Math.max(0, total - currentPaid);
 
       if (amt > remaining) {

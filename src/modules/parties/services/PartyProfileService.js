@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { calculateInvoiceClearingState } from "@/lib/financial";
 import { logPaymentEvent, logSaleEvent, logSettlementEvent } from "@/modules/activity-log/activityLogger";
+import { AllocationSummaryHelper } from "../../finance/helpers/allocationSummaryHelper";
+import { PartyFinancialPositionService } from "../../finance/services/PartyFinancialPositionService";
 
 export class PartyProfileService {
   /**
@@ -38,9 +40,14 @@ export class PartyProfileService {
 
     if (!party) return null;
 
+    // Group allocations by reference type and reference ID for O(1) lookup
+    const salesAllocationsMap = AllocationSummaryHelper.groupAllocationsByInvoice(party.payments, "SALE");
+    const settlementsAllocationsMap = AllocationSummaryHelper.groupAllocationsByInvoice(party.payments, "SETTLEMENT");
+
     // Buyer side: Sales obligations
     const sales = party.saleTransactions.map(s => {
-      const clearing = calculateInvoiceClearingState(s.finalAmount, s.paidAmount);
+      const derivedPaid = salesAllocationsMap[s.id] || 0;
+      const clearing = calculateInvoiceClearingState(s.finalAmount, derivedPaid);
       return {
         id: s.id,
         saleNumber: s.saleNumber,
@@ -57,7 +64,8 @@ export class PartyProfileService {
 
     // Supplier side: Settlement obligations
     const settlements = party.supplierInvoices.map(inv => {
-      const clearing = calculateInvoiceClearingState(inv.finalPayableAmount, inv.paidAmount);
+      const derivedPaid = settlementsAllocationsMap[inv.id] || 0;
+      const clearing = calculateInvoiceClearingState(inv.finalPayableAmount, derivedPaid);
       return {
         id: inv.id,
         invoiceNumber: inv.invoiceNumber,
@@ -83,24 +91,22 @@ export class PartyProfileService {
       intakeTransactionId: a.intakeTransactionId
     }));
 
-    // Financial Sums
-    const totalSales = sales.reduce((sum, s) => sum + s.finalAmount, 0);
-    const totalSalesPaid = sales.reduce((sum, s) => sum + s.allocatedAmount, 0);
-    const totalSalesRemaining = sales.reduce((sum, s) => sum + s.remainingAmount, 0);
+    // Derive the true financial position using the calculator
+    const position = await PartyFinancialPositionService.getPartyFinancialPosition(pId);
 
-    const totalAdvances = advances.reduce((sum, a) => sum + a.amount, 0);
-    const unadjustedAdvances = advances
-      .filter(a => a.supplierInvoiceId === null)
-      .reduce((sum, a) => sum + a.amount, 0);
+    const totalSales = position.totalSales;
+    const totalSalesPaid = position.allocatedToSales;
+    const totalSalesRemaining = totalSales - totalSalesPaid;
 
-    const totalSupplierPayable = settlements.reduce((sum, s) => sum + s.finalPayableAmount, 0);
-    const totalSupplierPaid = settlements.reduce((sum, s) => sum + s.allocatedAmount, 0);
-    const totalSupplierRemaining = settlements.reduce((sum, s) => sum + s.remainingAmount, 0);
+    const totalAdvances = position.totalAdvances;
+    const unadjustedAdvances = position.unadjustedAdvances;
 
-    // net official balance: (Outstanding Sales Debt + Unadjusted Advances DR) - (Outstanding Supplier Payable)
-    // If positive: Party owes us money (DR)
-    // If negative: We owe party money (CR)
-    let officialBalance = (totalSalesRemaining + unadjustedAdvances) - totalSupplierRemaining;
+    const totalSupplierPayable = position.totalPurchases;
+    const totalSupplierPaid = position.allocatedToPurchases;
+    const totalSupplierRemaining = totalSupplierPayable - totalSupplierPaid;
+
+    // netPosition is the single source of truth for the net outstanding balance
+    let officialBalance = position.netPosition;
 
     // Fetch related activity logs to show status changes and direct payments in timeline
     let logs = [];

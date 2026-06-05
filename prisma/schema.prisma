@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlserver"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -12,7 +12,7 @@ model User {
   id          Int      @id @default(autoincrement())
   email       String   @unique
   name        String?
-  password    String   @db.NVarChar(255)
+  password    String
   role        String   @default("USER") // ADMIN | USER
   isActive    Boolean  @default(true)
   phoneNumber String?
@@ -49,8 +49,8 @@ model Product {
   name               String
   category           String              @default("WEIGHT") // WEIGHT, LIQUID, QUANTITY
   primaryUnit        String              @default("KG")
-  unitConversion     Decimal?            @db.Decimal(18, 4) // e.g. 1 BAG = 100 KG
-  quantity           Decimal             @default(0) @db.Decimal(18, 2)
+  unitConversion     Decimal? // e.g. 1 BAG = 100 KG
+  quantity           Decimal             @default(0)
   isActive           Boolean             @default(true)
   userId             Int                 @default(0)
   businessId         Int                 @default(0)
@@ -70,15 +70,15 @@ model IntakeTransaction {
   partyId      Int
   productId    Int
   bagCount     Int?
-  rate             Decimal?              @db.Decimal(18, 2)
-  rateUnit         String                @default("KG") @db.NVarChar(50)
-  grossWeight      Decimal               @db.Decimal(18, 2)
+  rate             Decimal?
+  rateUnit         String                @default("KG")
+  grossWeight      Decimal
   unit             String                @default("KG")
-  normalizedWeight Decimal               @default(0) @db.Decimal(18, 2)
-  Bardana          Decimal?              @db.Decimal(18, 2)
-  Khot             Decimal?              @db.Decimal(18, 2)
-  netWeight        Decimal?              @db.Decimal(18, 2)
-  remainingWeight  Decimal?              @db.Decimal(18, 2)
+  normalizedWeight Decimal               @default(0)
+  Bardana          Decimal?
+  Khot             Decimal?
+  netWeight        Decimal?
+  remainingWeight  Decimal?
   notes            String?
   status           String                @default("PENDING")
   userId           Int                   @default(0)
@@ -99,7 +99,7 @@ model IntakeAdvance {
   id                  Int                @id @default(autoincrement())
   intakeTransactionId Int?
   partyId             Int
-  amount              Decimal            @db.Decimal(18, 2)
+  amount              Decimal
   notes               String?
   supplierInvoiceId   Int?
   userId              Int                @default(0)
@@ -116,17 +116,17 @@ model SaleTransaction {
   saleNumber       String                  @unique
   entryDate        DateTime                @default(now())
   partyId          Int
-  totalWeight      Decimal                 @db.Decimal(18, 2)
-  baseAmount       Decimal                 @db.Decimal(18, 2)
-  totalAdjustments Decimal                 @db.Decimal(18, 2)
-  finalAmount      Decimal                 @db.Decimal(18, 2)
+  totalWeight      Decimal
+  baseAmount       Decimal
+  totalAdjustments Decimal
+  finalAmount      Decimal
   status           String                  @default("PENDING")
-  paidAmount       Decimal                 @default(0) @db.Decimal(18, 2)
+  paidAmount       Decimal                 @default(0)
   paymentStatus    String                  @default("PENDING") // PENDING | PARTIAL | CLEARED
   notes            String?
   isDeleted        Boolean                 @default(false)
-  changeLog        String?                 @db.NVarChar(Max)
-  previousState    String?                 @db.NVarChar(Max)
+  changeLog        String?
+  previousState    String?
   userId           Int                     @default(0)
   businessId       Int                     @default(0)
   createdAt        DateTime                @default(now())
@@ -142,12 +142,12 @@ model SaleItem {
   id                  Int                @id @default(autoincrement())
   saleId              Int
   productId           Int
-  weight              Decimal            @db.Decimal(18, 2)
+  weight              Decimal
   unit                String             @default("KG")
-  normalizedWeight    Decimal            @default(0) @db.Decimal(18, 2)
-  rate                Decimal            @db.Decimal(18, 2)
+  normalizedWeight    Decimal            @default(0)
+  rate                Decimal
   rateUnit            String             @default("KG") // DEPRECATED: use unit
-  amount              Decimal            @db.Decimal(18, 2)
+  amount              Decimal
   userId              Int                @default(0)
   businessId          Int                @default(0)
 
@@ -167,14 +167,14 @@ model SalesTrack {
   buyerPartyId        Int?
   productId           Int?
 
-  quantity            Decimal   @db.Decimal(18, 2)
+  quantity            Decimal
 
-  buyingRate          Decimal?  @db.Decimal(18, 2)
-  sellingRate         Decimal?  @db.Decimal(18, 2)
+  buyingRate          Decimal?
+  sellingRate         Decimal?
   rateUnit            String?   @default("KG")
 
-  netWeight           Decimal?  @db.Decimal(18, 2)
-  baseAmount          Decimal?  @db.Decimal(18, 2)
+  netWeight           Decimal?
+  baseAmount          Decimal?
 
   isBilled            Boolean   @default(false)
   isSettled           Boolean   @default(false)
@@ -204,10 +204,10 @@ model TransactionAdjustment {
   saleId           Int
   adjustmentType   String // Commission, Labour, Rent, Kaat, etc.
   method           String // FIXED, PERCENTAGE, PER_WEIGHT
-  value            Decimal         @db.Decimal(18, 2)
-  calculatedAmount Decimal         @db.Decimal(18, 2)
+  value            Decimal
+  calculatedAmount Decimal
   direction        String          @default("ADD") // ADD or SUBTRACT
-  unit             String?         @db.NVarChar(50)
+  unit             String?
   userId           Int             @default(0)
   businessId       Int             @default(0)
   sale             SaleTransaction @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -218,12 +218,12 @@ model SupplierInvoice {
   invoiceNumber      String                      @unique // SUP-XXXXXX
   partyId            Int
   entryDate          DateTime                    @default(now())
-  totalGrossValue    Decimal                     @db.Decimal(18, 2)
-  totalDeductions    Decimal                     @db.Decimal(18, 2)
-  totalAdvances      Decimal                     @db.Decimal(18, 2)
-  finalPayableAmount Decimal                     @db.Decimal(18, 2)
+  totalGrossValue    Decimal
+  totalDeductions    Decimal
+  totalAdvances      Decimal
+  finalPayableAmount Decimal
   status             String                      @default("PENDING") // PENDING | COMPLETED | SUPERSEDED
-  paidAmount         Decimal                     @default(0) @db.Decimal(18, 2)
+  paidAmount         Decimal                     @default(0)
   paymentStatus      String                      @default("PENDING") // PENDING | PARTIAL | CLEARED
   isOutdated         Boolean                     @default(false)
   version            Int                         @default(1)
@@ -242,10 +242,10 @@ model SupplierInvoiceAdjustment {
   supplierInvoiceItemId Int
   adjustmentType        String              // Commission, Labour, Rent, Kaat, etc.
   method                String              // FIXED, PERCENTAGE, PER_WEIGHT
-  value                 Decimal             @db.Decimal(18, 2)
-  calculatedAmount      Decimal             @db.Decimal(18, 2)
+  value                 Decimal
+  calculatedAmount      Decimal
   direction             String              @default("ADD") // ADD or SUBTRACT
-  unit                  String?             @db.NVarChar(50)
+  unit                  String?
   userId                Int                 @default(0)
   businessId            Int                 @default(0)
   item                  SupplierInvoiceItem @relation(fields: [supplierInvoiceItemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -255,9 +255,9 @@ model SupplierInvoiceItem {
   id                  Int                         @id @default(autoincrement())
   supplierInvoiceId   Int
   intakeTransactionId Int
-  weight              Decimal                     @db.Decimal(18, 2) // SNAPSHOT
-  rate                Decimal                     @db.Decimal(18, 2) // SNAPSHOT
-  amount              Decimal                     @db.Decimal(18, 2) // SNAPSHOT
+  weight              Decimal // SNAPSHOT
+  rate                Decimal // SNAPSHOT
+  amount              Decimal // SNAPSHOT
   userId              Int                         @default(0)
   businessId          Int                         @default(0)
   invoice             SupplierInvoice             @relation(fields: [supplierInvoiceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -270,9 +270,9 @@ model LedgerSession {
   title                String
   startDate            DateTime
   endDate              DateTime
-  supplierTotal        Decimal  @db.Decimal(18, 2)
-  buyerTotal           Decimal  @db.Decimal(18, 2)
-  difference           Decimal  @db.Decimal(18, 2)
+  supplierTotal        Decimal
+  buyerTotal           Decimal
+  difference           Decimal
   supplierInvoiceCount Int      @default(0)
   buyerInvoiceCount    Int      @default(0)
   status               String   @default("OPEN") // OPEN | LOCKED
@@ -286,13 +286,13 @@ model LedgerSession {
 model ProductRate {
   id        Int      @id @default(autoincrement())
   productId Int
-  rate      Decimal  @db.Decimal(18, 2)
-  unit      String   @db.NVarChar(50)
+  rate      Decimal
+  unit      String
   date      DateTime @default(now())
-  source    String?  @db.NVarChar(100) // e.g. MANUAL, MARKET, WHATSAPP
+  source    String? // e.g. MANUAL, MARKET, WHATSAPP
   isDeleted Boolean  @default(false)
-  notes     String?  @db.NVarChar(Max)
-  createdBy String?  @db.NVarChar(100) // Operator placeholder
+  notes     String?
+  createdBy String? // Operator placeholder
   userId    Int      @default(0)
   businessId Int     @default(0)
   createdAt DateTime @default(now())
@@ -303,14 +303,14 @@ model ProductRate {
 
 model ActivityLog {
   id          Int      @id @default(autoincrement())
-  entityType  String   @db.NVarChar(100) // PRODUCT, PARTY, INTAKE, SALE, SETTLEMENT, SYSTEM
+  entityType  String // PRODUCT, PARTY, INTAKE, SALE, SETTLEMENT, SYSTEM
   entityId    Int?
-  action      String   @db.NVarChar(100) // CREATED, UPDATED, DELETED, COMPLETED, CANCELLED, ARCHIVED, SUPERSEDED, SOLD
-  description String?  @db.NVarChar(Max)
+  action      String // CREATED, UPDATED, DELETED, COMPLETED, CANCELLED, ARCHIVED, SUPERSEDED, SOLD
+  description String?
   userId      Int      @default(0)
-  userName    String?  @db.NVarChar(255)
+  userName    String?
   businessId  Int      @default(0)
-  meta        String?  @db.NVarChar(Max)
+  meta        String?
   createdAt   DateTime @default(now())
 
   @@index([entityType])
@@ -324,7 +324,7 @@ model PartyPayment {
   paymentNumber String                   @unique
   paymentType   String                   // CASH_IN, CASH_OUT
   paymentMethod String?                  // CASH, BANK, JAZZCASH, EASYPAISA, CHEQUE
-  amount        Decimal                  @db.Decimal(18, 2)
+  amount        Decimal
   sourceType    String                   @default("MANUAL") // MANUAL, DIRECT_SALE, DIRECT_SETTLEMENT, SYSTEM
   sourceId      Int?
   status        String                   @default("ACTIVE") // ACTIVE, VOIDED, REVERSED
@@ -348,7 +348,7 @@ model PartyPaymentAllocation {
   paymentId       Int
   referenceType   String       // SALE, SETTLEMENT
   referenceId     Int
-  allocatedAmount Decimal      @db.Decimal(18, 2)
+  allocatedAmount Decimal
   userId          Int          @default(0)
   businessId      Int          @default(0)
   createdAt       DateTime     @default(now())
@@ -362,7 +362,7 @@ model PartyPaymentAllocation {
 model SystemSetting {
   id        Int      @id @default(autoincrement())
   key       String   @unique
-  value     String   @db.NVarChar(Max)
+  value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

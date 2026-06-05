@@ -3,6 +3,6 @@
     "server": "localhost\\SQLEXPRESS",
     "database": "business_mart",
     "trustedConnection": true,
-    "provider": "mssql"
+    "provider": "sqlite"
   }
 }

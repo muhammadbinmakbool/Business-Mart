@@ -1,6 +1,7 @@
 import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceRepository";
 import { calculateSupplierDeductions, calculateInvoiceClearingState } from "@/lib/financial";
 import { prisma } from "@/lib/prisma";
+import { AllocationSummaryHelper } from "../../finance/helpers/allocationSummaryHelper";
 import { convertRate, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { emitActivity, logSettlementEvent, logPaymentEvent } from "@/modules/activity-log/activityLogger";
 import { withOwnership } from "@/lib/session";
@@ -650,7 +651,7 @@ export class SupplierInvoiceService {
       if (invoice.status === "CANCELLED") throw new Error("Cannot record payment on a cancelled invoice");
 
       const total = Number(invoice.finalPayableAmount);
-      const currentPaid = Number(invoice.paidAmount || 0);
+      const currentPaid = await AllocationSummaryHelper.getPaidAmountForInvoice(tx, "SETTLEMENT", invoiceId);
       const remaining = Math.max(0, total - currentPaid);
 
       if (amt > remaining) {
