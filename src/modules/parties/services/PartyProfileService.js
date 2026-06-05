@@ -278,14 +278,23 @@ export class PartyProfileService {
       }
     });
 
-    // Chronological order sorting (primary: entry Date day portion, secondary: database creation time)
-    timelineEvents.sort((a, b) => {
-      const aDay = new Date(a.date.getTime());
-      aDay.setHours(0, 0, 0, 0);
-      const bDay = new Date(b.date.getTime());
-      bDay.setHours(0, 0, 0, 0);
+    const getKarachiDateString = (date) => {
+      const d = new Date(date);
+      const formatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "Asia/Karachi",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
+      return formatter.format(d);
+    };
 
-      const dateDiff = aDay.getTime() - bDay.getTime();
+    // Chronological order sorting (primary: entry Date day portion in Asia/Karachi, secondary: database creation time)
+    timelineEvents.sort((a, b) => {
+      const aDayStr = getKarachiDateString(a.date);
+      const bDayStr = getKarachiDateString(b.date);
+
+      const dateDiff = aDayStr.localeCompare(bDayStr);
       if (dateDiff !== 0) return dateDiff;
       return a.createdAt.getTime() - b.createdAt.getTime();
     });
@@ -296,14 +305,12 @@ export class PartyProfileService {
       evt.runningBalance = runningTotal;
     });
 
-    // Descending for latest display first (primary: entry Date day portion desc, secondary: database creation time desc)
+    // Descending for latest display first (primary: entry Date day portion in Asia/Karachi desc, secondary: database creation time desc)
     timelineEvents.sort((a, b) => {
-      const aDay = new Date(a.date.getTime());
-      aDay.setHours(0, 0, 0, 0);
-      const bDay = new Date(b.date.getTime());
-      bDay.setHours(0, 0, 0, 0);
+      const aDayStr = getKarachiDateString(a.date);
+      const bDayStr = getKarachiDateString(b.date);
 
-      const dateDiff = bDay.getTime() - aDay.getTime();
+      const dateDiff = bDayStr.localeCompare(aDayStr);
       if (dateDiff !== 0) return dateDiff;
       return b.createdAt.getTime() - a.createdAt.getTime();
     });
