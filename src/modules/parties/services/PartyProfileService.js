@@ -45,6 +45,7 @@ export class PartyProfileService {
         id: s.id,
         saleNumber: s.saleNumber,
         entryDate: s.entryDate,
+        createdAt: s.createdAt,
         totalWeight: Number(s.totalWeight || 0),
         finalAmount: clearing.total,
         allocatedAmount: clearing.paid,
@@ -61,6 +62,7 @@ export class PartyProfileService {
         id: inv.id,
         invoiceNumber: inv.invoiceNumber,
         entryDate: inv.entryDate,
+        createdAt: inv.createdAt,
         totalGrossValue: Number(inv.totalGrossValue || 0),
         totalDeductions: Number(inv.totalDeductions || 0),
         totalAdvances: Number(inv.totalAdvances || 0),
@@ -123,6 +125,7 @@ export class PartyProfileService {
         id: `sale-${sale.id}`,
         targetId: sale.id,
         date: new Date(sale.entryDate),
+        createdAt: new Date(sale.createdAt),
         type: "SALE",
         ref: sale.saleNumber,
         description: `Sale invoice processed`,
@@ -141,6 +144,7 @@ export class PartyProfileService {
         id: `sup-${inv.id}`,
         targetId: inv.id,
         date: new Date(inv.entryDate),
+        createdAt: new Date(inv.createdAt),
         type: "SUPPLIER_INVOICE",
         ref: inv.invoiceNumber,
         description: `Supplier invoice generated`,
@@ -184,6 +188,7 @@ export class PartyProfileService {
         targetId: adv.id,
         intakeTransactionId: adv.intakeTransactionId,
         date: new Date(adv.createdAt),
+        createdAt: new Date(adv.createdAt),
         type: "CASH_OUT",
         ref: `ADV-${adv.id}`,
         description: adv.notes || `Cash advance payout recorded`,
@@ -203,6 +208,7 @@ export class PartyProfileService {
         id: `db-pay-${p.id}`,
         targetId: p.id,
         date: new Date(p.entryDate),
+        createdAt: new Date(p.createdAt),
         type: isCashIn ? "CASH_IN" : "CASH_OUT",
         ref: p.paymentNumber,
         description: p.notes || `${isCashIn ? "Cash received" : "Cash paid"}`,
@@ -234,6 +240,7 @@ export class PartyProfileService {
           id: `log-status-${log.id}`,
           targetId: log.id,
           date: logDate,
+          createdAt: logDate,
           type: "STATUS_CHANGE",
           ref: `LOG-${log.id}`,
           description: log.description || "Party status updated",
@@ -257,6 +264,7 @@ export class PartyProfileService {
           id: `log-pay-${log.id}`,
           targetId: log.id,
           date: logDate,
+          createdAt: logDate,
           type: isCashIn ? "CASH_IN" : "CASH_OUT",
           ref: `PAY-${log.id}`,
           description: log.description || (isCashIn ? "Cash received" : "Cash paid"),
@@ -270,8 +278,12 @@ export class PartyProfileService {
       }
     });
 
-    // Chronological order sorting
-    timelineEvents.sort((a, b) => a.date - b.date);
+    // Chronological order sorting (primary: entry Date, secondary: database creation time)
+    timelineEvents.sort((a, b) => {
+      const dateDiff = a.date.getTime() - b.date.getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return a.createdAt.getTime() - b.createdAt.getTime();
+    });
 
     let runningTotal = 0;
     timelineEvents.forEach(evt => {
@@ -279,8 +291,12 @@ export class PartyProfileService {
       evt.runningBalance = runningTotal;
     });
 
-    // Descending for latest display first
-    timelineEvents.sort((a, b) => b.date - a.date);
+    // Descending for latest display first (primary: entry Date desc, secondary: database creation time desc)
+    timelineEvents.sort((a, b) => {
+      const dateDiff = b.date.getTime() - a.date.getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return b.createdAt.getTime() - a.createdAt.getTime();
+    });
 
     return {
       party: {
