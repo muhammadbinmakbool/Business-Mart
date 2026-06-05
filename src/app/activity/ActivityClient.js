@@ -237,13 +237,13 @@ export default function ActivityClient() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-muted/50 border-b text-xs font-semibold text-muted-foreground tracking-wider uppercase">
-                  <th className="px-6 py-4">Timestamp</th>
-                  <th className="px-6 py-4">Entity Type</th>
-                  <th className="px-6 py-4">Action</th>
-                  <th className="px-6 py-4">Description</th>
-                  <th className="px-6 py-4">Entity ID</th>
-                  <th className="px-6 py-4">Operator</th>
-                  <th className="px-6 py-4 text-right">Meta</th>
+                  <th className="px-6 py-4 w-[15%]">Timestamp</th>
+                  <th className="px-6 py-4 w-[10%]">Entity Type</th>
+                  <th className="px-6 py-4 w-[10%]">Action</th>
+                  <th className="px-6 py-4 w-[40%]">Description</th>
+                  <th className="px-6 py-4 w-[8%]">Entity ID</th>
+                  <th className="px-6 py-4 w-[12%]">Operator</th>
+                  <th className="px-6 py-4 text-right w-[5%]">Meta</th>
                 </tr>
               </thead>
               <tbody className="divide-y text-sm">
@@ -280,7 +280,7 @@ export default function ActivityClient() {
                             {log.action}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-foreground max-w-sm truncate" title={log.description}>
+                        <td className="px-6 py-4 text-foreground max-w-lg truncate" title={log.description}>
                           {log.description || "—"}
                         </td>
                         <td className="px-6 py-4 font-mono text-xs font-bold text-muted-foreground">
