@@ -2,7 +2,7 @@ import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceReposi
 import { calculateSupplierDeductions, calculateInvoiceClearingState } from "@/lib/financial";
 import { prisma } from "@/lib/prisma";
 import { convertRate, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
-import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { emitActivity, logSettlementEvent, logPaymentEvent } from "@/modules/activity-log/activityLogger";
 import { withOwnership } from "@/lib/session";
 
 
@@ -654,7 +654,7 @@ export class SupplierInvoiceService {
       const remaining = Math.max(0, total - currentPaid);
 
       if (amt > remaining) {
-        throw new Error(`Payment amount Rs. ${amt} exceeds the remaining balance of Rs. ${remaining}`);
+        throw new Error("Payment amount Rs. " + amt + " exceeds the remaining balance of Rs. " + remaining);
       }
 
       const newPaid = currentPaid + amt;
@@ -670,16 +670,65 @@ export class SupplierInvoiceService {
       });
     });
 
-    await emitActivity({
-      entityType: "SETTLEMENT",
-      entityId: updated.id,
-      action: updated.status === "CLEARED" ? "CLEARED" : "UPDATED",
-      description: `Recorded partial payment of Rs. ${amt.toLocaleString()} on Supplier Invoice ${updated.invoiceNumber}. Total paid: Rs. ${Number(updated.paidAmount).toLocaleString()}`,
+    // Fetch session details
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    // Fetch Party details
+    let partyName = "";
+    try {
+      const { PartyRepository } = await import("@/modules/parties/repositories/PartyRepository");
+      const party = await PartyRepository.getById(updated.partyId);
+      if (party) {
+        partyName = party.name;
+      }
+    } catch (e) {}
+
+    const action = updated.status === "CLEARED" ? "CLEARED" : "UPDATED";
+
+    // Log overall payment event
+    const paymentDescription = `${performedByName} recorded invoice payment of Rs. ${amt.toLocaleString()} for ${partyName || "Party #" + updated.partyId} on Supplier Invoice ${updated.invoiceNumber}.`;
+    await logPaymentEvent({
+      partyId: updated.partyId,
+      partyName,
+      paymentType: "CASH_OUT",
+      eventType: "SETTLEMENT_PAYMENT",
+      amount: amt,
+      description: paymentDescription,
+      performedByUserId,
+      performedByName,
+      referenceType: "SETTLEMENT",
+      referenceId: updated.id,
+      referenceNumber: updated.invoiceNumber,
       meta: {
-        supplierId: updated.partyId,
-        paymentAmount: amt,
         paidAmount: Number(updated.paidAmount),
         paymentStatus: updated.paymentStatus
+      }
+    });
+
+    // Log settlement update
+    const settlementDescription = `Recorded invoice payment of Rs. ${amt.toLocaleString()} on Supplier Invoice ${updated.invoiceNumber}. Total paid: Rs. ${Number(updated.paidAmount).toLocaleString()}`;
+    await logSettlementEvent({
+      settlementId: updated.id,
+      invoiceNumber: updated.invoiceNumber,
+      partyId: updated.partyId,
+      partyName,
+      action,
+      description: settlementDescription,
+      amount: amt,
+      performedByUserId,
+      performedByName,
+      meta: {
+        paymentStatus: updated.paymentStatus,
+        paidAmount: Number(updated.paidAmount)
       }
     });
 

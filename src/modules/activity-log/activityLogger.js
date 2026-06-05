@@ -215,3 +215,171 @@ if (typeof process !== "undefined") {
     process.exit(0);
   });
 }
+
+/**
+ * Log party-related event.
+ */
+export async function logPartyEvent({
+  partyId,
+  partyName,
+  action,
+  description,
+  performedByUserId = 0,
+  performedByName = "system",
+  meta = {}
+}) {
+  return emitActivity({
+    entityType: "PARTY",
+    entityId: partyId,
+    action,
+    description,
+    userId: performedByUserId,
+    userName: performedByName,
+    meta: {
+      partyId,
+      partyName,
+      ...meta
+    }
+  });
+}
+
+/**
+ * Log sale-related event.
+ */
+export async function logSaleEvent({
+  saleId,
+  saleNumber,
+  partyId,
+  partyName,
+  action,
+  description,
+  amount,
+  performedByUserId = 0,
+  performedByName = "system",
+  meta = {}
+}) {
+  return emitActivity({
+    entityType: "SALE",
+    entityId: saleId,
+    action,
+    description,
+    userId: performedByUserId,
+    userName: performedByName,
+    meta: {
+      saleId,
+      saleNumber,
+      partyId,
+      partyName,
+      amount: amount !== undefined ? Number(amount) : undefined,
+      ...meta
+    }
+  });
+}
+
+/**
+ * Log intake-related event.
+ */
+export async function logIntakeEvent({
+  intakeId,
+  intakeNumber,
+  partyId,
+  partyName,
+  action,
+  description,
+  weight,
+  bagCount,
+  rate,
+  performedByUserId = 0,
+  performedByName = "system",
+  meta = {}
+}) {
+  return emitActivity({
+    entityType: "INTAKE",
+    entityId: intakeId,
+    action,
+    description,
+    userId: performedByUserId,
+    userName: performedByName,
+    meta: {
+      intakeId,
+      intakeNumber,
+      partyId,
+      partyName,
+      weight: weight !== undefined ? Number(weight) : undefined,
+      bagCount: bagCount !== undefined ? Number(bagCount) : undefined,
+      rate: rate !== undefined ? Number(rate) : undefined,
+      ...meta
+    }
+  });
+}
+
+/**
+ * Log supplier settlement-related event.
+ */
+export async function logSettlementEvent({
+  settlementId,
+  invoiceNumber,
+  partyId,
+  partyName,
+  action,
+  description,
+  amount,
+  performedByUserId = 0,
+  performedByName = "system",
+  meta = {}
+}) {
+  return emitActivity({
+    entityType: "SETTLEMENT",
+    entityId: settlementId,
+    action,
+    description,
+    userId: performedByUserId,
+    userName: performedByName,
+    meta: {
+      settlementId,
+      invoiceNumber,
+      partyId,
+      partyName,
+      amount: amount !== undefined ? Number(amount) : undefined,
+      ...meta
+    }
+  });
+}
+
+/**
+ * Log payment-related event (stored under entityType PARTY).
+ */
+export async function logPaymentEvent({
+  partyId,
+  partyName,
+  paymentType,
+  eventType,
+  amount,
+  description,
+  performedByUserId = 0,
+  performedByName = "system",
+  referenceType,
+  referenceId,
+  referenceNumber,
+  meta = {}
+}) {
+  return emitActivity({
+    entityType: "PARTY",
+    entityId: partyId,
+    action: "UPDATED",
+    description,
+    userId: performedByUserId,
+    userName: performedByName,
+    meta: {
+      partyId,
+      partyName,
+      paymentType,
+      eventType,
+      amount: amount !== undefined ? Number(amount) : undefined,
+      referenceType,
+      referenceId: referenceId !== undefined && referenceId !== null ? parseInt(referenceId) : undefined,
+      referenceNumber,
+      ...meta
+    }
+  });
+}

@@ -95,14 +95,23 @@ function TimelineTable({ events, partyId }) {
                     {format(new Date(evt.date), "dd MMM yyyy")}
                   </td>
                   <td className="px-4 py-3">
-                    <span className={cn(
-                      "px-2 py-0.5 rounded text-[9px] font-bold uppercase border",
-                      isSale ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-                      isSup ? "bg-rose-100 text-rose-700 border-rose-200" :
-                      "bg-blue-100 text-blue-700 border-blue-200"
-                    )}>
-                      {evt.type}
-                    </span>
+                    <div className="flex flex-col">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-[9px] font-bold uppercase border w-max",
+                        isSale ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                        isSup ? "bg-rose-100 text-rose-700 border-rose-200" :
+                        evt.type === "STATUS_CHANGE" ? "bg-amber-100 text-amber-700 border-amber-200" :
+                        evt.type === "CASH_IN" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
+                        "bg-blue-100 text-blue-700 border-blue-200"
+                      )}>
+                        {evt.type === "CASH_IN" ? "Payment In" : evt.type === "CASH_OUT" ? "Payment Out" : evt.type === "STATUS_CHANGE" ? "Status Toggle" : evt.type}
+                      </span>
+                      {evt.description && (
+                        <span className="text-[10px] text-muted-foreground mt-1 max-w-[200px] truncate" title={evt.description}>
+                          {evt.description}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs">
                     {isSale ? (

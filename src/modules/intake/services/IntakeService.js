@@ -8,7 +8,7 @@ import { InventoryService } from "../../products/services/InventoryService";
 import { prisma } from "@/lib/prisma";
 import { convertRate, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { createAppError } from "@/lib/errors/AppError";
-import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { emitActivity, logIntakeEvent, logPaymentEvent } from "@/modules/activity-log/activityLogger";
 import { calculateIntakeState } from "@/lib/financial";
 import { withOwnership } from "@/lib/session";
 import { IntakeWorkflowEngine } from "../workflow/IntakeWorkflowEngine";
@@ -158,16 +158,34 @@ export class IntakeService {
       return record;
     });
 
-    await emitActivity({
-      entityType: "INTAKE",
-      entityId: intake.id,
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const party = await PartyRepository.getById(intake.partyId);
+    const partyName = party ? party.name : "";
+
+    await logIntakeEvent({
+      intakeId: intake.id,
+      intakeNumber: intake.intakeNumber,
+      partyId: intake.partyId,
+      partyName,
       action: "CREATED",
-      description: `Intake ${intake.intakeNumber} created for supplier`,
+      description: `${performedByName} created Intake ${intake.intakeNumber} for supplier ${partyName}.`,
+      weight: Number(intake.normalizedWeight),
+      bagCount: intake.bagCount,
+      rate: intake.rate,
+      performedByUserId,
+      performedByName,
       meta: {
-        productId: intake.productId,
-        weight: Number(intake.normalizedWeight),
-        bagCount: intake.bagCount,
-        supplierId: intake.partyId
+        productId: intake.productId
       }
     });
 
@@ -180,7 +198,9 @@ export class IntakeService {
     const ownership = await withOwnership();
     const workflowSettings = await getIntakeWorkflowSettings();
     
-    return prisma.$transaction(async (tx) => {
+    let oldStatus;
+    
+    const updated = await prisma.$transaction(async (tx) => {
       // 1. Get current state
       const current = await tx.intakeTransaction.findUnique({
         where: { id: parseInt(id) }
@@ -189,7 +209,7 @@ export class IntakeService {
 
       const oldProductId = current.productId;
       const oldWeight = Number(current.normalizedWeight);
-      const oldStatus = current.status;
+      oldStatus = current.status;
 
       // 2. Determine new values
       const newProductId = validated.productId ? parseInt(validated.productId) : oldProductId;
@@ -374,36 +394,93 @@ export class IntakeService {
       return updated;
     });
 
-    await emitActivity({
-      entityType: "INTAKE",
-      entityId: updated.id,
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const party = await PartyRepository.getById(updated.partyId);
+    const partyName = party ? party.name : "";
+
+    let description = `${performedByName} updated Intake ${updated.intakeNumber} (Status: ${updated.status}).`;
+    if (oldStatus !== updated.status) {
+      description = `${performedByName} changed Intake ${updated.intakeNumber} status from ${oldStatus} to ${updated.status}.`;
+    }
+
+    await logIntakeEvent({
+      intakeId: updated.id,
+      intakeNumber: updated.intakeNumber,
+      partyId: updated.partyId,
+      partyName,
       action: "UPDATED",
-      description: `Intake ${updated.intakeNumber} updated (Status: ${updated.status})`,
+      description,
+      weight: Number(updated.normalizedWeight),
+      bagCount: updated.bagCount,
+      rate: updated.rate,
+      performedByUserId,
+      performedByName,
       meta: {
-        productId: updated.productId,
-        weight: Number(updated.normalizedWeight),
-        bagCount: updated.bagCount,
-        supplierId: updated.partyId,
-        status: updated.status
+        oldStatus,
+        newStatus: updated.status,
+        productId: updated.productId
       }
     });
 
     return updated;
   }
 
-
-
   static async createIntakeWithAdvance(intakeData, advanceAmount, advanceNotes) {
     const intake = await this.createIntake(intakeData);
     
     if (advanceAmount && parseFloat(advanceAmount) > 0) {
+      const parsedAmount = parseFloat(advanceAmount);
       const ownedAdvance = await withOwnership({
         partyId: intake.partyId,
         intakeTransactionId: intake.id,
-        amount: parseFloat(advanceAmount),
+        amount: parsedAmount,
         notes: advanceNotes || `Advance for Intake ${intake.intakeNumber}`
       });
-      await AdvanceRepository.create(ownedAdvance);
+      const advance = await AdvanceRepository.create(ownedAdvance);
+
+      let performedByUserId = 0;
+      let performedByName = "system";
+      try {
+        const { getSession } = await import("@/lib/session");
+        const session = await getSession();
+        if (session) {
+          performedByUserId = session.userId || 0;
+          performedByName = session.userName || "system";
+        }
+      } catch (e) {}
+
+      const party = await PartyRepository.getById(intake.partyId);
+      const partyName = party ? party.name : "";
+
+      const description = `${performedByName} recorded supplier cash advance of Rs. ${parsedAmount.toLocaleString()} for ${partyName} linked to Intake ${intake.intakeNumber}.`;
+
+      await logPaymentEvent({
+        partyId: intake.partyId,
+        partyName,
+        paymentType: "CASH_OUT",
+        eventType: "CASH_ADVANCE",
+        amount: parsedAmount,
+        description,
+        performedByUserId,
+        performedByName,
+        referenceType: "INTAKE",
+        referenceId: intake.id,
+        referenceNumber: intake.intakeNumber,
+        meta: {
+          notes: ownedAdvance.notes,
+          intakeId: intake.id
+        }
+      });
     }
     
     return intake;
@@ -547,16 +624,36 @@ export class IntakeService {
       return updatedIntake;
     });
 
-    await emitActivity({
-      entityType: "INTAKE",
-      entityId: updatedIntake.id,
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const party = await PartyRepository.getById(updatedIntake.partyId);
+    const partyName = party ? party.name : "";
+
+    const description = `${performedByName} marked Intake ${updatedIntake.intakeNumber} as ${updatedIntake.status === "SOLD" ? "SOLD" : "PARTIALLY SOLD"} (Supplier: ${partyName}).`;
+
+    await logIntakeEvent({
+      intakeId: updatedIntake.id,
+      intakeNumber: updatedIntake.intakeNumber,
+      partyId: updatedIntake.partyId,
+      partyName,
       action: updatedIntake.status === "SOLD" ? "SOLD" : "PARTIALLY_SOLD",
-      description: `Intake ${updatedIntake.intakeNumber} marked as ${updatedIntake.status}`,
+      description,
+      weight: Number(updatedIntake.netWeight || updatedIntake.grossWeight),
+      bagCount: updatedIntake.bagCount,
+      rate: Number(updatedIntake.rate),
+      performedByUserId,
+      performedByName,
       meta: {
         productId: updatedIntake.productId,
-        weight: Number(updatedIntake.netWeight || updatedIntake.grossWeight),
-        supplierId: updatedIntake.partyId,
-        rate: Number(updatedIntake.rate),
         remainingWeight: Number(updatedIntake.remainingWeight)
       }
     });
@@ -589,15 +686,36 @@ export class IntakeService {
       return record;
     });
 
-    await emitActivity({
-      entityType: "INTAKE",
-      entityId: deleted.id,
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const party = await PartyRepository.getById(deleted.partyId);
+    const partyName = party ? party.name : "";
+
+    const description = `${performedByName} deleted Intake ${deleted.intakeNumber} (Supplier: ${partyName}).`;
+
+    await logIntakeEvent({
+      intakeId: deleted.id,
+      intakeNumber: deleted.intakeNumber,
+      partyId: deleted.partyId,
+      partyName,
       action: "DELETED",
-      description: `Intake ${deleted.intakeNumber} deleted`,
+      description,
+      weight: Number(deleted.normalizedWeight),
+      bagCount: deleted.bagCount,
+      rate: Number(deleted.rate),
+      performedByUserId,
+      performedByName,
       meta: {
-        productId: deleted.productId,
-        weight: Number(deleted.normalizedWeight),
-        supplierId: deleted.partyId
+        productId: deleted.productId
       }
     });
 

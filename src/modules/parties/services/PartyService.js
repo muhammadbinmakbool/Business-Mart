@@ -1,6 +1,6 @@
 import { PartyRepository } from "../repositories/PartyRepository";
 import { partySchema } from "../validations/partySchema";
-import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { emitActivity, logPartyEvent } from "@/modules/activity-log/activityLogger";
 import { withOwnership } from "@/lib/session";
 
 export class PartyService {
@@ -41,14 +41,41 @@ export class PartyService {
   }
 
   static async togglePartyStatus(id, isActive) {
-    const party = await PartyRepository.toggleStatus(id, isActive);
-    await emitActivity({
-      entityType: "PARTY",
-      entityId: party.id,
+    let targetActive = isActive;
+    if (targetActive === undefined || targetActive === null) {
+      const existing = await PartyRepository.getById(id);
+      if (!existing) throw new Error("Party not found");
+      targetActive = !existing.isActive;
+    }
+
+    const party = await PartyRepository.toggleStatus(id, targetActive);
+
+    // Get session context safely
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const description = `${performedByName} changed status of Party "${party.name}" to ${party.isActive ? "Active" : "Inactive"}.`;
+
+    await logPartyEvent({
+      partyId: party.id,
+      partyName: party.name,
       action: "UPDATED",
-      description: `Party "${party.name}" status toggled to ${isActive ? "Active" : "Inactive"}`,
-      meta: { name: party.name, isActive }
+      description,
+      performedByUserId,
+      performedByName,
+      meta: {
+        isActive: party.isActive
+      }
     });
+
     return party;
   }
   static async deleteParty(id) {

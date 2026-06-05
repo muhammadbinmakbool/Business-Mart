@@ -6,7 +6,7 @@ import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
 import { createAppError } from "@/lib/errors/AppError";
-import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { emitActivity, logSaleEvent, logPaymentEvent } from "@/modules/activity-log/activityLogger";
 import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { withOwnership } from "@/lib/session";
 import { SalesWorkflowEngine } from "../workflow/SalesWorkflowEngine";
@@ -618,16 +618,65 @@ export class SaleService {
       });
     });
 
-    await emitActivity({
-      entityType: "SALE",
-      entityId: updated.id,
-      action: updated.status === "CLEARED" ? "CLEARED" : "UPDATED",
-      description: `Recorded partial payment of Rs. ${amt.toLocaleString()} on Sale ${updated.saleNumber}. Total paid: Rs. ${Number(updated.paidAmount).toLocaleString()}`,
+    // Fetch session details
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    // Fetch Party details
+    let partyName = "";
+    try {
+      const { PartyRepository } = await import("@/modules/parties/repositories/PartyRepository");
+      const party = await PartyRepository.getById(updated.partyId);
+      if (party) {
+        partyName = party.name;
+      }
+    } catch (e) {}
+
+    const action = updated.status === "CLEARED" ? "CLEARED" : "UPDATED";
+    
+    // Log overall payment event
+    const paymentDescription = `${performedByName} recorded invoice payment of Rs. ${amt.toLocaleString()} for ${partyName || `Party #${updated.partyId}`} on Sale ${updated.saleNumber}.`;
+    await logPaymentEvent({
+      partyId: updated.partyId,
+      partyName,
+      paymentType: "CASH_IN",
+      eventType: "INVOICE_PAYMENT",
+      amount: amt,
+      description: paymentDescription,
+      performedByUserId,
+      performedByName,
+      referenceType: "SALE",
+      referenceId: updated.id,
+      referenceNumber: updated.saleNumber,
       meta: {
-        buyerId: updated.partyId,
-        paymentAmount: amt,
         paidAmount: Number(updated.paidAmount),
         paymentStatus: updated.paymentStatus
+      }
+    });
+
+    // Log sale invoice update
+    const saleDescription = `Recorded invoice payment of Rs. ${amt.toLocaleString()} on Sale ${updated.saleNumber}. Total paid: Rs. ${Number(updated.paidAmount).toLocaleString()}`;
+    await logSaleEvent({
+      saleId: updated.id,
+      saleNumber: updated.saleNumber,
+      partyId: updated.partyId,
+      partyName,
+      action,
+      description: saleDescription,
+      amount: amt,
+      performedByUserId,
+      performedByName,
+      meta: {
+        paymentStatus: updated.paymentStatus,
+        paidAmount: Number(updated.paidAmount)
       }
     });
 

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { calculateInvoiceClearingState } from "@/lib/financial";
-import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { logPaymentEvent, logSaleEvent, logSettlementEvent } from "@/modules/activity-log/activityLogger";
 
 export class PartyProfileService {
   /**
@@ -96,6 +96,20 @@ export class PartyProfileService {
     // If negative: We owe party money (CR)
     const officialBalance = (totalSalesRemaining + unadjustedAdvances) - totalSupplierRemaining;
 
+    // Fetch related activity logs to show status changes and direct payments in timeline
+    let logs = [];
+    try {
+      logs = await prisma.activityLog.findMany({
+        where: {
+          entityType: "PARTY",
+          entityId: pId
+        },
+        orderBy: { createdAt: "asc" }
+      });
+    } catch (e) {
+      console.error("Failed to fetch activity logs for party timeline:", e);
+    }
+
     // Timeline Events: compiles chronological list of business transactions
     const timelineEvents = [];
 
@@ -152,6 +166,54 @@ export class PartyProfileService {
         remainingAmount: 0,
         clearingStatus: "CLEARED"
       });
+    });
+
+    // Log events (status toggles and direct payments)
+    logs.forEach(log => {
+      const logDate = new Date(log.createdAt);
+      let logMeta = null;
+      try {
+        if (log.meta) {
+          logMeta = typeof log.meta === "string" ? JSON.parse(log.meta) : log.meta;
+        }
+      } catch (e) {}
+
+      const isStatusChange = log.description?.toLowerCase().includes("status") || log.description?.toLowerCase().includes("active");
+
+      if (isStatusChange) {
+        timelineEvents.push({
+          id: `log-status-${log.id}`,
+          targetId: log.id,
+          date: logDate,
+          type: "STATUS_CHANGE",
+          ref: `LOG-${log.id}`,
+          description: log.description || "Party status updated",
+          debit: 0,
+          credit: 0,
+          requiredAmount: 0,
+          allocatedAmount: 0,
+          remainingAmount: 0,
+          clearingStatus: "CLEARED"
+        });
+      } else if (logMeta && logMeta.paymentAmount) {
+        const amount = Number(logMeta.paymentAmount);
+        const isCashIn = log.description?.toLowerCase().includes("cash in") || logMeta.paymentType === "CASH_IN";
+
+        timelineEvents.push({
+          id: `log-pay-${log.id}`,
+          targetId: log.id,
+          date: logDate,
+          type: isCashIn ? "CASH_IN" : "CASH_OUT",
+          ref: `PAY-${log.id}`,
+          description: log.description || (isCashIn ? "Cash received" : "Cash paid"),
+          debit: isCashIn ? 0 : amount,
+          credit: isCashIn ? amount : 0,
+          requiredAmount: amount,
+          allocatedAmount: Number(logMeta.allocatedAmount || 0),
+          remainingAmount: Number(logMeta.unallocatedAmount || 0),
+          clearingStatus: "CLEARED"
+        });
+      }
     });
 
     // Chronological order sorting
@@ -322,26 +384,92 @@ export class PartyProfileService {
       return summary;
     });
 
-    // Emit activity logs outside transaction for background fire-and-forget logging
+    // Fetch session details for logging
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {
+      // Cookies/session not available in this context
+    }
+
+    // Find party details for logging
+    const party = await prisma.party.findUnique({
+      where: { id: pId }
+    });
+    const partyName = party ? party.name : `Party #${pId}`;
+
+    const totalApplied = Number(amount);
+    const unallocated = Number(result.unallocatedAmount);
+    const allocated = totalApplied - unallocated;
+
+    // Log the overall payment completed event
+    const eventType = type === "CASH_IN" ? "DIRECT_CASH_IN" : "DIRECT_CASH_OUT";
+    const paymentDirLabel = type === "CASH_IN" ? "Cash In" : "Cash Out";
+    const description = `${performedByName} recorded ${paymentDirLabel} of Rs. ${totalApplied.toLocaleString()} for ${partyName}. Allocated Rs. ${allocated.toLocaleString()}. Unallocated Rs. ${unallocated.toLocaleString()}.`;
+
+    await logPaymentEvent({
+      partyId: pId,
+      partyName,
+      paymentType: type,
+      eventType,
+      amount: totalApplied,
+      description,
+      performedByUserId,
+      performedByName,
+      meta: {
+        paymentAmount: totalApplied,
+        allocatedAmount: allocated,
+        unallocatedAmount: unallocated
+      }
+    });
+
+    // Emit activity logs for individual allocations
     for (const alloc of result.allocations) {
       const isCleared = alloc.paymentStatus === "CLEARED";
       const action = isCleared ? "CLEARED" : "UPDATED";
-      const entityType = type === "CASH_IN" ? "SALE" : "SETTLEMENT";
       const label = type === "CASH_IN" ? `Sale ${alloc.invoiceNumber}` : `Supplier Invoice ${alloc.invoiceNumber}`;
-      const description = `Recorded partial clearing payment of Rs. ${alloc.allocated.toLocaleString()} on ${label} (FIFO sequence). Total paid: Rs. ${alloc.newPaid.toLocaleString()}`;
+      
+      const allocDescription = `Recorded partial clearing payment of Rs. ${alloc.allocated.toLocaleString()} on ${label} (FIFO sequence). Total paid: Rs. ${alloc.newPaid.toLocaleString()}`;
 
-      await emitActivity({
-        entityType,
-        entityId: alloc.invoiceId,
-        action,
-        description,
-        meta: {
+      if (type === "CASH_IN") {
+        await logSaleEvent({
+          saleId: alloc.invoiceId,
+          saleNumber: alloc.invoiceNumber,
           partyId: pId,
-          paymentAmount: alloc.allocated,
-          paidAmount: alloc.newPaid,
-          paymentStatus: alloc.paymentStatus
-        }
-      });
+          partyName,
+          action,
+          description: allocDescription,
+          amount: alloc.allocated,
+          performedByUserId,
+          performedByName,
+          meta: {
+            paymentStatus: alloc.paymentStatus,
+            newPaid: alloc.newPaid
+          }
+        });
+      } else {
+        await logSettlementEvent({
+          settlementId: alloc.invoiceId,
+          invoiceNumber: alloc.invoiceNumber,
+          partyId: pId,
+          partyName,
+          action,
+          description: allocDescription,
+          amount: alloc.allocated,
+          performedByUserId,
+          performedByName,
+          meta: {
+            paymentStatus: alloc.paymentStatus,
+            newPaid: alloc.newPaid
+          }
+        });
+      }
     }
 
     return result;
