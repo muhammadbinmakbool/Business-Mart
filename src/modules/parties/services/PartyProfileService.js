@@ -100,7 +100,7 @@ export class PartyProfileService {
     // net official balance: (Outstanding Sales Debt + Unadjusted Advances DR) - (Outstanding Supplier Payable)
     // If positive: Party owes us money (DR)
     // If negative: We owe party money (CR)
-    const officialBalance = (totalSalesRemaining + unadjustedAdvances) - totalSupplierRemaining;
+    let officialBalance = (totalSalesRemaining + unadjustedAdvances) - totalSupplierRemaining;
 
     // Fetch related activity logs to show status changes and direct payments in timeline
     let logs = [];
@@ -305,6 +305,9 @@ export class PartyProfileService {
       runningTotal += evt.debit - evt.credit;
       evt.runningBalance = runningTotal;
     });
+
+    // The final running total of the chronological timeline represents the true net outstanding balance
+    officialBalance = runningTotal;
 
     // Descending for latest display first (primary: entry Date day portion in Asia/Karachi desc, secondary: database creation time desc)
     timelineEvents.sort((a, b) => {
