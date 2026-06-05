@@ -244,38 +244,32 @@ function QuickPaymentForm({ party }) {
 
       <div className="space-y-1">
         <label className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground block font-black">Payment Direction</label>
-        {party.partyType === "BOTH" ? (
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setPaymentType("CASH_IN")}
-              className={cn(
-                "py-2 text-xs font-bold rounded-xl border transition-all",
-                paymentType === "CASH_IN" 
-                  ? "bg-emerald-600 border-emerald-700 text-white shadow-md shadow-emerald-600/10" 
-                  : "bg-muted text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800"
-              )}
-            >
-              CASH IN (Collection)
-            </button>
-            <button
-              type="button"
-              onClick={() => setPaymentType("CASH_OUT")}
-              className={cn(
-                "py-2 text-xs font-bold rounded-xl border transition-all",
-                paymentType === "CASH_OUT" 
-                  ? "bg-amber-600 border-amber-700 text-white shadow-md shadow-amber-600/10" 
-                  : "bg-muted text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800"
-              )}
-            >
-              CASH OUT (Payout)
-            </button>
-          </div>
-        ) : (
-          <div className="py-2.5 px-3 rounded-xl bg-muted border border-slate-200 dark:border-slate-800 font-bold text-xs">
-            {paymentType === "CASH_IN" ? "CASH IN (Receivable Collection from Buyer)" : "CASH OUT (Settlement Payout to Supplier)"}
-          </div>
-        )}
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setPaymentType("CASH_IN")}
+            className={cn(
+              "py-2 text-xs font-bold rounded-xl border transition-all",
+              paymentType === "CASH_IN" 
+                ? "bg-emerald-600 border-emerald-700 text-white shadow-md shadow-emerald-600/10" 
+                : "bg-muted text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800"
+            )}
+          >
+            CASH IN (Collection)
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaymentType("CASH_OUT")}
+            className={cn(
+              "py-2 text-xs font-bold rounded-xl border transition-all",
+              paymentType === "CASH_OUT" 
+                ? "bg-amber-600 border-amber-700 text-white shadow-md shadow-amber-600/10" 
+                : "bg-muted text-muted-foreground hover:bg-slate-200 dark:hover:bg-slate-800"
+            )}
+          >
+            CASH OUT (Payout)
+          </button>
+        </div>
       </div>
 
       <div className="space-y-1">
