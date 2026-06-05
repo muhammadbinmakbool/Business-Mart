@@ -169,7 +169,7 @@ export class IntakeService {
       }
     } catch (e) {}
 
-    const party = await PartyRepository.getById(intake.partyId);
+    const party = await prisma.party.findUnique({ where: { id: intake.partyId } });
     const partyName = party ? party.name : "";
 
     await logIntakeEvent({
@@ -405,7 +405,7 @@ export class IntakeService {
       }
     } catch (e) {}
 
-    const party = await PartyRepository.getById(updated.partyId);
+    const party = await prisma.party.findUnique({ where: { id: updated.partyId } });
     const partyName = party ? party.name : "";
 
     let description = `${performedByName} updated Intake ${updated.intakeNumber} (Status: ${updated.status}).`;
