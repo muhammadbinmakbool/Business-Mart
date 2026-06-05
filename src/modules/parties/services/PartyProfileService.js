@@ -278,9 +278,14 @@ export class PartyProfileService {
       }
     });
 
-    // Chronological order sorting (primary: entry Date, secondary: database creation time)
+    // Chronological order sorting (primary: entry Date day portion, secondary: database creation time)
     timelineEvents.sort((a, b) => {
-      const dateDiff = a.date.getTime() - b.date.getTime();
+      const aDay = new Date(a.date.getTime());
+      aDay.setHours(0, 0, 0, 0);
+      const bDay = new Date(b.date.getTime());
+      bDay.setHours(0, 0, 0, 0);
+
+      const dateDiff = aDay.getTime() - bDay.getTime();
       if (dateDiff !== 0) return dateDiff;
       return a.createdAt.getTime() - b.createdAt.getTime();
     });
@@ -291,9 +296,14 @@ export class PartyProfileService {
       evt.runningBalance = runningTotal;
     });
 
-    // Descending for latest display first (primary: entry Date desc, secondary: database creation time desc)
+    // Descending for latest display first (primary: entry Date day portion desc, secondary: database creation time desc)
     timelineEvents.sort((a, b) => {
-      const dateDiff = b.date.getTime() - a.date.getTime();
+      const aDay = new Date(a.date.getTime());
+      aDay.setHours(0, 0, 0, 0);
+      const bDay = new Date(b.date.getTime());
+      bDay.setHours(0, 0, 0, 0);
+
+      const dateDiff = bDay.getTime() - aDay.getTime();
       if (dateDiff !== 0) return dateDiff;
       return b.createdAt.getTime() - a.createdAt.getTime();
     });
