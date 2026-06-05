@@ -28,6 +28,10 @@ export class PartyProfileService {
         supplierInvoices: {
           where: { status: { not: "SUPERSEDED" } },
           orderBy: { entryDate: "desc" }
+        },
+        payments: {
+          include: { allocations: true },
+          orderBy: { entryDate: "desc" }
         }
       }
     });
@@ -149,6 +153,30 @@ export class PartyProfileService {
       });
     });
 
+    const payments = party.payments.map(p => {
+      const totalAllocated = p.allocations.reduce((sum, a) => sum + Number(a.allocatedAmount || 0), 0);
+      const unallocated = Number(p.amount || 0) - totalAllocated;
+      return {
+        id: p.id,
+        paymentNumber: p.paymentNumber,
+        paymentType: p.paymentType,
+        paymentMethod: p.paymentMethod,
+        amount: Number(p.amount || 0),
+        entryDate: p.entryDate,
+        notes: p.notes,
+        status: p.status,
+        allocatedAmount: totalAllocated,
+        unallocatedAmount: unallocated,
+        allocations: p.allocations.map(a => ({
+          id: a.id,
+          referenceType: a.referenceType,
+          referenceId: a.referenceId,
+          allocatedAmount: Number(a.allocatedAmount || 0),
+          createdAt: a.createdAt
+        }))
+      };
+    });
+
     // Advances
     advances.forEach(adv => {
       timelineEvents.push({
@@ -167,6 +195,27 @@ export class PartyProfileService {
         clearingStatus: "CLEARED"
       });
     });
+
+    // Database Payment events
+    payments.forEach(p => {
+      const isCashIn = p.paymentType === "CASH_IN";
+      timelineEvents.push({
+        id: `db-pay-${p.id}`,
+        targetId: p.id,
+        date: new Date(p.entryDate),
+        type: isCashIn ? "CASH_IN" : "CASH_OUT",
+        ref: p.paymentNumber,
+        description: p.notes || `${isCashIn ? "Cash received" : "Cash paid"}`,
+        debit: isCashIn ? 0 : p.amount,
+        credit: isCashIn ? p.amount : 0,
+        requiredAmount: p.amount,
+        allocatedAmount: p.allocatedAmount,
+        remainingAmount: p.unallocatedAmount,
+        clearingStatus: "CLEARED"
+      });
+    });
+
+    const dbPaymentNumbers = new Set(payments.map(p => p.paymentNumber));
 
     // Log events (status toggles and direct payments)
     logs.forEach(log => {
@@ -196,6 +245,11 @@ export class PartyProfileService {
           clearingStatus: "CLEARED"
         });
       } else if (logMeta && logMeta.paymentAmount) {
+        // Skip if this payment is already represented by a database PartyPayment record
+        if (logMeta.paymentNumber && dbPaymentNumbers.has(logMeta.paymentNumber)) {
+          return;
+        }
+
         const amount = Number(logMeta.paymentAmount);
         const isCashIn = log.description?.toLowerCase().includes("cash in") || logMeta.paymentType === "CASH_IN";
 
@@ -248,14 +302,14 @@ export class PartyProfileService {
         totalSupplierPaid,
         totalSupplierRemaining,
         officialBalance,
-        forecastBalance: officialBalance // Matches official balance under simplified model
+        forecastBalance: officialBalance
       },
       timeline: timelineEvents,
       detailedViews: {
         sales,
         settlements,
         advances,
-        payments: [] // Legacy payment list kept empty to preserve interface compliance without errors
+        payments
       }
     };
   }
@@ -272,8 +326,41 @@ export class PartyProfileService {
       throw new Error("Invalid payment type direction");
     }
 
+    // Fetch session details for database write and logging context
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {
+      // Cookies/session not available in this context
+    }
+
     const result = await prisma.$transaction(async (tx) => {
+      // Create PartyPayment record first
+      const paymentNumber = "PAY-" + Date.now() + "-" + Math.floor(1000 + Math.random() * 9000);
+      const payment = await tx.partyPayment.create({
+        data: {
+          partyId: pId,
+          paymentNumber,
+          paymentType: type,
+          paymentMethod: "CASH",
+          amount: amount,
+          sourceType: "MANUAL",
+          status: "ACTIVE",
+          entryDate: new Date(),
+          userId: performedByUserId,
+          businessId: 0
+        }
+      });
+
       const summary = {
+        paymentId: payment.id,
+        paymentNumber: payment.paymentNumber,
         totalApplied: amount,
         type,
         allocations: []
@@ -316,6 +403,19 @@ export class PartyProfileService {
               paidAmount: newPaid,
               paymentStatus: newPaymentStatus,
               status: newPaymentStatus
+            }
+          });
+
+          // Write allocation mapping record
+          await tx.partyPaymentAllocation.create({
+            data: {
+              partyId: pId,
+              paymentId: payment.id,
+              referenceType: "SALE",
+              referenceId: sale.id,
+              allocatedAmount: allocated,
+              userId: performedByUserId,
+              businessId: 0
             }
           });
 
@@ -368,6 +468,19 @@ export class PartyProfileService {
             }
           });
 
+          // Write allocation mapping record
+          await tx.partyPaymentAllocation.create({
+            data: {
+              partyId: pId,
+              paymentId: payment.id,
+              referenceType: "SETTLEMENT",
+              referenceId: inv.id,
+              allocatedAmount: allocated,
+              userId: performedByUserId,
+              businessId: 0
+            }
+          });
+
           summary.allocations.push({
             invoiceId: inv.id,
             invoiceNumber: inv.invoiceNumber,
@@ -383,20 +496,6 @@ export class PartyProfileService {
       summary.unallocatedAmount = remainingPayment;
       return summary;
     });
-
-    // Fetch session details for logging
-    let performedByUserId = 0;
-    let performedByName = "system";
-    try {
-      const { getSession } = await import("@/lib/session");
-      const session = await getSession();
-      if (session) {
-        performedByUserId = session.userId || 0;
-        performedByName = session.userName || "system";
-      }
-    } catch (e) {
-      // Cookies/session not available in this context
-    }
 
     // Find party details for logging
     const party = await prisma.party.findUnique({
@@ -423,6 +522,7 @@ export class PartyProfileService {
       performedByUserId,
       performedByName,
       meta: {
+        paymentNumber: result.paymentNumber,
         paymentAmount: totalApplied,
         allocatedAmount: allocated,
         unallocatedAmount: unallocated
