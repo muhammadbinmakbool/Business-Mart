@@ -1,7 +1,6 @@
 import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceRepository";
-import { calculateSupplierDeductions } from "@/lib/financial";
+import { calculateSupplierDeductions, calculateInvoiceClearingFromAllocations } from "@/lib/financial";
 import { prisma } from "@/lib/prisma";
-import { PartyFinanceCalculator } from "../../finance/calculations/partyFinanceCalculator";
 import { convertRate, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { emitActivity, logSettlementEvent, logPaymentEvent } from "@/modules/activity-log/activityLogger";
 import { withOwnership } from "@/lib/session";
@@ -658,14 +657,14 @@ export class SupplierInvoiceService {
           payment: { status: "ACTIVE" }
         }
       });
-      const clearing = PartyFinanceCalculator.calculateInvoiceClearing(total, allocations);
+      const clearing = calculateInvoiceClearingFromAllocations(total, allocations);
 
       if (amt > clearing.remaining) {
         throw new Error("Payment amount Rs. " + amt + " exceeds the remaining balance of Rs. " + clearing.remaining);
       }
 
       const virtualAllocations = [...allocations, { allocatedAmount: amt }];
-      const newClearing = PartyFinanceCalculator.calculateInvoiceClearing(total, virtualAllocations);
+      const newClearing = calculateInvoiceClearingFromAllocations(total, virtualAllocations);
       
       return tx.supplierInvoice.update({
         where: { id: invoiceId },

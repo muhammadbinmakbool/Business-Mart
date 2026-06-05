@@ -1,8 +1,7 @@
 import { SaleRepository } from "../repositories/SaleRepository";
 import { prisma } from "@/lib/prisma";
 import { PartyService } from "../../parties/services/PartyService";
-import { calculateFinalTotal, calculateAdjustment, round, calculateTransactionTotals } from "@/lib/financial";
-import { PartyFinanceCalculator } from "../../finance/calculations/partyFinanceCalculator";
+import { calculateFinalTotal, calculateAdjustment, round, calculateTransactionTotals, calculateInvoiceClearingFromAllocations } from "@/lib/financial";
 import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
@@ -501,7 +500,7 @@ export class SaleService {
           payment: { status: "ACTIVE" }
         }
       });
-      const clearingState = PartyFinanceCalculator.calculateInvoiceClearing(sale.finalAmount, allocations);
+      const clearingState = calculateInvoiceClearingFromAllocations(sale.finalAmount, allocations);
       let paidAmount = clearingState.paid;
       let paymentStatus = clearingState.paymentStatus;
       if (newStatus === "CLEARED") {
@@ -614,14 +613,14 @@ export class SaleService {
           payment: { status: "ACTIVE" }
         }
       });
-      const clearing = PartyFinanceCalculator.calculateInvoiceClearing(total, allocations);
+      const clearing = calculateInvoiceClearingFromAllocations(total, allocations);
 
       if (amt > clearing.remaining) {
         throw new Error(`Payment amount Rs. ${amt} exceeds the remaining balance of Rs. ${clearing.remaining}`);
       }
 
       const virtualAllocations = [...allocations, { allocatedAmount: amt }];
-      const newClearing = PartyFinanceCalculator.calculateInvoiceClearing(total, virtualAllocations);
+      const newClearing = calculateInvoiceClearingFromAllocations(total, virtualAllocations);
       
       return tx.saleTransaction.update({
         where: { id: saleId },

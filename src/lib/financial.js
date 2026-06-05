@@ -254,3 +254,108 @@ export function calculateInvoiceClearingState(totalAmount, paidAmount) {
     isCleared
   };
 }
+
+/**
+ * CANONICAL TRUTH: Paid amount from payment allocations.
+ * @param {Array} allocations - List of allocation records
+ * @returns {number} Sum of allocated amounts
+ */
+export function calculatePaidAmountFromAllocations(allocations = []) {
+  return allocations.reduce((sum, a) => sum + Number(a.allocatedAmount || 0), 0);
+}
+
+/**
+ * Calculates clearing state of an invoice directly from its allocations.
+ * @param {number|Decimal} totalAmount 
+ * @param {Array} allocations 
+ * @returns {{
+ *   total: number,
+ *   paid: number,
+ *   remaining: number,
+ *   paymentStatus: string,
+ *   isCleared: boolean
+ * }}
+ */
+export function calculateInvoiceClearingFromAllocations(totalAmount, allocations = []) {
+  const total = Number(totalAmount || 0);
+  const paid = calculatePaidAmountFromAllocations(allocations);
+  const remaining = Math.max(0, total - paid);
+
+  let paymentStatus = PAYMENT_STATUS.PENDING;
+  let isCleared = false;
+
+  if (paid >= total) {
+    paymentStatus = PAYMENT_STATUS.CLEARED;
+    isCleared = true;
+  } else if (paid > 0) {
+    paymentStatus = PAYMENT_STATUS.PARTIAL;
+  }
+
+  return {
+    total,
+    paid,
+    remaining,
+    paymentStatus,
+    isCleared
+  };
+}
+
+/**
+ * Calculates financial position for a party.
+ * @param {object} params
+ * @param {Array} params.sales
+ * @param {Array} params.purchases
+ * @param {Array} params.payments
+ * @param {Array} params.advances
+ * @returns {object}
+ */
+export function calculatePartyFinancialPosition({ sales = [], purchases = [], payments = [], advances = [] }) {
+  const totalSales = sales.reduce((sum, s) => sum + Number(s.finalAmount || 0), 0);
+  const totalPurchases = purchases.reduce((sum, p) => sum + Number(p.finalPayableAmount || 0), 0);
+  const totalAdvances = advances.reduce((sum, a) => sum + Number(a.amount || 0), 0);
+  const unadjustedAdvances = advances
+    .filter(a => a.supplierInvoiceId === null)
+    .reduce((sum, a) => sum + Number(a.amount || 0), 0);
+
+  const activePayments = payments.filter(p => p.status === "ACTIVE");
+  const totalPaymentsIn = activePayments
+    .filter(p => p.paymentType === "CASH_IN")
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+  const totalPaymentsOut = activePayments
+    .filter(p => p.paymentType === "CASH_OUT")
+    .reduce((sum, p) => sum + Number(p.amount || 0), 0);
+
+  let allocatedToSales = 0;
+  let allocatedToPurchases = 0;
+
+  activePayments.forEach(p => {
+    (p.allocations || []).forEach(a => {
+      const amt = Number(a.allocatedAmount || 0);
+      if (a.referenceType === "SALE") {
+        allocatedToSales += amt;
+      } else if (a.referenceType === "SETTLEMENT") {
+        allocatedToPurchases += amt;
+      }
+    });
+  });
+
+  const unallocatedCredit = Math.max(0, totalPaymentsIn - allocatedToSales);
+  const unallocatedDebit = Math.max(0, totalPaymentsOut - allocatedToPurchases);
+
+  // Net position: Debits (Sales + Advances + PaymentsOut) - Credits (Purchases + PaymentsIn)
+  const netPosition = (totalSales + unadjustedAdvances + totalPaymentsOut) - (totalPurchases + totalPaymentsIn);
+
+  return {
+    totalSales,
+    totalPurchases,
+    totalPaymentsIn,
+    totalPaymentsOut,
+    allocatedToSales,
+    allocatedToPurchases,
+    unallocatedCredit,
+    unallocatedDebit,
+    totalAdvances,
+    unadjustedAdvances,
+    netPosition
+  };
+}

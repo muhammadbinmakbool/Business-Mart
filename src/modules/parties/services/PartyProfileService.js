@@ -1,8 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { logPaymentEvent, logSaleEvent, logSettlementEvent } from "@/modules/activity-log/activityLogger";
-import { AllocationIndexer } from "../../finance/helpers/allocationIndexer";
-import { PartyFinancialPositionService } from "../../finance/services/PartyFinancialPositionService";
-import { PartyFinanceCalculator } from "../../finance/calculations/partyFinanceCalculator";
+import { calculateInvoiceClearingFromAllocations, calculatePartyFinancialPosition } from "@/lib/financial";
 
 export class PartyProfileService {
   /**
@@ -41,13 +39,27 @@ export class PartyProfileService {
     if (!party) return null;
 
     // Group allocations by reference type and reference ID for O(1) lookup
-    const salesAllocationsMap = AllocationIndexer.indexAllocationsByInvoice(party.payments, "SALE");
-    const settlementsAllocationsMap = AllocationIndexer.indexAllocationsByInvoice(party.payments, "SETTLEMENT");
+    const salesAllocationsMap = {};
+    const settlementsAllocationsMap = {};
+    party.payments
+      .filter(p => p.status === "ACTIVE")
+      .forEach(p => {
+        (p.allocations || []).forEach(a => {
+          const refId = Number(a.referenceId);
+          if (a.referenceType === "SALE") {
+            if (!salesAllocationsMap[refId]) salesAllocationsMap[refId] = [];
+            salesAllocationsMap[refId].push(a);
+          } else if (a.referenceType === "SETTLEMENT") {
+            if (!settlementsAllocationsMap[refId]) settlementsAllocationsMap[refId] = [];
+            settlementsAllocationsMap[refId].push(a);
+          }
+        });
+      });
 
     // Buyer side: Sales obligations
     const sales = party.saleTransactions.map(s => {
       const allocations = salesAllocationsMap[s.id] || [];
-      const clearing = PartyFinanceCalculator.calculateInvoiceClearing(s.finalAmount, allocations);
+      const clearing = calculateInvoiceClearingFromAllocations(s.finalAmount, allocations);
       return {
         id: s.id,
         saleNumber: s.saleNumber,
@@ -65,7 +77,7 @@ export class PartyProfileService {
     // Supplier side: Settlement obligations
     const settlements = party.supplierInvoices.map(inv => {
       const allocations = settlementsAllocationsMap[inv.id] || [];
-      const clearing = PartyFinanceCalculator.calculateInvoiceClearing(inv.finalPayableAmount, allocations);
+      const clearing = calculateInvoiceClearingFromAllocations(inv.finalPayableAmount, allocations);
       return {
         id: inv.id,
         invoiceNumber: inv.invoiceNumber,
@@ -91,8 +103,13 @@ export class PartyProfileService {
       intakeTransactionId: a.intakeTransactionId
     }));
 
-    // Derive the true financial position using the calculator
-    const position = await PartyFinancialPositionService.getPartyFinancialPosition(pId);
+    // Derive the true financial position using the pure calculatePartyFinancialPosition helper
+    const position = calculatePartyFinancialPosition({
+      sales: party.saleTransactions,
+      purchases: party.supplierInvoices,
+      payments: party.payments,
+      advances: party.intakeAdvances
+    });
 
     const totalSales = position.totalSales;
     const totalSalesPaid = position.allocatedToSales;
