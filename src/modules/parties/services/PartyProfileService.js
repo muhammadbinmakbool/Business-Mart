@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/prisma";
+import { PartyRepository } from "../repositories/PartyRepository";
 import { logPaymentEvent, logSaleEvent, logSettlementEvent } from "@/modules/activity-log/activityLogger";
 import { calculateInvoiceClearingFromAllocations, calculatePartyFinancialPosition } from "@/lib/financial";
 
@@ -14,27 +14,7 @@ export class PartyProfileService {
     const pId = parseInt(partyId);
     if (isNaN(pId)) throw new Error("Invalid Party ID provided");
 
-    const party = await prisma.party.findUnique({
-      where: { id: pId },
-      include: {
-        saleTransactions: {
-          where: { isDeleted: false, status: { not: "CANCELLED" } },
-          orderBy: { entryDate: "desc" }
-        },
-        intakeAdvances: {
-          include: { supplierInvoice: true },
-          orderBy: { createdAt: "desc" }
-        },
-        supplierInvoices: {
-          where: { status: { not: "SUPERSEDED" } },
-          orderBy: { entryDate: "desc" }
-        },
-        payments: {
-          include: { allocations: true },
-          orderBy: { entryDate: "desc" }
-        }
-      }
-    });
+    const party = await PartyRepository.getPartyProfileData(pId);
 
     if (!party) return null;
 
@@ -128,13 +108,7 @@ export class PartyProfileService {
     // Fetch related activity logs to show status changes and direct payments in timeline
     let logs = [];
     try {
-      logs = await prisma.activityLog.findMany({
-        where: {
-          entityType: "PARTY",
-          entityId: pId
-        },
-        orderBy: { createdAt: "asc" }
-      });
+      logs = await PartyRepository.getPartyActivityLogs(pId);
     } catch (e) {
       console.error("Failed to fetch activity logs for party timeline:", e);
     }

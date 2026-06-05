@@ -42,4 +42,40 @@ export class PartyRepository {
       where: { id: parseInt(id) },
     });
   }
+
+  static async getPartyProfileData(id) {
+    const pId = parseInt(id);
+    return prisma.party.findUnique({
+      where: { id: pId },
+      include: {
+        saleTransactions: {
+          where: { isDeleted: false, status: { not: "CANCELLED" } },
+          orderBy: { entryDate: "desc" }
+        },
+        intakeAdvances: {
+          include: { supplierInvoice: true },
+          orderBy: { createdAt: "desc" }
+        },
+        supplierInvoices: {
+          where: { status: { not: "SUPERSEDED" } },
+          orderBy: { entryDate: "desc" }
+        },
+        payments: {
+          include: { allocations: true },
+          orderBy: { entryDate: "desc" }
+        }
+      }
+    });
+  }
+
+  static async getPartyActivityLogs(id) {
+    const pId = parseInt(id);
+    return prisma.activityLog.findMany({
+      where: {
+        entityType: "PARTY",
+        entityId: pId
+      },
+      orderBy: { createdAt: "asc" }
+    });
+  }
 }
