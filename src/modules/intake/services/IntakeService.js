@@ -2,6 +2,7 @@ import { IntakeRepository } from "../repositories/IntakeRepository";
 import { AdvanceRepository } from "../repositories/AdvanceRepository";
 import { intakeSchema } from "../validations/intakeSchema";
 import { PartyService } from "../../parties/services/PartyService";
+import { PartyRepository } from "../../parties/repositories/PartyRepository";
 import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
@@ -169,7 +170,7 @@ export class IntakeService {
       }
     } catch (e) {}
 
-    const party = await prisma.party.findUnique({ where: { id: intake.partyId } });
+    const party = await PartyRepository.getById(intake.partyId);
     const partyName = party ? party.name : "";
 
     await logIntakeEvent({
@@ -405,7 +406,7 @@ export class IntakeService {
       }
     } catch (e) {}
 
-    const party = await prisma.party.findUnique({ where: { id: updated.partyId } });
+    const party = await PartyRepository.getById(updated.partyId);
     const partyName = party ? party.name : "";
 
     let description = `${performedByName} updated Intake ${updated.intakeNumber} (Status: ${updated.status}).`;
@@ -635,7 +636,7 @@ export class IntakeService {
       }
     } catch (e) {}
 
-    const party = await prisma.party.findUnique({ where: { id: updatedIntake.partyId } });
+    const party = await PartyRepository.getById(updatedIntake.partyId);
     const partyName = party ? party.name : "";
 
     const description = `${performedByName} marked Intake ${updatedIntake.intakeNumber} as ${updatedIntake.status === "SOLD" ? "SOLD" : "PARTIALLY SOLD"} (Supplier: ${partyName}).`;
@@ -697,7 +698,7 @@ export class IntakeService {
       }
     } catch (e) {}
 
-    const party = await prisma.party.findUnique({ where: { id: deleted.partyId } });
+    const party = await PartyRepository.getById(deleted.partyId);
     const partyName = party ? party.name : "";
 
     const description = `${performedByName} deleted Intake ${deleted.intakeNumber} (Supplier: ${partyName}).`;
