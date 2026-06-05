@@ -167,6 +167,7 @@ export class PartyProfileService {
         paymentMethod: p.paymentMethod,
         amount: Number(p.amount || 0),
         entryDate: p.entryDate,
+        createdAt: p.createdAt,
         notes: p.notes,
         status: p.status,
         allocatedAmount: totalAllocated,
