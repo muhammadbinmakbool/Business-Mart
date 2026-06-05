@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/prisma";
-import { calculateInvoiceClearingState } from "@/lib/financial";
 import { logPaymentEvent, logSaleEvent, logSettlementEvent } from "@/modules/activity-log/activityLogger";
-import { AllocationSummaryHelper } from "../../finance/helpers/allocationSummaryHelper";
+import { AllocationIndexer } from "../../finance/helpers/allocationIndexer";
 import { PartyFinancialPositionService } from "../../finance/services/PartyFinancialPositionService";
+import { PartyFinanceCalculator } from "../../finance/calculations/partyFinanceCalculator";
 
 export class PartyProfileService {
   /**
@@ -41,20 +41,20 @@ export class PartyProfileService {
     if (!party) return null;
 
     // Group allocations by reference type and reference ID for O(1) lookup
-    const salesAllocationsMap = AllocationSummaryHelper.groupAllocationsByInvoice(party.payments, "SALE");
-    const settlementsAllocationsMap = AllocationSummaryHelper.groupAllocationsByInvoice(party.payments, "SETTLEMENT");
+    const salesAllocationsMap = AllocationIndexer.indexAllocationsByInvoice(party.payments, "SALE");
+    const settlementsAllocationsMap = AllocationIndexer.indexAllocationsByInvoice(party.payments, "SETTLEMENT");
 
     // Buyer side: Sales obligations
     const sales = party.saleTransactions.map(s => {
-      const derivedPaid = salesAllocationsMap[s.id] || 0;
-      const clearing = calculateInvoiceClearingState(s.finalAmount, derivedPaid);
+      const allocations = salesAllocationsMap[s.id] || [];
+      const clearing = PartyFinanceCalculator.calculateInvoiceClearing(s.finalAmount, allocations);
       return {
         id: s.id,
         saleNumber: s.saleNumber,
         entryDate: s.entryDate,
         createdAt: s.createdAt,
         totalWeight: Number(s.totalWeight || 0),
-        finalAmount: clearing.total,
+        finalAmount: Number(s.finalAmount || 0),
         allocatedAmount: clearing.paid,
         remainingAmount: clearing.remaining,
         status: clearing.paymentStatus,
@@ -64,8 +64,8 @@ export class PartyProfileService {
 
     // Supplier side: Settlement obligations
     const settlements = party.supplierInvoices.map(inv => {
-      const derivedPaid = settlementsAllocationsMap[inv.id] || 0;
-      const clearing = calculateInvoiceClearingState(inv.finalPayableAmount, derivedPaid);
+      const allocations = settlementsAllocationsMap[inv.id] || [];
+      const clearing = PartyFinanceCalculator.calculateInvoiceClearing(inv.finalPayableAmount, allocations);
       return {
         id: inv.id,
         invoiceNumber: inv.invoiceNumber,
@@ -74,7 +74,7 @@ export class PartyProfileService {
         totalGrossValue: Number(inv.totalGrossValue || 0),
         totalDeductions: Number(inv.totalDeductions || 0),
         totalAdvances: Number(inv.totalAdvances || 0),
-        finalPayableAmount: clearing.total,
+        finalPayableAmount: Number(inv.finalPayableAmount || 0),
         allocatedAmount: clearing.paid,
         remainingAmount: clearing.remaining,
         status: clearing.paymentStatus

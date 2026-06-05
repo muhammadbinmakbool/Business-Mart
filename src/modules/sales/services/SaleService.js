@@ -1,8 +1,8 @@
 import { SaleRepository } from "../repositories/SaleRepository";
 import { prisma } from "@/lib/prisma";
 import { PartyService } from "../../parties/services/PartyService";
-import { calculateFinalTotal, calculateAdjustment, round, calculateTransactionTotals, calculateInvoiceClearingState } from "@/lib/financial";
-import { AllocationSummaryHelper } from "../../finance/helpers/allocationSummaryHelper";
+import { calculateFinalTotal, calculateAdjustment, round, calculateTransactionTotals } from "@/lib/financial";
+import { PartyFinanceCalculator } from "../../finance/calculations/partyFinanceCalculator";
 import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
@@ -494,15 +494,23 @@ export class SaleService {
       // Delegate to InventoryService (no-op under intake-driven model)
       await InventoryService.handleSaleStatusUpdated(sale.items, oldStatus, newStatus, tx);
 
-      let paidAmount = await AllocationSummaryHelper.getPaidAmountForInvoice(tx, "SALE", parseInt(id));
+      const allocations = await tx.partyPaymentAllocation.findMany({
+        where: {
+          referenceType: "SALE",
+          referenceId: parseInt(id),
+          payment: { status: "ACTIVE" }
+        }
+      });
+      const clearingState = PartyFinanceCalculator.calculateInvoiceClearing(sale.finalAmount, allocations);
+      let paidAmount = clearingState.paid;
+      let paymentStatus = clearingState.paymentStatus;
       if (newStatus === "CLEARED") {
         paidAmount = sale.finalAmount;
+        paymentStatus = "CLEARED";
       } else if (newStatus === "PENDING") {
         paidAmount = 0;
+        paymentStatus = "PENDING";
       }
-
-      const clearingState = calculateInvoiceClearingState(sale.finalAmount, paidAmount);
-      const paymentStatus = clearingState.paymentStatus;
 
       return tx.saleTransaction.update({
         where: { id: parseInt(id) },
@@ -599,22 +607,28 @@ export class SaleService {
       if (sale.status === "CANCELLED") throw new Error("Cannot record payment on a cancelled invoice");
 
       const total = Number(sale.finalAmount);
-      const currentPaid = await AllocationSummaryHelper.getPaidAmountForInvoice(tx, "SALE", saleId);
-      const remaining = Math.max(0, total - currentPaid);
+      const allocations = await tx.partyPaymentAllocation.findMany({
+        where: {
+          referenceType: "SALE",
+          referenceId: saleId,
+          payment: { status: "ACTIVE" }
+        }
+      });
+      const clearing = PartyFinanceCalculator.calculateInvoiceClearing(total, allocations);
 
-      if (amt > remaining) {
-        throw new Error(`Payment amount Rs. ${amt} exceeds the remaining balance of Rs. ${remaining}`);
+      if (amt > clearing.remaining) {
+        throw new Error(`Payment amount Rs. ${amt} exceeds the remaining balance of Rs. ${clearing.remaining}`);
       }
 
-      const newPaid = currentPaid + amt;
-      const clearingState = calculateInvoiceClearingState(total, newPaid);
+      const virtualAllocations = [...allocations, { allocatedAmount: amt }];
+      const newClearing = PartyFinanceCalculator.calculateInvoiceClearing(total, virtualAllocations);
       
       return tx.saleTransaction.update({
         where: { id: saleId },
         data: {
-          paidAmount: newPaid,
-          paymentStatus: clearingState.paymentStatus,
-          status: clearingState.paymentStatus
+          paidAmount: newClearing.paid,
+          paymentStatus: newClearing.paymentStatus,
+          status: newClearing.paymentStatus
         }
       });
     });

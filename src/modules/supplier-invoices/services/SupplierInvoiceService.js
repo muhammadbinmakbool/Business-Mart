@@ -1,7 +1,7 @@
 import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceRepository";
-import { calculateSupplierDeductions, calculateInvoiceClearingState } from "@/lib/financial";
+import { calculateSupplierDeductions } from "@/lib/financial";
 import { prisma } from "@/lib/prisma";
-import { AllocationSummaryHelper } from "../../finance/helpers/allocationSummaryHelper";
+import { PartyFinanceCalculator } from "../../finance/calculations/partyFinanceCalculator";
 import { convertRate, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { emitActivity, logSettlementEvent, logPaymentEvent } from "@/modules/activity-log/activityLogger";
 import { withOwnership } from "@/lib/session";
@@ -651,22 +651,28 @@ export class SupplierInvoiceService {
       if (invoice.status === "CANCELLED") throw new Error("Cannot record payment on a cancelled invoice");
 
       const total = Number(invoice.finalPayableAmount);
-      const currentPaid = await AllocationSummaryHelper.getPaidAmountForInvoice(tx, "SETTLEMENT", invoiceId);
-      const remaining = Math.max(0, total - currentPaid);
+      const allocations = await tx.partyPaymentAllocation.findMany({
+        where: {
+          referenceType: "SETTLEMENT",
+          referenceId: invoiceId,
+          payment: { status: "ACTIVE" }
+        }
+      });
+      const clearing = PartyFinanceCalculator.calculateInvoiceClearing(total, allocations);
 
-      if (amt > remaining) {
-        throw new Error("Payment amount Rs. " + amt + " exceeds the remaining balance of Rs. " + remaining);
+      if (amt > clearing.remaining) {
+        throw new Error("Payment amount Rs. " + amt + " exceeds the remaining balance of Rs. " + clearing.remaining);
       }
 
-      const newPaid = currentPaid + amt;
-      const clearingState = calculateInvoiceClearingState(total, newPaid);
+      const virtualAllocations = [...allocations, { allocatedAmount: amt }];
+      const newClearing = PartyFinanceCalculator.calculateInvoiceClearing(total, virtualAllocations);
       
       return tx.supplierInvoice.update({
         where: { id: invoiceId },
         data: {
-          paidAmount: newPaid,
-          paymentStatus: clearingState.paymentStatus,
-          status: clearingState.paymentStatus
+          paidAmount: newClearing.paid,
+          paymentStatus: newClearing.paymentStatus,
+          status: newClearing.paymentStatus
         }
       });
     });
