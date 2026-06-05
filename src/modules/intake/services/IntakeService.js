@@ -635,7 +635,7 @@ export class IntakeService {
       }
     } catch (e) {}
 
-    const party = await PartyRepository.getById(updatedIntake.partyId);
+    const party = await prisma.party.findUnique({ where: { id: updatedIntake.partyId } });
     const partyName = party ? party.name : "";
 
     const description = `${performedByName} marked Intake ${updatedIntake.intakeNumber} as ${updatedIntake.status === "SOLD" ? "SOLD" : "PARTIALLY SOLD"} (Supplier: ${partyName}).`;
@@ -697,7 +697,7 @@ export class IntakeService {
       }
     } catch (e) {}
 
-    const party = await PartyRepository.getById(deleted.partyId);
+    const party = await prisma.party.findUnique({ where: { id: deleted.partyId } });
     const partyName = party ? party.name : "";
 
     const description = `${performedByName} deleted Intake ${deleted.intakeNumber} (Supplier: ${partyName}).`;
