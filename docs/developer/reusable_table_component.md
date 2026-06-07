@@ -32,9 +32,12 @@ The `<DataTable />` component accepts the following props:
 | `onRequestSort` | `(field: string) => void` | Event handler triggered when a sortable header is clicked. |
 | `containerClassName` | `string` | Custom Tailwind classes for the outer wrapper div. |
 | `className` | `string` | Custom Tailwind classes for the `<table>` element. |
-| `rowClassName` | `(row: object) => string` | Function to dynamically generate classes per row (e.g. `!row.isActive && 'opacity-50'`). |
+| `rowClassName` | `(row: object, isExpanded: boolean) => string` | Function to dynamically generate classes per row (e.g. `!row.isActive && 'opacity-50'`). |
 | `emptyMessage` | `string \| ReactNode` | Message/Node to display when data array is empty (Default: "No records found."). |
 | `rowKey` | `string \| ((row: object) => string \| number)` | Property name or function to resolve unique React list keys (Default: `"id"`). |
+| `onRowClick` | `(row: object) => void` | Callback function when a table row is clicked. |
+| `expandedRowKeys` | `Set \| Array \| string \| number` | The active expanded row key(s). Matches the key of rows to trigger custom expansion. |
+| `expandedRowRender` | `(row: object) => ReactNode` | Renderer function for drawing expanded content panel. |
 
 ### Column Schema Definition
 

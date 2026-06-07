@@ -14,6 +14,7 @@ import {
   Loader2
 } from "lucide-react";
 import { fetchActivityLogsAction } from "./activityActions";
+import DataTable from "@/components/ui/DataTable";
 
 const ENTITY_TYPES = ["PRODUCT", "PARTY", "INTAKE", "SALE", "SETTLEMENT", "SYSTEM"];
 const ACTIONS = ["CREATED", "UPDATED", "DELETED", "COMPLETED", "CANCELLED", "ARCHIVED", "SUPERSEDED", "SOLD"];
@@ -224,140 +225,149 @@ export default function ActivityClient() {
             <Loader2 className="h-8 w-8 text-primary animate-spin" />
             <p className="text-sm text-muted-foreground">Loading audit records...</p>
           </div>
-        ) : logs.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
-            <Database className="h-10 w-10 text-muted-foreground/60" />
-            <p className="text-base font-semibold text-foreground">No logs found</p>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              Try adjusting your search criteria or date filters to find matching logs.
-            </p>
-          </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-muted/50 border-b text-xs font-semibold text-muted-foreground tracking-wider uppercase">
-                  <th className="px-6 py-4 w-[15%]">Timestamp</th>
-                  <th className="px-6 py-4 w-[10%]">Entity Type</th>
-                  <th className="px-6 py-4 w-[10%]">Action</th>
-                  <th className="px-6 py-4 w-[40%]">Description</th>
-                  <th className="px-6 py-4 w-[8%]">Entity ID</th>
-                  <th className="px-6 py-4 w-[12%]">Operator</th>
-                  <th className="px-6 py-4 text-right w-[5%]">Meta</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y text-sm">
-                {logs.map((log) => {
-                  const isExpanded = expandedRow === log.id;
-                  const formattedDate = new Date(log.createdAt).toLocaleString("en-US", {
+          <DataTable
+            data={logs}
+            containerClassName="border-none shadow-none rounded-none"
+            rowClassName={(row, isExpanded) => (isExpanded ? "bg-accent/20" : "")}
+            onRowClick={(row) => setExpandedRow(expandedRow === row.id ? null : row.id)}
+            expandedRowKeys={expandedRow}
+            expandedRowRender={(log) => (
+              <div className="px-8 py-5 border-t">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
+                    <div className="flex items-center gap-2">
+                      <Tag className="h-3.5 w-3.5" />
+                      <span>Activity Event Metadata Snapshot</span>
+                    </div>
+                    <span className="font-mono text-slate-400">ID: {log.id}</span>
+                  </div>
+
+                  <pre className="p-4 rounded-xl bg-slate-950 dark:bg-slate-900 border border-slate-800 text-xs font-mono text-slate-100 overflow-x-auto max-w-full shadow-inner select-all leading-relaxed">
+                    <code>
+                      {log.meta
+                        ? JSON.stringify(log.meta, null, 2)
+                        : JSON.stringify({ message: "No metadata captured for this event." }, null, 2)}
+                    </code>
+                  </pre>
+
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>Operation Path:</span>
+                    <span className="font-mono bg-accent px-1.5 py-0.5 rounded text-foreground">
+                      {log.entityType.toLowerCase()}/{log.action.toLowerCase()}
+                    </span>
+                    <ArrowRight className="h-3 w-3" />
+                    <span className="italic">Metadata is immutable and read-only for system diagnostics.</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            emptyMessage={
+              <div className="flex flex-col items-center justify-center py-20 text-center space-y-3">
+                <Database className="h-10 w-10 text-muted-foreground/60" />
+                <p className="text-base font-semibold text-foreground">No logs found</p>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Try adjusting your search criteria or date filters to find matching logs.
+                </p>
+              </div>
+            }
+            columns={[
+              {
+                key: "createdAt",
+                label: "Timestamp",
+                className: "w-[15%] font-mono text-xs text-muted-foreground whitespace-nowrap",
+                render: (row, val) =>
+                  new Date(val).toLocaleString("en-US", {
                     month: "short",
                     day: "numeric",
                     hour: "2-digit",
                     minute: "2-digit",
                     second: "2-digit",
-                    hour12: false
-                  });
-
+                    hour12: false,
+                  }),
+              },
+              {
+                key: "entityType",
+                label: "Entity Type",
+                className: "w-[10%] whitespace-nowrap",
+                render: (row, val) => (
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${getEntityBadgeClass(
+                      val
+                    )}`}
+                  >
+                    {val}
+                  </span>
+                ),
+              },
+              {
+                key: "action",
+                label: "Action",
+                className: "w-[10%] whitespace-nowrap",
+                render: (row, val) => (
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${getActionBadgeClass(
+                      val
+                    )}`}
+                  >
+                    {val}
+                  </span>
+                ),
+              },
+              {
+                key: "description",
+                label: "Description",
+                className: "w-[40%] text-foreground max-w-lg truncate",
+                render: (row, val) => <span title={val}>{val || "—"}</span>,
+              },
+              {
+                key: "entityId",
+                label: "Entity ID",
+                className: "w-[8%] font-mono text-xs font-bold text-muted-foreground",
+                render: (row, val) => (val !== null ? `#${val}` : "—"),
+              },
+              {
+                key: "userName",
+                label: "Operator",
+                className: "w-[12%] whitespace-nowrap",
+                render: (row) => (
+                  <div className="flex items-center gap-1.5">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="font-medium text-foreground">{row.userName || "system"}</span>
+                    <span className="text-xs text-muted-foreground font-mono">({row.userId})</span>
+                  </div>
+                ),
+              },
+              {
+                key: "meta_inspect",
+                label: "Meta",
+                className: "w-[5%] text-right whitespace-nowrap",
+                sortable: false,
+                render: (row) => {
+                  const isExpanded = expandedRow === row.id;
                   return (
-                    <React.Fragment key={log.id}>
-                      {/* Row Item */}
-                      <tr 
-                        className={`hover:bg-accent/40 transition-colors cursor-pointer ${
-                          isExpanded ? "bg-accent/20" : ""
-                        }`}
-                        onClick={() => setExpandedRow(isExpanded ? null : log.id)}
-                      >
-                        <td className="px-6 py-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
-                          {formattedDate}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${getEntityBadgeClass(log.entityType)}`}>
-                            {log.entityType}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold uppercase ${getActionBadgeClass(log.action)}`}>
-                            {log.action}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-foreground max-w-lg truncate" title={log.description}>
-                          {log.description || "—"}
-                        </td>
-                        <td className="px-6 py-4 font-mono text-xs font-bold text-muted-foreground">
-                          {log.entityId !== null ? `#${log.entityId}` : "—"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <User className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="font-medium text-foreground">{log.userName || "system"}</span>
-                            <span className="text-xs text-muted-foreground font-mono">({log.userId})</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-right whitespace-nowrap">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setExpandedRow(isExpanded ? null : log.id);
-                            }}
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded hover:bg-primary/5 cursor-pointer"
-                          >
-                            <span>Inspect</span>
-                            {isExpanded ? (
-                              <ChevronUp className="h-3 w-3" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3" />
-                            )}
-                          </button>
-                        </td>
-                      </tr>
-
-                      {/* Expandable JSON Inspector */}
-                      {isExpanded && (
-                        <tr className="bg-muted/30">
-                          <td colSpan={7} className="px-8 py-5 border-t border-b">
-                            <div className="space-y-3">
-                              <div className="flex items-center justify-between text-xs text-muted-foreground font-medium">
-                                <div className="flex items-center gap-2">
-                                  <Tag className="h-3.5 w-3.5" />
-                                  <span>Activity Event Metadata Snapshot</span>
-                                </div>
-                                <span className="font-mono text-slate-400">ID: {log.id}</span>
-                              </div>
-                              
-                              <pre className="p-4 rounded-xl bg-slate-950 dark:bg-slate-900 border border-slate-800 text-xs font-mono text-slate-100 overflow-x-auto max-w-full shadow-inner select-all leading-relaxed">
-                                <code>
-                                  {log.meta 
-                                    ? JSON.stringify(log.meta, null, 2) 
-                                    : JSON.stringify({ message: "No metadata captured for this event." }, null, 2)
-                                  }
-                                </code>
-                              </pre>
-                              
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <span>Operation Path:</span>
-                                <span className="font-mono bg-accent px-1.5 py-0.5 rounded text-foreground">
-                                  {log.entityType.toLowerCase()}/{log.action.toLowerCase()}
-                                </span>
-                                <ArrowRight className="h-3 w-3" />
-                                <span className="italic">Metadata is immutable and read-only for system diagnostics.</span>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setExpandedRow(isExpanded ? null : row.id);
+                      }}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary/80 transition-colors px-2 py-1 rounded hover:bg-primary/5 cursor-pointer"
+                    >
+                      <span>Inspect</span>
+                      {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    </button>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
+                },
+              },
+            ]}
+          />
         )}
 
         {/* Pagination controls */}
         {logs.length > 0 && (
           <div className="bg-muted/20 border-t px-6 py-4 flex items-center justify-between gap-4">
             <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1 || isLoading}
               className="text-sm font-medium px-4 py-2 border rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-card cursor-pointer"
             >
@@ -368,7 +378,7 @@ export default function ActivityClient() {
               <span className="font-medium text-foreground">{totalPages}</span>
             </div>
             <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages || isLoading}
               className="text-sm font-medium px-4 py-2 border rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-card cursor-pointer"
             >

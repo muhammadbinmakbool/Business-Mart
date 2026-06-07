@@ -20,6 +20,9 @@ export default function DataTable({
   rowClassName,
   emptyMessage = "No records found.",
   rowKey = "id",
+  onRowClick,
+  expandedRowKeys,
+  expandedRowRender,
 }) {
   const getRowKey = (row, index) => {
     if (typeof rowKey === "function") return rowKey(row);
@@ -77,27 +80,42 @@ export default function DataTable({
             ) : (
               data.map((row, index) => {
                 const key = getRowKey(row, index);
+                const isExpanded = expandedRowKeys instanceof Set
+                  ? expandedRowKeys.has(key)
+                  : Array.isArray(expandedRowKeys)
+                    ? expandedRowKeys.includes(key)
+                    : expandedRowKeys === key;
 
                 return (
-                  <tr
-                    key={key}
-                    className={cn(
-                      "border-b hover:bg-muted/30 transition-colors",
-                      rowClassName && rowClassName(row)
-                    )}
-                  >
-                    {columns.map((col) => {
-                      const cellValue = col.key ? getNestedValue(row, col.key) : undefined;
-                      return (
-                        <td
-                          key={col.key || col.label}
-                          className={cn("px-4 py-3 whitespace-nowrap", col.className)}
-                        >
-                          {col.render ? col.render(row, cellValue) : (cellValue ?? "—")}
+                  <React.Fragment key={key}>
+                    <tr
+                      onClick={() => onRowClick && onRowClick(row)}
+                      className={cn(
+                        "border-b transition-colors",
+                        onRowClick && "cursor-pointer",
+                        rowClassName && rowClassName(row, isExpanded)
+                      )}
+                    >
+                      {columns.map((col) => {
+                        const cellValue = col.key ? getNestedValue(row, col.key) : undefined;
+                        return (
+                          <td
+                            key={col.key || col.label}
+                            className={cn("px-4 py-3 whitespace-nowrap", col.className)}
+                          >
+                            {col.render ? col.render(row, cellValue) : (cellValue ?? "—")}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    {isExpanded && expandedRowRender && (
+                      <tr className="bg-muted/10">
+                        <td colSpan={columns.length} className="p-0 border-b">
+                          {expandedRowRender(row)}
                         </td>
-                      );
-                    })}
-                  </tr>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })
             )}
