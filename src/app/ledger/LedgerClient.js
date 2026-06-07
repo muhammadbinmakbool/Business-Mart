@@ -25,6 +25,7 @@ import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import LedgerDashboard from "@/modules/ledger/components/LedgerDashboard";
 import ReconciliationTable from "@/modules/ledger/components/ReconciliationTable";
 import LedgerSessionForm from "@/modules/ledger/components/LedgerSessionForm";
+import DataTable from "@/components/ui/DataTable";
 
 import { 
   calculateReconciliationSummary, 
@@ -408,110 +409,120 @@ export default function LedgerClient({
 
       {/* Tab Content: Reconciliation History List */}
       {activeTab === "HISTORY" && !viewingSessionDetails && (
-        <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
-                <tr className="border-b bg-muted/50 text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                  <th className="px-6 py-3">Session Title</th>
-                  <th className="px-6 py-3">Audit Period</th>
-                  <th className="px-6 py-3 text-right">Supplier Base Total</th>
-                  <th className="px-6 py-3 text-right">Buyer Base Total</th>
-                  <th className="px-6 py-3 text-right">Difference</th>
-                  <th className="px-6 py-3 text-center">Status</th>
-                  <th className="px-6 py-3 text-center">Counts (S / B)</th>
-                  <th className="px-6 py-3 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {sessions.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground italic">
-                      No saved reconciliation snapshots found.
-                    </td>
-                  </tr>
-                ) : (
-                  sessions.map((sess) => (
-                    <tr key={sess.id} className="hover:bg-muted/10 transition-colors">
-                      <td className="px-6 py-4 font-bold text-primary">{sess.title}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-muted-foreground text-xs">
-                        {format(new Date(sess.startDate), "dd MMM yyyy")} to {format(new Date(sess.endDate), "dd MMM yyyy")}
-                      </td>
-                      <td className="px-6 py-4 text-right font-semibold">
-                        {formatRs(sess.supplierTotal)}
-                      </td>
-                      <td className="px-6 py-4 text-right font-semibold">
-                        {formatRs(sess.buyerTotal)}
-                      </td>
-                      <td className="px-6 py-4 text-right font-bold">
-                        <span className={Math.abs(Number(sess.difference)) <= tolerance ? "text-emerald-600" : "text-rose-600"}>
-                          {formatRs(sess.difference)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={cn(
-                          "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border",
-                          sess.status === "LOCKED" 
-                            ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/10 dark:text-rose-400"
-                            : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/10 dark:text-emerald-400"
-                        )}>
-                          {sess.status === "LOCKED" ? (
-                            <Lock className="h-3 w-3 shrink-0" />
-                          ) : (
-                            <Unlock className="h-3 w-3 shrink-0" />
-                          )}
-                          {sess.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center text-xs text-muted-foreground">
-                        {sess.supplierInvoiceCount} / {sess.buyerInvoiceCount}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => handleViewSession(sess.id)}
-                            className="bg-primary/5 hover:bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
-                            disabled={loadingSessionId === sess.id}
-                          >
-                            {loadingSessionId === sess.id ? (
-                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              "View Audit Details"
-                            )}
-                          </button>
-                          
-                          <button
-                            onClick={() => handleToggleLock(sess.id)}
-                            className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-                            title={sess.status === "LOCKED" ? "Unlock Session" : "Lock Session"}
-                          >
-                            {sess.status === "LOCKED" ? (
-                              <Unlock className="h-4 w-4 text-rose-500" />
-                            ) : (
-                              <Lock className="h-4 w-4 text-emerald-500" />
-                            )}
-                          </button>
+        <DataTable
+          data={sessions}
+          emptyMessage="No saved reconciliation snapshots found."
+          containerClassName="rounded-xl border bg-card shadow-sm overflow-hidden"
+          columns={[
+            {
+              key: "title",
+              label: "Session Title",
+              className: "px-6 py-4 font-bold text-primary",
+            },
+            {
+              key: "startDate",
+              label: "Audit Period",
+              className: "px-6 py-4 whitespace-nowrap text-muted-foreground text-xs",
+              render: (row) =>
+                `${format(new Date(row.startDate), "dd MMM yyyy")} to ${format(
+                  new Date(row.endDate),
+                  "dd MMM yyyy"
+                )}`,
+            },
+            {
+              key: "supplierTotal",
+              label: "Supplier Base Total",
+              className: "px-6 py-4 text-right font-semibold",
+              render: (row, val) => formatRs(val),
+            },
+            {
+              key: "buyerTotal",
+              label: "Buyer Base Total",
+              className: "px-6 py-4 text-right font-semibold",
+              render: (row, val) => formatRs(val),
+            },
+            {
+              key: "difference",
+              label: "Difference",
+              className: "px-6 py-4 text-right font-bold",
+              render: (row, val) => (
+                <span className={Math.abs(Number(val)) <= tolerance ? "text-emerald-600" : "text-rose-600"}>
+                  {formatRs(val)}
+                </span>
+              ),
+            },
+            {
+              key: "status",
+              label: "Status",
+              className: "px-6 py-4 text-center",
+              render: (row, val) => (
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border",
+                    val === "LOCKED"
+                      ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/10 dark:text-rose-400"
+                      : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/10 dark:text-emerald-400"
+                  )}
+                >
+                  {val === "LOCKED" ? <Lock className="h-3 w-3 shrink-0" /> : <Unlock className="h-3 w-3 shrink-0" />}
+                  {val}
+                </span>
+              ),
+            },
+            {
+              key: "counts",
+              label: "Counts (S / B)",
+              className: "px-6 py-4 text-center text-xs text-muted-foreground",
+              render: (row) => `${row.supplierInvoiceCount} / ${row.buyerInvoiceCount}`,
+            },
+            {
+              key: "actions",
+              label: "Actions",
+              className: "px-6 py-4 text-center",
+              sortable: false,
+              render: (row) => (
+                <div className="flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => handleViewSession(row.id)}
+                    className="bg-primary/5 hover:bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                    disabled={loadingSessionId === row.id}
+                  >
+                    {loadingSessionId === row.id ? (
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      "View Audit Details"
+                    )}
+                  </button>
 
-                          <button
-                            onClick={() => handleDeleteSession(sess.id)}
-                            className={cn(
-                              "p-1.5 rounded-lg text-muted-foreground hover:bg-rose-100 hover:text-rose-600 transition-colors",
-                              sess.status === "LOCKED" && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground"
-                            )}
-                            disabled={sess.status === "LOCKED"}
-                            title={sess.status === "LOCKED" ? "LOCKED: Cannot Delete" : "Delete Session"}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                  <button
+                    onClick={() => handleToggleLock(row.id)}
+                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
+                    title={row.status === "LOCKED" ? "Unlock Session" : "Lock Session"}
+                  >
+                    {row.status === "LOCKED" ? (
+                      <Unlock className="h-4 w-4 text-rose-500" />
+                    ) : (
+                      <Lock className="h-4 w-4 text-emerald-500" />
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteSession(row.id)}
+                    className={cn(
+                      "p-1.5 rounded-lg text-muted-foreground hover:bg-rose-100 hover:text-rose-600 transition-colors cursor-pointer",
+                      row.status === "LOCKED" &&
+                        "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground"
+                    )}
+                    disabled={row.status === "LOCKED"}
+                    title={row.status === "LOCKED" ? "LOCKED: Cannot Delete" : "Delete Session"}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ),
+            },
+          ]}
+        />
       )}
 
       {/* Viewing Saved Session Detail Page */}
