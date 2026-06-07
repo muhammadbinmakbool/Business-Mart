@@ -8,7 +8,7 @@ const provider = getProvider();
 console.log(`[Prisma] Active database provider resolved as: ${provider}`);
 
 const prismaOptions = {
-  log: ["query"],
+  log: process.env.PRISMA_LOG_QUERIES === "true" ? ["query", "error", "warn"] : ["error", "warn"],
 };
 
 export const prisma =
