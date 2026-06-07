@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Search, Eye, ReceiptText } from "lucide-react";
+import { Plus, Search, Eye, ReceiptText, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { useTableSorting } from "@/hooks/useTableSorting";
@@ -15,6 +15,7 @@ import { getUnitLabel } from "@/lib/units";
 export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("ALL");
+  const [showFilters, setShowFilters] = useState(true);
   const [dateFilter, setDateFilter] = useState(() => getDefaultFilterState(defaultPreset));
 
   const dateFilteredSales = useMemo(() => {
@@ -86,19 +87,40 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
 
       {/* Search and Filter Row */}
       <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-        <DebouncedSearchInput
-          value={searchQuery}
-          onChange={setSearchQuery}
-          placeholder="Search by sale #, buyer or product..."
-        />
+        <div className="flex-1 flex gap-2 max-w-md">
+          <DebouncedSearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search by sale #, buyer or product..."
+          />
+          <button
+            type="button"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap shrink-0",
+              showFilters
+                ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                : "bg-card text-muted-foreground border-muted hover:text-foreground hover:bg-muted/10"
+            )}
+            title={showFilters ? "Hide Filters" : "Show Filters"}
+          >
+            <Filter className="h-4 w-4" />
+            <span>Filters</span>
+          </button>
+        </div>
         <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
       </div>
 
-      <StatusFilterTabs
-        activeTab={activeTab}
-        onChange={setActiveTab}
-        tabs={tabs}
-      />
+      <div className={cn(
+        "transition-all duration-300 ease-in-out overflow-hidden",
+        showFilters ? "opacity-100 max-h-32" : "opacity-0 max-h-0 pointer-events-none !mt-0"
+      )}>
+        <StatusFilterTabs
+          activeTab={activeTab}
+          onChange={setActiveTab}
+          tabs={tabs}
+        />
+      </div>
 
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
