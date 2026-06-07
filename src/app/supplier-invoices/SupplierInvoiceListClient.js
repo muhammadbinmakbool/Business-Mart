@@ -82,7 +82,7 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
 
       {/* Search and Filter Row */}
       <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-        <div className="flex-1 flex gap-2 max-w-md">
+        <div className="flex-1 flex gap-2">
           <DebouncedSearchInput
             value={searchQuery}
             onChange={setSearchQuery}
@@ -108,7 +108,7 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
 
       <div className={cn(
         "transition-all duration-300 ease-in-out overflow-hidden",
-        showFilters ? "opacity-100 max-h-32" : "opacity-0 max-h-0 pointer-events-none !mt-0"
+        showFilters ? "opacity-100 max-h-32 !mt-4" : "opacity-0 max-h-0 pointer-events-none !mt-0"
       )}>
         <StatusFilterTabs
           activeTab={activeTab}
