@@ -9,7 +9,7 @@ export default function StatusFilterTabs({
   tabs = [] 
 }) {
   return (
-    <div className="flex flex-wrap gap-2 pb-1 border-b">
+    <div className="flex flex-wrap gap-2 !mt-4 pb-4 border-b">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.key;
         return (
