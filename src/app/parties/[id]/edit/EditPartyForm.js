@@ -1,27 +1,89 @@
 "use client";
 
-import React from "react";
-import { updatePartyAction } from "@/modules/parties/controllers/partyActions";
+import React, { useState } from "react";
+import { updatePartyAction, checkPartyDuplicateAction } from "@/modules/parties/controllers/partyActions";
 import { PARTY_TYPES } from "@/lib/constants";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import DuplicateWarningModal from "@/components/ui/DuplicateWarningModal";
 
 export default function EditPartyForm({ party }) {
   const router = useRouter();
 
-  async function handleSubmit(formData) {
-    const result = await updatePartyAction(party.id, formData);
-    if (result?.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Party updated successfully");
-      router.push("/parties");
+  const [isWarningOpen, setIsWarningOpen] = useState(false);
+  const [warningData, setWarningData] = useState(null); // formData
+  const [duplicateMessage, setDuplicateMessage] = useState("");
+  const [warningTitle, setWarningTitle] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function handleSaveTrigger(formData) {
+    const name = formData.get("name");
+    const phoneNumber = formData.get("phoneNumber");
+
+    setIsSaving(true);
+    try {
+      const checkRes = await checkPartyDuplicateAction(name, phoneNumber, party.id);
+      if (checkRes?.success && checkRes.duplicate) {
+        const { matches, record: dupParty } = checkRes.duplicate;
+        const nameExists = !!matches?.name;
+        const phoneExists = !!matches?.phoneNumber;
+        let msg = "";
+        let title = "Duplicate Party Detected";
+        if (nameExists && phoneExists) {
+          msg = `Another party named "${dupParty.name}" with the phone number "${dupParty.phoneNumber}" already exists.`;
+          title = "Duplicate Name & Phone Number";
+        } else if (nameExists) {
+          msg = `Another party named "${dupParty.name}" already exists.`;
+          title = "Duplicate Name Detected";
+        } else if (phoneExists) {
+          msg = `Another party with the phone number "${dupParty.phoneNumber}" (named "${dupParty.name}") already exists.`;
+          title = "Duplicate Phone Number Detected";
+        }
+        
+        setDuplicateMessage(msg);
+        setWarningTitle(title);
+        setWarningData(formData);
+        setIsWarningOpen(true);
+      } else {
+        await proceedSave(formData);
+      }
+    } catch (e) {
+      toast.error("Failed to check for duplicate parties");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function proceedSave(formData) {
+    setIsSaving(true);
+    try {
+      const result = await updatePartyAction(party.id, formData);
+      if (result?.error) {
+        toast.error(result.error);
+        setIsSaving(false);
+      } else {
+        toast.success("Party updated successfully");
+        router.push("/parties");
+      }
+    } catch (e) {
+      if (e.message?.includes("NEXT_REDIRECT") || e.digest?.includes("NEXT_REDIRECT")) {
+        throw e;
+      }
+      toast.error("An unexpected error occurred while updating");
+      setIsSaving(false);
     }
   }
 
   return (
-    <form action={handleSubmit} className="space-y-4">
+    <form 
+      onSubmit={(e) => {
+        e.preventDefault();
+        const formData = new FormData(e.currentTarget);
+        handleSaveTrigger(formData);
+      }} 
+      className="space-y-4"
+    >
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-2">
           <label htmlFor="name" className="text-sm font-medium">Party Name</label>
@@ -104,12 +166,28 @@ export default function EditPartyForm({ party }) {
           </Link>
           <button
             type="submit"
-            className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+            disabled={isSaving}
+            className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            Update Party
+            {isSaving ? "Updating..." : "Update Party"}
           </button>
         </div>
       </div>
+
+      <DuplicateWarningModal
+        isOpen={isWarningOpen}
+        onClose={() => setIsWarningOpen(false)}
+        onConfirm={async () => {
+          setIsWarningOpen(false);
+          if (warningData) {
+            await proceedSave(warningData);
+          }
+        }}
+        duplicateMessage={duplicateMessage}
+        title={warningTitle}
+        entityName="Party"
+        loading={isSaving}
+      />
     </form>
   );
 }

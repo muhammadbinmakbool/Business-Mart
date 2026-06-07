@@ -2,6 +2,7 @@ import { PartyRepository } from "../repositories/PartyRepository";
 import { partySchema } from "../validations/partySchema";
 import { emitActivity, logPartyEvent } from "@/modules/activity-log/activityLogger";
 import { withOwnership } from "@/lib/session";
+import { checkDuplicateRecord } from "@/lib/database/duplicateChecker";
 
 export class PartyService {
   static async listParties() {
@@ -88,5 +89,9 @@ export class PartyService {
       meta: { name: party.name }
     });
     return party;
+  }
+
+  static async checkDuplicate(name, phoneNumber, excludeId = null) {
+    return await checkDuplicateRecord("party", { name, phoneNumber }, { excludeId });
   }
 }

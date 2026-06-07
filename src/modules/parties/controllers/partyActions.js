@@ -31,6 +31,7 @@ export async function updatePartyAction(id, formData) {
     address: formData.get("address") || null,
     notes: formData.get("notes") || null,
     partyType: formData.get("partyType"),
+    isActive: formData.get("isActive") === "true",
   };
 
   try {
@@ -51,6 +52,15 @@ export async function togglePartyStatusAction(id) {
     return { success: true, data: party };
   } catch (error) {
     return { error: "Failed to toggle status" };
+  }
+}
+
+export async function checkPartyDuplicateAction(name, phoneNumber, excludeId = null) {
+  try {
+    const duplicate = await PartyService.checkDuplicate(name, phoneNumber, excludeId);
+    return { success: true, duplicate };
+  } catch (error) {
+    return { success: false, error: error.message || "Failed to check duplicates" };
   }
 }
 import { assertDeletePermission } from "@/lib/authGuard";

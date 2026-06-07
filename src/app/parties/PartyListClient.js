@@ -17,12 +17,19 @@ export default function PartyListClient({ parties = [] }) {
 
   const filteredParties = useMemo(() => {
     return parties.filter((party) => {
-      // 1. Party Type Filter
+      // 1. Active/Inactive status filter
+      if (activeTab === "INACTIVE") {
+        if (party.isActive) return false;
+      } else {
+        if (!party.isActive) return false;
+      }
+
+      // 2. Party Type Filter
       if (activeTab === "BUYER" && party.partyType !== "BUYER" && party.partyType !== "BOTH") return false;
       if (activeTab === "SUPPLIER" && party.partyType !== "SUPPLIER" && party.partyType !== "BOTH") return false;
       if (activeTab === "BOTH" && party.partyType !== "BOTH") return false;
 
-      // 2. Search Query Filter
+      // 3. Search Query Filter
       if (searchQuery.trim() !== "") {
         const query = searchQuery.toLowerCase();
         const matchName = party.name?.toLowerCase().includes(query);
@@ -35,12 +42,13 @@ export default function PartyListClient({ parties = [] }) {
     });
   }, [parties, activeTab, searchQuery]);
 
-  // Calculate dynamic tab counts
+  // Calculate dynamic tab counts based on active status
   const tabs = [
-    { key: "ALL", label: "All", count: parties.length },
-    { key: "BUYER", label: "Buyer", count: parties.filter(p => p.partyType === "BUYER" || p.partyType === "BOTH").length },
-    { key: "SUPPLIER", label: "Supplier", count: parties.filter(p => p.partyType === "SUPPLIER" || p.partyType === "BOTH").length },
-    { key: "BOTH", label: "Both", count: parties.filter(p => p.partyType === "BOTH").length },
+    { key: "ALL", label: "All", count: parties.filter(p => p.isActive).length },
+    { key: "BUYER", label: "Buyer", count: parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH")).length },
+    { key: "SUPPLIER", label: "Supplier", count: parties.filter(p => p.isActive && (p.partyType === "SUPPLIER" || p.partyType === "BOTH")).length },
+    { key: "BOTH", label: "Both", count: parties.filter(p => p.isActive && p.partyType === "BOTH").length },
+    { key: "INACTIVE", label: "Inactive", count: parties.filter(p => !p.isActive).length },
   ];
 
   return (
