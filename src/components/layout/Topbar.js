@@ -71,10 +71,6 @@ export function Topbar() {
 
   return (
     <>
-      {/* Destructive Mode Banner — rendered above the header */}
-      {isDestructiveActive && (
-        <DestructiveModeBanner onExit={handleDestructiveModeExited} />
-      )}
 
       {/* Destructive Mode Modal */}
       {showDestructiveModal && (
