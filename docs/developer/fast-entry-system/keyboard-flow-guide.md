@@ -190,14 +190,13 @@ No `onKeyDown` prop needed. The hook attaches listeners internally via the ref c
 
 ## Extending in Future Phases
 
-This foundation is designed to be extended without breaking changes:
+This foundation is designed to be extended without breaking changes. For detailed integration patterns (including ref merging, dynamic fields, and keydown overrides), see the [Phase 2 Integration Guide](file:///d:/Projects/Next%20JS/docs/developer/fast-entry-system/phase-2-integration.md).
 
-| Phase | Addition | Impact on Phase 1 |
+| Phase | Addition | Status / Impact |
 |---|---|---|
-| Phase 2 | Sales Fast Entry form | Imports `useKeyboardFlow`, defines field order, adds `onSubmit` |
-| Phase 3 | Intake Fast Entry form | Same pattern |
-| Phase 4 | Quick-Add modals | Modal forms get their own `useKeyboardFlow` instance |
-| Phase 5 | Smart defaults | Separate system, no changes to keyboard flow |
+| Phase 2 | Intake + Sales Form Integration | Completed |
+| Phase 3 | Quick-Add Modals | Planned (adds interruption-free entity creation) |
+| Phase 4 | Smart Defaults | Planned (autofills based on previous inputs) |
 
 ---
 

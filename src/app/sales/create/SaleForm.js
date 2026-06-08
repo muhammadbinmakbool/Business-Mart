@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Plus, Trash2, Calculator, ReceiptText, Loader2, PlusCircle, X, Save, AlertCircle } from "lucide-react";
 import { createSaleAction, updateSaleAction } from "@/modules/sales/controllers/saleActions";
 import { getUnbilledTracksAction } from "@/modules/sales/controllers/trackActions";
@@ -15,11 +15,15 @@ import Alert from "@/components/ui/Alert";
 import Modal from "@/components/ui/Modal";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
+import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
 
 export default function SaleForm({ buyers, products, initialData = null, settings = null }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
+  const [saveAndNew, setSaveAndNew] = useState(false);
+  const saveAndNewRef = useRef(false);
+  saveAndNewRef.current = saveAndNew;
   
   // Form State
   const [partyId, setPartyId] = useState(initialData?.partyId?.toString() || "");
@@ -50,6 +54,57 @@ export default function SaleForm({ buyers, products, initialData = null, setting
   );
   
   const visibleAdjustmentTypes = getVisibleAdjustments(ADJUSTMENT_TYPES_BUYER, settings);
+
+  // ── Keyboard Flow: dynamic field array ──
+  const saleFields = useMemo(() => {
+    if (initialData) return []; // Disable keyboard flow in edit mode
+    const fields = [
+      { name: "partyId", next: items.length > 0 ? "item-0-productId" : "notes", prev: null },
+    ];
+    items.forEach((_, i) => {
+      const nextProductId = i < items.length - 1 ? `item-${i + 1}-productId` : "notes";
+      fields.push({ name: `item-${i}-productId`, next: `item-${i}-weight`, prev: i === 0 ? "partyId" : `item-${i - 1}-rate` });
+      fields.push({ name: `item-${i}-weight`, next: `item-${i}-rate`, prev: `item-${i}-productId` });
+      fields.push({ name: `item-${i}-rate`, next: nextProductId, prev: `item-${i}-weight` });
+    });
+    fields.push({ name: "notes", next: null, prev: items.length > 0 ? `item-${items.length - 1}-rate` : "partyId" });
+    return fields;
+  }, [items.length, initialData]);
+
+  // Keyboard Ctrl+Enter submit handler
+  const handleKeyboardSubmit = useCallback(() => {
+    const form = document.querySelector('form');
+    if (!form) return;
+    const submitBtn = saveAndNewRef.current
+      ? form.querySelector('button[name="saveAndAnother"]')
+      : form.querySelector('button[name="saveAndClose"]');
+    submitBtn?.click();
+  }, []);
+
+  const { registerField } = useKeyboardFlow({
+    fields: saleFields,
+    onSubmit: handleKeyboardSubmit,
+  });
+
+  // Multi-line entry: when Enter on last item's rate, add new row
+  const handleLastRateKeyDown = useCallback((e, index) => {
+    if (
+      e.key === "Enter" &&
+      !e.shiftKey &&
+      !e.ctrlKey &&
+      !e.metaKey &&
+      index === items.length - 1 &&
+      items[index]?.rate
+    ) {
+      e.preventDefault();
+      e.stopPropagation();
+      addItem();
+      // Focus new row's product select after React renders
+      requestAnimationFrame(() => {
+        document.querySelector(`[data-field="item-${index + 1}-productId"]`)?.focus();
+      });
+    }
+  }, [items]);
 
   // UI State
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
@@ -322,13 +377,19 @@ export default function SaleForm({ buyers, products, initialData = null, setting
         showToast.success(initialData ? "Invoice updated successfully" : "Sale invoice created successfully");
         
         if (e.nativeEvent.submitter?.name === "saveAndAnother" && !initialData) {
-          // Reset form for next entry
-          setPartyId("");
+          // Save & New: keep partyId, clear items/adjustments/notes
           setItems([{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]);
           setAdjustments([]);
           setNotes("");
           showToast.info("Form reset for next entry");
-          document.querySelector('select')?.focus();
+          // Focus first item's product if keeping party, otherwise party select
+          requestAnimationFrame(() => {
+            if (partyId && partyId !== "new") {
+              document.querySelector('[data-field="item-0-productId"]')?.focus();
+            } else {
+              document.querySelector('select')?.focus();
+            }
+          });
         } else {
           router.push(`/sales/${initialData?.id || result.id || ""}`);
         }
@@ -369,6 +430,7 @@ export default function SaleForm({ buyers, products, initialData = null, setting
           <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Buyer (Party)</label>
           <select
             autoFocus
+            ref={!initialData ? registerField("partyId") : undefined}
             value={partyId}
             onChange={(e) => {
               setPartyId(e.target.value);
@@ -555,6 +617,8 @@ export default function SaleForm({ buyers, products, initialData = null, setting
                   <tr key={index} className="group">
                     <td className="px-2 py-2">
                       <select
+                        data-field={`item-${index}-productId`}
+                        ref={!initialData ? registerField(`item-${index}-productId`) : undefined}
                         value={item.productId}
                         onChange={(e) => updateItem(index, "productId", e.target.value)}
                         className="w-full bg-background text-foreground border-none rounded-lg px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none font-medium"
@@ -577,6 +641,8 @@ export default function SaleForm({ buyers, products, initialData = null, setting
                     <td className="px-2 py-2">
                       <div className="flex items-center gap-1">
                         <input
+                          ref={!initialData ? registerField(`item-${index}-weight`) : undefined}
+                          data-field={`item-${index}-weight`}
                           type="number"
                           step="0.01"
                           placeholder="0.00"
@@ -600,11 +666,14 @@ export default function SaleForm({ buyers, products, initialData = null, setting
                     <td className="px-2 py-2">
                       <div className="flex items-center gap-1">
                         <input
+                          ref={!initialData ? registerField(`item-${index}-rate`) : undefined}
+                          data-field={`item-${index}-rate`}
                           type="number"
                           step="0.01"
                           placeholder="0.00"
                           value={item.rate}
                           onChange={(e) => updateItem(index, "rate", e.target.value)}
+                          onKeyDown={index === items.length - 1 && !initialData ? (e) => handleLastRateKeyDown(e, index) : undefined}
                           className="w-full bg-transparent border-none text-right font-mono px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
                           required
                         />
@@ -718,6 +787,8 @@ export default function SaleForm({ buyers, products, initialData = null, setting
           <div className="pt-4 space-y-2">
              <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Internal Notes</label>
              <textarea
+                ref={!initialData ? registerField("notes") : undefined}
+                data-field="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}
@@ -790,6 +861,21 @@ export default function SaleForm({ buyers, products, initialData = null, setting
                 <PlusCircle className="h-4 w-4" />
                 SAVE & ADD ANOTHER
               </button>
+            )}
+
+            {!initialData && (
+              <div className="flex items-center justify-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="saveAndNew"
+                  checked={saveAndNew}
+                  onChange={(e) => setSaveAndNew(e.target.checked)}
+                  className="rounded border-primary text-primary focus:ring-primary/20"
+                />
+                <label htmlFor="saveAndNew" className="text-[10px] font-semibold text-muted-foreground select-none">
+                  Ctrl+Enter → Save & Add Another (keeps Buyer)
+                </label>
+              </div>
             )}
 
             <p className="text-[10px] text-center text-muted-foreground mt-4 font-bold uppercase tracking-widest">

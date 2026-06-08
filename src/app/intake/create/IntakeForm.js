@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useEffect } from "react";
+import React, { useRef, useState, useEffect, useCallback } from "react";
 
 import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { showToast } from "@/components/ui/Toast";
@@ -11,6 +11,26 @@ import { getPreferredWeightUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getLocalDateString } from "@/lib/utils";
+import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
+
+/** Merge multiple refs (ref objects + ref callbacks) onto one element. */
+const mergeRefs = (...refs) => (el) => {
+  refs.forEach((ref) => {
+    if (typeof ref === "function") ref(el);
+    else if (ref) ref.current = el;
+  });
+};
+
+/** Static keyboard navigation order for the Intake form. */
+const INTAKE_FIELDS = [
+  { name: "partyId",     next: "productId",   prev: null },
+  { name: "productId",   next: "bagCount",    prev: "partyId" },
+  { name: "bagCount",    next: "grossWeight", prev: "productId" },
+  { name: "grossWeight", next: "unit",        prev: "bagCount" },
+  { name: "unit",        next: "entryDate",   prev: "grossWeight" },
+  { name: "entryDate",   next: "notes",       prev: "unit" },
+  { name: "notes",       next: null,          prev: "entryDate" },
+];
 
 export default function IntakeForm({ suppliers, products, settings }) {
   const router = useRouter();
@@ -21,9 +41,22 @@ export default function IntakeForm({ suppliers, products, settings }) {
   const [selectedUnit, setSelectedUnit] = useState("");
   const [grossWeightVal, setGrossWeightVal] = useState("");
   const [bagCountVal, setBagCountVal] = useState("");
+  const [saveAndContinue, setSaveAndContinue] = useState(false);
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
 
   const defaultProductVal = settings?.defaults?.activeMarketProductId || settings?.defaults?.productId || "";
+
+  // ── Keyboard Flow Integration ──
+  const handleKeyboardSubmit = useCallback(() => {
+    if (!formRef.current) return;
+    const formData = new FormData(formRef.current);
+    handleSubmit(formData, !saveAndContinue);
+  }, [saveAndContinue]);
+
+  const { registerField } = useKeyboardFlow({
+    fields: INTAKE_FIELDS,
+    onSubmit: handleKeyboardSubmit,
+  });
 
   useEffect(() => {
     if (defaultProductVal) {
@@ -131,12 +164,28 @@ export default function IntakeForm({ suppliers, products, settings }) {
     if (shouldRedirect) {
       router.push("/intake");
     } else {
+      // Save & Continue: keep partyId + productId, clear the rest
       formRef.current?.reset();
-      setSelectedProductId("");
-      setSelectedUnit("");
       setGrossWeightVal("");
       setBagCountVal("");
-      supplierRef.current?.focus();
+      // Re-apply kept values after reset (reset clears uncontrolled fields)
+      // partyId is uncontrolled — re-set via DOM
+      const partySelect = document.getElementById("partyId");
+      const keptPartyId = partySelect?.value;
+      // productId is controlled, so we keep it as-is unless user wants full clear
+      if (!saveAndContinue) {
+        setSelectedProductId("");
+        setSelectedUnit("");
+      }
+      // Restore partyId after reset
+      if (keptPartyId && partySelect) {
+        requestAnimationFrame(() => { partySelect.value = keptPartyId; });
+      }
+      // Focus: if continuing, jump to weight/bagCount; otherwise supplier
+      const focusTarget = saveAndContinue ? "grossWeight" : "partyId";
+      requestAnimationFrame(() => {
+        document.getElementById(focusTarget)?.focus();
+      });
     }
   }
 
@@ -151,7 +200,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
         <div className="space-y-2">
           <label htmlFor="partyId" className="text-sm font-medium">Supplier</label>
           <select
-            ref={supplierRef}
+            ref={mergeRefs(supplierRef, registerField("partyId"))}
             id="partyId"
             name="partyId"
             required
@@ -225,6 +274,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
         <div className="space-y-2">
           <label htmlFor="productId" className="text-sm font-medium">Product</label>
           <select
+            ref={registerField("productId")}
             id="productId"
             name="productId"
             required
@@ -241,6 +291,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
         <div className="space-y-2">
           <label htmlFor="unit" className="text-sm font-medium">Measurement Unit</label>
           <select
+            ref={registerField("unit")}
             id="unit"
             name="unit"
             required
@@ -278,6 +329,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
             </>
           ) : (
             <input
+              ref={registerField("grossWeight")}
               id="grossWeight"
               name="grossWeight"
               type="number"
@@ -297,6 +349,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
             {selectedUnit === UNIT_IDS.BAG ? "Bag Count (Required)" : (isBagProduct ? "Bag Count (Calculated)" : "Bag Count (Optional)")}
           </label>
           <input
+            ref={registerField("bagCount")}
             id="bagCount"
             name="bagCount"
             type="number"
@@ -312,6 +365,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
         <div className="space-y-2">
           <label htmlFor="entryDate" className="text-sm font-medium">Entry Date</label>
           <input
+            ref={registerField("entryDate")}
             id="entryDate"
             name="entryDate"
             type="date"
@@ -326,6 +380,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
       <div className="space-y-2">
         <label htmlFor="notes" className="text-sm font-medium">Notes (Optional)</label>
         <textarea
+          ref={registerField("notes")}
           id="notes"
           name="notes"
           rows={2}
@@ -359,6 +414,20 @@ export default function IntakeForm({ suppliers, products, settings }) {
         </div>
       </div>
 
+      {/* Save & Continue Toggle */}
+      <div className="flex items-center gap-2 pt-2">
+        <input
+          type="checkbox"
+          id="saveAndContinue"
+          checked={saveAndContinue}
+          onChange={(e) => setSaveAndContinue(e.target.checked)}
+          className="rounded border-primary text-primary focus:ring-primary/20"
+        />
+        <label htmlFor="saveAndContinue" className="text-xs font-semibold text-muted-foreground select-none">
+          Save & Add Another (keeps Supplier + Product)
+        </label>
+      </div>
+
       <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
         <Link
           href="/intake"
@@ -382,6 +451,9 @@ export default function IntakeForm({ suppliers, products, settings }) {
         >
           Complete Intake
         </button>
+        <p className="text-[10px] text-muted-foreground self-center font-mono">
+          Ctrl+Enter to save
+        </p>
       </div>
       
       {/* Structured Validation/Conflict Error Modal */}
