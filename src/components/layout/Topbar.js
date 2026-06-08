@@ -59,10 +59,12 @@ export function Topbar() {
     setIsDestructiveActive(true);
     setShowDestructiveModal(false);
     setIsOpen(false);
+    window.location.reload();
   }, []);
 
   const handleDestructiveModeExited = useCallback(() => {
     setIsDestructiveActive(false);
+    window.location.reload();
   }, []);
 
   const isAdmin = session && ADMIN_ROLES.includes(session.role);
