@@ -4,11 +4,14 @@ import React, { useState, useEffect } from "react";
 import { Shield, Pencil, X, Check, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { getActivityAuditSettingsAction, saveActivityAuditSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { DestructiveModeModal } from "@/components/layout/DestructiveModeModal";
+import { exitDestructiveModeAction, getDestructiveModeStatusAction } from "@/modules/auth/controllers/destructiveActions";
 
 export default function ActivityAuditSettingsCard() {
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [showDestructiveModal, setShowDestructiveModal] = useState(false);
   const [initialSettings, setInitialSettings] = useState(null);
   const [settings, setSettings] = useState({
     logRetentionDays: 30,
@@ -19,10 +22,24 @@ export default function ActivityAuditSettingsCard() {
 
   useEffect(() => {
     async function loadSettings() {
-      const res = await getActivityAuditSettingsAction();
+      const [res, destructiveRes] = await Promise.all([
+        getActivityAuditSettingsAction(),
+        (async () => {
+          try {
+            return await getDestructiveModeStatusAction();
+          } catch {
+            return { active: false };
+          }
+        })()
+      ]);
+
       if (res.success) {
-        setSettings(res.settings);
-        setInitialSettings(res.settings);
+        const mappedSettings = {
+          ...res.settings,
+          allowDestructiveDelete: destructiveRes?.active || false
+        };
+        setSettings(mappedSettings);
+        setInitialSettings(mappedSettings);
       } else {
         toast.error("Failed to load activity & audit settings.");
       }
@@ -36,9 +53,47 @@ export default function ActivityAuditSettingsCard() {
     setIsEditing(true);
   };
 
-  const handleToggle = (key) => {
-    setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
-    setIsEditing(true);
+  const handleToggle = async (key) => {
+    if (key === "allowDestructiveDelete") {
+      if (settings.allowDestructiveDelete) {
+        // Exiting Destructive Mode
+        setSaving(true);
+        const res = await exitDestructiveModeAction();
+        setSaving(false);
+        if (res.success) {
+          setSettings((prev) => ({ ...prev, allowDestructiveDelete: false }));
+          setInitialSettings((prev) => ({ ...prev, allowDestructiveDelete: false }));
+          toast.success("Destructive Mode deactivated successfully.");
+          await saveActivityAuditSettingsAction({
+            ...settings,
+            allowDestructiveDelete: false
+          });
+          // Reload page to refresh other components (e.g. Topbar banner)
+          window.location.reload();
+        } else {
+          toast.error(res.error || "Failed to deactivate Destructive Mode.");
+        }
+      } else {
+        // Activating Destructive Mode
+        setShowDestructiveModal(true);
+      }
+    } else {
+      setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+      setIsEditing(true);
+    }
+  };
+
+  const handleDestructiveModeSuccess = async () => {
+    setSettings((prev) => ({ ...prev, allowDestructiveDelete: true }));
+    setInitialSettings((prev) => ({ ...prev, allowDestructiveDelete: true }));
+    setShowDestructiveModal(false);
+    toast.success("Destructive Mode activated successfully!");
+    await saveActivityAuditSettingsAction({
+      ...settings,
+      allowDestructiveDelete: true
+    });
+    // Reload page to refresh other components (e.g. Topbar banner)
+    window.location.reload();
   };
 
   const handleCancel = () => {
@@ -231,6 +286,12 @@ export default function ActivityAuditSettingsCard() {
           </div>
         </div>
       </form>
+
+      <DestructiveModeModal
+        isOpen={showDestructiveModal}
+        onClose={() => setShowDestructiveModal(false)}
+        onSuccess={handleDestructiveModeSuccess}
+      />
     </div>
   );
 }

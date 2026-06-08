@@ -6,7 +6,7 @@ import { PartyService } from "@/modules/parties/services/PartyService";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
-import { deleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
+import { deleteIntakeAction, hardDeleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { convertRate, normalizeQuantity, getUnitLabel, UNIT_IDS } from "@/lib/units";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
@@ -54,6 +54,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
         printConfig={printConfig}
         deleteId={intake.id}
         deleteAction={deleteIntakeAction}
+        hardDeleteAction={hardDeleteIntakeAction}
         deleteLabel="Intake"
         deleteRedirect="/intake"
         statusBadge={

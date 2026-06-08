@@ -15,7 +15,7 @@ import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
 import RevertStatusButton from "./RevertStatusButton";
 import SalePaymentCard from "./SalePaymentCard";
-import { deleteSaleAction, updateSaleStatusAction } from "@/modules/sales/controllers/saleActions";
+import { deleteSaleAction, updateSaleStatusAction, hardDeleteSaleAction } from "@/modules/sales/controllers/saleActions";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { formatMaundWeight } from "@/lib/display-units";
 import { UNIT_IDS, getUnitLabel } from "@/lib/units";
@@ -83,6 +83,7 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
         printConfig={printConfig}
         deleteId={sale.id}
         deleteAction={deleteSaleAction}
+        hardDeleteAction={hardDeleteSaleAction}
         deleteLabel="Sale Invoice"
         deleteRedirect="/sales"
         extraActions={

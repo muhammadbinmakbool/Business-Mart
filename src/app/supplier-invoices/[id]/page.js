@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { AlertCircle, Calendar, ReceiptText, User } from "lucide-react";
-import { getSupplierInvoiceAction, deleteSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
+import { getSupplierInvoiceAction, deleteSupplierInvoiceAction, hardDeleteSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import StatusUpdater from "./StatusUpdater";
@@ -120,6 +120,7 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
         printConfig={printConfig}
         deleteId={invoice.id}
         deleteAction={deleteSupplierInvoiceAction}
+        hardDeleteAction={hardDeleteSupplierInvoiceAction}
         deleteLabel="Supplier Invoice"
         deleteRedirect="/supplier-invoices"
         extraActions={

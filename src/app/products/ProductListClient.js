@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Plus, Search, Edit2, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DeleteButton from "@/components/DeleteButton";
-import { deleteProductAction } from "@/modules/products/controllers/productActions";
+import { deleteProductAction, hardDeleteProductAction } from "@/modules/products/controllers/productActions";
 import { UnitService } from "@/modules/products/services/UnitService";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
@@ -135,6 +135,7 @@ export default function ProductListClient({ products = [] }) {
                 <DeleteButton
                   id={row.id}
                   deleteAction={deleteProductAction}
+                  hardDeleteAction={hardDeleteProductAction}
                   label="Product"
                   variant="icon"
                 />

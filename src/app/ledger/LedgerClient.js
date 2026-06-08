@@ -32,8 +32,10 @@ import {
   DEFAULT_TOLERANCE 
 } from "@/lib/reconciliation";
 
+import DeleteButton from "@/components/DeleteButton";
 import { 
   deleteLedgerSessionAction, 
+  hardDeleteLedgerSessionAction,
   toggleLockSessionAction, 
   getLedgerSessionDetailsAction,
   listLedgerSessionsAction 
@@ -506,18 +508,18 @@ export default function LedgerClient({
                     )}
                   </button>
 
-                  <button
-                    onClick={() => handleDeleteSession(row.id)}
-                    className={cn(
-                      "p-1.5 rounded-lg text-muted-foreground hover:bg-rose-100 hover:text-rose-600 transition-colors cursor-pointer",
-                      row.status === "LOCKED" &&
-                        "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-muted-foreground"
-                    )}
+                  <DeleteButton
+                    id={row.id}
+                    deleteAction={deleteLedgerSessionAction}
+                    hardDeleteAction={hardDeleteLedgerSessionAction}
+                    label="Reconciliation Session"
+                    variant="icon"
                     disabled={row.status === "LOCKED"}
-                    title={row.status === "LOCKED" ? "LOCKED: Cannot Delete" : "Delete Session"}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
+                    onSuccess={() => {
+                      setViewingSessionDetails(null);
+                      refreshSessions();
+                    }}
+                  />
                 </div>
               ),
             },
@@ -580,17 +582,18 @@ export default function LedgerClient({
                 )}
               </button>
 
-              <button
-                onClick={() => handleDeleteSession(viewingSessionDetails.session.id)}
-                className={cn(
-                  "flex items-center gap-2 bg-rose-50 border border-rose-200 text-rose-700 px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-rose-100 transition-colors",
-                  viewingSessionDetails.session.status === "LOCKED" && "opacity-40 cursor-not-allowed hover:bg-rose-50"
-                )}
+              <DeleteButton
+                id={viewingSessionDetails.session.id}
+                deleteAction={deleteLedgerSessionAction}
+                hardDeleteAction={hardDeleteLedgerSessionAction}
+                label="Reconciliation Session"
+                buttonText="Delete Snapshot"
                 disabled={viewingSessionDetails.session.status === "LOCKED"}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Delete Snapshot
-              </button>
+                onSuccess={() => {
+                  setViewingSessionDetails(null);
+                  refreshSessions();
+                }}
+              />
             </div>
           </div>
 

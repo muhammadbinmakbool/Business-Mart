@@ -45,12 +45,23 @@ export async function updateSaleAction(id, data) {
 
 import { assertDeletePermission } from "@/lib/authGuard";
 
-export async function deleteSaleAction(id, confirmPassword) {
+export async function deleteSaleAction(id, confirmPassword, deleteReason) {
   try {
     // Enforce unified record deletion permission and password confirmation check
     await assertDeletePermission(confirmPassword);
 
-    await SaleService.deleteSale(id);
+    await SaleService.deleteSale(id, deleteReason);
+    revalidatePath("/sales");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function hardDeleteSaleAction(id, deleteReason) {
+  try {
+    // assertDestructiveMode is called inside SaleService.hardDeleteSale
+    await SaleService.hardDeleteSale(id, deleteReason);
     revalidatePath("/sales");
     return { success: true };
   } catch (error) {

@@ -11,42 +11,44 @@ import { getActiveSessionAction, checkReauthStatusAction } from "@/modules/auth/
 export default function DeleteButton({ 
   id, 
   deleteAction, 
+  hardDeleteAction,
   redirectPath, 
   label = "Item", 
   buttonText,
   variant = "default",
-  className
+  className,
+  onSuccess,
+  disabled
 }) {
   const [currentUser, setCurrentUser] = useState(null);
-  const [destructiveAllowed, setDestructiveAllowed] = useState(true);
+  const [isDestructiveActive, setIsDestructiveActive] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    async function loadSessionAndSettings() {
+    async function loadSessionAndDestructive() {
       try {
-        const [sess, settingsRes] = await Promise.all([
+        const [sess, destructiveRes] = await Promise.all([
           getActiveSessionAction(),
           (async () => {
-            const { getActivityAuditSettingsAction } = await import("@/modules/settings/controllers/settingsActions");
-            return getActivityAuditSettingsAction();
+            const { getDestructiveModeStatusAction } = await import("@/modules/auth/controllers/destructiveActions");
+            return getDestructiveModeStatusAction();
           })()
         ]);
         setCurrentUser(sess);
-        if (settingsRes.success) {
-          setDestructiveAllowed(settingsRes.settings.allowDestructiveDelete);
+        if (destructiveRes?.active) {
+          setIsDestructiveActive(true);
         }
       } catch (e) {
         // Fallback for edge cases
       }
     }
-    loadSessionAndSettings();
+    loadSessionAndDestructive();
   }, []);
 
-  // 1. Hide delete trigger completely if not loaded, if user is not authorized, or if destructive delete is disabled
+  // 1. Hide delete trigger completely if not loaded or if user is not authorized
   if (!currentUser) return null; // Wait for session load
-  if (!destructiveAllowed) return null; // Hide UI button if disabled in settings
   const isAuthorized = currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN";
   if (!isAuthorized) {
     return null; 
@@ -55,12 +57,25 @@ export default function DeleteButton({
   async function handleDeleteConfirm(confirmPassword) {
     setIsDeleting(true);
     try {
-      const result = await deleteAction(id, confirmPassword);
+      let result;
+      if (isDestructiveActive && hardDeleteAction) {
+        result = await hardDeleteAction(id, "UI requested permanent delete");
+      } else {
+        result = await deleteAction(id, confirmPassword, "UI requested delete");
+      }
+
       if (result?.error) {
         showToast.error(result.error);
       } else {
-        showToast.success(`${label} deleted successfully`);
+        showToast.success(
+          isDestructiveActive && hardDeleteAction
+            ? `${label} permanently deleted successfully`
+            : `${label} deleted successfully`
+        );
         setIsModalOpen(false);
+        if (onSuccess) {
+          onSuccess();
+        }
         if (redirectPath) {
           router.push(redirectPath);
         } else {
@@ -80,9 +95,9 @@ export default function DeleteButton({
       e.stopPropagation();
     }
     
-    // Check if 5-minute re-auth window is valid
+    // Check if 5-minute re-auth window is valid (skip for hard delete since session counts as auth)
     const isReauthCached = await checkReauthStatusAction();
-    if (isReauthCached) {
+    if (isReauthCached && !isDestructiveActive) {
       // Direct deletion with no password prompt needed!
       await handleDeleteConfirm("");
     } else {
@@ -90,16 +105,32 @@ export default function DeleteButton({
     }
   }
 
+  const modalTitle = isDestructiveActive && hardDeleteAction 
+    ? `Permanently Delete ${label}` 
+    : `Delete ${label}`;
+
+  const modalDesc = isDestructiveActive && hardDeleteAction
+    ? `Permanently deleting this ${label.toLowerCase()} will purge it from the database forever. This action is audited and CANNOT be undone. Please enter your account password to authorize.`
+    : `Deleting this ${label.toLowerCase()} will soft-delete it and hide it from normal views. Please enter your account password to authorize this action.`;
+
+  const modalConfirmLabel = isDestructiveActive && hardDeleteAction
+    ? "Yes, Permanently Delete"
+    : `Yes, Delete ${label}`;
+
+  const displayedButtonText = buttonText || (isDestructiveActive && hardDeleteAction ? `Permanently Delete` : `Delete`);
+
   if (variant === "icon") {
     return (
       <>
         <button
           onClick={handleTriggerClick}
+          disabled={disabled}
           className={cn(
             "rounded-full p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors",
+            disabled && "opacity-40 cursor-not-allowed pointer-events-none",
             className
           )}
-          title={`Delete ${label}`}
+          title={displayedButtonText}
         >
           <Trash2 className="h-4 w-4" />
         </button>
@@ -108,9 +139,9 @@ export default function DeleteButton({
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onConfirm={handleDeleteConfirm}
-          title={`Delete ${label}`}
-          description={`Deleting this ${label.toLowerCase()} is permanent. Please enter your account password to authorize this action.`}
-          confirmLabel={`Yes, Delete ${label}`}
+          title={modalTitle}
+          description={modalDesc}
+          confirmLabel={modalConfirmLabel}
           loading={isDeleting}
         />
       </>
@@ -121,22 +152,24 @@ export default function DeleteButton({
     <>
       <button
         onClick={handleTriggerClick}
+        disabled={disabled}
         className={cn(
           "flex items-center gap-2 border border-destructive/20 text-destructive px-4 py-2 rounded-lg text-sm font-medium hover:bg-destructive hover:text-destructive-foreground transition-all group",
+          disabled && "opacity-40 cursor-not-allowed pointer-events-none",
           className
         )}
       >
         <Trash2 className="h-4 w-4 text-destructive group-hover:text-destructive-foreground" />
-        {buttonText || label}
+        {displayedButtonText}
       </button>
 
       <PasswordConfirmModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onConfirm={handleDeleteConfirm}
-        title={`Delete ${label}`}
-        description={`Deleting this ${label.toLowerCase()} is permanent and cannot be undone. Please enter your account password to authorize this action.`}
-        confirmLabel={`Yes, Delete ${label}`}
+        title={modalTitle}
+        description={modalDesc}
+        confirmLabel={modalConfirmLabel}
         loading={isDeleting}
       />
     </>

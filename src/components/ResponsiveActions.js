@@ -15,6 +15,7 @@ export default function ResponsiveActions({
   printFilename,
   deleteId,
   deleteAction,
+  hardDeleteAction,
   deleteLabel = "Item",
   deleteRedirect,
   extraActions, // Node for custom buttons (e.g. RegenerateButton, StatusUpdateButtons)
@@ -103,6 +104,7 @@ export default function ResponsiveActions({
           <DeleteButton
             id={deleteId}
             deleteAction={deleteAction}
+            hardDeleteAction={hardDeleteAction}
             redirectPath={deleteRedirect}
             label={deleteLabel}
             buttonText="Delete"
@@ -179,6 +181,7 @@ export default function ResponsiveActions({
                     <DeleteButton
                       id={deleteId}
                       deleteAction={deleteAction}
+                      hardDeleteAction={hardDeleteAction}
                       redirectPath={deleteRedirect}
                       label={deleteLabel}
                       buttonText="Delete"

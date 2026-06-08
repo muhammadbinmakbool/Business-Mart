@@ -586,6 +586,69 @@ export class SaleService {
     return deleted;
   }
 
+  static async hardDeleteSale(id, deleteReason) {
+    const deleted = await prisma.$transaction(async (tx) => {
+      // 1. Get current sale with items
+      const sale = await tx.saleTransaction.findUnique({
+        where: { id: parseInt(id) },
+        include: { items: true }
+      });
+      if (!sale) throw new Error("Sale transaction not found");
+
+      // 2. Delegate to InventoryService (restores stock/adjusts inventory)
+      await InventoryService.handleSaleDeleted(sale.items, tx);
+
+      // 3. Reset isBilled and clear link on previous SalesTrack records for this sale
+      await tx.salesTrack.updateMany({
+        where: { saleTransactionId: parseInt(id) },
+        data: {
+          isBilled: false,
+          saleTransactionId: null,
+          saleItemId: null
+        }
+      });
+
+      // 4. Delete related adjustments
+      await tx.transactionAdjustment.deleteMany({
+        where: { saleId: parseInt(id) }
+      });
+
+      // 5. Delete sale items
+      await tx.saleItem.deleteMany({
+        where: { saleId: parseInt(id) }
+      });
+
+      // 6. Hard-delete the sale transaction itself via transaction client
+      const { assertDestructiveMode } = await import("@/lib/destructiveSession");
+      await assertDestructiveMode();
+      return tx.saleTransaction.delete({
+        where: { id: parseInt(id) }
+      });
+    });
+
+    // Fetch buyer details safely for logs
+    let partyName = "";
+    try {
+      const { PartyRepository } = await import("@/modules/parties/repositories/PartyRepository");
+      const party = await PartyRepository.getById(deleted.partyId);
+      if (party) partyName = party.name;
+    } catch (e) {}
+
+    await emitActivity({
+      entityType: "SALE",
+      entityId: deleted.id,
+      action: "HARD_DELETED",
+      description: `Sale ${deleted.saleNumber} (Buyer: ${partyName || `Party #${deleted.partyId}`}) PERMANENTLY deleted.${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
+      meta: {
+        buyerId: deleted.partyId,
+        finalAmount: Number(deleted.finalAmount),
+        deleteReason
+      }
+    });
+
+    return deleted;
+  }
+
   static async getSale(id) {
     const sale = await SaleRepository.getById(id);
     return JSON.parse(JSON.stringify(sale));

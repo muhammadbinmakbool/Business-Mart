@@ -145,21 +145,6 @@ export function Topbar() {
                   User Settings
                 </Link>
 
-                {/* Destructive Mode toggle — admins only */}
-                {isAdmin && (
-                  <>
-                    <div className="my-1 border-t" />
-                    <DestructiveModeToggle
-                      isDestructiveActive={isDestructiveActive}
-                      onEnterClick={() => {
-                        setIsOpen(false);
-                        setShowDestructiveModal(true);
-                      }}
-                      onExit={handleDestructiveModeExited}
-                    />
-                  </>
-                )}
-
                 <div className="my-1 border-t" />
                 <button
                   onClick={handleLogout}

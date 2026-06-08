@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Search, Edit2, Phone, MapPin, Eye, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DeleteButton from "@/components/DeleteButton";
-import { deletePartyAction } from "@/modules/parties/controllers/partyActions";
+import { deletePartyAction, hardDeletePartyAction } from "@/modules/parties/controllers/partyActions";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import DataTable from "@/components/ui/DataTable";
@@ -109,6 +109,7 @@ export default function PartyListClient({ parties = [] }) {
           <DeleteButton 
             id={party.id} 
             deleteAction={deletePartyAction} 
+            hardDeleteAction={hardDeletePartyAction}
             label="Party" 
             variant="icon" 
           />
