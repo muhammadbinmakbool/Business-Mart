@@ -175,16 +175,28 @@ export async function editSupplierInvoiceAction(formData) {
 
 import { assertDeletePermission } from "@/lib/authGuard";
 
-export async function deleteSupplierInvoiceAction(invoiceId, confirmPassword) {
+export async function deleteSupplierInvoiceAction(invoiceId, confirmPassword, deleteReason) {
   try {
     // Enforce unified record deletion permission and password confirmation check
     await assertDeletePermission(confirmPassword);
 
-    await SupplierInvoiceService.deleteInvoice(invoiceId);
+    await SupplierInvoiceService.deleteInvoice(invoiceId, deleteReason);
     safeRevalidatePath("/supplier-invoices");
     return { success: true };
   } catch (error) {
     console.error("Failed to delete supplier invoice:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function hardDeleteSupplierInvoiceAction(invoiceId, deleteReason) {
+  try {
+    // assertDestructiveMode is called inside SupplierInvoiceRepository.hardDelete
+    await SupplierInvoiceService.hardDeleteInvoice(invoiceId, deleteReason);
+    safeRevalidatePath("/supplier-invoices");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to permanently delete supplier invoice:", error);
     return { success: false, error: error.message };
   }
 }

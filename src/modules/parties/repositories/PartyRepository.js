@@ -1,14 +1,17 @@
 import { prisma } from "@/lib/prisma";
+import { assertDestructiveMode } from "@/lib/destructiveSession";
 
 export class PartyRepository {
   static async getAll() {
     return prisma.party.findMany({
+      where: { isDeleted: false },
       orderBy: { name: "asc" },
     });
   }
 
   static async getAllWithRelations() {
     return prisma.party.findMany({
+      where: { isDeleted: false },
       orderBy: { name: "asc" },
       include: {
         saleTransactions: {
@@ -16,7 +19,7 @@ export class PartyRepository {
           select: { finalAmount: true }
         },
         supplierInvoices: {
-          where: { status: { not: "SUPERSEDED" } },
+          where: { isDeleted: false, status: { not: "SUPERSEDED" } },
           select: { finalPayableAmount: true }
         },
         payments: {
@@ -38,7 +41,7 @@ export class PartyRepository {
 
   static async getById(id) {
     return prisma.party.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id), isDeleted: false },
     });
   }
 
@@ -62,11 +65,35 @@ export class PartyRepository {
     });
   }
   
-  static async delete(id) {
-    // Delete related transactional data for practical cleanup
+  /**
+   * Soft deletes a party by marking it as deleted.
+   * Does NOT cascade to children — they are excluded via isDeleted filters in queries.
+   * @param {number} id
+   * @param {{ deletedBy?: number, deleteReason?: string }} [opts]
+   */
+  static async softDelete(id, { deletedBy, deleteReason } = {}) {
+    return prisma.party.update({
+      where: { id: parseInt(id) },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: deletedBy || null,
+        deleteReason: deleteReason || null,
+      },
+    });
+  }
+
+  /**
+   * HARD DELETE — permanently removes the party and its related intake advances and transactions.
+   * Requires an active Destructive Mode session.
+   * @param {number} id
+   * @param {string} [deleteReason]
+   */
+  static async hardDelete(id, deleteReason) {
+    await assertDestructiveMode();
+    // Cascade-delete related transactional data (original preserved logic)
     await prisma.intakeAdvance.deleteMany({ where: { partyId: parseInt(id) } });
     await prisma.intakeTransaction.deleteMany({ where: { partyId: parseInt(id) } });
-    
     return prisma.party.delete({
       where: { id: parseInt(id) },
     });

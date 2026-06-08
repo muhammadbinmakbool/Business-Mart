@@ -97,15 +97,26 @@ export async function updateIntakeAction(id, formData) {
 
 import { assertDeletePermission } from "@/lib/authGuard";
 
-export async function deleteIntakeAction(id, confirmPassword) {
+export async function deleteIntakeAction(id, confirmPassword, deleteReason) {
   try {
     // Enforce unified record deletion permission and password confirmation check
     await assertDeletePermission(confirmPassword);
 
-    await IntakeService.deleteIntake(id);
+    await IntakeService.deleteIntake(id, deleteReason);
     revalidatePath("/intake");
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to delete intake transaction" };
+  }
+}
+
+export async function hardDeleteIntakeAction(id, deleteReason) {
+  try {
+    // assertDestructiveMode is called inside IntakeRepository.hardDelete
+    await IntakeService.hardDeleteIntake(id, deleteReason);
+    revalidatePath("/intake");
+    return { success: true };
+  } catch (error) {
+    return { error: error.message || "Failed to permanently delete intake transaction" };
   }
 }

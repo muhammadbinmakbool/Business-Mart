@@ -663,7 +663,63 @@ export class IntakeService {
   }
 
 
-  static async deleteIntake(id) {
+  static async deleteIntake(id, deleteReason) {
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const intake = await prisma.intakeTransaction.findUnique({
+      where: { id: parseInt(id) }
+    });
+    if (!intake) throw new Error("Intake transaction not found");
+
+    // Soft delete — preserve record in database
+    await IntakeRepository.softDelete(id, {
+      deletedBy: performedByUserId,
+      deleteReason
+    });
+
+    // Still trigger inventory recalculation so stock counts stay accurate
+    await InventoryService.handleIntakeDeleted(intake.productId);
+
+    const party = await PartyRepository.getById(intake.partyId);
+    const partyName = party ? party.name : "";
+
+    const description = `${performedByName} soft-deleted Intake ${intake.intakeNumber} (Supplier: ${partyName}).${deleteReason ? ` Reason: ${deleteReason}` : ""}`;
+
+    await logIntakeEvent({
+      intakeId: intake.id,
+      intakeNumber: intake.intakeNumber,
+      partyId: intake.partyId,
+      partyName,
+      action: "DELETED",
+      description,
+      weight: Number(intake.normalizedWeight),
+      bagCount: intake.bagCount,
+      rate: Number(intake.rate),
+      performedByUserId,
+      performedByName,
+      meta: {
+        productId: intake.productId,
+        deleteReason
+      }
+    });
+
+    return intake;
+  }
+
+  /**
+   * HARD DELETE — permanently removes the intake and its linked advances from the database.
+   * Requires an active Destructive Mode session.
+   */
+  static async hardDeleteIntake(id, deleteReason) {
     const deleted = await prisma.$transaction(async (tx) => {
       const intake = await tx.intakeTransaction.findUnique({
         where: { id: parseInt(id) }
@@ -672,16 +728,15 @@ export class IntakeService {
 
       const productId = intake.productId;
 
-      // Delete linked advances first
+      // Hard-delete linked advances first (original preserved logic)
       await tx.intakeAdvance.deleteMany({
         where: { intakeTransactionId: parseInt(id) }
       });
-      
+
       const record = await tx.intakeTransaction.delete({
         where: { id: parseInt(id) }
       });
 
-      // Delegate inventory recalculation after deleting the intake record
       await InventoryService.handleIntakeDeleted(productId, tx);
 
       return record;
@@ -701,14 +756,14 @@ export class IntakeService {
     const party = await PartyRepository.getById(deleted.partyId);
     const partyName = party ? party.name : "";
 
-    const description = `${performedByName} deleted Intake ${deleted.intakeNumber} (Supplier: ${partyName}).`;
+    const description = `${performedByName} PERMANENTLY deleted Intake ${deleted.intakeNumber} (Supplier: ${partyName}).${deleteReason ? ` Reason: ${deleteReason}` : ""}`;
 
     await logIntakeEvent({
       intakeId: deleted.id,
       intakeNumber: deleted.intakeNumber,
       partyId: deleted.partyId,
       partyName,
-      action: "DELETED",
+      action: "HARD_DELETED",
       description,
       weight: Number(deleted.normalizedWeight),
       bagCount: deleted.bagCount,
@@ -716,7 +771,8 @@ export class IntakeService {
       performedByUserId,
       performedByName,
       meta: {
-        productId: deleted.productId
+        productId: deleted.productId,
+        deleteReason
       }
     });
 

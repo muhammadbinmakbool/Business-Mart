@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { assertDestructiveMode } from "@/lib/destructiveSession";
 
 export class ProductRepository {
   static serializeProduct(p) {
@@ -12,6 +13,7 @@ export class ProductRepository {
 
   static async getAll() {
     const products = await prisma.product.findMany({
+      where: { isDeleted: false },
       orderBy: { name: "asc" },
     });
     return products.map(p => this.serializeProduct(p));
@@ -19,6 +21,7 @@ export class ProductRepository {
 
   static async getAllWithStock() {
     const products = await prisma.product.findMany({
+      where: { isDeleted: false },
       orderBy: { name: "asc" }
     });
 
@@ -33,7 +36,7 @@ export class ProductRepository {
 
   static async getById(id) {
     const product = await prisma.product.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id), isDeleted: false },
     });
     return this.serializeProduct(product);
   }
@@ -61,7 +64,33 @@ export class ProductRepository {
     return this.serializeProduct(p);
   }
 
-  static async delete(id) {
+  /**
+   * Soft deletes a product by marking it as deleted.
+   * @param {number} id
+   * @param {{ deletedBy?: number, deleteReason?: string }} [opts]
+   */
+  static async softDelete(id, { deletedBy, deleteReason } = {}) {
+    const p = await prisma.product.update({
+      where: { id: parseInt(id) },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: deletedBy || null,
+        deleteReason: deleteReason || null,
+      },
+    });
+    return this.serializeProduct(p);
+  }
+
+  /**
+   * HARD DELETE — permanently removes the product from the database.
+   * Requires an active Destructive Mode session.
+   * Preserves original constraint checks to prevent accidental deletion of linked products.
+   * @param {number} id
+   * @param {string} [deleteReason]
+   */
+  static async hardDelete(id, deleteReason) {
+    await assertDestructiveMode();
     const pId = parseInt(id);
 
     // 1. Check Intake transactions
@@ -69,7 +98,7 @@ export class ProductRepository {
       where: { productId: pId }
     });
     if (intakesCount > 0) {
-      throw new Error("Cannot delete product because it has associated intake transactions. Deactivate the product instead to prevent future selections.");
+      throw new Error("Cannot hard delete product because it has associated intake transactions. Use soft delete instead.");
     }
 
     // 2. Check Sale Items
@@ -77,7 +106,7 @@ export class ProductRepository {
       where: { productId: pId }
     });
     if (salesCount > 0) {
-      throw new Error("Cannot delete product because it has associated sales invoices. Deactivate the product instead to prevent future selections.");
+      throw new Error("Cannot hard delete product because it has associated sales invoices. Use soft delete instead.");
     }
 
     // 3. Check Sales Tracks
@@ -85,10 +114,10 @@ export class ProductRepository {
       where: { productId: pId }
     });
     if (tracksCount > 0) {
-      throw new Error("Cannot delete product because it has associated transaction tracks. Deactivate the product instead to prevent future selections.");
+      throw new Error("Cannot hard delete product because it has associated transaction tracks. Use soft delete instead.");
     }
 
-    // If completely unlinked, delete cleanly
+    // If completely unlinked, hard delete cleanly
     const p = await prisma.product.delete({
       where: { id: pId },
     });

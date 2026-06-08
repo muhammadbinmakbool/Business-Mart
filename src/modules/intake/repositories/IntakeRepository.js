@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/prisma";
+import { assertDestructiveMode } from "@/lib/destructiveSession";
 
 export class IntakeRepository {
   static async getAll() {
     return prisma.intakeTransaction.findMany({
+      where: { isDeleted: false },
       include: {
         party: true,
         product: true,
@@ -17,7 +19,7 @@ export class IntakeRepository {
 
   static async getById(id) {
     return prisma.intakeTransaction.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: parseInt(id), isDeleted: false },
       include: {
         party: true,
         product: true,
@@ -60,12 +62,36 @@ export class IntakeRepository {
     });
   }
 
-  static async delete(id) {
-    // Delete linked advances first
+  /**
+   * Soft deletes an intake transaction by marking it as deleted.
+   * Does NOT cascade to advances — they are excluded via query filters.
+   * @param {number} id
+   * @param {{ deletedBy?: number, deleteReason?: string }} [opts]
+   */
+  static async softDelete(id, { deletedBy, deleteReason } = {}) {
+    return prisma.intakeTransaction.update({
+      where: { id: parseInt(id) },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: deletedBy || null,
+        deleteReason: deleteReason || null,
+      },
+    });
+  }
+
+  /**
+   * HARD DELETE — permanently removes the intake and its linked advances.
+   * Requires an active Destructive Mode session.
+   * @param {number} id
+   * @param {string} [deleteReason]
+   */
+  static async hardDelete(id, deleteReason) {
+    await assertDestructiveMode();
+    // Delete linked advances first (original preserved logic)
     await prisma.intakeAdvance.deleteMany({
       where: { intakeTransactionId: parseInt(id) }
     });
-    
     return prisma.intakeTransaction.delete({
       where: { id: parseInt(id) }
     });

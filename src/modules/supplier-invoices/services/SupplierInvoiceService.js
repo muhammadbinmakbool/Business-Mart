@@ -584,14 +584,65 @@ export class SupplierInvoiceService {
   }
 
   /**
-   * Safely deletes an invoice if it is currently PENDING.
+   * Soft-deletes an invoice by marking it as deleted.
+   * Reverts related sales track settlements so intakes can be re-invoiced.
+   * Only PENDING invoices can be soft-deleted.
    */
-  static async deleteInvoice(invoiceId) {
+  static async deleteInvoice(invoiceId, deleteReason) {
     const invoice = await SupplierInvoiceRepository.getById(invoiceId);
     if (!invoice) throw new Error("Invoice not found");
 
     if (invoice.status !== "PENDING") {
       throw new Error("Only PENDING invoices can be deleted");
+    }
+
+    let deletedBy = null;
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) deletedBy = session.userId;
+    } catch (e) {}
+
+    // Revert sales track settlements so intakes can be re-invoiced
+    const oldIntakeIds = invoice.items.map(item => item.intakeTransactionId);
+    await prisma.salesTrack.updateMany({
+      where: {
+        intakeTransactionId: { in: oldIntakeIds },
+        isSettled: true
+      },
+      data: { isSettled: false }
+    });
+
+    // Disconnect advances from this invoice
+    await prisma.intakeAdvance.updateMany({
+      where: { supplierInvoiceId: parseInt(invoiceId) },
+      data: { supplierInvoiceId: null }
+    });
+
+    await SupplierInvoiceRepository.softDelete(invoiceId, { deletedBy, deleteReason });
+
+    await emitActivity({
+      entityType: "SETTLEMENT",
+      entityId: parseInt(invoiceId),
+      action: "DELETED",
+      description: `Supplier invoice ID ${invoiceId} (${invoice.invoiceNumber}) soft-deleted.${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
+      meta: { supplierId: invoice.partyId, invoiceNumber: invoice.invoiceNumber, deleteReason }
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * HARD DELETE — permanently removes an invoice from the database.
+   * Only PENDING invoices can be hard-deleted.
+   * Requires an active Destructive Mode session.
+   */
+  static async hardDeleteInvoice(invoiceId, deleteReason) {
+    const invoice = await SupplierInvoiceRepository.getById(invoiceId);
+    if (!invoice) throw new Error("Invoice not found");
+
+    if (invoice.status !== "PENDING") {
+      throw new Error("Only PENDING invoices can be permanently deleted");
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -601,24 +652,19 @@ export class SupplierInvoiceService {
         data: { supplierInvoiceId: null }
       });
 
-      // 2. Delete the supplier invoice adjustments (cascaded by DB)
-      // 3. Delete the supplier invoice items (cascaded by DB)
-      // 4. Delete the supplier invoice itself
-      // Reset old sales tracks to unsettled
+      // 2. Reset old sales tracks to unsettled
       const oldIntakeIds = invoice.items.map(item => item.intakeTransactionId);
       await tx.salesTrack.updateMany({
         where: {
           intakeTransactionId: { in: oldIntakeIds },
           isSettled: true
         },
-        data: {
-          isSettled: false
-        }
+        data: { isSettled: false }
       });
 
-      await tx.supplierInvoice.delete({
-        where: { id: parseInt(invoiceId) }
-      });
+      // 3. Hard delete (cascade handles items and adjustments via DB schema)
+      // assertDestructiveMode is called inside SupplierInvoiceRepository.hardDelete
+      await SupplierInvoiceRepository.hardDelete(invoiceId, deleteReason);
 
       return { success: true };
     });
@@ -626,9 +672,9 @@ export class SupplierInvoiceService {
     await emitActivity({
       entityType: "SETTLEMENT",
       entityId: parseInt(invoiceId),
-      action: "DELETED",
-      description: `Supplier invoice ID ${invoiceId} (${invoice.invoiceNumber}) deleted`,
-      meta: { supplierId: invoice.partyId, invoiceNumber: invoice.invoiceNumber }
+      action: "HARD_DELETED",
+      description: `Supplier invoice ID ${invoiceId} (${invoice.invoiceNumber}) PERMANENTLY deleted.${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
+      meta: { supplierId: invoice.partyId, invoiceNumber: invoice.invoiceNumber, deleteReason }
     });
 
     return result;

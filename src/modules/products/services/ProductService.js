@@ -122,15 +122,44 @@ export class ProductService {
     });
     return product;
   }
-  static async deleteProduct(id) {
-    const product = await ProductRepository.delete(id);
+  static async deleteProduct(id, deleteReason) {
+    let deletedBy = null;
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) deletedBy = session.userId;
+    } catch (e) {}
+
+    const existing = await ProductRepository.getById(id);
+    if (!existing) throw new Error("Product not found");
+
+    await ProductRepository.softDelete(id, { deletedBy, deleteReason });
     await emitActivity({
       entityType: "PRODUCT",
-      entityId: product.id,
+      entityId: existing.id,
       action: "DELETED",
-      description: `Product "${product.name}" deleted`,
-      meta: { name: product.name }
+      description: `Product "${existing.name}" soft-deleted.${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
+      meta: { name: existing.name, deleteReason }
     });
-    return product;
+    return existing;
+  }
+
+  /**
+   * HARD DELETE — permanently removes the product.
+   * Only callable when Destructive Mode is active.
+   */
+  static async hardDeleteProduct(id, deleteReason) {
+    const existing = await ProductRepository.getById(id);
+    if (!existing) throw new Error("Product not found");
+
+    await ProductRepository.hardDelete(id, deleteReason);
+    await emitActivity({
+      entityType: "PRODUCT",
+      entityId: existing.id,
+      action: "HARD_DELETED",
+      description: `Product "${existing.name}" PERMANENTLY deleted.${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
+      meta: { name: existing.name, deleteReason }
+    });
+    return existing;
   }
 }

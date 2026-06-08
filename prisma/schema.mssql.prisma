@@ -29,6 +29,10 @@ model Party {
   notes              String?
   partyType          String
   isActive           Boolean             @default(true)
+  isDeleted          Boolean             @default(false)
+  deletedAt          DateTime?
+  deletedBy          Int?
+  deleteReason       String?
   userId             Int                 @default(0)
   businessId         Int                 @default(0)
   createdAt          DateTime            @default(now())
@@ -52,6 +56,10 @@ model Product {
   unitConversion     Decimal?            @db.Decimal(18, 4) // e.g. 1 BAG = 100 KG
   quantity           Decimal             @default(0) @db.Decimal(18, 2)
   isActive           Boolean             @default(true)
+  isDeleted          Boolean             @default(false)
+  deletedAt          DateTime?
+  deletedBy          Int?
+  deleteReason       String?
   userId             Int                 @default(0)
   businessId         Int                 @default(0)
   createdAt          DateTime            @default(now())
@@ -64,12 +72,12 @@ model Product {
 
 
 model IntakeTransaction {
-  id           Int                   @id @default(autoincrement())
-  intakeNumber String                @unique
-  entryDate    DateTime              @default(now())
-  partyId      Int
-  productId    Int
-  bagCount     Int?
+  id               Int                   @id @default(autoincrement())
+  intakeNumber     String                @unique
+  entryDate        DateTime              @default(now())
+  partyId          Int
+  productId        Int
+  bagCount         Int?
   rate             Decimal?              @db.Decimal(18, 2)
   rateUnit         String                @default("KG") @db.NVarChar(50)
   grossWeight      Decimal               @db.Decimal(18, 2)
@@ -81,6 +89,10 @@ model IntakeTransaction {
   remainingWeight  Decimal?              @db.Decimal(18, 2)
   notes            String?
   status           String                @default("PENDING")
+  isDeleted        Boolean               @default(false)
+  deletedAt        DateTime?
+  deletedBy        Int?
+  deleteReason     String?
   userId           Int                   @default(0)
   businessId       Int                   @default(0)
   createdAt        DateTime              @default(now())
@@ -125,6 +137,9 @@ model SaleTransaction {
   paymentStatus    String                  @default("PENDING") // PENDING | PARTIAL | CLEARED
   notes            String?
   isDeleted        Boolean                 @default(false)
+  deletedAt        DateTime?
+  deletedBy        Int?
+  deleteReason     String?
   changeLog        String?                 @db.NVarChar(Max)
   previousState    String?                 @db.NVarChar(Max)
   userId           Int                     @default(0)
@@ -178,6 +193,10 @@ model SalesTrack {
 
   isBilled            Boolean   @default(false)
   isSettled           Boolean   @default(false)
+  isDeleted           Boolean   @default(false)
+  deletedAt           DateTime?
+  deletedBy           Int?
+  deleteReason        String?
 
   notes               String?
 
@@ -226,6 +245,10 @@ model SupplierInvoice {
   paidAmount         Decimal                     @default(0) @db.Decimal(18, 2)
   paymentStatus      String                      @default("PENDING") // PENDING | PARTIAL | CLEARED
   isOutdated         Boolean                     @default(false)
+  isDeleted          Boolean                     @default(false)
+  deletedAt          DateTime?
+  deletedBy          Int?
+  deleteReason       String?
   version            Int                         @default(1)
   lastCalculatedAt   DateTime                    @default(now())
   userId             Int                         @default(0)
@@ -277,6 +300,10 @@ model LedgerSession {
   buyerInvoiceCount    Int      @default(0)
   status               String   @default("OPEN") // OPEN | LOCKED
   notes                String?
+  isDeleted            Boolean  @default(false)
+  deletedAt            DateTime?
+  deletedBy            Int?
+  deleteReason         String?
   userId               Int      @default(0)
   businessId           Int      @default(0)
   createdAt            DateTime @default(now())

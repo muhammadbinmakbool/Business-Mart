@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { assertDestructiveMode } from "@/lib/destructiveSession";
 
 export class LedgerRepository {
   /**
@@ -6,6 +7,7 @@ export class LedgerRepository {
    */
   static async getAll() {
     return prisma.ledgerSession.findMany({
+      where: { isDeleted: false },
       orderBy: { createdAt: "desc" }
     });
   }
@@ -51,9 +53,30 @@ export class LedgerRepository {
   }
 
   /**
-   * Deletes a saved session.
+   * Soft deletes a ledger session by marking it as deleted.
+   * @param {number} id
+   * @param {{ deletedBy?: number, deleteReason?: string }} [opts]
    */
-  static async delete(id) {
+  static async softDelete(id, { deletedBy, deleteReason } = {}) {
+    return prisma.ledgerSession.update({
+      where: { id: parseInt(id) },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: deletedBy || null,
+        deleteReason: deleteReason || null,
+      }
+    });
+  }
+
+  /**
+   * HARD DELETE — permanently removes the ledger session from the database.
+   * Requires an active Destructive Mode session.
+   * @param {number} id
+   * @param {string} [deleteReason]
+   */
+  static async hardDelete(id, deleteReason) {
+    await assertDestructiveMode();
     return prisma.ledgerSession.delete({
       where: { id: parseInt(id) }
     });

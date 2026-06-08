@@ -211,17 +211,40 @@ export class LedgerService {
   }
 
   /**
-   * Deletes a session, respecting the soft lock rule.
+   * Soft-deletes a session, respecting the soft lock rule.
    */
-  static async deleteSession(id, force = false) {
+  static async deleteSession(id, deleteReason) {
+    const session = await LedgerRepository.getById(id);
+    if (!session) throw new Error("Session not found");
+
+    if (session.status === "LOCKED") {
+      throw new Error("Cannot delete a LOCKED session. Please unlock it first.");
+    }
+
+    let deletedBy = null;
+    try {
+      const { getSession: getAuthSession } = await import("@/lib/session");
+      const authSession = await getAuthSession();
+      if (authSession) deletedBy = authSession.userId;
+    } catch (e) {}
+
+    await LedgerRepository.softDelete(id, { deletedBy, deleteReason });
+    return { success: true };
+  }
+
+  /**
+   * HARD DELETE — permanently removes the session from the database.
+   * Requires an active Destructive Mode session.
+   */
+  static async hardDeleteSession(id, force = false, deleteReason) {
     const session = await LedgerRepository.getById(id);
     if (!session) throw new Error("Session not found");
 
     if (session.status === "LOCKED" && !force) {
-      throw new Error("Cannot delete a LOCKED session. Please unlock it first.");
+      throw new Error("Cannot hard delete a LOCKED session. Please unlock it first.");
     }
 
-    await LedgerRepository.delete(id);
+    await LedgerRepository.hardDelete(id, deleteReason);
     return { success: true };
   }
 }

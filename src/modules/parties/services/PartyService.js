@@ -102,16 +102,46 @@ export class PartyService {
 
     return party;
   }
-  static async deleteParty(id) {
-    const party = await PartyRepository.delete(id);
+  static async deleteParty(id, deleteReason) {
+    let deletedBy = null;
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) deletedBy = session.userId;
+    } catch (e) {}
+
+    // Fetch before soft-deleting so we have the name for the log
+    const existing = await PartyRepository.getById(id);
+    if (!existing) throw new Error("Party not found");
+
+    await PartyRepository.softDelete(id, { deletedBy, deleteReason });
     await emitActivity({
       entityType: "PARTY",
-      entityId: party.id,
+      entityId: existing.id,
       action: "DELETED",
-      description: `Party "${party.name}" deleted`,
-      meta: { name: party.name }
+      description: `Party "${existing.name}" soft-deleted.${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
+      meta: { name: existing.name, deleteReason }
     });
-    return party;
+    return existing;
+  }
+
+  /**
+   * HARD DELETE — permanently removes the party from the database.
+   * Only callable when Destructive Mode is active.
+   */
+  static async hardDeleteParty(id, deleteReason) {
+    const existing = await PartyRepository.getById(id);
+    if (!existing) throw new Error("Party not found");
+
+    await PartyRepository.hardDelete(id, deleteReason);
+    await emitActivity({
+      entityType: "PARTY",
+      entityId: existing.id,
+      action: "HARD_DELETED",
+      description: `Party "${existing.name}" PERMANENTLY deleted.${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
+      meta: { name: existing.name, deleteReason }
+    });
+    return existing;
   }
 
   static async checkDuplicate(name, phoneNumber, excludeId = null) {

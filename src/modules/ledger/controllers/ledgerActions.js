@@ -84,15 +84,29 @@ export async function toggleLockSessionAction(id) {
 }
 
 /**
- * Action to delete a session.
+ * Action to soft-delete a session.
  */
-export async function deleteLedgerSessionAction(id, force = false) {
+export async function deleteLedgerSessionAction(id, deleteReason) {
   try {
-    const result = await LedgerService.deleteSession(id, force);
+    const result = await LedgerService.deleteSession(id, deleteReason);
     revalidatePath("/ledger");
     return { success: true, data: result };
   } catch (error) {
     console.error(`Failed to delete session ${id}:`, error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Action to PERMANENTLY delete a session (requires Destructive Mode).
+ */
+export async function hardDeleteLedgerSessionAction(id, force = false, deleteReason) {
+  try {
+    const result = await LedgerService.hardDeleteSession(id, force, deleteReason);
+    revalidatePath("/ledger");
+    return { success: true, data: result };
+  } catch (error) {
+    console.error(`Failed to permanently delete session ${id}:`, error);
     return { success: false, error: error.message };
   }
 }

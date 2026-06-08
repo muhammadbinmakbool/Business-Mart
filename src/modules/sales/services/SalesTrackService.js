@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { withOwnership } from "@/lib/session";
+import { assertDestructiveMode } from "@/lib/destructiveSession";
 
 export class SalesTrackService {
   /**
@@ -8,6 +9,7 @@ export class SalesTrackService {
    */
   static async list() {
     const tracks = await prisma.salesTrack.findMany({
+      where: { isDeleted: false },
       include: {
         saleTransaction: true,
         intakeTransaction: true,
@@ -85,7 +87,29 @@ export class SalesTrackService {
     });
   }
 
-  static async delete(id) {
+  /**
+   * Soft deletes a source tracking entry.
+   * @param {number} id
+   * @param {{ deletedBy?: number, deleteReason?: string }} [opts]
+   */
+  static async delete(id, { deletedBy, deleteReason } = {}) {
+    return prisma.salesTrack.update({
+      where: { id: parseInt(id) },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: deletedBy || null,
+        deleteReason: deleteReason || null,
+      }
+    });
+  }
+
+  /**
+   * HARD DELETE — permanently removes the source tracking entry.
+   * Requires an active Destructive Mode session.
+   */
+  static async hardDelete(id, deleteReason) {
+    await assertDestructiveMode();
     return prisma.salesTrack.delete({
       where: { id: parseInt(id) }
     });

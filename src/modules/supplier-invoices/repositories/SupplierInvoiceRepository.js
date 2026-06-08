@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { assertDestructiveMode } from "@/lib/destructiveSession";
 
 export class SupplierInvoiceRepository {
   static async getNextInvoiceNumber() {
@@ -12,6 +13,7 @@ export class SupplierInvoiceRepository {
 
   static async getAll() {
     return prisma.supplierInvoice.findMany({
+      where: { isDeleted: false },
       include: { party: true },
       orderBy: { createdAt: "desc" }
     });
@@ -19,7 +21,7 @@ export class SupplierInvoiceRepository {
 
   static async getByPartyId(partyId) {
     return prisma.supplierInvoice.findMany({
-      where: { partyId: parseInt(partyId) },
+      where: { partyId: parseInt(partyId), isDeleted: false },
       orderBy: { createdAt: "desc" }
     });
   }
@@ -167,5 +169,35 @@ export class SupplierInvoiceRepository {
     }
 
     return stale;
+  }
+  /**
+   * Soft deletes a supplier invoice by marking it as deleted.
+   * @param {number} id
+   * @param {{ deletedBy?: number, deleteReason?: string }} [opts]
+   */
+  static async softDelete(id, { deletedBy, deleteReason } = {}) {
+    return prisma.supplierInvoice.update({
+      where: { id: parseInt(id) },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: deletedBy || null,
+        deleteReason: deleteReason || null,
+      }
+    });
+  }
+
+  /**
+   * HARD DELETE — permanently removes the invoice from the database.
+   * The cascade on SupplierInvoiceItem and SupplierInvoiceAdjustment is handled by the DB schema.
+   * Requires an active Destructive Mode session.
+   * @param {number} id
+   * @param {string} [deleteReason]
+   */
+  static async hardDelete(id, deleteReason) {
+    await assertDestructiveMode();
+    return prisma.supplierInvoice.delete({
+      where: { id: parseInt(id) }
+    });
   }
 }

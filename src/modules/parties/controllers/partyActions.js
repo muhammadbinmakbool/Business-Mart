@@ -65,16 +65,27 @@ export async function checkPartyDuplicateAction(name, phoneNumber, excludeId = n
 }
 import { assertDeletePermission } from "@/lib/authGuard";
 
-export async function deletePartyAction(id, confirmPassword) {
+export async function deletePartyAction(id, confirmPassword, deleteReason) {
   try {
     // Enforce unified record deletion permission and password confirmation check
     await assertDeletePermission(confirmPassword);
 
-    await PartyService.deleteParty(id);
+    await PartyService.deleteParty(id, deleteReason);
     revalidatePath("/parties");
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to delete party" };
+  }
+}
+
+export async function hardDeletePartyAction(id, deleteReason) {
+  try {
+    // assertDestructiveMode is called inside PartyRepository.hardDelete
+    await PartyService.hardDeleteParty(id, deleteReason);
+    revalidatePath("/parties");
+    return { success: true };
+  } catch (error) {
+    return { error: error.message || "Failed to permanently delete party" };
   }
 }
 

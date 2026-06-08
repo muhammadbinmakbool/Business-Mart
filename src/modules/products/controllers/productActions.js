@@ -51,16 +51,27 @@ export async function toggleProductStatusAction(id, isActive) {
     return { error: "Failed to toggle status" };
   }
 }
-export async function deleteProductAction(id, confirmPassword) {
+export async function deleteProductAction(id, confirmPassword, deleteReason) {
   try {
     // Enforce unified record deletion permission and password confirmation check
     await assertDeletePermission(confirmPassword);
 
-    await ProductService.deleteProduct(id);
+    await ProductService.deleteProduct(id, deleteReason);
     revalidatePath("/products");
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to delete product" };
+  }
+}
+
+export async function hardDeleteProductAction(id, deleteReason) {
+  try {
+    // assertDestructiveMode is called inside ProductRepository.hardDelete
+    await ProductService.hardDeleteProduct(id, deleteReason);
+    revalidatePath("/products");
+    return { success: true };
+  } catch (error) {
+    return { error: error.message || "Failed to permanently delete product" };
   }
 }
 
