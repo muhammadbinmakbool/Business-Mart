@@ -10,6 +10,7 @@ import { UnitService } from "@/modules/products/services/UnitService";
 import { useTableSorting } from "@/hooks/useTableSorting";
 import SortableHeader from "@/components/SortableHeader";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
+import DataTable from "@/components/ui/DataTable";
 
 export default function ProductListClient({ products = [] }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -55,127 +56,93 @@ export default function ProductListClient({ products = [] }) {
         />
       </div>
 
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="border-b bg-muted/50 text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                <SortableHeader
-                  field="name"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="px-6"
+      <DataTable
+        data={sortedProducts}
+        emptyMessage="No products found in catalog."
+        containerClassName="rounded-xl border bg-card shadow-sm overflow-hidden"
+        rowClassName={(row) => cn(!row.isActive && "opacity-50")}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onRequestSort={requestSort}
+        columns={[
+          {
+            key: "name",
+            label: "Product Name",
+            className: "px-6 py-4 font-bold text-base flex items-center gap-3",
+            render: (row, val) => (
+              <>
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <Package className="h-4 w-4 text-primary" />
+                </div>
+                {val}
+              </>
+            ),
+          },
+          {
+            key: "category",
+            label: "Category",
+            className: "px-6 py-4 text-center text-[10px] uppercase font-bold text-muted-foreground",
+          },
+          {
+            key: "availableStock",
+            label: "Available Quantity",
+            className: "px-6 py-4 text-right font-mono text-lg font-black text-primary",
+            render: (row, val) => {
+              const displayQty = UnitService.getDisplayQuantity(val, row.primaryUnit, row);
+              return (
+                <>
+                  {displayQty.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                  <span className="text-[10px] text-muted-foreground font-normal uppercase ml-1">
+                    {row.primaryUnit}
+                  </span>
+                </>
+              );
+            },
+          },
+          {
+            key: "isActive",
+            label: "Status",
+            className: "px-6 py-4 text-center",
+            render: (row, val) => (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
+                  val
+                    ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                    : "bg-rose-100 text-rose-700 border-rose-200"
+                )}
+              >
+                {val ? "Active" : "Disabled"}
+              </span>
+            ),
+          },
+          {
+            key: "actions",
+            label: "Actions",
+            className: "px-6 py-4 text-center",
+            sortable: false,
+            render: (row) => (
+              <div className="flex items-center justify-center gap-1">
+                <Link
+                  href={`/products/${row.id}/edit`}
+                  className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
                 >
-                  Product Name
-                </SortableHeader>
-                <SortableHeader
-                  field="category"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="text-center px-6"
-                >
-                  Category
-                </SortableHeader>
-                <SortableHeader
-                  field="availableStock"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="text-right px-6"
-                >
-                  Available Quantity
-                </SortableHeader>
-                <SortableHeader
-                  field="isActive"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="text-center px-6"
-                >
-                  Status
-                </SortableHeader>
-                <th className="px-6 py-3 font-semibold text-center select-none">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {sortedProducts.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground italic">
-                    No products found in catalog.
-                  </td>
-                </tr>
-              ) : (
-                sortedProducts.map((product) => {
-                  const displayQty = UnitService.getDisplayQuantity(
-                    product.availableStock,
-                    product.primaryUnit,
-                    product
-                  );
-
-                  return (
-                    <tr
-                      key={product.id}
-                      className={cn(
-                        "hover:bg-muted/30 transition-colors group",
-                        !product.isActive && "opacity-50"
-                      )}
-                    >
-                      <td className="px-6 py-4 font-bold text-base flex items-center gap-3">
-                        <div className="p-2 bg-primary/10 rounded-lg">
-                          <Package className="h-4 w-4 text-primary" />
-                        </div>
-                        {product.name}
-                      </td>
-                      <td className="px-6 py-4 text-center text-[10px] uppercase font-bold text-muted-foreground">
-                        {product.category}
-                      </td>
-                      <td className="px-6 py-4 text-right font-mono text-lg font-black text-primary">
-                        {displayQty.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                        <span className="text-[10px] text-muted-foreground font-normal uppercase ml-1">
-                          {product.primaryUnit}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <span
-                          className={cn(
-                            "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
-                            product.isActive
-                              ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                              : "bg-rose-100 text-rose-700 border-rose-200"
-                          )}
-                        >
-                          {product.isActive ? "Active" : "Disabled"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <Link
-                            href={`/products/${product.id}/edit`}
-                            className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Link>
-                          <DeleteButton
-                            id={product.id}
-                            deleteAction={deleteProductAction}
-                            label="Product"
-                            variant="icon"
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  <Edit2 className="h-4 w-4" />
+                </Link>
+                <DeleteButton
+                  id={row.id}
+                  deleteAction={deleteProductAction}
+                  label="Product"
+                  variant="icon"
+                />
+              </div>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

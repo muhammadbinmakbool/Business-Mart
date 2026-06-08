@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useTransition } from "react";
+import React, { useState, useEffect, useTransition, useMemo } from "react";
 import { 
   listUsersAction, 
   createUserAction, 
@@ -14,6 +14,7 @@ import { Plus, User, Shield, Check, X, Pencil, UserX, UserCheck, Loader2 } from 
 import Modal from "@/components/ui/Modal";
 import { USER_ROLES } from "@/lib/constants";
 import PasswordConfirmModal from "@/components/ui/PasswordConfirmModal";
+import DataTable from "@/components/ui/DataTable";
 import { 
   canManageUserRole, 
   canEditSelfRole, 
@@ -268,6 +269,109 @@ export default function UsersManagement() {
     );
   };
 
+  const columns = useMemo(() => [
+    {
+      key: "name",
+      label: "Operator",
+      render: (u) => (
+        <div className="flex items-center gap-3">
+          <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center text-foreground font-bold shrink-0 text-sm">
+            {u.name?.charAt(0).toUpperCase() || <User className="h-4 w-4" />}
+          </div>
+          <div className="font-semibold text-foreground">{u.name || "Unnamed"}</div>
+        </div>
+      )
+    },
+    {
+      key: "email",
+      label: "Email",
+      className: "text-muted-foreground"
+    },
+    {
+      key: "role",
+      label: "Role",
+      render: (u) => (
+        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+          u.role === "ADMIN" 
+            ? "bg-primary/10 text-primary border border-primary/20" 
+            : "bg-muted text-muted-foreground border"
+        }`}>
+          <Shield className="h-3.5 w-3.5" />
+          {u.role}
+        </span>
+      )
+    },
+    {
+      key: "isActive",
+      label: "Status",
+      render: (u) => u.isActive ? (
+        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+          <Check className="h-3.5 w-3.5" /> Active
+        </span>
+      ) : (
+        <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full">
+          <X className="h-3.5 w-3.5" /> Disabled
+        </span>
+      )
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      className: "text-right",
+      sortable: false,
+      render: (u) => {
+        const isSelf = currentUser && String(currentUser.userId) === String(u.id);
+        const isSuperAdmin = u.role === "SUPER_ADMIN";
+        const isTargetProtected = currentUser?.role === "ADMIN" && isSuperAdmin;
+
+        return (
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={() => handleOpenDetails(u)}
+              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-accent text-accent-foreground hover:bg-accent/80 transition-colors cursor-pointer mr-1"
+            >
+              View Details
+            </button>
+            <button
+              onClick={() => handleOpenEdit(u)}
+              disabled={isTargetProtected}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isTargetProtected 
+                  ? "opacity-35 cursor-not-allowed text-muted-foreground" 
+                  : "hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
+              }`}
+              title={isTargetProtected ? "Cannot edit SUPER_ADMIN accounts" : "Edit User"}
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => handleToggleStatus(u)}
+              disabled={isSelf || isTargetProtected || isPending}
+              className={`p-1.5 rounded-lg transition-colors ${
+                isSelf || isTargetProtected 
+                  ? "opacity-35 cursor-not-allowed text-muted-foreground" 
+                  : u.isActive 
+                    ? "text-rose-600 hover:text-rose-500 hover:bg-accent cursor-pointer" 
+                    : "text-emerald-600 hover:text-emerald-500 hover:bg-accent cursor-pointer"
+              }`}
+              title={
+                isSelf 
+                  ? "Cannot disable your own active account" 
+                  : isTargetProtected 
+                    ? "Cannot disable SUPER_ADMIN accounts" 
+                    : u.isActive 
+                      ? "Disable User" 
+                      : "Enable User"
+              }
+            >
+              {u.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
+            </button>
+          </div>
+        );
+      }
+    }
+  ], [currentUser, isPending]);
+
   return (
     <div className="space-y-6">
       {/* Tab Header Card */}
@@ -298,109 +402,12 @@ export default function UsersManagement() {
           No users registered. Add your first operator to get started.
         </div>
       ) : (
-        <div className="rounded-2xl border bg-card overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead>
-                <tr className="bg-muted/40 border-b">
-                  <th className="px-6 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Operator</th>
-                  <th className="px-6 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Email</th>
-                  <th className="px-6 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Role</th>
-                  <th className="px-6 py-3 font-semibold text-xs uppercase tracking-wider text-muted-foreground">Status</th>
-                  <th className="px-6 py-3 text-right font-semibold text-xs uppercase tracking-wider text-muted-foreground">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-muted/10 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-accent flex items-center justify-center text-foreground font-bold shrink-0 text-sm">
-                          {u.name?.charAt(0).toUpperCase() || <User className="h-4 w-4" />}
-                        </div>
-                        <div className="font-semibold text-foreground">{u.name || "Unnamed"}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">{u.email}</td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                        u.role === "ADMIN" 
-                          ? "bg-primary/10 text-primary border border-primary/20" 
-                          : "bg-muted text-muted-foreground border"
-                      }`}>
-                        <Shield className="h-3.5 w-3.5" />
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {u.isActive ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                          <Check className="h-3.5 w-3.5" /> Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full">
-                          <X className="h-3.5 w-3.5" /> Disabled
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {(() => {
-                        const isSelf = currentUser && String(currentUser.userId) === String(u.id);
-                        const isSuperAdmin = u.role === "SUPER_ADMIN";
-                        const isTargetProtected = currentUser?.role === "ADMIN" && isSuperAdmin;
-
-                        return (
-                          <div className="flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleOpenDetails(u)}
-                              className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-accent text-accent-foreground hover:bg-accent/80 transition-colors cursor-pointer mr-1"
-                            >
-                              View Details
-                            </button>
-                            <button
-                              onClick={() => handleOpenEdit(u)}
-                              disabled={isTargetProtected}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                isTargetProtected 
-                                  ? "opacity-35 cursor-not-allowed text-muted-foreground" 
-                                  : "hover:bg-accent text-muted-foreground hover:text-foreground cursor-pointer"
-                              }`}
-                              title={isTargetProtected ? "Cannot edit SUPER_ADMIN accounts" : "Edit User"}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleToggleStatus(u)}
-                              disabled={isSelf || isTargetProtected || isPending}
-                              className={`p-1.5 rounded-lg transition-colors ${
-                                isSelf || isTargetProtected 
-                                  ? "opacity-35 cursor-not-allowed text-muted-foreground" 
-                                  : u.isActive 
-                                    ? "text-rose-600 hover:text-rose-500 hover:bg-accent cursor-pointer" 
-                                    : "text-emerald-600 hover:text-emerald-500 hover:bg-accent cursor-pointer"
-                              }`}
-                              title={
-                                isSelf 
-                                  ? "Cannot disable your own active account" 
-                                  : isTargetProtected 
-                                    ? "Cannot disable SUPER_ADMIN accounts" 
-                                    : u.isActive 
-                                      ? "Disable User" 
-                                      : "Enable User"
-                              }
-                            >
-                              {u.isActive ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
-                            </button>
-                          </div>
-                        );
-                      })()}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <DataTable
+          data={users}
+          columns={columns}
+          emptyMessage="No users registered. Add your first operator to get started."
+          className="rounded-2xl shadow-sm border bg-card"
+        />
       )}
 
       {/* Add User Modal */}

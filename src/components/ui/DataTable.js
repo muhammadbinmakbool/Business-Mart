@@ -5,6 +5,19 @@ import SortableHeader from "@/components/SortableHeader";
 import { getNestedValue } from "@/hooks/useTableSorting";
 import { cn } from "@/lib/utils";
 
+function getHeaderClassName(className) {
+  if (!className) return "";
+  return className
+    .split(/\s+/)
+    .filter((cls) => {
+      if (cls === "text-right" || cls === "text-center" || cls === "text-left") return true;
+      if (cls.startsWith("px-")) return true;
+      if (cls.startsWith("w-") || cls.startsWith("min-w-") || cls.startsWith("max-w-")) return true;
+      return false;
+    })
+    .join(" ");
+}
+
 /**
  * A highly reusable, display-only table component.
  * Adheres strictly to container styling standards and integrates with existing SortableHeader logic.
@@ -37,6 +50,9 @@ export default function DataTable({
             <tr className="border-b bg-muted/50 text-[10px] uppercase font-bold text-muted-foreground tracking-widest transition-colors">
               {columns.map((col) => {
                 const isSortable = col.sortable !== false && onRequestSort && col.key;
+                const headerClass = col.headerClassName !== undefined 
+                  ? col.headerClassName 
+                  : getHeaderClassName(col.className);
 
                 if (isSortable) {
                   return (
@@ -46,7 +62,7 @@ export default function DataTable({
                       currentSortField={sortField}
                       currentSortDirection={sortDirection}
                       onRequestSort={onRequestSort}
-                      className={col.className}
+                      className={headerClass}
                     >
                       {col.label}
                     </SortableHeader>
@@ -58,7 +74,7 @@ export default function DataTable({
                     key={col.key || col.label}
                     className={cn(
                       "px-4 py-3 font-semibold select-none text-muted-foreground",
-                      col.className
+                      headerClass
                     )}
                   >
                     {col.label}

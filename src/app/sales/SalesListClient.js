@@ -11,6 +11,7 @@ import StatusFilterTabs from "@/components/StatusFilterTabs";
 import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import { getUnitLabel } from "@/lib/units";
+import DataTable from "@/components/ui/DataTable";
 
 export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -125,157 +126,123 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
         />
       </div>
 
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="border-b bg-muted/50 transition-colors text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                <SortableHeader
-                  field="saleNumber"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                >
-                  Sale #
-                </SortableHeader>
-                <SortableHeader
-                  field="entryDate"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                >
-                  Date
-                </SortableHeader>
-                <SortableHeader
-                  field="buyerName"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                >
-                  Buyer
-                </SortableHeader>
-                <SortableHeader
-                  field="totalWeight"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="text-right"
-                >
-                  Net Weight
-                </SortableHeader>
-                <SortableHeader
-                  field="displayRate"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="text-right"
-                >
-                  Rate (Rs.)
-                </SortableHeader>
-                 <SortableHeader
-                  field="finalAmount"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="text-right"
-                >
-                  Final Amount
-                </SortableHeader>
-                {activeTab === "PARTIAL" && (
-                  <SortableHeader
-                    field="remaining"
-                    currentSortField={sortField}
-                    currentSortDirection={sortDirection}
-                    onRequestSort={requestSort}
-                    className="text-right"
-                  >
-                    Remaining
-                  </SortableHeader>
-                )}
-                <SortableHeader
-                  field="status"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="text-center"
-                >
-                  Status
-                </SortableHeader>
-                <th className="px-4 py-3 font-semibold text-center select-none">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {sortedSales.length === 0 ? (
-                <tr>
-                  <td colSpan={activeTab === "PARTIAL" ? 9 : 8} className="px-4 py-12 text-center text-muted-foreground italic">
-                    No sale transactions found.
-                  </td>
-                </tr>
+      <DataTable
+        data={sortedSales}
+        emptyMessage="No sale transactions found."
+        containerClassName="rounded-xl border bg-card shadow-sm overflow-hidden"
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onRequestSort={requestSort}
+        columns={[
+          {
+            key: "saleNumber",
+            label: "Sale #",
+            className: "px-4 py-3.5 font-mono font-medium text-primary flex items-center gap-2",
+            render: (row, val) => (
+              <>
+                <ReceiptText className="h-3.5 w-3.5 opacity-40" />
+                {val}
+              </>
+            ),
+          },
+          {
+            key: "entryDate",
+            label: "Date",
+            className: "px-4 py-3.5 whitespace-nowrap opacity-80",
+            render: (row, val) => format(new Date(val), "dd MMM yyyy"),
+          },
+          {
+            key: "buyerName",
+            label: "Buyer",
+            className: "px-4 py-3.5 font-semibold text-foreground",
+          },
+          {
+            key: "totalWeight",
+            label: "Net Weight",
+            className: "px-4 py-3.5 text-right font-mono text-xs",
+            render: (row, val) => (
+              <>
+                {val.toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">KG</span>
+              </>
+            ),
+          },
+          {
+            key: "displayRate",
+            label: "Rate (Rs.)",
+            className: "px-4 py-3.5 text-right font-mono text-xs text-muted-foreground",
+            sortable: false,
+            render: (row) =>
+              row.items.length > 1 ? (
+                <span className="italic">Multiple</span>
               ) : (
-                sortedSales.map((sale) => (
-                  <tr key={sale.id} className="hover:bg-muted/30 transition-colors group">
-                    <td className="px-4 py-3.5 font-mono font-medium text-primary flex items-center gap-2">
-                      <ReceiptText className="h-3.5 w-3.5 opacity-40" />
-                      {sale.saleNumber}
-                    </td>
-                    <td className="px-4 py-3.5 whitespace-nowrap opacity-80">
-                      {format(new Date(sale.entryDate), "dd MMM yyyy")}
-                    </td>
-                    <td className="px-4 py-3.5 font-semibold text-foreground">{sale.buyerName}</td>
-                    <td className="px-4 py-3.5 text-right font-mono text-xs">
-                      {sale.totalWeight.toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">KG</span>
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-mono text-xs text-muted-foreground">
-                      {sale.items.length > 1 ? (
-                        <span className="italic">Multiple</span>
-                      ) : (
-                        <>
-                          Rs. {Number(sale.items[0]?.rate || 0).toLocaleString()}
-                          <span className="text-[9px] opacity-60 ml-1 uppercase">
-                            / {getUnitLabel((sale.items[0]?.unit === "BAG" || sale.items[0]?.product?.category === "BAG" || sale.items[0]?.product?.primaryUnit === "BAG") ? "BAG" : (sale.items[0]?.rateUnit || "KG"))}
-                          </span>
-                        </>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-bold text-base">
-                      Rs. {sale.finalAmount.toLocaleString()}
-                    </td>
-                    {activeTab === "PARTIAL" && (
-                      <td className="px-4 py-3.5 text-right font-semibold text-rose-600 font-mono text-xs">
-                        Rs. {Number(sale.remaining).toLocaleString()}
-                      </td>
+                <>
+                  Rs. {Number(row.items[0]?.rate || 0).toLocaleString()}
+                  <span className="text-[9px] opacity-60 ml-1 uppercase">
+                    /{" "}
+                    {getUnitLabel(
+                      row.items[0]?.unit === "BAG" ||
+                        row.items[0]?.product?.category === "BAG" ||
+                        row.items[0]?.product?.primaryUnit === "BAG"
+                        ? "BAG"
+                        : row.items[0]?.rateUnit || "KG"
                     )}
-                    <td className="px-4 py-3.5 text-center">
-                      <span
-                        className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
-                          sale.status === "PENDING"
-                            ? "bg-amber-100 text-amber-700 border-amber-200"
-                            : sale.status === "PARTIAL"
-                            ? "bg-blue-100 text-blue-700 border-blue-200"
-                            : sale.status === "CLEARED"
-                            ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                            : "bg-rose-100 text-rose-700 border-rose-200"
-                        )}
-                      >
-                        {sale.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-center">
-                      <Link
-                        href={`/sales/${sale.id}`}
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-primary/10 hover:text-primary transition-all shadow-sm"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  </span>
+                </>
+              ),
+          },
+          {
+            key: "finalAmount",
+            label: "Final Amount",
+            className: "px-4 py-3.5 text-right font-bold text-base",
+            render: (row, val) => `Rs. ${val.toLocaleString()}`,
+          },
+          ...(activeTab === "PARTIAL"
+            ? [
+                {
+                  key: "remaining",
+                  label: "Remaining",
+                  className: "px-4 py-3.5 text-right font-semibold text-rose-600 font-mono text-xs",
+                  render: (row, val) => `Rs. ${Number(val).toLocaleString()}`,
+                },
+              ]
+            : []),
+          {
+            key: "status",
+            label: "Status",
+            className: "px-4 py-3.5 text-center",
+            render: (row, val) => (
+              <span
+                className={cn(
+                  "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
+                  val === "PENDING"
+                    ? "bg-amber-100 text-amber-700 border-amber-200"
+                    : val === "PARTIAL"
+                    ? "bg-blue-100 text-blue-700 border-blue-200"
+                    : val === "CLEARED"
+                    ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                    : "bg-rose-100 text-rose-700 border-rose-200"
+                )}
+              >
+                {val}
+              </span>
+            ),
+          },
+          {
+            key: "actions",
+            label: "Actions",
+            className: "px-4 py-3.5 text-center",
+            sortable: false,
+            render: (row) => (
+              <Link
+                href={`/sales/${row.id}`}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-primary/10 hover:text-primary transition-all shadow-sm"
+              >
+                <Eye className="h-4 w-4" />
+              </Link>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

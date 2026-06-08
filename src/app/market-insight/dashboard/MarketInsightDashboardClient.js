@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import { createRateAction, archiveRateAction } from "@/modules/market-insight/controllers/marketInsightActions";
 import { UNIT_IDS } from "@/lib/units";
+import DataTable from "@/components/ui/DataTable";
 
 export default function MarketInsightDashboardClient({
   products,
@@ -205,6 +206,76 @@ export default function MarketInsightDashboardClient({
       );
     });
   }, [activeRates, archivedRates, allRates, currentAuditFilter, searchQuery]);
+
+  const columns = useMemo(() => [
+    {
+      key: "product.name",
+      label: "Product",
+      className: "font-bold text-slate-800 dark:text-slate-200",
+      render: (item) => item.product?.name || `Product ${item.productId}`
+    },
+    {
+      key: "date",
+      label: "Date",
+      className: "font-mono text-slate-650 dark:text-slate-400",
+      render: (item) => new Date(item.date).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric"
+      })
+    },
+    {
+      key: "rate",
+      label: "Rate (Rs.)",
+      className: "font-bold text-emerald-600 dark:text-emerald-400 font-mono",
+      render: (item) => `Rs. ${item.rate}`
+    },
+    {
+      key: "unit",
+      label: "Unit",
+      className: "text-slate-650 dark:text-slate-400 font-medium"
+    },
+    {
+      key: "source",
+      label: "Source",
+      render: (item) => (
+        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
+          {item.source || "MANUAL"}
+        </span>
+      )
+    },
+    {
+      key: "createdBy",
+      label: "Operator",
+      className: "font-mono text-slate-650 dark:text-slate-400",
+      render: (item) => item.createdBy || "System"
+    },
+    {
+      key: "notes",
+      label: "Notes",
+      className: "max-w-[180px] truncate text-slate-650 dark:text-slate-400",
+      render: (item) => item.notes || "—"
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      className: "text-right",
+      sortable: false,
+      render: (item) => item.isDeleted ? (
+        <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-600 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/40 px-2.5 py-0.5 rounded-full">
+          Archived
+        </span>
+      ) : (
+        <button
+          onClick={() => handleArchive(item.id)}
+          className="text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 p-1.5 rounded transition-all inline-flex items-center gap-1 font-bold text-[11px]"
+        >
+          <Archive className="h-3.5 w-3.5" />
+          Archive
+        </button>
+      )
+    }
+  ], []);
 
   return (
     <div className="space-y-6 pb-12">
@@ -545,82 +616,12 @@ export default function MarketInsightDashboardClient({
             </div>
           </div>
 
-          {/* Actual Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[10px]">
-                  <th className="py-3 px-4">Product</th>
-                  <th className="py-3 px-4">Date</th>
-                  <th className="py-3 px-4">Rate (Rs.)</th>
-                  <th className="py-3 px-4">Unit</th>
-                  <th className="py-3 px-4">Source</th>
-                  <th className="py-3 px-4">Operator</th>
-                  <th className="py-3 px-4">Notes</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
-                {displayedRatesList.length > 0 ? (
-                  displayedRatesList.map((item) => (
-                    <tr 
-                      key={item.id} 
-                      className={`hover:bg-slate-50 dark:hover:bg-slate-800/20 transition-colors ${
-                        item.isDeleted ? "opacity-60 text-slate-500 bg-slate-50 dark:bg-slate-950/20" : ""
-                      }`}
-                    >
-                      <td className="py-3 px-4 font-bold text-slate-800 dark:text-slate-200">
-                        {item.product?.name || `Product ${item.productId}`}
-                      </td>
-                      <td className="py-3 px-4 font-mono text-slate-650 dark:text-slate-400">
-                        {new Date(item.date).toLocaleDateString(undefined, {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric"
-                        })}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                        Rs. {item.rate}
-                      </td>
-                      <td className="py-3 px-4 text-slate-650 dark:text-slate-400 font-medium">{item.unit}</td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400">
-                          {item.source || "MANUAL"}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-slate-650 dark:text-slate-400">
-                        {item.createdBy || "System"}
-                      </td>
-                      <td className="py-3 px-4 max-w-[180px] truncate text-slate-650 dark:text-slate-400" title={item.notes}>
-                        {item.notes || "—"}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        {item.isDeleted ? (
-                          <span className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-600 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800/40 px-2.5 py-0.5 rounded-full">
-                            Archived
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => handleArchive(item.id)}
-                            className="text-rose-500 hover:text-rose-400 hover:bg-rose-500/10 p-1.5 rounded transition-all inline-flex items-center gap-1 font-bold text-[11px]"
-                          >
-                            <Archive className="h-3.5 w-3.5" />
-                            Archive
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="8" className="py-8 text-center text-slate-500 font-medium">
-                      No rates records found matching your filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            data={displayedRatesList}
+            columns={columns}
+            rowClassName={(item) => item.isDeleted ? "opacity-60 text-slate-500 bg-slate-50 dark:bg-slate-950/20" : ""}
+            emptyMessage="No rates records found matching your filters."
+          />
         </div>
       )}
 

@@ -9,6 +9,7 @@ import SortableHeader from "@/components/SortableHeader";
 import { convertRate, getUnitLabel } from "@/lib/units";
 import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
+import DataTable from "@/components/ui/DataTable";
 
 export default function SourceTrackingListClient({ tracks = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,193 +69,163 @@ export default function SourceTrackingListClient({ tracks = [], defaultPreset = 
         <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
       </div>
 
-      <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm border-collapse">
-            <thead>
-              <tr className="border-b bg-muted/50 transition-colors text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
-                <SortableHeader
-                  field="createdAt"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                >
-                  Date
-                </SortableHeader>
-                <SortableHeader
-                  field="productName"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                >
-                  Product
-                </SortableHeader>
-                <SortableHeader
-                  field="supplierName"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                >
-                  Supplier
-                </SortableHeader>
-                <SortableHeader
-                  field="buyerName"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                >
-                  Buyer
-                </SortableHeader>
-                <SortableHeader
-                  field="sellingRate"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="text-right"
-                >
-                  Rate (Sale)
-                </SortableHeader>
-                <SortableHeader
-                  field="netWeight"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="text-right"
-                >
-                  Net Weight
-                </SortableHeader>
-                <SortableHeader
-                  field="baseAmount"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                  className="text-right"
-                >
-                  Base Amount
-                </SortableHeader>
-                <SortableHeader
-                  field="refNumber"
-                  currentSortField={sortField}
-                  currentSortDirection={sortDirection}
-                  onRequestSort={requestSort}
-                >
-                  Ref #
-                </SortableHeader>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {sortedTracks.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center text-muted-foreground italic">
-                    Mapping register is empty.
-                  </td>
-                </tr>
+      <DataTable
+        data={sortedTracks}
+        emptyMessage="Mapping register is empty."
+        containerClassName="rounded-xl border bg-card shadow-sm overflow-hidden"
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onRequestSort={requestSort}
+        columns={[
+          {
+            key: "createdAt",
+            label: "Date",
+            className: "px-4 py-3.5 whitespace-nowrap opacity-80 text-xs",
+            render: (row, val) => format(new Date(val), "dd MMM yyyy"),
+          },
+          {
+            key: "productName",
+            label: "Product",
+            className: "px-4 py-3.5 font-medium",
+            render: (row, val) => val || <span className="text-muted-foreground italic">N/A</span>,
+          },
+          {
+            key: "supplierName",
+            label: "Supplier",
+            className: "px-4 py-3.5 font-semibold",
+            render: (row, val) =>
+              val || (
+                <span className="text-muted-foreground italic text-[10px] font-normal">
+                  No Supplier
+                </span>
+              ),
+          },
+          {
+            key: "buyerName",
+            label: "Buyer",
+            className: "px-4 py-3.5 font-semibold",
+            render: (row, val) =>
+              val || (
+                <span className="text-muted-foreground italic text-[10px] font-normal">
+                  No Buyer
+                </span>
+              ),
+          },
+          {
+            key: "sellingRate",
+            label: "Rate (Sale)",
+            className: "px-4 py-3.5 text-right font-mono text-[10px] whitespace-nowrap",
+            render: (row) => {
+              let targetUnit = row.rateUnit || row.intakeTransaction?.rateUnit || "KG";
+              if (
+                row.product?.category === "BAG" ||
+                row.product?.primaryUnit === "BAG" ||
+                row.intakeTransaction?.unit === "BAG"
+              ) {
+                targetUnit = "BAG";
+              }
+              const displayUnitLabel = getUnitLabel(targetUnit);
+              const displayBuyingRate = row.buyingRate ? Number(row.buyingRate) : null;
+              const displaySellingRate = row.sellingRate ? Number(row.sellingRate) : null;
+              return (
+                <>
+                  <div className="text-rose-600/70">
+                    B:{" "}
+                    {displayBuyingRate !== null
+                      ? `Rs. ${Number(displayBuyingRate).toLocaleString()} /${displayUnitLabel}`
+                      : "-"}
+                  </div>
+                  <div className="text-emerald-600/70">
+                    S:{" "}
+                    {displaySellingRate !== null
+                      ? `Rs. ${Number(displaySellingRate).toLocaleString()} /${displayUnitLabel}`
+                      : "-"}
+                  </div>
+                </>
+              );
+            },
+          },
+          {
+            key: "netWeight",
+            label: "Net Weight",
+            className: "px-4 py-3.5 text-right font-mono text-xs",
+            render: (row, val) =>
+              val !== null && val !== undefined ? (
+                <>
+                  {(() => {
+                    let displayWeight = Number(val);
+                    let displayUnit = row.intakeTransaction?.unit || "KG";
+                    if (displayUnit === "BAG") {
+                      const gross = Number(row.intakeTransaction?.grossWeight) || 0;
+                      const norm = Number(row.intakeTransaction?.normalizedWeight) || 0;
+                      const factor =
+                        gross > 0
+                          ? norm / gross
+                          : row.product?.unitConversion
+                          ? Number(row.product.unitConversion)
+                          : 1;
+                      displayWeight = displayWeight * factor;
+                      displayUnit = "KG";
+                    }
+                    return (
+                      <>
+                        {displayWeight.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{" "}
+                        <span className="text-[10px] opacity-40 uppercase">
+                          {getUnitLabel(displayUnit)}
+                        </span>
+                      </>
+                    );
+                  })()}
+                </>
               ) : (
-                sortedTracks.map((track) => (
-                  <tr key={track.id} className="hover:bg-muted/30 transition-colors group">
-                    <td className="px-4 py-3.5 whitespace-nowrap opacity-80 text-xs">
-                      {format(new Date(track.createdAt), "dd MMM yyyy")}
-                    </td>
-                    <td className="px-4 py-3.5 font-medium">
-                      {track.productName || <span className="text-muted-foreground italic">N/A</span>}
-                    </td>
-                    <td className="px-4 py-3.5 font-semibold">
-                      {track.supplierName || (
-                        <span className="text-muted-foreground italic text-[10px] font-normal">
-                          No Supplier
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 font-semibold">
-                      {track.buyerName || (
-                        <span className="text-muted-foreground italic text-[10px] font-normal">
-                          No Buyer
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-mono text-[10px] whitespace-nowrap">
-                      {(() => {
-                        let targetUnit = track.rateUnit || track.intakeTransaction?.rateUnit || "KG";
-                        if (track.product?.category === "BAG" || track.product?.primaryUnit === "BAG" || track.intakeTransaction?.unit === "BAG") {
-                          targetUnit = "BAG";
-                        }
-                        const displayUnitLabel = getUnitLabel(targetUnit);
-                        const displayBuyingRate = track.buyingRate ? Number(track.buyingRate) : null;
-                        const displaySellingRate = track.sellingRate ? Number(track.sellingRate) : null;
-                        return (
-                          <>
-                            <div className="text-rose-600/70">
-                              B: {displayBuyingRate !== null ? `Rs. ${Number(displayBuyingRate).toLocaleString()} /${displayUnitLabel}` : "-"}
-                            </div>
-                            <div className="text-emerald-600/70">
-                              S: {displaySellingRate !== null ? `Rs. ${Number(displaySellingRate).toLocaleString()} /${displayUnitLabel}` : "-"}
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-mono text-xs">
-                      {track.netWeight !== null && track.netWeight !== undefined ? (
-                        <>
-                          {(() => {
-                            let displayWeight = Number(track.netWeight);
-                            let displayUnit = track.intakeTransaction?.unit || "KG";
-                            if (displayUnit === "BAG") {
-                              const gross = Number(track.intakeTransaction?.grossWeight) || 0;
-                              const norm = Number(track.intakeTransaction?.normalizedWeight) || 0;
-                              const factor = gross > 0 ? (norm / gross) : (track.product?.unitConversion ? Number(track.product.unitConversion) : 1);
-                              displayWeight = displayWeight * factor;
-                              displayUnit = "KG";
-                            }
-                            return (
-                              <>
-                                {displayWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-                                <span className="text-[10px] opacity-40 uppercase">
-                                  {getUnitLabel(displayUnit)}
-                                </span>
-                              </>
-                            );
-                          })()}
-                        </>
-                      ) : (
-                        <span className="text-muted-foreground opacity-50">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-right font-semibold text-amber-700 font-mono text-xs whitespace-nowrap">
-                      {track.baseAmount !== null && track.baseAmount !== undefined ? (
-                        <>Rs. {Number(track.baseAmount).toLocaleString()}</>
-                      ) : (
-                        <span className="text-muted-foreground opacity-50">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3.5 text-[10px] font-medium space-y-1">
-                      {track.saleTransaction && (
-                        <Link 
-                          href={`/sales/${track.saleTransaction.id}?backUrl=/source-tracking`}
-                          className="text-primary hover:underline flex items-center gap-1 w-fit"
-                        >
-                          <ReceiptText className="h-3 w-3" /> {track.saleTransaction.saleNumber}
-                        </Link>
-                      )}
-                      {track.intakeTransaction && (
-                        <Link 
-                          href={`/intake/${track.intakeTransaction.id}?backUrl=/source-tracking`}
-                          className="text-emerald-600 hover:underline flex items-center gap-1 w-fit"
-                        >
-                          <MapPin className="h-3 w-3" /> {track.intakeTransaction.intakeNumber}
-                        </Link>
-                      )}
-                      {!track.saleTransaction && !track.intakeTransaction && (
-                        <span className="text-muted-foreground italic">No Reference</span>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                <span className="text-muted-foreground opacity-50">-</span>
+              ),
+          },
+          {
+            key: "baseAmount",
+            label: "Base Amount",
+            className:
+              "px-4 py-3.5 text-right font-semibold text-amber-700 font-mono text-xs whitespace-nowrap",
+            render: (row, val) =>
+              val !== null && val !== undefined ? (
+                <>Rs. {Number(val).toLocaleString()}</>
+              ) : (
+                <span className="text-muted-foreground opacity-50">-</span>
+              ),
+          },
+          {
+            key: "refNumber",
+            label: "Ref #",
+            className: "px-4 py-3.5 text-[10px] font-medium space-y-1",
+            render: (row) => (
+              <>
+                {row.saleTransaction && (
+                  <Link
+                    href={`/sales/${row.saleTransaction.id}?backUrl=/source-tracking`}
+                    className="text-primary hover:underline flex items-center gap-1 w-fit"
+                  >
+                    <ReceiptText className="h-3 w-3" /> {row.saleTransaction.saleNumber}
+                  </Link>
+                )}
+                {row.intakeTransaction && (
+                  <Link
+                    href={`/intake/${row.intakeTransaction.id}?backUrl=/source-tracking`}
+                    className="text-emerald-600 hover:underline flex items-center gap-1 w-fit"
+                  >
+                    <MapPin className="h-3 w-3" /> {row.intakeTransaction.intakeNumber}
+                  </Link>
+                )}
+                {!row.saleTransaction && !row.intakeTransaction && (
+                  <span className="text-muted-foreground italic">No Reference</span>
+                )}
+              </>
+            ),
+          },
+        ]}
+      />
     </div>
   );
 }

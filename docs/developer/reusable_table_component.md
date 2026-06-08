@@ -96,3 +96,26 @@ export default function MyList({ items }) {
   );
 }
 ```
+
+---
+
+## Registry List Pages Migration Guidelines
+
+The primary registry lists in the ERP have been fully migrated to use `<DataTable />`:
+- **Sales List** (`SalesListClient`)
+- **Supplier Invoices List** (`SupplierInvoiceListClient`)
+- **Goods Intake List** (`IntakeListClient`)
+- **Products Catalog List** (`ProductListClient`)
+- **Source Tracking Mapping Register** (`SourceTrackingListClient`)
+
+### Guidelines for Future Registry Views
+
+When creating or modifying list/registry views:
+1. **Always Use `<DataTable />`**: Never write raw `<table>` or manual loop-based row implementations.
+2. **Tab Filtering & Column States**:
+   - If columns must change dynamically based on active filter tabs (e.g. `IntakeListClient` showing extra columns for `SOLD`/`CLEARED` tabs), define the column array conditionally inside the component body.
+3. **Dynamic Row Highlighting**:
+   - Use `rowClassName` to control visual traits based on status/state (e.g. faded opacity for disabled products or superseded invoices). Do not style rows manually in custom render callbacks.
+4. **Interactive Action Columns**:
+   - Keep actions clean and decoupled. Pass a custom `render` callback that maps row details to action components or navigation links.
+
