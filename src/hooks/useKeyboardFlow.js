@@ -35,7 +35,7 @@ import { KeyboardFlowManager } from "@/lib/keyboardFlowManager";
  * @param {Function} [options.onCancel]
  * @returns {{ registerField: (name: string) => (el: HTMLElement|null) => void }}
  */
-export function useKeyboardFlow({ fields, onSubmit, onCancel }) {
+export function useKeyboardFlow({ fields, onSubmit, onCancel, enableSmartDefaults = false }) {
   // Stable ref to the manager instance — survives re-renders.
   const managerRef = useRef(null);
 
@@ -121,5 +121,5 @@ export function useKeyboardFlow({ fields, onSubmit, onCancel }) {
     [fields]
   );
 
-  return { registerField };
+  return { registerField, enableSmartDefaults };
 }

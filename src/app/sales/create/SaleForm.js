@@ -16,6 +16,7 @@ import Modal from "@/components/ui/Modal";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
+import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 
 export default function SaleForm({ buyers, products, initialData = null, settings = null }) {
   const router = useRouter();
@@ -24,6 +25,46 @@ export default function SaleForm({ buyers, products, initialData = null, setting
   const [saveAndNew, setSaveAndNew] = useState(false);
   const saveAndNewRef = useRef(false);
   saveAndNewRef.current = saveAndNew;
+
+  const [suggestedBuyerId, setSuggestedBuyerId] = useState("");
+  const [suggestedProductId, setSuggestedProductId] = useState("");
+  const [suggestedRateVal, setSuggestedRateVal] = useState("");
+  const [suggestedUnitVal, setSuggestedUnitVal] = useState("");
+
+  useEffect(() => {
+    setSuggestedBuyerId(fastEntryMemoryStore.getLastValue("lastBuyer", "sales"));
+    setSuggestedProductId(fastEntryMemoryStore.getLastValue("lastProduct", "sales"));
+    setSuggestedRateVal(fastEntryMemoryStore.getLastValue("lastRate", "sales"));
+    setSuggestedUnitVal(fastEntryMemoryStore.getLastValue("lastUnit", "sales"));
+  }, []);
+
+  const applyBuyerSuggestion = () => {
+    if (!partyId && suggestedBuyerId) {
+      setPartyId(suggestedBuyerId);
+      setIsNewBuyer(suggestedBuyerId === "new");
+      setSuggestedBuyerId("");
+    }
+  };
+
+  const applyItemProductSuggestion = (index, prodId) => {
+    if (index >= 0 && index < items.length && !items[index].productId) {
+      updateItem(index, "productId", prodId);
+    }
+  };
+
+  const applyItemRateSuggestion = (index, rateVal) => {
+    if (index >= 0 && index < items.length && !items[index].rate) {
+      updateItem(index, "rate", rateVal);
+    }
+  };
+
+  const applyItemUnitSuggestion = (index, unitVal) => {
+    if (index >= 0 && index < items.length && !items[index].unit) {
+      updateItem(index, "unit", unitVal);
+    }
+  };
+
+  const suggestedBuyer = buyers.find(b => b.id.toString() === suggestedBuyerId);
   
   // Form State
   const [partyId, setPartyId] = useState(initialData?.partyId?.toString() || "");
@@ -84,6 +125,7 @@ export default function SaleForm({ buyers, products, initialData = null, setting
   const { registerField } = useKeyboardFlow({
     fields: saleFields,
     onSubmit: handleKeyboardSubmit,
+    enableSmartDefaults: true,
   });
 
   // Multi-line entry: when Enter on last item's rate, add new row
@@ -376,12 +418,28 @@ export default function SaleForm({ buyers, products, initialData = null, setting
       } else {
         showToast.success(initialData ? "Invoice updated successfully" : "Sale invoice created successfully");
         
+        // Save to memory store on successful save
+        if (!initialData) {
+          if (partyId) fastEntryMemoryStore.setLastValue("lastBuyer", partyId, "sales");
+          if (items.length > 0) {
+            const lastItem = items[items.length - 1];
+            if (lastItem.productId) fastEntryMemoryStore.setLastValue("lastProduct", lastItem.productId, "sales");
+            if (lastItem.rate) fastEntryMemoryStore.setLastValue("lastRate", lastItem.rate, "sales");
+            if (lastItem.unit) fastEntryMemoryStore.setLastValue("lastUnit", lastItem.unit, "sales");
+          }
+        }
+        
         if (e.nativeEvent.submitter?.name === "saveAndAnother" && !initialData) {
           // Save & New: keep partyId, clear items/adjustments/notes
           setItems([{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]);
           setAdjustments([]);
           setNotes("");
           showToast.info("Form reset for next entry");
+          // Refresh memory suggestions
+          setSuggestedBuyerId(fastEntryMemoryStore.getLastValue("lastBuyer", "sales"));
+          setSuggestedProductId(fastEntryMemoryStore.getLastValue("lastProduct", "sales"));
+          setSuggestedRateVal(fastEntryMemoryStore.getLastValue("lastRate", "sales"));
+          setSuggestedUnitVal(fastEntryMemoryStore.getLastValue("lastUnit", "sales"));
           // Focus first item's product if keeping party, otherwise party select
           requestAnimationFrame(() => {
             if (partyId && partyId !== "new") {
@@ -448,6 +506,15 @@ export default function SaleForm({ buyers, products, initialData = null, setting
               </option>
             ))}
           </select>
+          {suggestedBuyer && !partyId && (
+            <button
+              type="button"
+              onClick={applyBuyerSuggestion}
+              className="text-xs text-primary/80 hover:text-primary underline mt-1 block text-left"
+            >
+              Suggested: {suggestedBuyer.name} (Click to apply)
+            </button>
+          )}
         </div>
 
         {/* Conditional New Buyer Fields */}
@@ -631,6 +698,23 @@ export default function SaleForm({ buyers, products, initialData = null, setting
                           </option>
                         ))}
                       </select>
+                      {(() => {
+                        const prevItem = index > 0 ? items[index - 1] : null;
+                        const targetProdId = prevItem?.productId || suggestedProductId;
+                        const suggestedProd = products.find(p => p.id.toString() === targetProdId?.toString());
+                        if (suggestedProd && !item.productId) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => applyItemProductSuggestion(index, targetProdId)}
+                              className="text-[10px] text-primary/80 hover:text-primary underline mt-0.5 block text-left px-2 font-semibold"
+                            >
+                              Suggested: {suggestedProd.name} (Click to apply)
+                            </button>
+                          );
+                        }
+                        return null;
+                      })()}
                       {item.intakeNumber && (
                         <div className="text-[10px] text-primary font-bold px-2 mt-1 flex items-center gap-1">
                           <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
@@ -662,6 +746,22 @@ export default function SaleForm({ buyers, products, initialData = null, setting
                           ))}
                         </select>
                       </div>
+                      {(() => {
+                        const prevItem = index > 0 ? items[index - 1] : null;
+                        const targetUnit = prevItem?.unit || suggestedUnitVal;
+                        if (targetUnit && !item.unit) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => applyItemUnitSuggestion(index, targetUnit)}
+                              className="text-[10px] text-primary/80 hover:text-primary underline mt-0.5 block text-left px-2 font-semibold"
+                            >
+                              Suggested Unit: {targetUnit}
+                            </button>
+                          );
+                        }
+                        return null;
+                      })()}
                     </td>
                     <td className="px-2 py-2">
                       <div className="flex items-center gap-1">
@@ -688,6 +788,22 @@ export default function SaleForm({ buyers, products, initialData = null, setting
                           ))}
                         </select>
                       </div>
+                      {(() => {
+                        const prevItem = index > 0 ? items[index - 1] : null;
+                        const targetRate = prevItem?.rate || suggestedRateVal;
+                        if (targetRate && !item.rate) {
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => applyItemRateSuggestion(index, targetRate)}
+                              className="text-[10px] text-primary/80 hover:text-primary underline mt-0.5 block text-left px-2 font-semibold"
+                            >
+                              Suggested Rate: {targetRate}
+                            </button>
+                          );
+                        }
+                        return null;
+                      })()}
                     </td>
                     <td className="px-4 py-2 text-right font-bold tabular-nums">
                       {(() => {
