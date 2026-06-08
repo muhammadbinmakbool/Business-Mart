@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Trash2, Loader2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
-import PasswordConfirmModal from "@/components/ui/PasswordConfirmModal";
-import { getActiveSessionAction, checkReauthStatusAction } from "@/modules/auth/controllers/userActions";
+import Modal from "@/components/ui/Modal";
+import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
 
 export default function DeleteButton({ 
   id, 
@@ -54,14 +54,14 @@ export default function DeleteButton({
     return null; 
   }
 
-  async function handleDeleteConfirm(confirmPassword) {
+  async function handleDeleteConfirm() {
     setIsDeleting(true);
     try {
       let result;
       if (isDestructiveActive && hardDeleteAction) {
         result = await hardDeleteAction(id, "UI requested permanent delete");
       } else {
-        result = await deleteAction(id, confirmPassword, "UI requested delete");
+        result = await deleteAction(id, "", "UI requested delete");
       }
 
       if (result?.error) {
@@ -89,20 +89,12 @@ export default function DeleteButton({
     }
   }
 
-  async function handleTriggerClick(e) {
+  function handleTriggerClick(e) {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
     }
-    
-    // Check if 5-minute re-auth window is valid (skip for hard delete since session counts as auth)
-    const isReauthCached = await checkReauthStatusAction();
-    if (isReauthCached && !isDestructiveActive) {
-      // Direct deletion with no password prompt needed!
-      await handleDeleteConfirm("");
-    } else {
-      setIsModalOpen(true);
-    }
+    setIsModalOpen(true);
   }
 
   const modalTitle = isDestructiveActive && hardDeleteAction 
@@ -110,8 +102,8 @@ export default function DeleteButton({
     : `Delete ${label}`;
 
   const modalDesc = isDestructiveActive && hardDeleteAction
-    ? `Permanently deleting this ${label.toLowerCase()} will purge it from the database forever. This action is audited and CANNOT be undone. Please enter your account password to authorize.`
-    : `Deleting this ${label.toLowerCase()} will soft-delete it and hide it from normal views. Please enter your account password to authorize this action.`;
+    ? `Permanently deleting this ${label.toLowerCase()} will purge it from the database forever. This action is audited and CANNOT be undone.`
+    : `Deleting this ${label.toLowerCase()} will soft-delete it and hide it from normal views. You can restore it later if needed.`;
 
   const modalConfirmLabel = isDestructiveActive && hardDeleteAction
     ? "Yes, Permanently Delete"
@@ -135,7 +127,7 @@ export default function DeleteButton({
           <Trash2 className="h-4 w-4" />
         </button>
 
-        <PasswordConfirmModal
+        <Modal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onConfirm={handleDeleteConfirm}
@@ -143,6 +135,7 @@ export default function DeleteButton({
           description={modalDesc}
           confirmLabel={modalConfirmLabel}
           loading={isDeleting}
+          type="danger"
         />
       </>
     );
@@ -163,7 +156,7 @@ export default function DeleteButton({
         {displayedButtonText}
       </button>
 
-      <PasswordConfirmModal
+      <Modal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onConfirm={handleDeleteConfirm}
@@ -171,6 +164,7 @@ export default function DeleteButton({
         description={modalDesc}
         confirmLabel={modalConfirmLabel}
         loading={isDeleting}
+        type="danger"
       />
     </>
   );

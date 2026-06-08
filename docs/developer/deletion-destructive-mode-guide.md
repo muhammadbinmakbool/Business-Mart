@@ -8,21 +8,22 @@ This guide describes the unified two-tier deletion mechanism (Soft Delete & Hard
 
 The system enforces a **two-tier deletion strategy**:
 1. **Soft Delete (Default)**: Set `isDeleted = true` along with timestamps and reason. Records remain in the database but are hidden from normal query operations using `{ isDeleted: false }` filters.
-2. **Hard Delete (Destructive Mode)**: Physical deletion of the record from the database. Guarded by password authentication and a 10-minute active session token.
+2. **Hard Delete (Destructive Mode)**: Physical deletion of the record from the database. Guarded by an active session token created via the settings panel.
 
 ---
 
 ## 2. User Interface Rules
 
-### Always-Visible Delete Actions
+### Always-Visible Delete Actions & Passwordless Warnings
 - Delete actions (buttons/icons) **must always be visible** to authorized roles (`ADMIN` or `SUPER_ADMIN`) across all registries, lists, and detail views.
 - **Do not gate visibility** of delete controls using general settings or active/inactive session states.
+- Password authentication is **completely removed** from individual delete action triggers to streamline operations. Instead, a simple confirmation modal with a descriptive warning is shown.
 - The button behavior, label, and confirmatory steps switch dynamically based on the Destructive Mode session status:
 
 | Destructive Mode Status | UI Trigger Label | Action Invoked | Confirmation Prompt |
 | :--- | :--- | :--- | :--- |
-| **Inactive** (Default) | `Delete` | `deleteXAction` | Standard soft-delete password modal |
-| **Active** (Destructive) | `Permanently Delete` | `hardDeleteXAction` | Destructive database purge warning + password modal |
+| **Inactive** (Default) | `Delete` | `deleteXAction` | Warning modal: 'Yes, Delete' and 'Cancel' |
+| **Active** (Destructive) | `Permanently Delete` | `hardDeleteXAction` | Permanent DB purge warning modal: 'Yes, Permanently Delete' and 'Cancel' |
 
 ---
 
@@ -45,7 +46,7 @@ The system enforces a **two-tier deletion strategy**:
 ## 4. Codebase Reference
 
 ### Core Components
-- `src/components/DeleteButton.js`: Handles dynamic rendering, labeling, and conditional execution of soft vs. hard deletes.
+- `src/components/DeleteButton.js`: Handles dynamic rendering, labeling, and conditional execution of soft vs. hard deletes with standard warning modals.
 - `src/components/layout/Topbar.js`: Renders the active banner and avatar highlighting.
 - `src/app/settings/ActivityAuditSettingsCard.js`: Binds the settings switch directly to the active session.
 

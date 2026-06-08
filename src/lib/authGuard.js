@@ -42,24 +42,20 @@ export async function assertSensitiveAction({
 }
 
 /**
- * Asserts that the currently logged-in user possesses record deletion permissions
- * and has verified their identity via password confirmation.
- * @param {string} confirmPassword - Plain-text password for confirmation
+ * Asserts that the currently logged-in user possesses record deletion permissions.
  * @returns {Promise<Object>} The authenticated user's session data
  */
-export async function assertDeletePermission(confirmPassword) {
-  // Enforce administrative destructive deletion settings check
-  const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
-  const settings = await getActivityAuditSettings();
-  if (!settings.allowDestructiveDelete) {
-    throw new Error("Destructive record deletion is currently disabled in system settings.");
+export async function assertDeletePermission() {
+  const session = await getSession();
+  if (!session) {
+    throw new Error("Unauthorized: Active session required to delete record.");
   }
 
-  return assertSensitiveAction({
-    actionName: "Delete Record",
-    confirmPassword,
-    roleCheck: canDeleteRecord
-  });
+  if (canDeleteRecord && !canDeleteRecord(session.role)) {
+    throw new Error("Forbidden: You do not have permission to delete this record.");
+  }
+
+  return session;
 }
 
 /**
