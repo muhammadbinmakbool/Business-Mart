@@ -107,15 +107,21 @@ The primary registry lists in the ERP have been fully migrated to use `<DataTabl
 - **Goods Intake List** (`IntakeListClient`)
 - **Products Catalog List** (`ProductListClient`)
 - **Source Tracking Mapping Register** (`SourceTrackingListClient`)
+- **System Operators (Users) Registry** (`UsersManagement`)
+- **Market Rate Audit Log** (`MarketInsightDashboardClient`)
+- **Parties Registry** (`PartyListClient`)
 
 ### Guidelines for Future Registry Views
 
 When creating or modifying list/registry views:
-1. **Always Use `<DataTable />`**: Never write raw `<table>` or manual loop-based row implementations.
+1. **Always Use `<DataTable />`**: Never write raw `<table>`, manual card grid loops for standard list views, or custom row layouts.
 2. **Tab Filtering & Column States**:
    - If columns must change dynamically based on active filter tabs (e.g. `IntakeListClient` showing extra columns for `SOLD`/`CLEARED` tabs), define the column array conditionally inside the component body.
-3. **Dynamic Row Highlighting**:
-   - Use `rowClassName` to control visual traits based on status/state (e.g. faded opacity for disabled products or superseded invoices). Do not style rows manually in custom render callbacks.
+3. **Dynamic Row Highlighting & Inactive States**:
+   - Use `rowClassName` to control visual traits based on status/state (e.g. faded opacity `opacity-50` for inactive parties or disabled products). Do not style rows manually in custom render callbacks.
 4. **Interactive Action Columns**:
    - Keep actions clean and decoupled. Pass a custom `render` callback that maps row details to action components or navigation links.
-
+5. **Row Click & Event Propagation Control**:
+   - When using the `onRowClick` prop to enable row-level navigation, always ensure that click handlers on individual interactive elements within columns (e.g., links, buttons, or dialog controls) call `e.stopPropagation()` to prevent triggering the parent row click callback.
+6. **Tooltips for Truncated Text**:
+   - For columns containing text that might be truncated (e.g., Address, Description, Notes), wrap the content in a span or div with a `title` attribute populated with the full text value to display native tooltips on hover.
