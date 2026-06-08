@@ -287,11 +287,12 @@ export default function ActivityAuditSettingsCard() {
         </div>
       </form>
 
-      <DestructiveModeModal
-        isOpen={showDestructiveModal}
-        onClose={() => setShowDestructiveModal(false)}
-        onSuccess={handleDestructiveModeSuccess}
-      />
+      {showDestructiveModal && (
+        <DestructiveModeModal
+          onClose={() => setShowDestructiveModal(false)}
+          onSuccess={handleDestructiveModeSuccess}
+        />
+      )}
     </div>
   );
 }
