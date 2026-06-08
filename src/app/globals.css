@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:is(.dark, .dark *));
+
+
 @theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -71,6 +74,12 @@
 }
 
 @layer base {
+  html {
+    scrollbar-gutter: stable;
+  }
+  main {
+    scrollbar-gutter: stable;
+  }
   * {
     @apply border-border;
   }

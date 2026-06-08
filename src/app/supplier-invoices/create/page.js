@@ -1,12 +1,53 @@
 import React from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { PartyService } from "@/modules/parties/services/PartyService";
+import { prisma } from "@/lib/prisma";
 import InvoiceGenerator from "./InvoiceGenerator";
 
+export const dynamic = "force-dynamic";
+
 export default async function CreateSupplierInvoicePage() {
-  const parties = await PartyService.listParties();
-  const suppliers = parties.filter(p => p.isActive && (p.partyType === "SUPPLIER" || p.partyType === "BOTH"));
+  // Query active suppliers (SUPPLIER or BOTH) with uninvoiced intakes whose status is SOLD
+  const suppliers = await prisma.party.findMany({
+    where: {
+      isActive: true,
+      OR: [
+        { partyType: "SUPPLIER" },
+        { partyType: "BOTH" }
+      ],
+      intakeTransactions: {
+        some: {
+          status: { in: ["SOLD", "PARTIAL"] },
+          OR: [
+            {
+              invoiceItems: {
+                none: {
+                  invoice: {
+                    status: {
+                      not: "SUPERSEDED"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              salesTracks: {
+                some: {
+                  isSettled: false
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    orderBy: { name: "asc" }
+  });
+
+  const settingsRecord = await prisma.systemSetting.findUnique({
+    where: { key: "adjustment_visibility" }
+  });
+  const settings = settingsRecord ? JSON.parse(settingsRecord.value) : { adjustmentVisibility: {} };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -23,7 +64,7 @@ export default async function CreateSupplierInvoicePage() {
         </div>
       </div>
 
-      <InvoiceGenerator suppliers={suppliers} />
+      <InvoiceGenerator suppliers={JSON.parse(JSON.stringify(suppliers))} settings={settings} />
     </div>
   );
 }

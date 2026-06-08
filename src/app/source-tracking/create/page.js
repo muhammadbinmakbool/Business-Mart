@@ -7,18 +7,23 @@ import { SaleService } from "@/modules/sales/services/SaleService";
 import { IntakeService } from "@/modules/intake/services/IntakeService";
 import { PartyService } from "@/modules/parties/services/PartyService";
 import { ProductService } from "@/modules/products/services/ProductService";
+import { SalesTrackService } from "@/modules/sales/services/SalesTrackService";
 import MappingForm from "../MappingForm";
 
 export default async function CreateMappingPage() {
-  const [sales, intakes, parties, products] = await Promise.all([
+  const [sales, intakes, parties, products, tracks] = await Promise.all([
     SaleService.listSales(),
     IntakeService.listIntakes(),
     PartyService.listParties(),
-    ProductService.listProducts()
+    ProductService.listProducts(),
+    SalesTrackService.list()
   ]);
 
+  const mappedIntakeIds = new Set(tracks.map(t => t.intakeTransactionId).filter(Boolean));
+  const unmappedIntakes = intakes.filter(i => !mappedIntakeIds.has(i.id));
+
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <Link 
           href="/source-tracking" 
@@ -35,7 +40,7 @@ export default async function CreateMappingPage() {
       <div className="bg-card border rounded-2xl p-8 shadow-sm">
         <MappingForm 
           sales={sales} 
-          intakes={intakes} 
+          intakes={unmappedIntakes} 
           parties={parties} 
           products={products} 
         />

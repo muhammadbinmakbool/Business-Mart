@@ -22,19 +22,27 @@ async function main() {
   ];
 
   const products = [
-    { name: "Basmati Rice", unitType: "BAG" },
-    { name: "Wheat (Gandum)", unitType: "MAUND" },
-    { name: "Sugar", unitType: "KG" },
-    { name: "Cooking Oil", unitType: "PIECE" },
-    { name: "Corn (Makkai)", unitType: "MAUND" },
-    { name: "Fertilizer Urea", unitType: "BAG" },
-    { name: "Cotton Seeds", unitType: "KG" },
-    { name: "Red Chili", unitType: "KG" },
-    { name: "Salt", unitType: "KG" },
-    { name: "Daal Chana", unitType: "KG" }
+    { name: "Basmati Rice", category: "WEIGHT", primaryUnit: "KG", unitConversion: 50 },
+    { name: "Wheat (Gandum)", category: "WEIGHT", primaryUnit: "KG", unitConversion: 40 },
+    { name: "Sugar", category: "WEIGHT", primaryUnit: "KG", unitConversion: 50 },
+    { name: "Cooking Oil", category: "QUANTITY", primaryUnit: "PIECE" },
+    { name: "Corn (Makkai)", category: "WEIGHT", primaryUnit: "KG", unitConversion: 40 },
+    { name: "Fertilizer Urea", category: "WEIGHT", primaryUnit: "KG", unitConversion: 50 },
+    { name: "Cotton Seeds", category: "WEIGHT", primaryUnit: "KG", unitConversion: 40 },
+    { name: "Red Chili", category: "WEIGHT", primaryUnit: "KG" },
+    { name: "Salt", category: "WEIGHT", primaryUnit: "KG" },
+    { name: "Daal Chana", category: "WEIGHT", primaryUnit: "KG" }
   ];
 
   console.log("Cleaning existing data...");
+  await prisma.salesTrack.deleteMany({});
+  await prisma.supplierInvoiceItem.deleteMany({});
+  await prisma.intakeAdvance.deleteMany({});
+  await prisma.supplierInvoice.deleteMany({});
+  await prisma.intakeTransaction.deleteMany({});
+  await prisma.saleItem.deleteMany({});
+  await prisma.transactionAdjustment.deleteMany({});
+  await prisma.saleTransaction.deleteMany({});
   await prisma.party.deleteMany({});
   await prisma.product.deleteMany({});
 

@@ -1,17 +1,36 @@
 {
   "name": "business-mart",
-  "version": "0.1.0",
+  "version": "0.1.7",
   "private": true,
+  "main": "electron/main.prod.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "electron": "electron electron/main.js",
+    "dev:desktop": "concurrently -k -n \"next,electron\" -c \"cyan,magenta\" \"npm run dev\" \"wait-on http://localhost:3000 && npm run electron\"",
+    "build:next": "next build",
+    "postbuild:next": "node scripts/copy-standalone-assets.js",
+    "electron:build": "npm run build:next && npm run postbuild:next && npx prisma generate && electron-builder",
+    "prepare:mssql": "node scripts/prepare-build.js mssql",
+    "prepare:sqlite": "node scripts/prepare-build.js sqlite",
+    "dev:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/env-run.js DB_PROVIDER=mssql \"next dev\"",
+    "dev:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite DATABASE_URL=file:./prisma/business_mart.db \"npx prisma db push --skip-generate && node prisma/seed.js && next dev\"",
+    "build:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/env-run.js DB_PROVIDER=mssql \"next build\"",
+    "build:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite DATABASE_URL=file:./prisma/business_mart.db \"next build\"",
+    "electron:build:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/env-run.js DB_PROVIDER=mssql \"next build && node scripts/copy-standalone-assets.js && electron-builder\"",
+    "electron:build:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite DATABASE_URL=file:./prisma/business_mart.db \"next build && node scripts/copy-standalone-assets.js && electron-builder\"",
+    "studio:mssql": "npm run prepare:mssql && node scripts/env-run.js DB_PROVIDER=mssql \"npx prisma studio\"",
+    "studio:sqlite": "npm run prepare:sqlite && node scripts/env-run.js DB_PROVIDER=sqlite DATABASE_URL=file:./prisma/business_mart.db \"npx prisma studio\""
   },
   "dependencies": {
     "@prisma/client": "^6.4.1",
+    "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "html2pdf.js": "^0.14.0",
+    "jose": "^6.2.3",
     "lucide-react": "^1.14.0",
     "next": "16.2.6",
     "prisma": "^6.4.1",
@@ -23,8 +42,14 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/node": "25.9.1",
+    "@types/react": "19.2.15",
+    "concurrently": "^9.2.1",
+    "electron": "^41.7.1",
+    "electron-builder": "^26.8.1",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4",
+    "wait-on": "^9.0.10"
   }
 }

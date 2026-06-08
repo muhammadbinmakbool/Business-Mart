@@ -3,7 +3,10 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { PartyService } from "@/modules/parties/services/PartyService";
 import { ProductService } from "@/modules/products/services/ProductService";
+import { prisma } from "@/lib/prisma";
 import IntakeForm from "./IntakeForm";
+
+export const dynamic = "force-dynamic";
 
 export default async function CreateIntakePage() {
   const [suppliers, products] = await Promise.all([
@@ -14,6 +17,11 @@ export default async function CreateIntakePage() {
   // Filter for parties that can be suppliers
   const activeSuppliers = suppliers.filter(p => p.isActive && (p.partyType === "SUPPLIER" || p.partyType === "BOTH"));
   const activeProducts = products.filter(p => p.isActive);
+
+  const settingsRecord = await prisma.systemSetting.findUnique({
+    where: { key: "adjustment_visibility" }
+  });
+  const settings = settingsRecord ? JSON.parse(settingsRecord.value) : {};
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -31,8 +39,9 @@ export default async function CreateIntakePage() {
       </div>
 
       <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <IntakeForm suppliers={activeSuppliers} products={activeProducts} />
+        <IntakeForm suppliers={activeSuppliers} products={activeProducts} settings={settings} />
       </div>
     </div>
   );
 }
+

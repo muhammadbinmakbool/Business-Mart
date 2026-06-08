@@ -6,9 +6,14 @@ export const intakeSchema = z.object({
   entryDate: z.string().or(z.date()).transform((val) => new Date(val)),
   bagCount: z.coerce.number().optional().nullable(),
   grossWeight: z.coerce.number().min(0.01, "Weight must be greater than 0"),
+  netWeight: z.coerce.number().optional().nullable(),
+  Bardana: z.coerce.number().optional().nullable(),
+  Khot: z.coerce.number().optional().nullable(),
+  unit: z.string().optional().nullable(),
   rate: z.coerce.number().optional().nullable(),
+  rateUnit: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  status: z.string().default("PENDING"),
+  status: z.string().optional().nullable(),
 });
 
 export const advanceSchema = z.object({

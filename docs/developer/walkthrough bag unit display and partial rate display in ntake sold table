@@ -1,0 +1,34 @@
+# Walkthrough - Locking Bag Product Workflow & UI Precision
+
+This walkthrough summarizes the successful implementation of unit label standardization, historical net weight safety under product conversions, and premium breakdowns of partial sale rates and initial totals.
+
+## Changes Made
+
+### 1. Unified Suffix & Labels (`/ Bag` and `/ Maund` locks)
+* **Intakes List (`IntakeListClient.js`)**: Dynamic `rateUnit` calculation overrides legacy database values. For `BAG` products, it is strictly locked to `BAG`. For weight products with transactions, it is derived from the first partial sale's actual `rateUnit`.
+* **Intake Details (`page.js`)**: The sales trace table rate unit has been locked to `BAG` for all bag products.
+* **Sales Invoice List (`SalesListClient.js`)**: Standardized suffix labeling dynamically evaluates and forces `BAG` labels when displaying rate units of `BAG` category products.
+* **Sales Details (`page.js`)**: Item lists now dynamically print unit labels and force `BAG` for bag category products.
+* **Supplier Invoice Details (`page.js`)**: Rate column is augmented with dynamic rate unit suffix labeling.
+
+### 2. Elimination of Net Weight Drift Under Product Conversions
+* **Mathematical Invariant**: In `IntakeListClient.js`, when a bag product is `SOLD` or `PARTIAL`, its net weight in `KG` is now dynamically calculated using the **historical conversion factor** (`normalizedWeight / grossWeight`) rather than the modern product definition factor.
+* This mathematically freezes the sold portion's weight in the database from drift, ensuring that future updates to the product's bag size conversion never alter historical invoice-linked net weights.
+
+### 3. Premium Breakdown for Partial Sales
+* **Distinct Rates**: When an intake has multiple partial sales with different rates, the Rate column displays all rates side-by-side (e.g. `Rs. 5,000, 9,000 / Bag`).
+* **Accumulated Initial Totals**: The Initial Total column displays the overall sum of sales along with an itemized addition breakdown (e.g. `Rs. 284,875 (Rs. 61,562 + Rs. 223,312)`).
+
+---
+
+## Verification & Testing
+
+1. **Database Schema & Raw Records**:
+   * Inspected raw database fields for `INT-000123` via custom script. Verified that the net weight was correctly calculated from partial tracks as `49.44` BAG, and the total gross weight was locked at `50` BAG (with `normalizedWeight = 1,500 KG`).
+2. **Dynamic UI Rendering**:
+   * Verified via real-time browser inspection that `INT-000123` correctly prints a net weight of `1,483.20 KG`, showing exactly `49.44 * 30 KG/BAG` with zero drift.
+   * Verified that the multiple partial rates (`Rs. 5,000, 9,000`) and cumulative total breakdown (`Rs. 284,875 (Rs. 61,562 + Rs. 223,312)`) are rendered.
+3. **Build Stability**:
+   * Ran a full production build (`npm run build`) which succeeded with **zero errors**.
+4. **Git Commit**:
+   * Staged and committed all changes to branch `grain-martek/rehmania-and-company`.

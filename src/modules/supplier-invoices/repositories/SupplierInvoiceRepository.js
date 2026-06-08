@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { assertDestructiveMode } from "@/lib/destructiveSession";
 
 export class SupplierInvoiceRepository {
   static async getNextInvoiceNumber() {
@@ -12,6 +13,7 @@ export class SupplierInvoiceRepository {
 
   static async getAll() {
     return prisma.supplierInvoice.findMany({
+      where: { isDeleted: false },
       include: { party: true },
       orderBy: { createdAt: "desc" }
     });
@@ -19,7 +21,7 @@ export class SupplierInvoiceRepository {
 
   static async getByPartyId(partyId) {
     return prisma.supplierInvoice.findMany({
-      where: { partyId: parseInt(partyId) },
+      where: { partyId: parseInt(partyId), isDeleted: false },
       orderBy: { createdAt: "desc" }
     });
   }
@@ -32,8 +34,12 @@ export class SupplierInvoiceRepository {
         items: { 
           include: { 
             intake: { 
-              include: { product: true } 
-            } 
+              include: { 
+                product: true,
+                salesTracks: true
+              } 
+            },
+            adjustments: true
           } 
         },
         advances: true
@@ -41,24 +47,72 @@ export class SupplierInvoiceRepository {
     });
   }
 
-  static async createWithItems(invoiceData, itemsData, advanceIds) {
+  static async createWithItems(invoiceData, itemsData, advanceIds, selectedTrackIds = []) {
     return prisma.$transaction(async (tx) => {
-      return tx.supplierInvoice.create({
+      const invoice = await tx.supplierInvoice.create({
         data: {
           ...invoiceData,
           items: {
             create: itemsData.map(item => ({
-              intakeTransactionId: item.intakeTransactionId,
               weight: item.weight,
               rate: item.rate,
-              amount: item.amount
+              amount: item.amount,
+              userId: invoiceData.userId || 0,
+              businessId: invoiceData.businessId || 0,
+              intake: { connect: { id: parseInt(item.intakeTransactionId) } },
+              adjustments: {
+                create: (item.adjustments || []).map(adj => ({
+                  adjustmentType: adj.adjustmentType,
+                  method: adj.method,
+                  value: adj.value,
+                  calculatedAmount: adj.calculatedAmount,
+                  direction: adj.direction,
+                  unit: adj.unit || null,
+                  userId: invoiceData.userId || 0,
+                  businessId: invoiceData.businessId || 0
+                }))
+              }
             }))
           },
           advances: {
             connect: advanceIds.map(id => ({ id: parseInt(id) }))
           }
+        },
+        include: {
+          items: {
+            include: {
+              intake: { include: { product: true } },
+              adjustments: true
+            }
+          },
+          advances: true,
+          party: true
         }
       });
+
+      if (selectedTrackIds && selectedTrackIds.length > 0) {
+        await tx.salesTrack.updateMany({
+          where: {
+            id: { in: selectedTrackIds }
+          },
+          data: {
+            isSettled: true
+          }
+        });
+      } else {
+        const intakeIds = itemsData.map(item => parseInt(item.intakeTransactionId));
+        await tx.salesTrack.updateMany({
+          where: {
+            intakeTransactionId: { in: intakeIds },
+            isSettled: false
+          },
+          data: {
+            isSettled: true
+          }
+        });
+      }
+
+      return invoice;
     });
   }
 
@@ -100,7 +154,11 @@ export class SupplierInvoiceRepository {
     const latestIntakeUpdate = maxIntakeUpdate._max.updatedAt || new Date(0);
     const latestAdvanceUpdate = maxAdvanceUpdate._max.updatedAt || new Date(0);
     
-    const stale = latestIntakeUpdate > invoice.lastCalculatedAt || latestAdvanceUpdate > invoice.lastCalculatedAt;
+    // Use a 5-second safety buffer to prevent database transaction latency and @updatedAt write timing offsets
+    // from triggering instant false-positive staleness right after invoice creation.
+    const bufferMs = 5000;
+    const thresholdDate = new Date(invoice.lastCalculatedAt.getTime() + bufferMs);
+    const stale = latestIntakeUpdate > thresholdDate || latestAdvanceUpdate > thresholdDate;
     
     if (stale && !invoice.isOutdated) {
       await prisma.supplierInvoice.update({
@@ -111,5 +169,35 @@ export class SupplierInvoiceRepository {
     }
 
     return stale;
+  }
+  /**
+   * Soft deletes a supplier invoice by marking it as deleted.
+   * @param {number} id
+   * @param {{ deletedBy?: number, deleteReason?: string }} [opts]
+   */
+  static async softDelete(id, { deletedBy, deleteReason } = {}) {
+    return prisma.supplierInvoice.update({
+      where: { id: parseInt(id) },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+        deletedBy: deletedBy || null,
+        deleteReason: deleteReason || null,
+      }
+    });
+  }
+
+  /**
+   * HARD DELETE — permanently removes the invoice from the database.
+   * The cascade on SupplierInvoiceItem and SupplierInvoiceAdjustment is handled by the DB schema.
+   * Requires an active Destructive Mode session.
+   * @param {number} id
+   * @param {string} [deleteReason]
+   */
+  static async hardDelete(id, deleteReason) {
+    await assertDestructiveMode();
+    return prisma.supplierInvoice.delete({
+      where: { id: parseInt(id) }
+    });
   }
 }

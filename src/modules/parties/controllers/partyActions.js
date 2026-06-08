@@ -1,6 +1,7 @@
 "use server";
 
 import { PartyService } from "../services/PartyService";
+import { PartyProfileService } from "../services/PartyProfileService";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -17,10 +18,10 @@ export async function createPartyAction(formData) {
   try {
     await PartyService.createParty(data);
     revalidatePath("/parties");
-    return { success: true };
   } catch (error) {
-    return { error: error.message || "Failed to create party" };
+    return { error: "Failed to create party" };
   }
+  redirect("/parties");
 }
 
 export async function updatePartyAction(id, formData) {
@@ -36,26 +37,64 @@ export async function updatePartyAction(id, formData) {
   try {
     await PartyService.updateParty(id, data);
     revalidatePath("/parties");
-    return { success: true };
+    revalidatePath(`/parties/${id}`);
   } catch (error) {
-    return { error: error.message || "Failed to update party" };
+    return { error: "Failed to update party" };
   }
+  redirect("/parties");
 }
 
-export async function togglePartyStatusAction(id, isActive) {
+export async function togglePartyStatusAction(id) {
   try {
-    await PartyService.togglePartyStatus(id, isActive);
+    const party = await PartyService.togglePartyStatus(id);
     revalidatePath("/parties");
+    revalidatePath(`/parties/${id}`);
+    return { success: true, data: party };
   } catch (error) {
     return { error: "Failed to toggle status" };
   }
 }
-export async function deletePartyAction(id) {
+
+export async function checkPartyDuplicateAction(name, phoneNumber, excludeId = null) {
   try {
-    await PartyService.deleteParty(id);
+    const duplicate = await PartyService.checkDuplicate(name, phoneNumber, excludeId);
+    return { success: true, duplicate };
+  } catch (error) {
+    return { success: false, error: error.message || "Failed to check duplicates" };
+  }
+}
+import { assertDeletePermission } from "@/lib/authGuard";
+
+export async function deletePartyAction(id, confirmPassword, deleteReason) {
+  try {
+    // Enforce unified record deletion permission and password confirmation check
+    await assertDeletePermission(confirmPassword);
+
+    await PartyService.deleteParty(id, deleteReason);
     revalidatePath("/parties");
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to delete party" };
+  }
+}
+
+export async function hardDeletePartyAction(id, deleteReason) {
+  try {
+    // assertDestructiveMode is called inside PartyRepository.hardDelete
+    await PartyService.hardDeleteParty(id, deleteReason);
+    revalidatePath("/parties");
+    return { success: true };
+  } catch (error) {
+    return { error: error.message || "Failed to permanently delete party" };
+  }
+}
+
+export async function applyPartyPaymentAction(partyId, amount, type) {
+  try {
+    const result = await PartyProfileService.applyQuickPayment(partyId, amount, type);
+    revalidatePath(`/parties/${partyId}`);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message || "Failed to apply payment" };
   }
 }

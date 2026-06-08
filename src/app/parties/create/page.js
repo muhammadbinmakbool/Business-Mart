@@ -1,33 +1,89 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { createPartyAction } from "@/modules/parties/controllers/partyActions";
+import { createPartyAction, checkPartyDuplicateAction } from "@/modules/parties/controllers/partyActions";
 import { PARTY_TYPES } from "@/lib/constants";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import DuplicateWarningModal from "@/components/ui/DuplicateWarningModal";
 
 export default function CreatePartyPage() {
   const router = useRouter();
   const formRef = useRef(null);
   const nameInputRef = useRef(null);
 
-  async function handleSubmit(formData, shouldRedirect) {
-    const result = await createPartyAction(formData);
-    
-    if (result?.error) {
-      toast.error(result.error);
-      return;
-    }
+  const [isWarningOpen, setIsWarningOpen] = useState(false);
+  const [warningData, setWarningData] = useState(null); // { formData, shouldRedirect }
+  const [duplicateMessage, setDuplicateMessage] = useState("");
+  const [warningTitle, setWarningTitle] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
-    toast.success("Party created successfully");
-    
-    if (shouldRedirect) {
-      router.push("/parties");
-    } else {
-      formRef.current?.reset();
-      nameInputRef.current?.focus();
+  async function handleSaveTrigger(formData, shouldRedirect) {
+    const name = formData.get("name");
+    const phoneNumber = formData.get("phoneNumber");
+
+    setIsSaving(true);
+    try {
+      const checkRes = await checkPartyDuplicateAction(name, phoneNumber);
+      if (checkRes?.success && checkRes.duplicate) {
+        const { matches, record } = checkRes.duplicate;
+        const nameExists = !!matches?.name;
+        const phoneExists = !!matches?.phoneNumber;
+        let msg = "";
+        let title = "Duplicate Party Detected";
+        if (nameExists && phoneExists) {
+          msg = `A party named "${record.name}" with the phone number "${record.phoneNumber}" already exists.`;
+          title = "Duplicate Name & Phone Number";
+        } else if (nameExists) {
+          msg = `A party named "${record.name}" already exists.`;
+          title = "Duplicate Name Detected";
+        } else if (phoneExists) {
+          msg = `A party with the phone number "${record.phoneNumber}" (named "${record.name}") already exists.`;
+          title = "Duplicate Phone Number Detected";
+        }
+        
+        setDuplicateMessage(msg);
+        setWarningTitle(title);
+        setWarningData({ formData, shouldRedirect });
+        setIsWarningOpen(true);
+      } else {
+        await proceedSave(formData, shouldRedirect);
+      }
+    } catch (e) {
+      toast.error("Failed to check for duplicate parties");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function proceedSave(formData, shouldRedirect) {
+    setIsSaving(true);
+    try {
+      const result = await createPartyAction(formData);
+      
+      if (result?.error) {
+        toast.error(result.error);
+        setIsSaving(false);
+        return;
+      }
+
+      toast.success("Party created successfully");
+      
+      if (shouldRedirect) {
+        router.push("/parties");
+      } else {
+        formRef.current?.reset();
+        nameInputRef.current?.focus();
+        setIsSaving(false);
+      }
+    } catch (e) {
+      if (e.message?.includes("NEXT_REDIRECT") || e.digest?.includes("NEXT_REDIRECT")) {
+        throw e;
+      }
+      toast.error("An unexpected error occurred while saving");
+      setIsSaving(false);
     }
   }
 
@@ -49,7 +105,11 @@ export default function CreatePartyPage() {
       <div className="rounded-xl border bg-card p-6 shadow-sm">
         <form 
           ref={formRef}
-          action={(formData) => handleSubmit(formData, true)} 
+          onSubmit={(e) => {
+            e.preventDefault();
+            const formData = new FormData(e.currentTarget);
+            handleSaveTrigger(formData, true);
+          }}
           className="space-y-4"
         >
           <div className="grid gap-4 md:grid-cols-2">
@@ -122,23 +182,41 @@ export default function CreatePartyPage() {
             </Link>
             <button
               type="button"
+              disabled={isSaving}
               onClick={() => {
+                if (!formRef.current.reportValidity()) return;
                 const formData = new FormData(formRef.current);
-                handleSubmit(formData, false);
+                handleSaveTrigger(formData, false);
               }}
-              className="border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
+              className="border border-input bg-background hover:bg-accent hover:text-accent-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
             >
               Save & Add Another
             </button>
             <button
               type="submit"
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors"
+              disabled={isSaving}
+              className="bg-primary text-primary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              Save & Close
+              {isSaving ? "Saving..." : "Save & Close"}
             </button>
           </div>
         </form>
       </div>
+
+      <DuplicateWarningModal
+        isOpen={isWarningOpen}
+        onClose={() => setIsWarningOpen(false)}
+        onConfirm={async () => {
+          setIsWarningOpen(false);
+          if (warningData) {
+            await proceedSave(warningData.formData, warningData.shouldRedirect);
+          }
+        }}
+        duplicateMessage={duplicateMessage}
+        title={warningTitle}
+        entityName="Party"
+        loading={isSaving}
+      />
     </div>
   );
 }

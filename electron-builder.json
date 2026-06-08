@@ -1,0 +1,46 @@
+{
+  "appId": "com.businessmart.app",
+  "productName": "Business Mart",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "package.json",
+    "next.config.mjs",
+    "postcss.config.mjs",
+    "tsconfig.json",
+    "jsconfig.json",
+    "electron/**/*",
+    ".next/standalone/**/*",
+    "public/**/*",
+    "prisma/**/*",
+    "resources/**/*",
+    "Assets/**/*"
+  ],
+  "win": {
+    "target": "nsis",
+    "icon": "Assets/Icon/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": "always",
+    "createStartMenuShortcut": true,
+    "shortcutName": "Business Mart",
+    "runAfterFinish": true,
+    "installerIcon": "Assets/Icon/icon.ico",
+    "uninstallerIcon": "Assets/Icon/icon.ico"
+  },
+  "asar": true,
+  "asarUnpack": [
+    "prisma/**/*",
+    ".next/standalone/**/*",
+    "node_modules/prisma/**/*"
+  ],
+  "extraResources": [
+    {
+      "from": "resources/config.json",
+      "to": "config.json"
+    }
+  ]
+}

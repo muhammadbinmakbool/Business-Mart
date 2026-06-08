@@ -1,9 +1,35 @@
 import { PartyRepository } from "../repositories/PartyRepository";
 import { partySchema } from "../validations/partySchema";
+import { emitActivity, logPartyEvent } from "@/modules/activity-log/activityLogger";
+import { withOwnership } from "@/lib/session";
+import { checkDuplicateRecord } from "@/lib/database/duplicateChecker";
 
 export class PartyService {
   static async listParties() {
     return await PartyRepository.getAll();
+  }
+
+  static async listPartiesWithBalances() {
+    const { calculatePartyFinancialPosition } = await import("@/lib/financial");
+    const parties = await PartyRepository.getAllWithRelations();
+    return parties.map(party => {
+      const position = calculatePartyFinancialPosition({
+        sales: party.saleTransactions,
+        purchases: party.supplierInvoices,
+        payments: party.payments,
+        advances: party.intakeAdvances
+      });
+      return {
+        id: party.id,
+        name: party.name,
+        phoneNumber: party.phoneNumber,
+        address: party.address,
+        notes: party.notes,
+        partyType: party.partyType,
+        isActive: party.isActive,
+        netBalance: position.netPosition
+      };
+    });
   }
 
   static async getParty(id) {
@@ -12,18 +38,113 @@ export class PartyService {
 
   static async createParty(data) {
     const validatedData = partySchema.parse(data);
-    return await PartyRepository.create(validatedData);
+    const ownedData = await withOwnership(validatedData);
+    const party = await PartyRepository.create(ownedData);
+    await emitActivity({
+      entityType: "PARTY",
+      entityId: party.id,
+      action: "CREATED",
+      description: `Party "${party.name}" created as ${party.partyType}`,
+      meta: { name: party.name, partyType: party.partyType }
+    });
+    return party;
   }
 
   static async updateParty(id, data) {
     const validatedData = partySchema.parse(data);
-    return await PartyRepository.update(id, validatedData);
+    const ownedData = await withOwnership(validatedData);
+    const party = await PartyRepository.update(id, ownedData);
+    await emitActivity({
+      entityType: "PARTY",
+      entityId: party.id,
+      action: "UPDATED",
+      description: `Party "${party.name}" updated`,
+      meta: { name: party.name, partyType: party.partyType }
+    });
+    return party;
   }
 
   static async togglePartyStatus(id, isActive) {
-    return await PartyRepository.toggleStatus(id, isActive);
+    let targetActive = isActive;
+    if (targetActive === undefined || targetActive === null) {
+      const existing = await PartyRepository.getById(id);
+      if (!existing) throw new Error("Party not found");
+      targetActive = !existing.isActive;
+    }
+
+    const party = await PartyRepository.toggleStatus(id, targetActive);
+
+    // Get session context safely
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const description = `${performedByName} changed status of Party "${party.name}" to ${party.isActive ? "Active" : "Inactive"}.`;
+
+    await logPartyEvent({
+      partyId: party.id,
+      partyName: party.name,
+      action: "UPDATED",
+      description,
+      performedByUserId,
+      performedByName,
+      meta: {
+        isActive: party.isActive
+      }
+    });
+
+    return party;
   }
-  static async deleteParty(id) {
-    return await PartyRepository.delete(id);
+  static async deleteParty(id, deleteReason) {
+    let deletedBy = null;
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) deletedBy = session.userId;
+    } catch (e) {}
+
+    // Fetch before soft-deleting so we have the name for the log
+    const existing = await PartyRepository.getById(id);
+    if (!existing) throw new Error("Party not found");
+
+    await PartyRepository.softDelete(id, { deletedBy, deleteReason });
+    await emitActivity({
+      entityType: "PARTY",
+      entityId: existing.id,
+      action: "DELETED",
+      description: `Party "${existing.name}" soft-deleted.${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
+      meta: { name: existing.name, deleteReason }
+    });
+    return existing;
+  }
+
+  /**
+   * HARD DELETE — permanently removes the party from the database.
+   * Only callable when Destructive Mode is active.
+   */
+  static async hardDeleteParty(id, deleteReason) {
+    const existing = await PartyRepository.getById(id);
+    if (!existing) throw new Error("Party not found");
+
+    await PartyRepository.hardDelete(id, deleteReason);
+    await emitActivity({
+      entityType: "PARTY",
+      entityId: existing.id,
+      action: "HARD_DELETED",
+      description: `Party "${existing.name}" PERMANENTLY deleted.${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
+      meta: { name: existing.name, deleteReason }
+    });
+    return existing;
+  }
+
+  static async checkDuplicate(name, phoneNumber, excludeId = null) {
+    return await checkDuplicateRecord("party", { name, phoneNumber }, { excludeId });
   }
 }

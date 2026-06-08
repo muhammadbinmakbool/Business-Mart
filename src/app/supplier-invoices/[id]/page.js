@@ -1,15 +1,31 @@
 import React from "react";
 import Link from "next/link";
-import { ChevronLeft, History, CheckCircle2, AlertCircle, RefreshCcw, Printer } from "lucide-react";
-import { getSupplierInvoiceAction, updateInvoiceStatusAction, regenerateSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
+import { AlertCircle, Calendar, ReceiptText, User } from "lucide-react";
+import { getSupplierInvoiceAction, deleteSupplierInvoiceAction, hardDeleteSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import StatusUpdater from "./StatusUpdater";
 import RegenerateButton from "./RegenerateButton";
+import SupplierPaymentCard from "./SupplierPaymentCard";
+import { calculateSupplierDeductions } from "@/lib/financial";
+import ResponsiveHeader from "@/components/ResponsiveHeader";
+import Alert from "@/components/ui/Alert";
+import { formatMaundWeight } from "@/lib/display-units";
+import { UNIT_IDS, getUnitLabel } from "@/lib/units";
+import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
+import { SupplierWorkflowEngine } from "@/modules/supplier-invoices/workflow/SupplierWorkflowEngine";
+import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 
-export default async function SupplierInvoiceDetailPage({ params }) {
+export default async function SupplierInvoiceDetailPage({ params, searchParams: searchParamsPromise }) {
   const { id } = await params;
-  const result = await getSupplierInvoiceAction(id);
+  const searchParams = searchParamsPromise ? await searchParamsPromise : {};
+  const backUrl = searchParams.backUrl || "/supplier-invoices";
+  
+  const [result, settingsResult, generalSettingsResult] = await Promise.all([
+    getSupplierInvoiceAction(id),
+    getPrintSettingsAction(),
+    getGeneralSettingsAction()
+  ]);
   
   if (!result.success) {
     return (
@@ -17,95 +33,229 @@ export default async function SupplierInvoiceDetailPage({ params }) {
         <AlertCircle className="h-12 w-12 text-rose-500 mb-4" />
         <h2 className="text-2xl font-bold">Error</h2>
         <p className="text-muted-foreground">{result.error}</p>
-        <Link href="/supplier-invoices" className="mt-6 text-primary hover:underline">Back to list</Link>
+        <Link href={backUrl} className="mt-6 text-primary hover:underline">Back to list</Link>
       </div>
     );
   }
 
   const invoice = result.data;
+  const printConfig = getMergedDocumentConfig(
+    settingsResult?.success ? settingsResult.settings : {},
+    generalSettingsResult?.success ? generalSettingsResult.settings : {}
+  );
+
+  // Recalculate per-intake breakdown using snapshot values and nested adjustments from SupplierInvoiceItems
+  const { intakeBreakdowns } = calculateSupplierDeductions(
+    invoice.items.map(item => ({
+      ...item.intake,
+      id: item.id,
+      netWeight: Number(item.weight),
+      rate: Number(item.rate),
+      adjustments: (item.adjustments || []).map(adj => ({
+        adjustmentType: adj.adjustmentType,
+        method: adj.method,
+        value: Number(adj.value),
+        direction: adj.direction
+      }))
+    }))
+  );
+
+  // Group and sum identical adjustments across items to display in the overall summary card
+  const summaryAdjustments = [];
+  invoice.items.forEach(item => {
+    (item.adjustments || []).forEach(adj => {
+      const existing = summaryAdjustments.find(
+        a => a.adjustmentType === adj.adjustmentType &&
+             a.method === adj.method &&
+             Number(a.value) === Number(adj.value) &&
+             a.direction === adj.direction
+      );
+      if (existing) {
+        existing.calculatedAmount += Number(adj.calculatedAmount);
+      } else {
+        summaryAdjustments.push({
+          adjustmentType: adj.adjustmentType,
+          method: adj.method,
+          value: Number(adj.value),
+          direction: adj.direction,
+          calculatedAmount: Number(adj.calculatedAmount),
+          unit: adj.unit || null
+        });
+      }
+    });
+  });
+
+  const allowedActions = await SupplierWorkflowEngine.getAllowedActions(invoice);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-20">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/supplier-invoices"
-            className="rounded-full p-2 hover:bg-accent transition-colors"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
+    <div className="max-w-5xl mx-auto space-y-8 pb-20">
+      <ResponsiveHeader
+        backUrl={backUrl}
+        title={
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold tracking-tight">Settlement Invoice</h1>
               <span className="bg-secondary text-secondary-foreground px-2 py-0.5 rounded text-[10px] font-bold">V{invoice.version}</span>
+              <span className={cn(
+                "px-2.5 py-0.5 rounded text-[10px] font-bold uppercase",
+                invoice.status === "CLEARED" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
+                invoice.status === "SUPERSEDED" ? "bg-rose-50 text-rose-700 border border-rose-200" :
+                invoice.status === "PARTIAL" ? "bg-blue-50 text-blue-700 border border-blue-200" :
+                "bg-amber-50 text-amber-700 border border-amber-200"
+              )}>
+                {invoice.status}
+              </span>
             </div>
             <p className="text-sm text-muted-foreground font-mono">{invoice.invoiceNumber}</p>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:bg-muted transition-colors font-medium text-sm">
-            <Printer className="h-4 w-4" /> Print
-          </button>
-          {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
-            <RegenerateButton invoiceId={invoice.id} />
-          )}
-        </div>
-      </div>
+        }
+        editUrl={invoice.status === "PENDING" ? `/supplier-invoices/${invoice.id}/edit` : null}
+        printType="settlement"
+        printData={{
+          invoice,
+          intakeBreakdowns,
+          summaryAdjustments
+        }}
+        printFilename={`Settlement-${invoice.invoiceNumber || invoice.id}`}
+        printConfig={printConfig}
+        deleteId={invoice.id}
+        deleteAction={deleteSupplierInvoiceAction}
+        hardDeleteAction={hardDeleteSupplierInvoiceAction}
+        deleteLabel="Supplier Invoice"
+        deleteRedirect="/supplier-invoices"
+        extraActions={
+          <div className="flex items-center gap-2">
+            {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
+              <RegenerateButton invoiceId={invoice.id} />
+            )}
+            <StatusUpdater id={invoice.id} currentStatus={invoice.status} disabled={invoice.status === "SUPERSEDED"} allowedActions={allowedActions} />
+          </div>
+        }
+      />
 
       {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
-          <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
-          <div className="flex-1">
-            <div className="font-bold text-amber-900">This invoice is outdated</div>
-            <div className="text-sm text-amber-700">Underlying intakes or advances have been modified. Consider regenerating a new version for accurate settlement.</div>
-          </div>
-        </div>
+        <Alert
+          type="warning"
+          title="This invoice is outdated"
+          message="Underlying intakes or advances have been modified. Consider regenerating a new version for accurate settlement."
+        />
       )}
 
       {invoice.status === "SUPERSEDED" && (
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-start gap-3 text-slate-600">
-          <History className="h-5 w-5 mt-0.5" />
-          <div className="flex-1">
-            <div className="font-bold">Superseded Version</div>
-            <div className="text-sm">This is an older version of the settlement. A newer version exists.</div>
-          </div>
-        </div>
+        <Alert
+          type="info"
+          icon="history"
+          title="Superseded Version"
+          message="This is an older version of the settlement. A newer version exists."
+        />
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-2 space-y-6">
-          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-            <div className="p-4 border-b bg-muted/30 font-bold uppercase text-[10px] tracking-wider text-muted-foreground">Invoiced Items</div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Column: Invoiced Items, Billing Adjustments Summary & Advances stacked naturally (lg:col-span-2) */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* 1. Invoiced Items card (dynamic height h-fit) */}
+          <div className="lg:col-span-2 rounded-xl border bg-card shadow-sm overflow-hidden h-fit">
+            <div className="px-4 py-4 bg-muted/30 border-b flex items-center justify-between">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-muted-foreground">Invoiced Items</h3>
+              <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase font-black">V{invoice.version}</span>
+            </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="w-full text-left text-xs border-collapse">
                 <thead className="bg-muted/10">
-                  <tr>
-                    <th className="px-4 py-2 font-semibold">Product</th>
-                    <th className="px-4 py-2 font-semibold text-right">Weight</th>
-                    <th className="px-4 py-2 font-semibold text-right">Rate</th>
-                    <th className="px-4 py-2 font-semibold text-right">Gross</th>
+                  <tr className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
+                    <th className="px-4 py-3">Product</th>
+                    <th className="px-4 py-3 text-right">Weight</th>
+                    <th className="px-4 py-3 text-right">Rate</th>
+                    <th className="px-4 py-3 text-right">Gross</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y">
                   {invoice.items.map(item => (
-                    <tr key={item.id} className="border-t">
+                    <tr key={item.id} className="border-t hover:bg-muted/5 transition-colors">
                       <td className="px-4 py-3">
-                        <div className="font-medium">{item.intake.product.name}</div>
-                        <div className="text-[10px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
+                        <div className="font-semibold text-foreground">{item.intake.product.name}</div>
+                        <div className="text-[9px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
                       </td>
-                      <td className="px-4 py-3 text-right">{Number(item.weight)} KG</td>
-                      <td className="px-4 py-3 text-right">Rs. {Number(item.rate)}</td>
-                      <td className="px-4 py-3 text-right font-bold">Rs. {Number(item.amount).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-mono text-[10px]">
+                        {item.intake.unit === UNIT_IDS.MAUND ? formatMaundWeight(item.weight, "MND", "KG") : `${Number(item.weight)} ${item.intake.unit || "KG"}`}
+                      </td>
+                      <td className="px-4 py-3 text-right font-mono text-[10px]">
+                        Rs. {Number(item.rate).toLocaleString()} <span className="text-[9px] text-muted-foreground uppercase">/ {getUnitLabel((item.intake.unit === "BAG" || item.intake.product?.category === "BAG" || item.intake.product?.primaryUnit === "BAG") ? "BAG" : (item.rateUnit || "KG"))}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-foreground">Rs. {Number(item.amount).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+            <div className="px-4 py-4 bg-muted/5 border-t flex justify-between items-center text-xs">
+              <div>
+                <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Invoice #</span>
+                <span className="font-mono font-bold text-[10px] text-primary">{invoice.invoiceNumber}</span>
+              </div>
+              <div className="text-right">
+                <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Gross Total</span>
+                <span className="font-bold text-sm text-foreground">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
+              </div>
+            </div>
           </div>
 
+          {/* 2. Billing Adjustments Card */}
           <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-            <div className="p-4 border-b bg-muted/30 font-bold uppercase text-[10px] tracking-wider text-muted-foreground">Advances Adjusted</div>
+            <div className="p-4 border-b bg-muted/30 font-bold uppercase text-[10px] tracking-wider text-muted-foreground flex justify-between items-center">
+              <span>Billing Adjustments Summary</span>
+              <span className="text-[9px] bg-primary/10 text-primary px-1.5 py-0.5 rounded font-bold uppercase">Calculated Per Intake</span>
+            </div>
+            <div className="p-0">
+              {summaryAdjustments.length === 0 ? (
+                <div className="px-4 py-6 text-center text-muted-foreground text-sm italic">
+                  No adjustments applied to this invoice.
+                </div>
+              ) : (
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead>
+                    <tr className="bg-muted/5 text-[9px] uppercase font-bold text-muted-foreground tracking-widest border-b">
+                      <th className="px-4 py-2">Type</th>
+                      <th className="px-4 py-2">Rule</th>
+                      <th className="px-4 py-2 text-right">Total Calculated</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {summaryAdjustments.map((adj, idx) => (
+                      <tr key={idx}>
+                        <td className="px-4 py-3">
+                          <div className="font-semibold">{adj.adjustmentType}</div>
+                          <div className={cn(
+                            "text-[9px] font-bold uppercase",
+                            adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
+                          )}>
+                            {adj.direction}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground font-medium">
+                          {adj.method === "PERCENTAGE" ? `${Number(adj.value)}%` : 
+                           adj.method === "PER_WEIGHT" ? `Rs. ${Number(adj.value)} per ${adj.unit || "KG"}` : 
+                           `Fixed Rs. ${Number(adj.value)}`}
+                        </td>
+                        <td className={cn(
+                          "px-4 py-3 text-right font-bold",
+                          adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
+                        )}>
+                          {adj.direction === "ADD" ? "+" : "-"} Rs. {Number(adj.calculatedAmount).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          {/* 3. Advances Adjusted Card */}
+          <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
+            <div className="p-4 border-b bg-muted/30 font-bold uppercase text-[10px] tracking-wider text-muted-foreground flex justify-between items-center">
+              <span>Advances Adjusted</span>
+            </div>
             <div className="p-4">
               {invoice.advances.length === 0 ? (
                 <div className="text-sm text-muted-foreground italic">No advances adjusted in this invoice.</div>
@@ -114,10 +264,10 @@ export default async function SupplierInvoiceDetailPage({ params }) {
                   {invoice.advances.map(adv => (
                     <div key={adv.id} className="flex justify-between items-center text-sm p-3 rounded-lg bg-muted/20">
                       <div>
-                        <div className="font-medium">Advance Payment</div>
-                        <div className="text-xs text-muted-foreground">{adv.notes}</div>
+                        <div className="font-medium text-xs">Advance Payment</div>
+                        <div className="text-[10px] text-muted-foreground">{adv.notes}</div>
                       </div>
-                      <div className="font-bold text-rose-600">- Rs. {Number(adv.amount).toLocaleString()}</div>
+                      <div className="font-bold text-rose-600 text-xs">- Rs. {Number(adv.amount).toLocaleString()}</div>
                     </div>
                   ))}
                 </div>
@@ -126,46 +276,20 @@ export default async function SupplierInvoiceDetailPage({ params }) {
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="rounded-xl border bg-card p-6 shadow-sm space-y-6">
-            <div className="space-y-1">
-              <h3 className="text-sm font-bold uppercase text-muted-foreground tracking-widest">Supplier</h3>
-              <div className="text-xl font-black">{invoice.party.name}</div>
-              <div className="text-sm text-muted-foreground">{invoice.party.phoneNumber}</div>
-            </div>
+        {/* Right Column: Unified Sidebar Card & Meta Info stacked naturally (lg:col-span-1) */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* 1. Unified Sidebar Card */}
+          <SupplierPaymentCard invoice={invoice} />
 
-            <div className="pt-4 border-t space-y-4">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Gross Value</span>
-                <span className="font-bold">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Deductions</span>
-                <span className="font-bold text-rose-600">- Rs. {Number(invoice.totalDeductions).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Advances</span>
-                <span className="font-bold text-rose-600">- Rs. {Number(invoice.totalAdvances).toLocaleString()}</span>
-              </div>
-              <div className="pt-4 border-t flex justify-between items-center">
-                <span className="font-black text-primary uppercase">Net Payable</span>
-                <span className="text-2xl font-black text-primary">Rs. {Number(invoice.finalPayableAmount).toLocaleString()}</span>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t">
-              <StatusUpdater id={invoice.id} currentStatus={invoice.status} disabled={invoice.status === "SUPERSEDED"} />
-            </div>
-          </div>
-          
-          <div className="rounded-xl border bg-muted/20 p-4 text-xs space-y-2 text-muted-foreground">
+          {/* 2. Snapshots Version & Meta Info Card */}
+          <div className="rounded-xl border bg-muted/20 p-4 text-[10px] space-y-2 text-muted-foreground">
              <div className="flex justify-between">
-               <span>Created At</span>
-               <span>{format(new Date(invoice.createdAt), "dd MMM yyyy HH:mm")}</span>
+                <span>Created At</span>
+                <span className="font-medium">{format(new Date(invoice.createdAt), "dd MMM yyyy HH:mm")}</span>
              </div>
              <div className="flex justify-between">
-               <span>Snapshot Version</span>
-               <span className="font-mono">V{invoice.version}</span>
+                <span>Snapshot Version</span>
+                <span className="font-mono font-bold">V{invoice.version}</span>
              </div>
           </div>
         </div>

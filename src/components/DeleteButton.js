@@ -1,120 +1,171 @@
 "use client";
 
-import React, { useState } from "react";
-import { Trash2, Loader2, X, Check } from "lucide-react";
-import { toast } from "sonner";
+import React, { useState, useEffect } from "react";
+import { Trash2 } from "lucide-react";
+import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import Modal from "@/components/ui/Modal";
+import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
 
 export default function DeleteButton({ 
   id, 
   deleteAction, 
+  hardDeleteAction,
   redirectPath, 
   label = "Item", 
   buttonText,
   variant = "default",
-  className
+  className,
+  onSuccess,
+  disabled
 }) {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isDestructiveActive, setIsDestructiveActive] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const router = useRouter();
 
-  async function handleDelete() {
+  useEffect(() => {
+    async function loadSessionAndDestructive() {
+      try {
+        const [sess, destructiveRes] = await Promise.all([
+          getActiveSessionAction(),
+          (async () => {
+            const { getDestructiveModeStatusAction } = await import("@/modules/auth/controllers/destructiveActions");
+            return getDestructiveModeStatusAction();
+          })()
+        ]);
+        setCurrentUser(sess);
+        if (destructiveRes?.active) {
+          setIsDestructiveActive(true);
+        }
+      } catch (e) {
+        // Fallback for edge cases
+      }
+    }
+    loadSessionAndDestructive();
+  }, []);
+
+  // 1. Hide delete trigger completely if not loaded or if user is not authorized
+  if (!currentUser) return null; // Wait for session load
+  const isAuthorized = currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN";
+  if (!isAuthorized) {
+    return null; 
+  }
+
+  async function handleDeleteConfirm() {
     setIsDeleting(true);
     try {
-      const result = await deleteAction(id);
-      if (result?.error) {
-        toast.error(result.error);
+      let result;
+      if (isDestructiveActive && hardDeleteAction) {
+        result = await hardDeleteAction(id, "UI requested permanent delete");
       } else {
-        toast.success(`${label} deleted successfully`);
+        result = await deleteAction(id, "", "UI requested delete");
+      }
+
+      if (result?.error) {
+        showToast.error(result.error);
+      } else {
+        showToast.success(
+          isDestructiveActive && hardDeleteAction
+            ? `${label} permanently deleted successfully`
+            : `${label} deleted successfully`
+        );
+        setIsModalOpen(false);
+        if (onSuccess) {
+          onSuccess();
+        }
         if (redirectPath) {
           router.push(redirectPath);
         } else {
-          // If no redirect, we might need a refresh to update the list
           router.refresh();
         }
       }
     } catch (error) {
-      toast.error("An unexpected error occurred");
+      showToast.error("An unexpected error occurred");
     } finally {
       setIsDeleting(false);
-      setShowConfirm(false);
     }
   }
 
-  if (showConfirm) {
-    if (variant === "icon") {
-      return (
-        <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
-          <button
-            onClick={handleDelete}
-            disabled={isDeleting}
-            title="Confirm Delete"
-            className="p-1.5 rounded-full bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
-          >
-            {isDeleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-          </button>
-          <button
-            onClick={() => setShowConfirm(false)}
-            title="Cancel"
-            className="p-1.5 rounded-full bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-colors"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      );
+  function handleTriggerClick(e) {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
     }
-
-    return (
-      <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200">
-        <span className="text-xs text-muted-foreground font-medium">Confirm?</span>
-        <button
-          onClick={handleDelete}
-          disabled={isDeleting}
-          className="bg-destructive text-destructive-foreground px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-destructive/90 transition-colors flex items-center gap-1"
-        >
-          {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-          Yes
-        </button>
-        <button
-          onClick={() => setShowConfirm(false)}
-          className="bg-secondary text-secondary-foreground px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-secondary/90 transition-colors"
-        >
-          No
-        </button>
-      </div>
-    );
+    setIsModalOpen(true);
   }
+
+  const modalTitle = isDestructiveActive && hardDeleteAction 
+    ? `Permanently Delete ${label}` 
+    : `Delete ${label}`;
+
+  const modalDesc = isDestructiveActive && hardDeleteAction
+    ? `Permanently deleting this ${label.toLowerCase()} will purge it from the database forever. This action is audited and CANNOT be undone.`
+    : `Deleting this ${label.toLowerCase()} will soft-delete it and hide it from normal views. You can restore it later if needed.`;
+
+  const modalConfirmLabel = isDestructiveActive && hardDeleteAction
+    ? "Yes, Permanently Delete"
+    : `Yes, Delete ${label}`;
+
+  const displayedButtonText = buttonText || (isDestructiveActive && hardDeleteAction ? `Permanently Delete` : `Delete`);
 
   if (variant === "icon") {
     return (
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setShowConfirm(true);
-        }}
-        className={cn(
-          "rounded-full p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors",
-          className
-        )}
-        title={`Delete ${label}`}
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
+      <>
+        <button
+          onClick={handleTriggerClick}
+          disabled={disabled}
+          className={cn(
+            "rounded-full p-2 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors",
+            disabled && "opacity-40 cursor-not-allowed pointer-events-none",
+            className
+          )}
+          title={displayedButtonText}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onConfirm={handleDeleteConfirm}
+          title={modalTitle}
+          description={modalDesc}
+          confirmLabel={modalConfirmLabel}
+          loading={isDeleting}
+          type="danger"
+        />
+      </>
     );
   }
 
   return (
-    <button
-      onClick={() => setShowConfirm(true)}
-      className={cn(
-        "flex items-center gap-2 border border-destructive/20 text-destructive px-4 py-2 rounded-lg text-sm font-medium hover:bg-destructive hover:text-destructive-foreground transition-all group",
-        className
-      )}
-    >
-      <Trash2 className="h-4 w-4 text-destructive group-hover:text-destructive-foreground" />
-      {buttonText || label}
-    </button>
+    <>
+      <button
+        onClick={handleTriggerClick}
+        disabled={disabled}
+        className={cn(
+          "flex items-center gap-2 border border-destructive/20 text-destructive px-4 py-2 rounded-lg text-sm font-medium hover:bg-destructive hover:text-destructive-foreground transition-all group",
+          disabled && "opacity-40 cursor-not-allowed pointer-events-none",
+          className
+        )}
+      >
+        <Trash2 className="h-4 w-4 text-destructive group-hover:text-destructive-foreground" />
+        {displayedButtonText}
+      </button>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title={modalTitle}
+        description={modalDesc}
+        confirmLabel={modalConfirmLabel}
+        loading={isDeleting}
+        type="danger"
+      />
+    </>
   );
 }

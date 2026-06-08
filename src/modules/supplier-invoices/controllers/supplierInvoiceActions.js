@@ -3,17 +3,29 @@
 import { revalidatePath } from "next/cache";
 import { SupplierInvoiceService } from "../services/SupplierInvoiceService";
 import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceRepository";
+import { emitActivity } from "@/modules/activity-log/activityLogger";
+import { calculateInvoiceClearingState } from "@/lib/financial";
+
+function safeRevalidatePath(path) {
+  try {
+    revalidatePath(path);
+  } catch (e) {
+    // Suppress static generation store missing error in CLI/E2E test runs!
+  }
+}
+
 
 export async function generateSupplierInvoiceAction(formData) {
   try {
     const partyId = formData.get("partyId");
     const intakeIds = JSON.parse(formData.get("intakeIds") || "[]");
     const advanceIds = JSON.parse(formData.get("advanceIds") || "[]");
-    const config = JSON.parse(formData.get("config") || "{}");
+    const adjustmentsByIntake = JSON.parse(formData.get("adjustmentsByIntake") || "{}");
+    const entryDate = formData.get("entryDate");
 
-    const invoice = await SupplierInvoiceService.generateInvoice(partyId, intakeIds, advanceIds, config);
+    const invoice = await SupplierInvoiceService.generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake, entryDate);
     
-    revalidatePath("/supplier-invoices");
+    safeRevalidatePath("/supplier-invoices");
     return { success: true, data: invoice };
   } catch (error) {
     console.error("Failed to generate supplier invoice:", error);
@@ -21,12 +33,12 @@ export async function generateSupplierInvoiceAction(formData) {
   }
 }
 
-export async function regenerateSupplierInvoiceAction(invoiceId, config = {}) {
+export async function regenerateSupplierInvoiceAction(invoiceId, adjustmentsByIntake = null) {
   try {
-    const newInvoice = await SupplierInvoiceService.regenerateInvoice(invoiceId, config);
-    revalidatePath(`/supplier-invoices/${invoiceId}`);
-    revalidatePath("/supplier-invoices");
-    return { success: true, data: newInvoice };
+    const newInvoice = await SupplierInvoiceService.regenerateInvoice(invoiceId, adjustmentsByIntake);
+    safeRevalidatePath(`/supplier-invoices/${invoiceId}`);
+    safeRevalidatePath("/supplier-invoices");
+    return { success: true, data: JSON.parse(JSON.stringify(newInvoice)) };
   } catch (error) {
     console.error("Failed to regenerate supplier invoice:", error);
     return { success: false, error: error.message };
@@ -56,11 +68,64 @@ export async function listSupplierInvoicesAction() {
   }
 }
 
-export async function updateInvoiceStatusAction(id, status) {
+export async function updateInvoiceStatusAction(id, status, notes) {
   try {
-    const invoice = await SupplierInvoiceRepository.updateStatus(id, status);
-    revalidatePath(`/supplier-invoices/${id}`);
-    revalidatePath("/supplier-invoices");
+    const { prisma } = await import("@/lib/prisma");
+
+    const currentInvoice = await prisma.supplierInvoice.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!currentInvoice) {
+      throw new Error("Invoice not found");
+    }
+
+    if (status === "CANCELLED" && currentInvoice.status !== "CANCELLED") {
+      const { SupplierWorkflowEngine } = await import("@/modules/supplier-invoices/workflow/SupplierWorkflowEngine");
+      const allowedActions = await SupplierWorkflowEngine.getAllowedActions(currentInvoice);
+      if (!allowedActions.state.canCancel) {
+        throw new Error("Cannot cancel this supplier invoice.");
+      }
+      await SupplierWorkflowEngine.validateCancellation(notes);
+    }
+
+    let paidAmount = 0;
+    if (status === "CLEARED") {
+      paidAmount = Number(currentInvoice.finalPayableAmount);
+    }
+
+    const clearingState = calculateInvoiceClearingState(currentInvoice.finalPayableAmount, paidAmount);
+    const paymentStatus = clearingState.paymentStatus;
+
+    const invoice = await prisma.supplierInvoice.update({
+      where: { id: parseInt(id) },
+      data: {
+        status,
+        paidAmount,
+        paymentStatus,
+        notes: (status === "CANCELLED" && notes)
+          ? (currentInvoice.notes ? `${currentInvoice.notes} | Cancellation Reason: ${notes}` : `Cancellation Reason: ${notes}`)
+          : currentInvoice.notes
+      }
+    });
+
+    let action = "UPDATED";
+    if (status === "CLEARED") action = "CLEARED";
+
+    await emitActivity({
+      entityType: "SETTLEMENT",
+      entityId: invoice.id,
+      action,
+      description: `Supplier invoice ${invoice.invoiceNumber} status updated to ${status}`,
+      meta: {
+        supplierId: invoice.partyId,
+        status: invoice.status,
+        finalPayableAmount: Number(invoice.finalPayableAmount)
+      }
+    });
+
+    safeRevalidatePath(`/supplier-invoices/${id}`);
+    safeRevalidatePath("/supplier-invoices");
     return { success: true, data: JSON.parse(JSON.stringify(invoice)) };
   } catch (error) {
     return { success: false, error: error.message };
@@ -88,3 +153,62 @@ export async function getUninvoicedDataAction(partyId) {
     return { success: false, error: error.message };
   }
 }
+
+export async function editSupplierInvoiceAction(formData) {
+  try {
+    const invoiceId = parseInt(formData.get("invoiceId"));
+    const intakeIds = JSON.parse(formData.get("intakeIds") || "[]");
+    const advanceIds = JSON.parse(formData.get("advanceIds") || "[]");
+    const adjustmentsByIntake = JSON.parse(formData.get("adjustmentsByIntake") || "{}");
+    const entryDate = formData.get("entryDate");
+
+    const newInvoice = await SupplierInvoiceService.editInvoice(invoiceId, intakeIds, advanceIds, adjustmentsByIntake, entryDate);
+    
+    safeRevalidatePath(`/supplier-invoices/${invoiceId}`);
+    safeRevalidatePath("/supplier-invoices");
+    return { success: true, data: newInvoice };
+  } catch (error) {
+    console.error("Failed to edit supplier invoice:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+import { assertDeletePermission } from "@/lib/authGuard";
+
+export async function deleteSupplierInvoiceAction(invoiceId, confirmPassword, deleteReason) {
+  try {
+    // Enforce unified record deletion permission and password confirmation check
+    await assertDeletePermission(confirmPassword);
+
+    await SupplierInvoiceService.deleteInvoice(invoiceId, deleteReason);
+    safeRevalidatePath("/supplier-invoices");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to delete supplier invoice:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function hardDeleteSupplierInvoiceAction(invoiceId, deleteReason) {
+  try {
+    // assertDestructiveMode is called inside SupplierInvoiceRepository.hardDelete
+    await SupplierInvoiceService.hardDeleteInvoice(invoiceId, deleteReason);
+    safeRevalidatePath("/supplier-invoices");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to permanently delete supplier invoice:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function recordSupplierPaymentAction(id, amount) {
+  try {
+    const invoice = await SupplierInvoiceService.recordPayment(id, amount);
+    safeRevalidatePath(`/supplier-invoices/${id}`);
+    safeRevalidatePath("/supplier-invoices");
+    return { success: true, data: JSON.parse(JSON.stringify(invoice)) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+

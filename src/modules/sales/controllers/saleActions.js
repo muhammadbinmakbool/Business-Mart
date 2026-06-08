@@ -43,9 +43,14 @@ export async function updateSaleAction(id, data) {
   }
 }
 
-export async function deleteSaleAction(id) {
+import { assertDeletePermission } from "@/lib/authGuard";
+
+export async function deleteSaleAction(id, confirmPassword, deleteReason) {
   try {
-    await SaleService.deleteSale(id);
+    // Enforce unified record deletion permission and password confirmation check
+    await assertDeletePermission(confirmPassword);
+
+    await SaleService.deleteSale(id, deleteReason);
     revalidatePath("/sales");
     return { success: true };
   } catch (error) {
@@ -53,9 +58,20 @@ export async function deleteSaleAction(id) {
   }
 }
 
-export async function updateSaleStatusAction(id, status) {
+export async function hardDeleteSaleAction(id, deleteReason) {
   try {
-    const sale = await SaleService.updateStatus(id, status);
+    // assertDestructiveMode is called inside SaleService.hardDeleteSale
+    await SaleService.hardDeleteSale(id, deleteReason);
+    revalidatePath("/sales");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateSaleStatusAction(id, status, notes) {
+  try {
+    const sale = await SaleService.updateStatus(id, status, notes);
     revalidatePath(`/sales/${id}`);
     revalidatePath("/sales");
     return { success: true, data: JSON.parse(JSON.stringify(sale)) };
@@ -83,3 +99,15 @@ export async function getAvailableStockAction(productId) {
     return { success: false, error: error.message };
   }
 }
+
+export async function recordSalePaymentAction(id, amount) {
+  try {
+    const sale = await SaleService.recordPayment(id, amount);
+    revalidatePath(`/sales/${id}`);
+    revalidatePath("/sales");
+    return { success: true, data: JSON.parse(JSON.stringify(sale)) };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+

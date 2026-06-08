@@ -7,7 +7,9 @@ import { redirect } from "next/navigation";
 export async function createProductAction(formData) {
   const data = {
     name: formData.get("name"),
-    unitType: formData.get("unitType"),
+    category: formData.get("category"),
+    primaryUnit: formData.get("primaryUnit"),
+    unitConversion: formData.get("unitConversion") ? formData.get("unitConversion") : null,
     isActive: true,
   };
 
@@ -23,9 +25,12 @@ export async function createProductAction(formData) {
 export async function updateProductAction(id, formData) {
   const data = {
     name: formData.get("name"),
-    unitType: formData.get("unitType"),
+    category: formData.get("category"),
+    primaryUnit: formData.get("primaryUnit"),
+    unitConversion: formData.get("unitConversion") ? formData.get("unitConversion") : null,
     isActive: formData.get("isActive") === "true",
   };
+
 
   try {
     await ProductService.updateProduct(id, data);
@@ -36,6 +41,8 @@ export async function updateProductAction(id, formData) {
   }
 }
 
+import { assertDeletePermission } from "@/lib/authGuard";
+
 export async function toggleProductStatusAction(id, isActive) {
   try {
     await ProductService.toggleProductStatus(id, isActive);
@@ -44,12 +51,37 @@ export async function toggleProductStatusAction(id, isActive) {
     return { error: "Failed to toggle status" };
   }
 }
-export async function deleteProductAction(id) {
+export async function deleteProductAction(id, confirmPassword, deleteReason) {
   try {
-    await ProductService.deleteProduct(id);
+    // Enforce unified record deletion permission and password confirmation check
+    await assertDeletePermission(confirmPassword);
+
+    await ProductService.deleteProduct(id, deleteReason);
     revalidatePath("/products");
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to delete product" };
   }
 }
+
+export async function hardDeleteProductAction(id, deleteReason) {
+  try {
+    // assertDestructiveMode is called inside ProductRepository.hardDelete
+    await ProductService.hardDeleteProduct(id, deleteReason);
+    revalidatePath("/products");
+    return { success: true };
+  } catch (error) {
+    return { error: error.message || "Failed to permanently delete product" };
+  }
+}
+
+export async function getActiveProductsAction() {
+  try {
+    const products = await ProductService.listProducts();
+    return { success: true, products: products.filter(p => p.isActive) };
+  } catch (error) {
+    console.error("Failed to fetch active products:", error);
+    return { success: false, error: error.message || "Failed to load products" };
+  }
+}
+

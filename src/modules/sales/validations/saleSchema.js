@@ -1,17 +1,11 @@
 import { z } from "zod";
+import { adjustmentSchema } from "@/modules/shared/validations/adjustmentSchema";
 
 export const saleItemSchema = z.object({
   productId: z.coerce.number().min(1, "Product is required"),
   weight: z.coerce.number().min(0.01, "Weight must be greater than 0"),
   rate: z.coerce.number().min(0.01, "Rate must be greater than 0"),
   amount: z.coerce.number().optional(), // Calculated by service
-});
-
-export const adjustmentSchema = z.object({
-  adjustmentType: z.string().min(1, "Adjustment type is required"),
-  method: z.enum(["FIXED", "PERCENTAGE", "PER_WEIGHT"]),
-  value: z.coerce.number().min(0, "Value must be positive"),
-  direction: z.enum(["ADD", "SUBTRACT"]).default("ADD"),
 });
 
 export const saleSchema = z.object({

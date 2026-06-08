@@ -3,6 +3,7 @@ import { IntakeService } from "@/modules/intake/services/IntakeService";
 import { PartyService } from "@/modules/parties/services/PartyService";
 import { ProductService } from "@/modules/products/services/ProductService";
 import EditIntakeForm from "./EditIntakeForm";
+import { IntakeWorkflowEngine } from "@/modules/intake/workflow/IntakeWorkflowEngine";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
@@ -19,7 +20,10 @@ export default async function EditIntakePage({ params: paramsPromise }) {
   }
 
   const suppliers = parties.filter(p => p.isActive || p.id === intake.partyId);
+  const buyers = parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH"));
   const activeProducts = products.filter(p => p.isActive || p.id === intake.productId);
+
+  const allowedActions = await IntakeWorkflowEngine.getAllowedActions(intake);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -37,8 +41,9 @@ export default async function EditIntakePage({ params: paramsPromise }) {
       </div>
 
       <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <EditIntakeForm intake={intake} suppliers={suppliers} products={activeProducts} />
+        <EditIntakeForm intake={intake} suppliers={suppliers} products={activeProducts} buyers={buyers} allowedActions={allowedActions} />
       </div>
     </div>
   );
 }
+

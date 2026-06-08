@@ -12,6 +12,21 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createTrackAction, updateTrackAction } from "@/modules/sales/controllers/trackActions";
+import { 
+  getUnitsByCategory, 
+  normalizeQuantity, 
+  normalizeRate, 
+  convertFromBase,
+  getConversionFactor,
+  getUnitLabel,
+  UNIT_IDS
+} from "@/lib/units";
+
+// Simple local rounding helper to keep UI values clean
+const round = (val, decimals = 2) => {
+  const factor = Math.pow(10, decimals);
+  return Math.round((Number(val) + Number.EPSILON) * factor) / factor;
+};
 
 export default function MappingForm({ 
   initialData = {}, 
@@ -34,38 +49,171 @@ export default function MappingForm({
     quantity: initialData.quantity || "",
     buyingRate: initialData.buyingRate || "",
     sellingRate: initialData.sellingRate || "",
+    netWeight: initialData.netWeight || "",
+    baseAmount: initialData.baseAmount || "",
     notes: initialData.notes || ""
   });
 
+  // Local React states to track units for each input field
+  const [quantityUnit, setQuantityUnit] = useState(() => {
+    return initialData?.intakeTransaction?.unit || "KG";
+  });
+  const [buyingRateUnit, setBuyingRateUnit] = useState(() => {
+    return initialData?.intakeTransaction?.rateUnit || "KG";
+  });
+  const [sellingRateUnit, setSellingRateUnit] = useState(() => {
+    return initialData?.intakeTransaction?.rateUnit || "KG";
+  });
+
+  const selectedProd = products.find(p => p.id === parseInt(formData.productId));
+  const availableUnits = selectedProd 
+    ? getUnitsByCategory(selectedProd.category) 
+    : [{ id: "KG", name: "Kilogram" }];
+
+  // Filter products by selected supplier if supplierPartyId is selected
+  const displayedProducts = formData.supplierPartyId 
+    ? products.filter(p => intakes.some(i => i.partyId === parseInt(formData.supplierPartyId) && i.productId === p.id))
+    : products;
+
   const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData(prev => {
+      const updated = { ...prev, [field]: value };
+      
+      // Auto-calculate baseAmount when netWeight or buyingRate/sellingRate changes manually
+      if (field === "netWeight" || field === "buyingRate") {
+        const netW = Number(field === "netWeight" ? value : prev.netWeight) || 0;
+        const rateVal = Number(field === "buyingRate" ? value : prev.buyingRate) || 0;
+        updated.baseAmount = round(netW * rateVal, 2).toString();
+      }
+
+      // Filter product if it's not supplied by the newly selected supplier
+      if (field === "supplierPartyId" && value) {
+        const supplierId = parseInt(value);
+        const currentProdId = parseInt(prev.productId);
+        const isLinked = intakes.some(i => i.partyId === supplierId && i.productId === currentProdId);
+        if (!isLinked) {
+          updated.productId = "";
+        }
+      }
+      return updated;
+    });
     
     // Auto-fill logic for convenience
     if (field === "saleTransactionId") {
+        if (!value) {
+            setFormData(prev => ({
+                ...prev,
+                saleTransactionId: "",
+                buyerPartyId: "",
+                productId: "",
+                quantity: "",
+                sellingRate: ""
+            }));
+            return;
+        }
         const sale = sales.find(s => s.id === parseInt(value));
         if (sale) {
+            const firstItem = sale.items?.[0];
             setFormData(prev => ({ 
                 ...prev, 
+                saleTransactionId: value,
                 buyerPartyId: sale.partyId,
-                productId: sale.items?.[0]?.productId || prev.productId,
-                quantity: sale.totalWeight || prev.quantity,
-                sellingRate: sale.items?.[0]?.rate || prev.sellingRate
+                productId: firstItem?.productId || prev.productId,
+                quantity: firstItem?.weight || sale.totalWeight || prev.quantity,
+                sellingRate: firstItem?.rate || prev.sellingRate
             }));
+            if (firstItem?.unit) {
+                setQuantityUnit(firstItem.unit);
+                setSellingRateUnit(firstItem.unit);
+            } else {
+                setQuantityUnit("KG");
+                setSellingRateUnit("KG");
+            }
         }
     }
     
     if (field === "intakeTransactionId") {
+        if (!value) {
+            setFormData(prev => ({
+                ...prev,
+                intakeTransactionId: "",
+                supplierPartyId: "",
+                productId: "",
+                quantity: "",
+                buyingRate: "",
+                netWeight: "",
+                baseAmount: ""
+            }));
+            return;
+        }
         const intake = intakes.find(i => i.id === parseInt(value));
         if (intake) {
+            const calculatedNetWeight = intake.netWeight !== null && intake.netWeight !== undefined ? intake.netWeight : "";
+            const calculatedBaseAmount = calculatedNetWeight !== "" ? (Number(calculatedNetWeight) * Number(intake.rate || 0)) : "";
+
             setFormData(prev => ({ 
                 ...prev, 
+                intakeTransactionId: value,
                 supplierPartyId: intake.partyId,
                 productId: intake.productId || prev.productId,
                 quantity: intake.grossWeight || prev.quantity,
-                buyingRate: intake.rate || prev.buyingRate
+                buyingRate: intake.rate || prev.buyingRate,
+                netWeight: calculatedNetWeight,
+                baseAmount: calculatedBaseAmount
             }));
+            if (intake.unit) {
+                setQuantityUnit(intake.unit);
+                setBuyingRateUnit(intake.unit);
+            } else {
+                setQuantityUnit("KG");
+                setBuyingRateUnit("KG");
+            }
         }
     }
+
+    if (field === "productId") {
+        const prod = products.find(p => p.id === parseInt(value));
+        if (prod) {
+            // Default units to product's primary/base unit
+            const units = getUnitsByCategory(prod.category);
+            const baseUnit = units.find(u => u.base)?.id || "KG";
+            setQuantityUnit(baseUnit);
+            setBuyingRateUnit(baseUnit);
+            setSellingRateUnit(baseUnit);
+        }
+    }
+  };
+
+  // Convert raw quantity to target unit using product conversion factor
+  const handleQuantityUnitChange = (newUnit) => {
+    if (selectedProd && formData.quantity) {
+      const baseQty = normalizeQuantity(formData.quantity, quantityUnit, selectedProd);
+      const convertedQty = convertFromBase(baseQty, newUnit, selectedProd);
+      setFormData(prev => ({ ...prev, quantity: round(convertedQty, 2).toString() }));
+    }
+    setQuantityUnit(newUnit);
+  };
+
+  // Convert raw buying rate to target unit using product conversion factor
+  const handleBuyingRateUnitChange = (newUnit) => {
+    if (selectedProd && formData.buyingRate) {
+      const baseRate = normalizeRate(formData.buyingRate, buyingRateUnit, selectedProd);
+      const targetFactor = getConversionFactor(newUnit, selectedProd);
+      const convertedRate = baseRate * targetFactor;
+      setFormData(prev => ({ ...prev, buyingRate: round(convertedRate, 2).toString() }));
+    }
+    setBuyingRateUnit(newUnit);
+  };
+
+  // Convert raw selling rate to target unit using product conversion factor
+  const handleSellingRateUnitChange = (newUnit) => {
+    if (selectedProd && formData.sellingRate) {
+      const baseRate = normalizeRate(formData.sellingRate, sellingRateUnit, selectedProd);
+      const targetFactor = getConversionFactor(newUnit, selectedProd);
+      const convertedRate = baseRate * targetFactor;
+      setFormData(prev => ({ ...prev, sellingRate: round(convertedRate, 2).toString() }));
+    }
+    setSellingRateUnit(newUnit);
   };
 
   const handleSubmit = async (e) => {
@@ -75,7 +223,37 @@ export default function MappingForm({
 
     try {
       const action = initialData.id ? updateTrackAction.bind(null, initialData.id) : createTrackAction;
-      const result = await action(formData);
+      
+      if (!formData.intakeTransactionId) {
+        throw new Error("Please select an Intake Transaction.");
+      }
+      if (!selectedProd) {
+        throw new Error("Please select a product first.");
+      }
+
+      // Convert quantity and rates to the linked intake's units before saving to DB
+      const intake = intakes.find(i => i.id === parseInt(formData.intakeTransactionId));
+      const targetUnit = intake?.unit || "KG";
+      const targetRateUnit = intake?.rateUnit || "KG";
+
+      const finalQty = convertFromBase(normalizeQuantity(formData.quantity, quantityUnit, selectedProd), targetUnit, selectedProd);
+      
+      const baseBuyingRate = formData.buyingRate ? normalizeRate(formData.buyingRate, buyingRateUnit, selectedProd) : null;
+      const finalBuyingRate = baseBuyingRate !== null ? baseBuyingRate * getConversionFactor(targetRateUnit, selectedProd) : null;
+
+      const baseSellingRate = formData.sellingRate ? normalizeRate(formData.sellingRate, sellingRateUnit, selectedProd) : null;
+      const finalSellingRate = baseSellingRate !== null ? baseSellingRate * getConversionFactor(targetRateUnit, selectedProd) : null;
+
+      const payload = {
+        ...formData,
+        quantity: finalQty,
+        buyingRate: finalBuyingRate,
+        sellingRate: finalSellingRate,
+        netWeight: formData.netWeight ? Number(formData.netWeight) : null,
+        baseAmount: formData.baseAmount ? Number(formData.baseAmount) : null
+      };
+
+      const result = await action(payload);
       
       if (result.success) {
         router.push("/source-tracking");
@@ -84,14 +262,14 @@ export default function MappingForm({
         setError(result.error);
       }
     } catch (err) {
-      setError("An unexpected error occurred.");
+      setError(err.message || "An unexpected error occurred.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-4xl space-y-8">
+    <form onSubmit={handleSubmit} className="w-full space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         
         {/* Core Links Section */}
@@ -116,15 +294,15 @@ export default function MappingForm({
             </div>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Intake Transaction (Optional)</label>
+              <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Intake Transaction</label>
               <select 
                 value={formData.intakeTransactionId}
                 onChange={(e) => handleChange("intakeTransactionId", e.target.value)}
                 className="w-full h-10 bg-card border rounded-xl px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               >
-                <option value="">No Intake Linked</option>
+                <option value="">Select Intake...</option>
                 {intakes.map(i => (
-                  <option key={i.id} value={i.id}>{i.intakeNumber} - {i.party?.name} ({Number(i.grossWeight).toLocaleString()} KG)</option>
+                  <option key={i.id} value={i.id}>{i.intakeNumber} - {i.party?.name} - {i.product?.name || "N/A"} ({Number(i.grossWeight).toLocaleString()} {getUnitLabel(i.unit)})</option>
                 ))}
               </select>
             </div>
@@ -171,7 +349,7 @@ export default function MappingForm({
                 className="w-full h-10 bg-card border rounded-xl px-3 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all"
               >
                 <option value="">Select Product...</option>
-                {products.map(p => (
+                {displayedProducts.map(p => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
@@ -187,40 +365,113 @@ export default function MappingForm({
             </h3>
 
             <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Quantity (KG)</label>
-              <input 
-                type="number"
-                step="0.01"
-                required
-                value={formData.quantity}
-                onChange={(e) => handleChange("quantity", e.target.value)}
-                className="w-full h-11 bg-card border rounded-xl px-4 text-lg font-mono outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                placeholder="0.00"
-              />
+              <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Quantity</label>
+              <div className="relative flex items-center">
+                <input 
+                  type="number"
+                  step="0.01"
+                  required
+                  value={formData.quantity}
+                  onChange={(e) => handleChange("quantity", e.target.value)}
+                  className="w-full h-11 bg-card border rounded-xl pl-4 pr-24 text-lg font-mono outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                  placeholder="0.00"
+                />
+                <div className="absolute right-2">
+                  <select
+                    value={quantityUnit}
+                    onChange={(e) => handleQuantityUnitChange(e.target.value)}
+                    className="bg-muted hover:bg-muted/80 text-foreground text-xs font-bold uppercase rounded-lg px-2.5 py-1.5 border-none outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer transition-colors"
+                  >
+                    {availableUnits.map(u => (
+                      <option key={u.id} value={u.id} className="bg-card text-foreground">{getUnitLabel(u.id)}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Buying Rate</label>
-                    <input 
-                        type="number"
-                        step="0.01"
-                        value={formData.buyingRate}
-                        onChange={(e) => handleChange("buyingRate", e.target.value)}
-                        className="w-full h-10 bg-card border rounded-xl px-3 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                        placeholder="Rs."
-                    />
+                    <div className="relative flex items-center">
+                        <input 
+                            type="number"
+                            step="0.01"
+                            value={formData.buyingRate}
+                            onChange={(e) => handleChange("buyingRate", e.target.value)}
+                            className="w-full h-10 bg-card border rounded-xl pl-3 pr-20 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="Rs."
+                        />
+                        <div className="absolute right-1.5">
+                          <select
+                            value={buyingRateUnit}
+                            onChange={(e) => handleBuyingRateUnitChange(e.target.value)}
+                            className="bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase rounded-md px-2 py-1 border-none outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer transition-colors"
+                          >
+                            {availableUnits.map(u => (
+                              <option key={u.id} value={u.id} className="bg-card text-foreground">/{getUnitLabel(u.id)}</option>
+                            ))}
+                          </select>
+                        </div>
+                    </div>
                 </div>
                 <div className="space-y-2">
                     <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Selling Rate</label>
-                    <input 
-                        type="number"
-                        step="0.01"
-                        value={formData.sellingRate}
-                        onChange={(e) => handleChange("sellingRate", e.target.value)}
-                        className="w-full h-10 bg-card border rounded-xl px-3 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-                        placeholder="Rs."
-                    />
+                    <div className="relative flex items-center">
+                        <input 
+                            type="number"
+                            step="0.01"
+                            value={formData.sellingRate}
+                            onChange={(e) => handleChange("sellingRate", e.target.value)}
+                            className="w-full h-10 bg-card border rounded-xl pl-3 pr-20 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="Rs."
+                        />
+                        <div className="absolute right-1.5">
+                          <select
+                            value={sellingRateUnit}
+                            onChange={(e) => handleSellingRateUnitChange(e.target.value)}
+                            className="bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase rounded-md px-2 py-1 border-none outline-none focus:ring-1 focus:ring-primary/50 cursor-pointer transition-colors"
+                          >
+                            {availableUnits.map(u => (
+                              <option key={u.id} value={u.id} className="bg-card text-foreground">/{getUnitLabel(u.id)}</option>
+                            ))}
+                          </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Net Weight</label>
+                    <div className="relative flex items-center">
+                        <input 
+                            type="number"
+                            step="0.01"
+                            value={formData.netWeight}
+                            onChange={(e) => handleChange("netWeight", e.target.value)}
+                            className="w-full h-10 bg-card border rounded-xl px-3 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="0.00"
+                        />
+                        {formData.intakeTransactionId && (
+                          <div className="absolute right-3 text-[10px] uppercase font-bold text-muted-foreground">
+                            {getUnitLabel(quantityUnit)}
+                          </div>
+                        )}
+                    </div>
+                </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Base Amount</label>
+                    <div className="relative flex items-center">
+                        <input 
+                            type="number"
+                            step="0.01"
+                            value={formData.baseAmount}
+                            onChange={(e) => handleChange("baseAmount", e.target.value)}
+                            className="w-full h-10 bg-card border rounded-xl px-3 text-sm font-mono outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                            placeholder="Rs."
+                        />
+                    </div>
                 </div>
             </div>
 

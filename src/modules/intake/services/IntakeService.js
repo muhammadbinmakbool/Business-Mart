@@ -2,6 +2,18 @@ import { IntakeRepository } from "../repositories/IntakeRepository";
 import { AdvanceRepository } from "../repositories/AdvanceRepository";
 import { intakeSchema } from "../validations/intakeSchema";
 import { PartyService } from "../../parties/services/PartyService";
+import { PartyRepository } from "../../parties/repositories/PartyRepository";
+import { UnitService } from "../../products/services/UnitService";
+import { ProductService } from "../../products/services/ProductService";
+import { InventoryService } from "../../products/services/InventoryService";
+import { prisma } from "@/lib/prisma";
+import { convertRate, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { createAppError } from "@/lib/errors/AppError";
+import { emitActivity, logIntakeEvent, logPaymentEvent } from "@/modules/activity-log/activityLogger";
+import { calculateIntakeState } from "@/lib/financial";
+import { withOwnership } from "@/lib/session";
+import { IntakeWorkflowEngine } from "../workflow/IntakeWorkflowEngine";
+
 
 export class IntakeService {
   static async listIntakes() {
@@ -9,7 +21,26 @@ export class IntakeService {
     return intakes.map(intake => ({
       ...intake,
       grossWeight: Number(intake.grossWeight),
-      rate: intake.rate ? Number(intake.rate) : null
+      remainingWeight: intake.remainingWeight !== null && intake.remainingWeight !== undefined ? Number(intake.remainingWeight) : null,
+      netWeight: intake.netWeight ? Number(intake.netWeight) : null,
+      Bardana: intake.Bardana ? Number(intake.Bardana) : null,
+      Khot: intake.Khot ? Number(intake.Khot) : null,
+      normalizedWeight: Number(intake.normalizedWeight),
+      rate: intake.rate ? Number(intake.rate) : null,
+      rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
+      product: intake.product ? {
+        ...intake.product,
+        quantity: Number(intake.product.quantity),
+        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
+      } : null,
+      salesTracks: intake.salesTracks?.map(st => ({
+        ...st,
+        quantity: Number(st.quantity),
+        buyingRate: st.buyingRate ? Number(st.buyingRate) : null,
+        sellingRate: st.sellingRate ? Number(st.sellingRate) : null,
+        netWeight: st.netWeight ? Number(st.netWeight) : null,
+        baseAmount: st.baseAmount ? Number(st.baseAmount) : null
+      }))
     }));
   }
 
@@ -21,13 +52,50 @@ export class IntakeService {
     return {
       ...intake,
       grossWeight: Number(intake.grossWeight),
+      remainingWeight: intake.remainingWeight !== null && intake.remainingWeight !== undefined ? Number(intake.remainingWeight) : null,
+      netWeight: intake.netWeight ? Number(intake.netWeight) : null,
+      Bardana: intake.Bardana ? Number(intake.Bardana) : null,
+      Khot: intake.Khot ? Number(intake.Khot) : null,
+      normalizedWeight: Number(intake.normalizedWeight),
       rate: intake.rate ? Number(intake.rate) : null,
+      rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
+      product: intake.product ? {
+        ...intake.product,
+        quantity: Number(intake.product.quantity),
+        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
+      } : null,
       advances: intake.advances?.map(a => ({
         ...a,
         amount: Number(a.amount)
+      })),
+      invoiceItems: intake.invoiceItems?.map(ii => ({
+        ...ii,
+        weight: Number(ii.weight),
+        rate: Number(ii.rate),
+        amount: Number(ii.amount),
+        invoice: ii.invoice ? {
+          ...ii.invoice,
+          totalGrossValue: Number(ii.invoice.totalGrossValue),
+          totalDeductions: Number(ii.invoice.totalDeductions),
+          totalAdvances: Number(ii.invoice.totalAdvances),
+          finalPayableAmount: Number(ii.invoice.finalPayableAmount),
+          paidAmount: Number(ii.invoice.paidAmount)
+        } : null
+      })),
+      salesTracks: intake.salesTracks?.map(st => ({
+        ...st,
+        quantity: Number(st.quantity),
+        buyingRate: st.buyingRate ? Number(st.buyingRate) : null,
+        sellingRate: st.sellingRate ? Number(st.sellingRate) : null,
+        netWeight: st.netWeight ? Number(st.netWeight) : null,
+        baseAmount: st.baseAmount ? Number(st.baseAmount) : null,
+        buyer: st.buyer ? {
+          ...st.buyer
+        } : null
       }))
     };
   }
+
 
   static async createIntake(data) {
     let { partyId, newPartyData, ...intakeData } = data;
@@ -38,23 +106,381 @@ export class IntakeService {
     }
 
     const validated = intakeSchema.parse({ ...intakeData, partyId });
-    return IntakeRepository.create(validated);
+    
+    // Normalize weight
+    const product = await ProductService.getProduct(validated.productId);
+    if (!product) throw new Error("Product not found");
+    if (!product.isActive) {
+      throw new Error(`Product "${product.name}" is disabled/inactive. New goods intakes cannot be created for disabled products.`);
+    }
+    
+    const normalizedWeight = UnitService.getNormalizedQuantity(validated.grossWeight, validated.unit || DEFAULT_WEIGHT_UNIT, product);
+    
+    const isBagProduct = product && (product.primaryUnit === "BAG" || product.category === "BAG");
+
+    const ownership = await withOwnership();
+    const finalStatus = validated.status || (await IntakeWorkflowEngine.getDefaultStatus());
+
+    const intake = await prisma.$transaction(async (tx) => {
+      // 1. Get next number
+      const lastEntry = await tx.intakeTransaction.findFirst({
+        orderBy: { id: "desc" }
+      });
+      const nextId = lastEntry ? lastEntry.id + 1 : 1;
+      const nextNumber = `INT-${nextId.toString().padStart(6, "0")}`;
+
+      // 2. Create Intake Transaction
+      const record = await tx.intakeTransaction.create({
+        data: {
+          grossWeight: validated.grossWeight,
+          remainingWeight: validated.grossWeight,
+          netWeight: validated.netWeight ?? null,
+          Bardana: validated.Bardana ?? null,
+          Khot: validated.Khot ?? null,
+          unit: validated.unit || DEFAULT_WEIGHT_UNIT,
+          normalizedWeight,
+          rate: validated.rate ?? null,
+          rateUnit: validated.rateUnit || (isBagProduct ? "BAG" : DEFAULT_WEIGHT_UNIT),
+          notes: validated.notes,
+          status: finalStatus,
+          entryDate: validated.entryDate,
+          bagCount: validated.bagCount,
+          intakeNumber: nextNumber,
+          userId: ownership.userId,
+          businessId: ownership.businessId,
+          party: { connect: { id: parseInt(partyId) } },
+          product: { connect: { id: parseInt(validated.productId) } }
+        }
+      });
+
+      // 3. Delegate inventory update to InventoryService
+      await InventoryService.handleIntakeCreated(parseInt(validated.productId), tx);
+
+      return record;
+    });
+
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const party = await PartyRepository.getById(intake.partyId);
+    const partyName = party ? party.name : "";
+
+    await logIntakeEvent({
+      intakeId: intake.id,
+      intakeNumber: intake.intakeNumber,
+      partyId: intake.partyId,
+      partyName,
+      action: "CREATED",
+      description: `${performedByName} created Intake ${intake.intakeNumber} for supplier ${partyName}.`,
+      weight: Number(intake.normalizedWeight),
+      bagCount: intake.bagCount,
+      rate: intake.rate,
+      performedByUserId,
+      performedByName,
+      meta: {
+        productId: intake.productId
+      }
+    });
+
+    return intake;
   }
 
   static async updateIntake(id, data) {
-    const validated = intakeSchema.partial().parse(data);
-    return IntakeRepository.update(id, validated);
+    const { buyerPartyId, ...rest } = data;
+    const validated = intakeSchema.partial().parse(rest);
+    const ownership = await withOwnership();
+    const workflowSettings = await getIntakeWorkflowSettings();
+    
+    let oldStatus;
+    
+    const updated = await prisma.$transaction(async (tx) => {
+      // 1. Get current state
+      const current = await tx.intakeTransaction.findUnique({
+        where: { id: parseInt(id) }
+      });
+      if (!current) throw new Error("Intake transaction not found");
+
+      const oldProductId = current.productId;
+      const oldWeight = Number(current.normalizedWeight);
+      oldStatus = current.status;
+
+      // 2. Determine new values
+      const newProductId = validated.productId ? parseInt(validated.productId) : oldProductId;
+      let newStatus = validated.status || oldStatus;
+      let newRemainingWeight;
+
+      const product = await tx.product.findUnique({ where: { id: newProductId } });
+      if (!product) throw new Error("Product not found");
+
+      if (!product.isActive) {
+        const isTransitionToSelling = (newStatus === "SOLD" || newStatus === "PARTIAL");
+        const isNewInactiveProduct = (newProductId !== oldProductId);
+        
+        if (isTransitionToSelling || isNewInactiveProduct) {
+          throw new Error(`Product "${product.name}" is disabled/inactive. Further transactions, arrivals, or selling of this product are suspended until it is reactivated.`);
+        }
+      }
+
+      // Validation Rule: If transitioning away from SOLD, CLEARED, or PARTIAL to PENDING or CANCELLED, verify/delete unbilled SalesTrack and block if included in Supplier Settlement
+      if (newStatus === "CANCELLED" && oldStatus !== "CANCELLED") {
+        const allowedActions = await IntakeWorkflowEngine.getAllowedActions(current);
+        if (!allowedActions.state.canCancel) {
+          throw new Error("Cannot cancel this intake.");
+        }
+        await IntakeWorkflowEngine.validateCancellation(rest.notes || validated.notes);
+      }
+
+      if ((oldStatus === "SOLD" || oldStatus === "CLEARED" || oldStatus === "PARTIAL") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
+        // Check for Supplier Settlement linkage
+        const supplierInvoiceItem = await tx.supplierInvoiceItem.findFirst({
+          where: { intakeTransactionId: current.id }
+        });
+        if (supplierInvoiceItem) {
+          throw createAppError("SETTLEMENT_LOCKED", "Cannot change status because this intake is already included in a Supplier Settlement/Invoice. Please remove it from the supplier settlement first.");
+        }
+
+        const existingTracks = await tx.salesTrack.findMany({
+          where: { intakeTransactionId: current.id }
+        });
+
+        if (existingTracks.length > 0) {
+          const billedTrack = existingTracks.find(t => t.isBilled || t.saleTransactionId !== null);
+          if (billedTrack) {
+            throw createAppError("TRANSACTION_BILLED", "Cannot change status because this intake's sales trace is already included in a Sales Invoice. Please remove it from the invoice first.");
+          }
+          // If not billed, delete all SalesTrack records atomically
+          await tx.salesTrack.deleteMany({
+            where: { intakeTransactionId: current.id }
+          });
+        }
+
+        // Reset remainingWeight to full grossWeight when reverting to PENDING/CANCELLED
+        newRemainingWeight = Number(validated.grossWeight !== undefined ? validated.grossWeight : current.grossWeight);
+        validated.rate = null;
+        validated.rateUnit = null;
+        validated.Bardana = null;
+        validated.Khot = null;
+        validated.netWeight = null;
+      }
+
+      // Recalculate normalized weight if weight, unit, or product changed
+      let newWeight = oldWeight;
+      const hasWeightChange = rest.grossWeight !== undefined;
+      const hasUnitChange = rest.unit !== undefined;
+      const hasProductChange = rest.productId !== undefined;
+
+      if (hasWeightChange || hasUnitChange || hasProductChange) {
+        const product = await tx.product.findUnique({ where: { id: newProductId } });
+        if (!product) throw new Error("Product not found");
+        const rawWeight = hasWeightChange ? validated.grossWeight : Number(current.grossWeight);
+        const unit = hasUnitChange ? validated.unit : current.unit;
+        newWeight = UnitService.getNormalizedQuantity(rawWeight, unit, product);
+      }
+
+      // Recalculate remainingWeight safely if grossWeight changed
+      if (newRemainingWeight === undefined) {
+        newRemainingWeight = current.remainingWeight !== null ? Number(current.remainingWeight) : Number(current.grossWeight);
+      }
+      if (hasWeightChange) {
+        const oldGross = Number(current.grossWeight);
+        const newGross = Number(validated.grossWeight);
+        const soldWeight = oldGross - (current.remainingWeight !== null ? Number(current.remainingWeight) : oldGross);
+
+        if (newGross < soldWeight) {
+          throw new Error(`Gross weight cannot be less than the already sold weight of ${soldWeight} ${current.unit || DEFAULT_WEIGHT_UNIT}.`);
+        }
+
+        if (current.status === "PENDING") {
+          newRemainingWeight = newGross;
+        } else {
+          const delta = newGross - oldGross;
+          newRemainingWeight = Math.max(0, newRemainingWeight + delta);
+        }
+
+        // Recalculate status dynamically if the weight shift changes the intake state
+        newStatus = calculateIntakeState({ grossWeight: newGross, remainingWeight: newRemainingWeight }).status;
+      }
+
+      // Calculate converted rates based on the units used!
+      const finalSupplierRate = validated.rate !== undefined
+        ? (validated.rate === null ? null : validated.rate)
+        : current.rate;
+      const finalSupplierRateUnit = validated.rateUnit !== undefined
+        ? (validated.rateUnit === null ? null : validated.rateUnit)
+        : current.rateUnit;
+
+      const finalSalesTrackRate = validated.rate !== undefined
+        ? (validated.rate === null ? null : validated.rate)
+        : current.rate;
+
+      // 3. Update the intake record FIRST
+      const updated = await tx.intakeTransaction.update({
+        where: { id: parseInt(id) },
+        data: {
+          partyId: validated.partyId,
+          productId: validated.productId,
+          entryDate: validated.entryDate,
+          bagCount: validated.bagCount,
+          grossWeight: validated.grossWeight,
+          remainingWeight: newRemainingWeight,
+          unit: validated.unit !== undefined ? validated.unit : current.unit,
+          normalizedWeight: newWeight,
+          notes: validated.notes,
+          status: newStatus,
+          rate: finalSupplierRate,
+          rateUnit: finalSupplierRateUnit,
+          Bardana: validated.Bardana !== undefined ? validated.Bardana : current.Bardana,
+          Khot: validated.Khot !== undefined ? validated.Khot : current.Khot,
+          netWeight: validated.netWeight !== undefined ? validated.netWeight : current.netWeight,
+          userId: ownership.userId,
+          businessId: ownership.businessId
+        }
+      });
+
+      // 4. Delegate inventory recalculation to InventoryService AFTER the record update
+      //    (the SUM query now sees the new status, weight, and product)
+      await InventoryService.handleIntakeUpdated(oldProductId, newProductId, tx);
+
+      // 5. If status is SOLD and buyer is specified, upsert SalesTrack!
+      if (newStatus === "SOLD" && buyerPartyId) {
+        const existingTrack = await tx.salesTrack.findFirst({
+          where: { intakeTransactionId: updated.id }
+        });
+
+        const product = await tx.product.findUnique({ where: { id: updated.productId } });
+        const weightForTotal = updated.netWeight !== null && updated.netWeight !== undefined 
+          ? Number(updated.netWeight) 
+          : Number(updated.grossWeight);
+        const quantityInKg = UnitService.getNormalizedQuantity(weightForTotal, updated.unit, product);
+        const actualRate = convertRate(updated.rate, updated.rateUnit || DEFAULT_WEIGHT_UNIT, updated.unit || DEFAULT_WEIGHT_UNIT, product);
+        const rateForTotal = actualRate ? Number(actualRate) : 0;
+        const baseAmount = weightForTotal * rateForTotal;
+
+        const trackData = {
+          intakeTransactionId: updated.id,
+          supplierPartyId: updated.partyId,
+          buyerPartyId: parseInt(buyerPartyId),
+          productId: updated.productId,
+          quantity: weightForTotal,
+          buyingRate: finalSalesTrackRate,
+          sellingRate: finalSalesTrackRate,
+          rateUnit: finalSupplierRateUnit,
+          netWeight: updated.netWeight !== null && updated.netWeight !== undefined ? Number(updated.netWeight) : null,
+          baseAmount: baseAmount,
+          notes: `Intake ${updated.intakeNumber} updated and marked as SOLD`,
+          userId: ownership.userId,
+          businessId: ownership.businessId
+        };
+
+        if (existingTrack) {
+          await tx.salesTrack.update({
+            where: { id: existingTrack.id },
+            data: trackData
+          });
+        } else {
+          await tx.salesTrack.create({
+            data: trackData
+          });
+        }
+      }
+
+      return updated;
+    });
+
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const party = await PartyRepository.getById(updated.partyId);
+    const partyName = party ? party.name : "";
+
+    let description = `${performedByName} updated Intake ${updated.intakeNumber} (Status: ${updated.status}).`;
+    if (oldStatus !== updated.status) {
+      description = `${performedByName} changed Intake ${updated.intakeNumber} status from ${oldStatus} to ${updated.status}.`;
+    }
+
+    await logIntakeEvent({
+      intakeId: updated.id,
+      intakeNumber: updated.intakeNumber,
+      partyId: updated.partyId,
+      partyName,
+      action: "UPDATED",
+      description,
+      weight: Number(updated.normalizedWeight),
+      bagCount: updated.bagCount,
+      rate: updated.rate,
+      performedByUserId,
+      performedByName,
+      meta: {
+        oldStatus,
+        newStatus: updated.status,
+        productId: updated.productId
+      }
+    });
+
+    return updated;
   }
 
   static async createIntakeWithAdvance(intakeData, advanceAmount, advanceNotes) {
     const intake = await this.createIntake(intakeData);
     
     if (advanceAmount && parseFloat(advanceAmount) > 0) {
-      await AdvanceRepository.create({
+      const parsedAmount = parseFloat(advanceAmount);
+      const ownedAdvance = await withOwnership({
         partyId: intake.partyId,
         intakeTransactionId: intake.id,
-        amount: parseFloat(advanceAmount),
+        amount: parsedAmount,
         notes: advanceNotes || `Advance for Intake ${intake.intakeNumber}`
+      });
+      const advance = await AdvanceRepository.create(ownedAdvance);
+
+      let performedByUserId = 0;
+      let performedByName = "system";
+      try {
+        const { getSession } = await import("@/lib/session");
+        const session = await getSession();
+        if (session) {
+          performedByUserId = session.userId || 0;
+          performedByName = session.userName || "system";
+        }
+      } catch (e) {}
+
+      const party = await PartyRepository.getById(intake.partyId);
+      const partyName = party ? party.name : "";
+
+      const description = `${performedByName} recorded supplier cash advance of Rs. ${parsedAmount.toLocaleString()} for ${partyName} linked to Intake ${intake.intakeNumber}.`;
+
+      await logPaymentEvent({
+        partyId: intake.partyId,
+        partyName,
+        paymentType: "CASH_OUT",
+        eventType: "CASH_ADVANCE",
+        amount: parsedAmount,
+        description,
+        performedByUserId,
+        performedByName,
+        referenceType: "INTAKE",
+        referenceId: intake.id,
+        referenceNumber: intake.intakeNumber,
+        meta: {
+          notes: ownedAdvance.notes,
+          intakeId: intake.id
+        }
       });
     }
     
@@ -66,11 +492,291 @@ export class IntakeService {
     return intakes.map(intake => ({
       ...intake,
       grossWeight: Number(intake.grossWeight),
-      rate: Number(intake.rate)
+      remainingWeight: intake.remainingWeight !== null && intake.remainingWeight !== undefined ? Number(intake.remainingWeight) : null,
+      netWeight: intake.netWeight ? Number(intake.netWeight) : null,
+      Bardana: intake.Bardana ? Number(intake.Bardana) : null,
+      Khot: intake.Khot ? Number(intake.Khot) : null,
+      normalizedWeight: Number(intake.normalizedWeight),
+      rate: intake.rate ? Number(intake.rate) : null,
+      rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
+      product: intake.product ? {
+        ...intake.product,
+        quantity: Number(intake.product.quantity),
+        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
+      } : null,
+      salesTracks: (intake.salesTracks || []).map(track => ({
+        ...track,
+        quantity: Number(track.quantity),
+        buyingRate: track.buyingRate ? Number(track.buyingRate) : null,
+        sellingRate: track.sellingRate ? Number(track.sellingRate) : null,
+        netWeight: track.netWeight ? Number(track.netWeight) : null,
+        baseAmount: track.baseAmount ? Number(track.baseAmount) : null,
+      }))
     }));
   }
 
-  static async deleteIntake(id) {
-    return IntakeRepository.delete(id);
+  static async sellIntake(id, data) {
+    const intakeId = parseInt(id);
+    const buyerPartyId = parseInt(data.buyerPartyId);
+    const rate = Number(data.rate);
+    const Bardana = Number(data.Bardana) || 0;
+    const Khot = Number(data.Khot) || 0;
+    const netWeight = Number(data.netWeight) || 0;
+
+    const isPartial = !!data.isPartialSale;
+    const ownership = await withOwnership();
+
+    const updatedIntake = await prisma.$transaction(async (tx) => {
+      // 1. Get the current intake record
+      const intake = await tx.intakeTransaction.findUnique({
+        where: { id: intakeId },
+        include: { product: true }
+      });
+      if (!intake) throw new Error("Intake transaction not found");
+
+      const isBagProduct = intake.unit === "BAG" || (intake.product && (intake.product.primaryUnit === "BAG" || intake.product.category === "BAG"));
+      const rateUnit = isBagProduct ? "BAG" : (data.rateUnit || DEFAULT_WEIGHT_UNIT);
+
+      if (intake.product && !intake.product.isActive) {
+        throw new Error(`Product "${intake.product.name}" is disabled/inactive. Further transactions, arrivals, or selling of this product are suspended until it is reactivated.`);
+      }
+
+      if (intake.status === "CANCELLED") {
+        throw new Error("Cannot sell a cancelled intake");
+      }
+      if (intake.status === "SOLD") {
+        throw new Error("This intake is already fully sold");
+      }
+
+      const defaultSellWeight = intake.remainingWeight !== null ? Number(intake.remainingWeight) : Number(intake.grossWeight);
+      const soldQty = isPartial ? Number(data.soldQuantity) : defaultSellWeight;
+
+      if (isNaN(soldQty) || soldQty <= 0) {
+        throw new Error("Sold quantity must be greater than zero");
+      }
+      if (soldQty > defaultSellWeight) {
+        throw new Error(`Sold quantity ${soldQty} exceeds remaining weight ${defaultSellWeight}`);
+      }
+
+      const newRemainingWeight = defaultSellWeight - soldQty;
+      const { status: newStatus } = calculateIntakeState({
+        grossWeight: Number(intake.grossWeight),
+        remainingWeight: newRemainingWeight
+      });
+
+      // Calculate converted rates!
+      const finalSalesTrackRate = rate;
+
+      // Fetch existing sales tracks to calculate average rate
+      const existingTracks = await tx.salesTrack.findMany({
+        where: { intakeTransactionId: intakeId }
+      });
+      const allTracks = [
+        ...existingTracks.map(t => ({ quantity: Number(t.quantity || 0), rate: Number(t.buyingRate || 0) })),
+        { quantity: netWeight, rate: rate }
+      ];
+      const totalQty = allTracks.reduce((sum, t) => sum + t.quantity, 0);
+      const totalValue = allTracks.reduce((sum, t) => sum + (t.quantity * t.rate), 0);
+      const averageRate = totalQty > 0 ? (totalValue / totalQty) : rate;
+
+      // 2. Update Intake Transaction fields
+      const updatedIntake = await tx.intakeTransaction.update({
+        where: { id: intakeId },
+        data: {
+          status: newStatus,
+          remainingWeight: newRemainingWeight,
+          Bardana: Number(intake.Bardana || 0) + Bardana,
+          Khot: Number(intake.Khot || 0) + Khot,
+          netWeight: Number(intake.netWeight || 0) + netWeight,
+          rate: averageRate,
+          rateUnit: rateUnit,
+          userId: ownership.userId,
+          businessId: ownership.businessId
+        }
+      });
+
+      // 2.5 Delegate inventory update — intake is updated
+      await InventoryService.handleIntakeSold(intake.productId, tx);
+
+      // 3. Create unique SalesTrack record for this partial sale portion
+      const quantityInKg = UnitService.getNormalizedQuantity(netWeight, intake.unit, intake.product);
+      const baseAmount = netWeight * convertRate(rate, rateUnit, intake.unit, intake.product);
+
+      const trackData = {
+        intakeTransactionId: intakeId,
+        supplierPartyId: intake.partyId,
+        buyerPartyId,
+        productId: intake.productId,
+        quantity: netWeight,
+        buyingRate: finalSalesTrackRate,
+        sellingRate: finalSalesTrackRate,
+        rateUnit: rateUnit,
+        netWeight: netWeight,
+        baseAmount: baseAmount,
+        notes: `Intake ${intake.intakeNumber} marked as ${newStatus}`,
+        userId: ownership.userId,
+        businessId: ownership.businessId
+      };
+
+      await tx.salesTrack.create({
+        data: trackData
+      });
+
+      return updatedIntake;
+    });
+
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const party = await PartyRepository.getById(updatedIntake.partyId);
+    const partyName = party ? party.name : "";
+
+    const description = `${performedByName} marked Intake ${updatedIntake.intakeNumber} as ${updatedIntake.status === "SOLD" ? "SOLD" : "PARTIALLY SOLD"} (Supplier: ${partyName}).`;
+
+    await logIntakeEvent({
+      intakeId: updatedIntake.id,
+      intakeNumber: updatedIntake.intakeNumber,
+      partyId: updatedIntake.partyId,
+      partyName,
+      action: updatedIntake.status === "SOLD" ? "SOLD" : "PARTIALLY_SOLD",
+      description,
+      weight: Number(updatedIntake.netWeight || updatedIntake.grossWeight),
+      bagCount: updatedIntake.bagCount,
+      rate: Number(updatedIntake.rate),
+      performedByUserId,
+      performedByName,
+      meta: {
+        productId: updatedIntake.productId,
+        remainingWeight: Number(updatedIntake.remainingWeight)
+      }
+    });
+
+    return updatedIntake;
+  }
+
+
+  static async deleteIntake(id, deleteReason) {
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const intake = await prisma.intakeTransaction.findUnique({
+      where: { id: parseInt(id) }
+    });
+    if (!intake) throw new Error("Intake transaction not found");
+
+    // Soft delete — preserve record in database
+    await IntakeRepository.softDelete(id, {
+      deletedBy: performedByUserId,
+      deleteReason
+    });
+
+    // Still trigger inventory recalculation so stock counts stay accurate
+    await InventoryService.handleIntakeDeleted(intake.productId);
+
+    const party = await PartyRepository.getById(intake.partyId);
+    const partyName = party ? party.name : "";
+
+    const description = `${performedByName} soft-deleted Intake ${intake.intakeNumber} (Supplier: ${partyName}).${deleteReason ? ` Reason: ${deleteReason}` : ""}`;
+
+    await logIntakeEvent({
+      intakeId: intake.id,
+      intakeNumber: intake.intakeNumber,
+      partyId: intake.partyId,
+      partyName,
+      action: "DELETED",
+      description,
+      weight: Number(intake.normalizedWeight),
+      bagCount: intake.bagCount,
+      rate: Number(intake.rate),
+      performedByUserId,
+      performedByName,
+      meta: {
+        productId: intake.productId,
+        deleteReason
+      }
+    });
+
+    return intake;
+  }
+
+  /**
+   * HARD DELETE — permanently removes the intake and its linked advances from the database.
+   * Requires an active Destructive Mode session.
+   */
+  static async hardDeleteIntake(id, deleteReason) {
+    const deleted = await prisma.$transaction(async (tx) => {
+      const intake = await tx.intakeTransaction.findUnique({
+        where: { id: parseInt(id) }
+      });
+      if (!intake) throw new Error("Intake transaction not found");
+
+      const productId = intake.productId;
+
+      // Hard-delete linked advances first (original preserved logic)
+      await tx.intakeAdvance.deleteMany({
+        where: { intakeTransactionId: parseInt(id) }
+      });
+
+      const record = await tx.intakeTransaction.delete({
+        where: { id: parseInt(id) }
+      });
+
+      await InventoryService.handleIntakeDeleted(productId, tx);
+
+      return record;
+    });
+
+    let performedByUserId = 0;
+    let performedByName = "system";
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+        performedByName = session.userName || "system";
+      }
+    } catch (e) {}
+
+    const party = await PartyRepository.getById(deleted.partyId);
+    const partyName = party ? party.name : "";
+
+    const description = `${performedByName} PERMANENTLY deleted Intake ${deleted.intakeNumber} (Supplier: ${partyName}).${deleteReason ? ` Reason: ${deleteReason}` : ""}`;
+
+    await logIntakeEvent({
+      intakeId: deleted.id,
+      intakeNumber: deleted.intakeNumber,
+      partyId: deleted.partyId,
+      partyName,
+      action: "HARD_DELETED",
+      description,
+      weight: Number(deleted.normalizedWeight),
+      bagCount: deleted.bagCount,
+      rate: Number(deleted.rate),
+      performedByUserId,
+      performedByName,
+      meta: {
+        productId: deleted.productId,
+        deleteReason
+      }
+    });
+
+    return deleted;
   }
 }
+

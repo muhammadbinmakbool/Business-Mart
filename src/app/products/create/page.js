@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Info } from "lucide-react";
 import { createProductAction } from "@/modules/products/controllers/productActions";
-import { UNIT_TYPES } from "@/lib/constants";
+import { UNIT_CATEGORIES, UNITS, getUnitsByCategory, isProductSpecific, BASE_UNITS } from "@/lib/units";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -12,6 +12,9 @@ export default function CreateProductPage() {
   const router = useRouter();
   const formRef = useRef(null);
   const nameInputRef = useRef(null);
+
+  const [category, setCategory] = useState(UNIT_CATEGORIES.WEIGHT);
+  const [primaryUnit, setPrimaryUnit] = useState("KG");
 
   async function handleSubmit(formData, shouldRedirect) {
     const result = await createProductAction(formData);
@@ -27,9 +30,15 @@ export default function CreateProductPage() {
       router.push("/products");
     } else {
       formRef.current?.reset();
+      setCategory(UNIT_CATEGORIES.WEIGHT);
+      setPrimaryUnit("KG");
       nameInputRef.current?.focus();
     }
   }
+
+  const compatibleUnits = getUnitsByCategory(category);
+  const showConversion = isProductSpecific(primaryUnit);
+  const baseUnit = BASE_UNITS[category];
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -50,7 +59,7 @@ export default function CreateProductPage() {
         <form 
           ref={formRef}
           action={(formData) => handleSubmit(formData, true)} 
-          className="space-y-4"
+          className="space-y-6"
         >
           <div className="space-y-2">
             <label htmlFor="name" className="text-sm font-medium">Product Name</label>
@@ -65,20 +74,68 @@ export default function CreateProductPage() {
             />
           </div>
 
-          <div className="space-y-2">
-            <label htmlFor="unitType" className="text-sm font-medium">Standard Unit</label>
-            <select
-              id="unitType"
-              name="unitType"
-              required
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              <option value={UNIT_TYPES.BAG}>Bag</option>
-              <option value={UNIT_TYPES.KG}>KG</option>
-              <option value={UNIT_TYPES.MAUND}>Maund</option>
-              <option value={UNIT_TYPES.PIECE}>Piece</option>
-            </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label htmlFor="category" className="text-sm font-medium">Category</label>
+              <select
+                id="category"
+                name="category"
+                value={category}
+                onChange={(e) => {
+                    const newCat = e.target.value;
+                    setCategory(newCat);
+                    setPrimaryUnit(BASE_UNITS[newCat]);
+                }}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {Object.values(UNIT_CATEGORIES).map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="primaryUnit" className="text-sm font-medium">Primary Unit</label>
+              <select
+                id="primaryUnit"
+                name="primaryUnit"
+                value={primaryUnit}
+                onChange={(e) => setPrimaryUnit(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {compatibleUnits.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
+                ))}
+              </select>
+            </div>
           </div>
+
+          {showConversion && (
+            <div className="space-y-4 p-4 rounded-lg bg-muted/50 border animate-in fade-in slide-in-from-top-1">
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                <div className="space-y-2 flex-1">
+                  <label htmlFor="unitConversion" className="text-sm font-bold">Unit Conversion</label>
+                  <p className="text-xs text-muted-foreground">
+                    Define how many <strong>{baseUnit}</strong> are in one <strong>{primaryUnit}</strong>.
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-medium whitespace-nowrap">1 {primaryUnit} =</span>
+                    <input
+                        id="unitConversion"
+                        name="unitConversion"
+                        type="number"
+                        step="0.0001"
+                        required
+                        placeholder="e.g. 50, 100"
+                        className="w-32 rounded-md border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                    <span className="text-sm font-bold">{baseUnit}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t">
             <Link
@@ -109,3 +166,4 @@ export default function CreateProductPage() {
     </div>
   );
 }
+

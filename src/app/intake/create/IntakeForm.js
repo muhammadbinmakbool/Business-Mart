@@ -1,31 +1,141 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
+
 import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
-import { toast } from "sonner";
+import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { getUnitsByCategory, normalizeQuantity, convertFromBase, UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { getPreferredWeightUnit } from "@/lib/display-units";
+import Modal from "@/components/ui/Modal";
+import { getErrorPresentation } from "@/lib/errors/errorPresentation";
+import { getLocalDateString } from "@/lib/utils";
 
-export default function IntakeForm({ suppliers, products }) {
+export default function IntakeForm({ suppliers, products, settings }) {
   const router = useRouter();
   const formRef = useRef(null);
   const supplierRef = useRef(null);
   const [isNewSupplier, setIsNewSupplier] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState("");
+  const [selectedUnit, setSelectedUnit] = useState("");
+  const [grossWeightVal, setGrossWeightVal] = useState("");
+  const [bagCountVal, setBagCountVal] = useState("");
+  const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
+
+  const defaultProductVal = settings?.defaults?.activeMarketProductId || settings?.defaults?.productId || "";
+
+  useEffect(() => {
+    if (defaultProductVal) {
+      const defaultProductStr = defaultProductVal.toString();
+      const prodExists = products.some(p => p.id === parseInt(defaultProductStr));
+      if (prodExists) {
+        handleProductChange(defaultProductStr);
+      }
+    }
+  }, []);
+
+
+  const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
+  const isBagProduct = selectedProduct && (selectedProduct.primaryUnit === "BAG" || selectedProduct.category === "BAG");
+  const compatibleUnits = selectedProduct
+    ? (isBagProduct
+        ? getUnitsByCategory(selectedProduct.category).filter(u => u.id === "BAG")
+        : getUnitsByCategory(selectedProduct.category))
+    : [];
+
+  const handleProductChange = (productId) => {
+    setSelectedProductId(productId);
+    const prod = products.find(p => p.id === parseInt(productId));
+    if (prod) {
+      const isProdBag = prod.primaryUnit === "BAG" || prod.category === "BAG";
+      const units = getUnitsByCategory(prod.category);
+      const prefUnit = getPreferredWeightUnit();
+      const isPrefCompatible = units.some(u => u.id === prefUnit);
+      const defaultUnit = isProdBag ? "BAG" : (isPrefCompatible ? prefUnit : (prod.primaryUnit || DEFAULT_WEIGHT_UNIT));
+      setSelectedUnit(defaultUnit);
+
+      if (defaultUnit === UNIT_IDS.BAG) {
+        setGrossWeightVal(bagCountVal);
+      } else if (isProdBag && grossWeightVal) {
+        const weightInKg = normalizeQuantity(grossWeightVal, defaultUnit, prod);
+        const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, prod);
+        const calculatedBags = Math.ceil(bags);
+        setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
+      }
+    } else {
+      setSelectedUnit("");
+      setGrossWeightVal("");
+      setBagCountVal("");
+    }
+  };
+
+  const handleGrossWeightChange = (val) => {
+    setGrossWeightVal(val);
+    if (isBagProduct && (selectedUnit === UNIT_IDS.KG || selectedUnit === UNIT_IDS.MAUND)) {
+      const weightInKg = normalizeQuantity(val, selectedUnit, selectedProduct);
+      const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, selectedProduct);
+      const calculatedBags = Math.ceil(bags);
+      setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
+    }
+  };
+
+  const handleUnitChange = (unit) => {
+    setSelectedUnit(unit);
+    if (unit === UNIT_IDS.BAG) {
+      setGrossWeightVal(bagCountVal);
+    } else if (isBagProduct) {
+      const weightInKg = normalizeQuantity(grossWeightVal, unit, selectedProduct);
+      const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, selectedProduct);
+      const calculatedBags = Math.ceil(bags);
+      setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
+    }
+  };
+
+  const handleBagCountChange = (val) => {
+    setBagCountVal(val);
+    if (selectedUnit === UNIT_IDS.BAG) {
+      setGrossWeightVal(val);
+    }
+  };
 
   async function handleSubmit(formData, shouldRedirect) {
-    const result = await createIntakeAction(formData);
-    
-    if (result?.error) {
-      toast.error(result.error);
+    const grossWeight = parseFloat(formData.get("grossWeight"));
+    const rate = formData.get("rate") ? parseFloat(formData.get("rate")) : null;
+
+    if (grossWeight <= 0 || (rate !== null && rate <= 0)) {
+      setErrorModal({
+        isOpen: true,
+        title: "Invalid Negative Parameters",
+        message: "Weight, quantity, and rate parameters must be positive numbers greater than zero.",
+        type: "error"
+      });
       return;
     }
 
-    toast.success("Intake recorded successfully");
+    const result = await createIntakeAction(formData);
+    
+    if (result?.error) {
+      const presentation = getErrorPresentation(result);
+      setErrorModal({
+        isOpen: true,
+        title: presentation.title,
+        message: presentation.message,
+        type: presentation.type
+      });
+      return;
+    }
+
+    showToast.success("Intake recorded successfully");
     
     if (shouldRedirect) {
       router.push("/intake");
     } else {
       formRef.current?.reset();
+      setSelectedProductId("");
+      setSelectedUnit("");
+      setGrossWeightVal("");
+      setBagCountVal("");
       supplierRef.current?.focus();
     }
   }
@@ -60,7 +170,7 @@ export default function IntakeForm({ suppliers, products }) {
           </select>
         </div>
 
-        {/* Conditional New Supplier Fields */}
+        {/* ... (New Supplier Fields remain unchanged) ... */}
         {isNewSupplier && (
           <div className="md:col-span-2 bg-primary/5 border border-primary/20 rounded-lg p-6 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
             <div className="flex items-center gap-2 mb-2">
@@ -118,31 +228,55 @@ export default function IntakeForm({ suppliers, products }) {
             id="productId"
             name="productId"
             required
+            value={selectedProductId}
+            onChange={(e) => handleProductChange(e.target.value)}
             className="w-full rounded-md border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
           >
             <option value="" className="bg-background text-foreground">Select a product...</option>
             {products.map(p => (
-              <option key={p.id} value={p.id} className="bg-background text-foreground">{p.name} ({p.unitType})</option>
+              <option key={p.id} value={p.id} className="bg-background text-foreground">{p.name}</option>
             ))}
           </select>
-        </div>
-
-        {/* 3. Bag Count */}
+        </div>         {/* 3. Unit Selection */}
         <div className="space-y-2">
-          <label htmlFor="bagCount" className="text-sm font-medium">Bag Count (Optional)</label>
-          <input
-            id="bagCount"
-            name="bagCount"
-            type="number"
-            placeholder="e.g. 50"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+          <label htmlFor="unit" className="text-sm font-medium">Measurement Unit</label>
+          <select
+            id="unit"
+            name="unit"
+            required
+            disabled={!selectedProductId}
+            value={selectedUnit}
+            onChange={(e) => handleUnitChange(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 font-medium"
+          >
+            {compatibleUnits.map(u => (
+              <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
+            ))}
+            {!selectedProductId && <option value="">Select a product first...</option>}
+          </select>
         </div>
 
         {/* 4. Weight */}
         <div className="space-y-2">
-          <label htmlFor="grossWeight" className="text-sm font-medium">Gross Weight</label>
-          <div className="relative">
+          <label htmlFor="grossWeight" className="text-sm font-medium">
+            Gross Weight {selectedUnit === UNIT_IDS.BAG ? "(Calculated in KG)" : ""}
+          </label>
+          {selectedUnit === UNIT_IDS.BAG ? (
+            <>
+              <input
+                id="grossWeight_display"
+                type="text"
+                readOnly
+                value={selectedProduct ? normalizeQuantity(bagCountVal || 0, UNIT_IDS.BAG, selectedProduct).toFixed(2) : ""}
+                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-muted cursor-not-allowed text-muted-foreground font-semibold"
+              />
+              <input
+                type="hidden"
+                name="grossWeight"
+                value={grossWeightVal}
+              />
+            </>
+          ) : (
             <input
               id="grossWeight"
               name="grossWeight"
@@ -150,9 +284,29 @@ export default function IntakeForm({ suppliers, products }) {
               step="0.01"
               required
               placeholder="0.00"
+              value={grossWeightVal}
+              onChange={(e) => handleGrossWeightChange(e.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
-          </div>
+          )}
+        </div>
+
+        {/* 5. Bag Count */}
+        <div className="space-y-2">
+          <label htmlFor="bagCount" className="text-sm font-medium">
+            {selectedUnit === UNIT_IDS.BAG ? "Bag Count (Required)" : (isBagProduct ? "Bag Count (Calculated)" : "Bag Count (Optional)")}
+          </label>
+          <input
+            id="bagCount"
+            name="bagCount"
+            type="number"
+            required={selectedUnit === UNIT_IDS.BAG}
+            readOnly={selectedUnit !== UNIT_IDS.BAG && isBagProduct}
+            placeholder={selectedUnit === UNIT_IDS.BAG ? "Enter number of bags..." : (isBagProduct ? "Automatically calculated" : "e.g. 50")}
+            value={bagCountVal}
+            onChange={(e) => handleBagCountChange(e.target.value)}
+            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${selectedUnit !== "BAG" && isBagProduct ? "bg-muted cursor-not-allowed text-muted-foreground" : "bg-background"}`}
+          />
         </div>
 
         <div className="space-y-2">
@@ -162,13 +316,13 @@ export default function IntakeForm({ suppliers, products }) {
             name="entryDate"
             type="date"
             required
-            defaultValue={new Date().toISOString().split('T')[0]}
+            defaultValue={getLocalDateString()}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
       </div>
 
-      {/* 5. Notes */}
+      {/* ... (Rest of the form remains unchanged) ... */}
       <div className="space-y-2">
         <label htmlFor="notes" className="text-sm font-medium">Notes (Optional)</label>
         <textarea
@@ -180,7 +334,6 @@ export default function IntakeForm({ suppliers, products }) {
         />
       </div>
 
-      {/* 6. Advance Payment */}
       <div className="bg-muted/30 rounded-lg p-4 space-y-4 border">
         <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Advance Payment (Optional)</h3>
         <div className="grid gap-4 md:grid-cols-2">
@@ -230,6 +383,22 @@ export default function IntakeForm({ suppliers, products }) {
           Complete Intake
         </button>
       </div>
+      
+      {/* Structured Validation/Conflict Error Modal */}
+      <Modal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal({...errorModal, isOpen: false})}
+        title={errorModal.title}
+        type={errorModal.type}
+        confirmLabel="OK, Understood"
+        onConfirm={() => setErrorModal({...errorModal, isOpen: false})}
+        cancelLabel={null}
+      >
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          {errorModal.message}
+        </p>
+      </Modal>
     </form>
   );
 }
+

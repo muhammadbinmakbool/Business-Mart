@@ -1,0 +1,192 @@
+# Business Mart Developer Guide
+
+## Core Principle: Sales-Centric POS Architecture
+The system is built as a Sales-Centric POS where **Operational Events** drive the state, and **Financial Logic** remains a separate, derived layer.
+
+### 1. Operational vs. Derived Layers
+- **Operational Layer (Source of Truth)**: Comprises `IntakeTransaction`, `SaleTransaction`, and `SaleItem`. These record the raw physical and business events.
+- **Derived Layer (Reporting/Financial)**: Comprises `Inventory`, `Buyer/Supplier Invoices`, and `Ledgers`. These are calculated from operational events.
+
+### 2. Snapshot Storage Philosophy
+While inventory quantity is derived, **Financial Totals** (e.g., `baseAmount`, `finalAmount`) are stored as **Immutable Snapshots** in transactional records.
+- **Why?**: For audit history, historical consistency, printing accuracy, and performance reconciliation.
+- **Rule**: Storing calculated totals is VALID; storing computed balances (like stock quantity) is NOT.
+
+### 3. Inventory Derivation Rule
+Inventory balances are NEVER stored. They are derived in real-time or via optimized aggregations:
+- **Available Stock** = `SUM(Intake Gross Weight) - SUM(Sale Item Weight)`
+- Only non-cancelled/non-deleted transactions are counted.
+
+### 4. Optional Traceability (The Soft Link)
+The system supports optional batch-level traceability for specialized markets (e.g., Grain Markets).
+- `SaleItem` may optionally link to an `IntakeTransaction`.
+- This linkage must NOT be mandatory. The system must function correctly as a general POS without it.
+- **Future Growth**: This link enables advanced profitability analysis and supplier-specific stock tracking in the Derived Layer.
+
+## Architecture Overview
+Business Mart follows a **Modular Monolith** architecture. Code is organized by business domain (feature-based modules) rather than technical layers.
+
+### Module Structure
+Each module in `src/modules/` follows a consistent pattern:
+- `controllers/`: Handles incoming requests (Server Actions or API Routes).
+- `services/`: Contains business logic and orchestrates data flow.
+- `repositories/`: Handles direct database access via Prisma.
+- `validations/`: Contains Zod schemas for data validation.
+
+## Transaction Philosophy
+
+### 1. Immutability
+Transactions are historical facts. Once a Goods Intake or Advance Payment is recorded, it should not be silently modified. Any adjustments should be handled through status changes (e.g., CANCELLED) or separate adjustment entries.
+
+### 2. Derived Balances
+**Balances are NEVER stored.**
+Current supplier balances and product stock levels must be derived by aggregating transactions.
+- `Supplier Balance = (Sum of Purchases) - (Sum of Payments/Advances)`
+- `Stock = (Sum of Intakes) - (Sum of Sales)`
+
+### 3. Financial Perspectives (The Middle-Entity Pattern)
+Business Mart acts as a bridge between **Suppliers** and **Buyers**. This creates two distinct financial flows for every physical transaction:
+- **Buyer Flow (Receivable)**: `Base Product Amount + Additions (Commission, Labour, etc.) = Final Invoice Total`.
+- **Supplier Flow (Payable)**: `Base Product Amount - Deductions (Kaat/Weight Deduction, Brokerage, Advances) = Final Settlement Total`.
+
+Financial logic must support these separate perspectives while sharing a common `Base Product Amount` primitive.
+
+### 4. Safety & Traceability (The Operational Safety Layer)
+To balance flexibility with correctness, the system implements:
+- **Change Tracking**: Every modification (Items, Adjustments, Status) is logged in a `changeLog` JSON field.
+- **State Snapshots**: Before an invoice is updated, a `previousState` snapshot (Totals, Counts) is stored to preserve historical context and aid debugging.
+- **Status Locking**: `COMPLETED` invoices are locked. Reverting to `PENDING` is required to "unlock" the edit workflow.
+- **Financial Boundary**: ONLY `financial.js` is permitted to implement math formulas. All totals are derived from source items/adjustments on every save.
+- **Immutable Identifiers**: Primary identifiers like `saleNumber` must never be modified once generated.
+
+---
+
+## Local-Calendar Date Handling Rules (Temporal Accuracy)
+
+To prevent post-midnight back-dating and timezone-offset date drift across Intake, Sale, and Supplier Settlement modules, the system follows a strict local-calendar temporal architecture.
+
+### 1. The Local Calendar Helper (`getLocalDateString`)
+- **Location**: `src/lib/utils.js`
+- **Rule**: Front-end components MUST NOT initialize date values using UTC-based conversions (e.g., `new Date().toISOString().split("T")[0]`). This shifts the local date backwards/forwards depending on the timezone offset (especially crucial for post-midnight 12:00 AM - 5:00 AM operations in PKT UTC+5).
+- **Utility**: `getLocalDateString(date)` retrieves the calendar year, month, and day based on the user's local system time and outputs a timezone-safe `YYYY-MM-DD` string.
+
+### 2. User-Defined Entry Dates
+- All transactional entities (Intake, Sales, Settlements) MUST support explicit user-managed entry dates.
+- **Backend Services**: Server-side defaults (e.g. `new Date()`) are overridden. Database models accept an explicit `entryDate` parameter passed from forms.
+- **Supplier Settlements**: The settlement creation flow (`InvoiceGenerator.js`) includes a dedicated, explicit "Settlement Date" picker. This date is passed to `generateInvoice` and `editInvoice` service calls, while `regenerateInvoice` preserves the version's original `entryDate`.
+
+### 3. Separation of Real-Time Auditing (Status Update Timestamp)
+- **Local Date (`entryDate`)**: Represents the logical calendar day of the transaction (chosen or verified by the user).
+- **System Timestamp (`createdAt`)**: Serves as the immutable real-time clock auditable record of when the entry was created or its status updated.
+- **Print Nomenclature**: Print templates and localization maps represent this system time strictly as **"Status Update Timestamp"** (`systemTime` in localization dictionaries) to prevent ambiguity and ensure transparent processing histories.
+
+---
+
+## Tech Stack
+- **Framework**: Next.js (App Router)
+- **Database**: MSSQL via Prisma ORM
+- **Validation**: Zod
+- **Styling**: Tailwind CSS 4
+- **Notifications**: Sonner
+- **Icons**: Lucide React
+
+## POS Master Data Rules
+
+### 1. Inline Conditional Master Data Creation
+To ensure high-speed POS operations, the system allows creating **Parties (Suppliers/Buyers)** inline within the transaction forms (Intake/Sale).
+- **UX Rule**: Triggered only via the "➕ Add New" option in the master data dropdown.
+- **Form Rule**: Use contextual field expansion within the same form. **No modals or navigation changes allowed.**
+- **Atomic Flow**: The backend handles the creation sequence atomically:
+  1. `IF (newPartyData) THEN createParty()`
+  2. `Use returned partyId → create Transaction`
+- **Supported Fields**: Name, Phone, Address, and Notes.
+- **Persistence**: Both Create and Update flows must support this atomic creation to ensure data entry flexibility.
+
+## Unit System Architecture (3-Layer Model)
+
+Business Mart uses a strict, centralized unit system to ensure mathematical consistency across physical and financial layers.
+
+### 1. Registry Layer (`src/lib/units.js`)
+The absolute source of truth for measurement math.
+- **Base Unit Rule**: Every category (WEIGHT, LIQUID, QUANTITY) has exactly one base unit (KG, ML, PIECE).
+- **Registry**: Defines standard units (MAUND, LITER) with fixed factors and special units (BAG, BOX) marked as `productSpecific`.
+- **Normalization**: Logic to convert any unit/quantity/rate into its base unit equivalent.
+
+### 2. Service Layer (`src/modules/products/services/UnitService.js`)
+The backend-safe proxy for measurement logic.
+- **Responsibility**: Orchestrates validation and normalization for server-side business logic.
+- **Boundaries**: Services like `SaleService` must ONLY use `UnitService` for math, never implementing their own conversion logic.
+
+### 3. Consumption Layer (Sales / Intake)
+Transactional modules that rely on the Unit System.
+- **Flow**: User Input → Unit Validation → Conversion to Base Unit → Persistence/Inventory Update.
+- **Hard Fail Policy**: If a `productSpecific` unit (e.g., BAG) is used without a defined conversion factor in the Product settings, the system **MUST reject the transaction**. No fallback assumptions or defaults are permitted.
+
+### Rule: Inventory Core Purity
+The Inventory derived view operates **ONLY in base units**. It is agnostic to how goods were sold or purchased. Conversion is handled entirely at the point of entry (Operational Layer) and normalized before storage.
+
+---
+
+## Unit System Architectural Lock (FINAL STABILITY)
+
+The architecture is now strictly locked into a **4-Layer Responsibility Model**. Any deviation from these boundaries is an Architectural Bug.
+
+### Layer 1: Unit Registry (`units.js`)
+**Responsibility**: Measurement Physics & Normalization.
+- **Rules**: ONLY source of truth for conversion factors and base-unit normalization logic.
+- **Constraints**: No business logic, no financial math, no state.
+
+### Layer 2: Orchestration Layer (Services)
+**Responsibility**: Workflow & Data Integrity.
+- **Rules**: Coordinates between Units, Financials, and Repositories. Performs validations (Compatibility/Stock).
+- **Constraints**: **NO RAW MATH**. Services must never implement conversion factors or calculation formulas. They must delegate to Layer 1 or Layer 3.
+
+### Layer 3: Financial Engine (`financial.js`)
+**Responsibility**: Business Totals & Adjustments.
+- **Rules**: Calculates line item amounts, adjustment values, and final invoice totals.
+- **Constraints**: Operates **ONLY on normalized base-unit values**. It is agnostic to local units (Maunds, Bags, etc.). It must NOT perform unit conversion.
+
+### Layer 4: Snapshot Inventory (Optimized Performance)
+**Responsibility**: Instant stock visibility and real-time inventory snapshot reporting.
+- **Rules**: 
+  1. **Inventory is Snapshot-Based**: Active stock is read instantly and directly from the `Product.quantity` field at $O(1)$ runtime complexity.
+  2. **Product.quantity is the Single Source of Truth**: This field is the sole reference for all runtime stock displays, listing views, and transactional available stock validations.
+  3. **Intake/Sale are Mutation Events Only**: Physical intake entries and sale items act solely as mutation events that trigger delta adjustments on the snapshot.
+  4. **All Derived Calculations are Removed**: No runtime joins, aggregates, or sum-reductions of transaction tables are permitted for inventory reporting.
+- **Constraints**: 
+  1. **Base Unit Storage**: `Product.quantity` **MUST ALWAYS** store stock normalized strictly in the category's physical base unit (e.g. `KG` for Weight, `ML` for Liquids, `PIECE` for Quantities).
+  2. **Transaction Hook Rule**: Any intake or sale mutation (create, update, delete) must atomically modify `Product.quantity` inside the same database transaction.
+  3. **No Drift**: Transactional ledger history (`IntakeTransaction` and `SaleItem` records) remains the immutable source of truth. The snapshot field is an operational optimization.
+
+---
+
+## Snapshot Inventory Philosophy & Invariants
+
+### 1. Product.quantity Responsibility
+The `Product.quantity` field serves as the absolute source of truth of the current operational stock level. It is completely isolated from the presentation unit conversions and must only interact with base units.
+
+### 2. Prevent Negative Inventory Rule
+`Product.quantity` must never drop below `0.00`. Under concurrency or single transaction operations:
+- A sale transaction that attempts to subtract more weight than `Product.quantity` currently holds **MUST BE BLOCKED** and throw an `INSUFFICIENT_STOCK` exception.
+- Restoring stock (reverting/cancelling a sale) increments the stock, which is always safe. Reverting/cancelling/deleting an intake decrements stock, and therefore must check that decrementing does not push the snapshot quantity below `0.00`.
+
+### 3. Batched Performance Invariant
+To prevent lock contention, transaction delays, or double-querying in the DB, multiple snapshot updates (e.g. in sales involving multiple items) must be executed in parallel using `Promise.all` after fetching involved products and performing validation checks in memory using an explicit `productMap`.
+
+---
+
+## Developer Principles
+1. **Single Source of Truth**: Measurement logic exists only in `units.js`. Business math exists only in `financial.js`.
+2. **No Duplicate Math**: Never implement conversion factors (e.g., `* 40`) outside the Registry.
+3. **Operational Purity**: All data must be normalized at the Operational Layer (Intake/Sale) before persistence.
+4. **Dumb UI**: The UI collects raw input and displays derived totals using shared helpers, but contains no calculation logic of its own.
+
+---
+
+## Developer Workflow
+1. **Always update this guide** when making architectural decisions.
+2. Maintain strict separation between Operational and Derived layers.
+3. Use the `Service -> Repository` pattern for all business logic.
+4. Ensure all financial calculations are performed in `financial.js`.
+5. **NEVER hardcode conversion factors** (e.g., `40` for Maund) outside of `units.js`.
+
