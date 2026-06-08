@@ -57,3 +57,26 @@ The system remembers the last values you saved successfully and suggests them wh
 At the bottom of the creation forms, there is a **Save & Add Another** checkbox:
 - **Active (Checked)**: Pressing `Ctrl + Enter` (or clicking complete/save) saves the record and resets the form, but keeps the Supplier/Buyer and Product selected, focusing the cursor on the Weight or Product field. This is ideal for recording multiple intakes or sales back-to-back.
 - **Inactive (Unchecked)**: Saves the record and redirects you to the ledger/list view.
+
+---
+
+## 5. Global Command Palette (Ctrl + K)
+
+You can launch the global command palette from any page inside the system to navigate instantly or search records.
+
+### How to Open/Close:
+- **Open**: Press `Ctrl + K` (or `Cmd + K` on Mac) on your keyboard.
+- **Close**: Press `Escape`, or press `Ctrl + K` again, or click outside the palette box.
+
+### Features & Search:
+1. **Fuzzy Smart Search**: Search is instant. Type what you are looking for (e.g. `New Sale`, `Go to Ledger`, or a product category).
+2. **Entity Searches**: You can search:
+   - **Parties**: Search buyers or suppliers by name or phone.
+   - **Products**: Search active items by name, category, or unit.
+   - **Recent Transactions**: Quickly locate recent Goods Intakes or Sales Invoices by entering their transaction number.
+
+### Shortcuts inside the Palette:
+- **ArrowUp / ArrowDown**: Moves the highlighted selection up or down.
+- **Enter**: Selects and triggers the highlighted action.
+- **Escape**: Closes the palette.
+

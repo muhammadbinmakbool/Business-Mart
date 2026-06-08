@@ -4,6 +4,7 @@ import "./globals.css";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import CommandPalette from "@/modules/command-palette/components/CommandPalette";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,6 +34,7 @@ export default function RootLayout({ children }) {
               {children}
             </AppLayout>
             <Toaster position="top-center" richColors />
+            <CommandPalette />
           </SidebarProvider>
         </ThemeProvider>
       </body>
