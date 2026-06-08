@@ -134,6 +134,12 @@ Update `electron/dbConnectionResolver.js` to support SQLite-based routing intern
     *   **Migrations**: Execute standard prisma deploy command with file-based URL scheme (`file:<resolved_path>`).
     *   **Resolution Output**: Return a successful resolution state structure containing the local connection URL.
 
+5.  **Auto-Migrations on Application Startup**:
+    To support seamless upgrades when a new version of the application is installed over an existing database:
+    *   `electron/dbConnectionResolver.js` exposes `runMigrationsOnly(provider, database, configHint)` which programmatically deploys migrations using `prisma migrate deploy` from the unpacked app asar resources.
+    *   On every startup, after successfully resolving the database connection, the main process (`electron/main.prod.js`) invokes `runMigrationsOnly` to idempotently run any pending migrations before booting the Next.js server.
+    *   If migrations fail (e.g. database schema lock, network disruption, SQL syntax/foreign key violations), the application displays a native error dialog and exits cleanly, protecting database consistency and preventing Next.js runtime crashes.
+
 ---
 
 ## 🔍 How to Verify Implementation

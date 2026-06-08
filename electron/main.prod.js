@@ -4,7 +4,7 @@ const fs = require('fs');
 const net = require('net');
 const http = require('http');
 const { spawn } = require('child_process');
-const { resolveDatabaseConnection, getLocalSQLInstances } = require('./dbConnectionResolver');
+const { resolveDatabaseConnection, getLocalSQLInstances, runMigrationsOnly } = require('./dbConnectionResolver');
 const { getWritableConfigPath, loadDatabaseConfig } = require('./dbConfig');
 const { performShutdownBackup } = require('./shutdownBackup');
 
@@ -69,7 +69,7 @@ async function verifyDatabaseConnectivity(host, port) {
 }
 
 // Spawn standalone Next.js server
-function spawnStandaloneServer(connectionString) {
+function spawnStandaloneServer(connectionString, provider) {
   // Path inside .next/standalone folder (resolves to app.asar.unpacked when packaged)
   const standaloneDir = path.join(__dirname, '..', '.next', 'standalone').replace('app.asar', 'app.asar.unpacked');
   const serverJsPath = path.join(standaloneDir, 'server.js');
@@ -91,6 +91,7 @@ function spawnStandaloneServer(connectionString) {
     HOSTNAME: HOST,
     NODE_ENV: 'production',
     DATABASE_URL: connectionString,
+    DB_PROVIDER: provider,
     JWT_SECRET: process.env.JWT_SECRET || 'bm-super-secret-production-key-fallback',
     ELECTRON_RUN_AS_NODE: '1' // Force Electron binary to act as standard Node.js interpreter
   };
@@ -430,8 +431,21 @@ app.whenReady().then(async () => {
 
   console.log(`[DB Boot] SUCCESS! Spawning standalone Next.js server with dynamic host: ${resolvedDb.server}`);
 
+  // Auto-run migrations on startup to apply schema updates to existing databases
+  console.log('[DB Boot] Checking for pending database migrations...');
+  const migrationRes = runMigrationsOnly(initialDbInfo.provider, resolvedDb.database, initialDbInfo);
+  if (!migrationRes.success) {
+    console.error(`[DB Boot] Auto-migration failed: ${migrationRes.error}`);
+    dialog.showErrorBox(
+      'Database Migration Failed',
+      `An error occurred while automatically applying database updates:\n\n${migrationRes.error}\n\nPlease contact support if this issue persists.`
+    );
+    app.quit();
+    return;
+  }
+
   // 3. Spawn Standalone server
-  const processStarted = spawnStandaloneServer(resolvedDb.connectionString);
+  const processStarted = spawnStandaloneServer(resolvedDb.connectionString, initialDbInfo.provider);
   if (!processStarted) {
     return;
   }

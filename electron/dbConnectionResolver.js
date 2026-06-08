@@ -414,90 +414,28 @@ try {
 // Accepts raw config params to build connection strings internally.
 // Returns { success: boolean, error?: string }
 function runMigrationsAndSeed(server, database, trustedConnection, user, password) {
-  if (getActiveProvider() === 'sqlite') {
-    const dbPath = getSqliteDbPath(database);
-    const connectionString = `file:${dbPath}`;
-    try {
-      const prismaCliPath = path.join(__dirname, '..', 'node_modules', 'prisma', 'build', 'index.js').replace('app.asar', 'app.asar.unpacked');
-      const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma').replace('app.asar', 'app.asar.unpacked');
-      const seedJsPath = path.join(__dirname, '..', 'prisma', 'seed.js').replace('app.asar', 'app.asar.unpacked');
+  const provider = getActiveProvider();
+  const configHint = { server, trustedConnection, user, password };
 
-      console.log('[DB Resolver] Deploying SQLite schema migrations...');
-      
-      const migrationResult = spawnSync(process.execPath, [prismaCliPath, 'migrate', 'deploy', '--schema', schemaPath], {
-        env: { 
-          ...process.env, 
-          DATABASE_URL: connectionString, 
-          ELECTRON_RUN_AS_NODE: '1',
-          NODE_PATH: path.join(__dirname, '..', 'node_modules')
-        },
-        encoding: 'utf8'
-      });
-      
-      if (migrationResult.status !== 0) {
-        return {
-          success: false,
-          error: `Migrations failed (exit code ${migrationResult.status}).\n\nStderr:\n${migrationResult.stderr}`
-        };
-      }
-
-      console.log('[DB Resolver] Launching SQLite database seed script...');
-      const seedResult = spawnSync(process.execPath, [seedJsPath], {
-        env: { 
-          ...process.env, 
-          DATABASE_URL: connectionString, 
-          ELECTRON_RUN_AS_NODE: '1',
-          NODE_PATH: path.join(__dirname, '..', 'node_modules')
-        },
-        encoding: 'utf8'
-      });
-      
-      if (seedResult.status !== 0) {
-        return {
-          success: false,
-          error: `Database created and migrated successfully, but seeding failed (exit code ${seedResult.status}).\n\nStderr:\n${seedResult.stderr}`
-        };
-      }
-      
-      return { success: true };
-    } catch (err) {
-      return { success: false, error: err.message };
-    }
+  console.log(`[DB Resolver] Running migrations for ${provider} database [${database}]...`);
+  const migrationRes = runMigrationsOnly(provider, database, configHint);
+  if (!migrationRes.success) {
+    return migrationRes;
   }
 
-  const connectionString = buildPrismaConnectionString(server, database, trustedConnection, user, password);
+  // Run seed JS file
+  let connectionString;
+  if (provider === 'sqlite') {
+    const dbPath = getSqliteDbPath(database);
+    connectionString = `file:${dbPath}`;
+  } else {
+    connectionString = buildPrismaConnectionString(server, database, trustedConnection, user, password);
+  }
+
   try {
-    const prismaCliPath = path.join(__dirname, '..', 'node_modules', 'prisma', 'build', 'index.js').replace('app.asar', 'app.asar.unpacked');
-    const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma').replace('app.asar', 'app.asar.unpacked');
     const seedJsPath = path.join(__dirname, '..', 'prisma', 'seed.js').replace('app.asar', 'app.asar.unpacked');
-
-    console.log('[DB Resolver] Database created successfully. Deploying schema migrations...');
-    
-    // 1. Run migrations deploy
-    const migrationResult = spawnSync(process.execPath, [prismaCliPath, 'migrate', 'deploy', '--schema', schemaPath], {
-      env: { 
-        ...process.env, 
-        DATABASE_URL: connectionString, 
-        ELECTRON_RUN_AS_NODE: '1',
-        NODE_PATH: path.join(__dirname, '..', 'node_modules')
-      },
-      encoding: 'utf8'
-    });
-    
-    const migrationStdout = migrationResult.stdout || '';
-    const migrationStderr = migrationResult.stderr || '';
-    console.log('[DB Resolver] Migrations Output:', migrationStdout);
-
-    if (migrationResult.status !== 0) {
-      console.error('[DB Resolver] Migrations Failed:', migrationStderr);
-      return {
-        success: false,
-        error: `Migrations failed (exit code ${migrationResult.status}).\n\nStderr:\n${migrationStderr}\n\nStdout:\n${migrationStdout}`
-      };
-    }
-
-    // 2. Run seed JS file
     console.log('[DB Resolver] Deploy complete. Launching database seed script...');
+    
     const seedResult = spawnSync(process.execPath, [seedJsPath], {
       env: { 
         ...process.env, 
@@ -522,11 +460,61 @@ function runMigrationsAndSeed(server, database, trustedConnection, user, passwor
     
     return { success: true };
   } catch (err) {
-    console.error('[DB Resolver] Exception during migrations & seeding:', err.message);
+    console.error('[DB Resolver] Exception during seeding:', err.message);
     return {
       success: false,
-      error: `Exception during migrations & seeding: ${err.message}`
+      error: `Exception during seeding: ${err.message}`
     };
+  }
+}
+
+// Run only migrations programmatically
+function runMigrationsOnly(provider, database, configHint) {
+  let connectionString;
+  if (provider === 'sqlite') {
+    const dbPath = getSqliteDbPath(database);
+    connectionString = `file:${dbPath}`;
+  } else {
+    const server = configHint.server;
+    const trustedConnection = configHint.trustedConnection === true;
+    const user = configHint.user || '';
+    const password = configHint.password || '';
+    connectionString = buildPrismaConnectionString(server, database, trustedConnection, user, password);
+  }
+
+  try {
+    const prismaCliPath = path.join(__dirname, '..', 'node_modules', 'prisma', 'build', 'index.js').replace('app.asar', 'app.asar.unpacked');
+    const schemaPath = path.join(__dirname, '..', 'prisma', 'schema.prisma').replace('app.asar', 'app.asar.unpacked');
+
+    console.log(`[DB Resolver] Auto-deploying database migrations for ${provider}...`);
+    
+    const migrationResult = spawnSync(process.execPath, [prismaCliPath, 'migrate', 'deploy', '--schema', schemaPath], {
+      env: { 
+        ...process.env, 
+        DATABASE_URL: connectionString, 
+        ELECTRON_RUN_AS_NODE: '1',
+        NODE_PATH: path.join(__dirname, '..', 'node_modules')
+      },
+      encoding: 'utf8'
+    });
+    
+    const migrationStdout = migrationResult.stdout || '';
+    const migrationStderr = migrationResult.stderr || '';
+    console.log('[DB Resolver] Auto-migrations Output:', migrationStdout);
+
+    if (migrationResult.status !== 0) {
+      console.error('[DB Resolver] Auto-migrations Failed:', migrationStderr);
+      return {
+        success: false,
+        error: `Auto-migrations failed (exit code ${migrationResult.status}).\n\nStderr:\n${migrationStderr}\n\nStdout:\n${migrationStdout}`
+      };
+    }
+    
+    console.log('[DB Resolver] Auto-migration successfully completed.');
+    return { success: true };
+  } catch (err) {
+    console.error('[DB Resolver] Exception during auto-migration:', err.message);
+    return { success: false, error: err.message };
   }
 }
 
@@ -731,5 +719,6 @@ module.exports = {
   getLocalSQLInstances,
   createDatabase,
   runMigrationsAndSeed,
-  testNativeConnection
+  testNativeConnection,
+  runMigrationsOnly
 };
