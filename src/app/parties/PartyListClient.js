@@ -10,6 +10,7 @@ import { deletePartyAction } from "@/modules/parties/controllers/partyActions";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import DataTable from "@/components/ui/DataTable";
+import { useTableSorting } from "@/hooks/useTableSorting";
 
 export default function PartyListClient({ parties = [] }) {
   const router = useRouter();
@@ -143,6 +144,8 @@ export default function PartyListClient({ parties = [] }) {
     });
   }, [parties, activeTab, searchQuery]);
 
+  const { sortedData: sortedParties, sortField, sortDirection, requestSort } = useTableSorting(filteredParties, "name", "asc");
+
   // Calculate dynamic tab counts based on active status
   const tabs = [
     { key: "ALL", label: "All", count: parties.filter(p => p.isActive).length },
@@ -168,46 +171,51 @@ export default function PartyListClient({ parties = [] }) {
         </Link>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-        <div className="flex-1 flex gap-2">
-          <DebouncedSearchInput
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder="Search parties by name, phone or address..."
+      <div>
+        <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
+          <div className="flex-1 flex gap-2">
+            <DebouncedSearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search parties by name, phone or address..."
+            />
+            <button
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap shrink-0",
+                showFilters
+                  ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
+                  : "bg-card text-muted-foreground border-muted hover:text-foreground hover:bg-muted/10"
+              )}
+              title={showFilters ? "Hide Filters" : "Show Filters"}
+            >
+              <Filter className="h-4 w-4" />
+              <span>Filters</span>
+            </button>
+          </div>
+        </div>
+
+        <div 
+          className={cn(
+            "transition-all duration-300 ease-in-out overflow-hidden",
+            showFilters ? "opacity-100 max-h-32 mt-4" : "opacity-0 max-h-0 pointer-events-none mt-0"
+          )}
+        >
+          <StatusFilterTabs 
+            activeTab={activeTab}
+            onChange={setActiveTab}
+            tabs={tabs}
           />
-          <button
-            type="button"
-            onClick={() => setShowFilters(!showFilters)}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap shrink-0",
-              showFilters
-                ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/20"
-                : "bg-card text-muted-foreground border-muted hover:text-foreground hover:bg-muted/10"
-            )}
-            title={showFilters ? "Hide Filters" : "Show Filters"}
-          >
-            <Filter className="h-4 w-4" />
-            <span>Filters</span>
-          </button>
         </div>
       </div>
 
-      <div 
-        className={cn(
-          "transition-all duration-300 ease-in-out overflow-hidden",
-          showFilters ? "opacity-100 max-h-32 !mt-4" : "opacity-0 max-h-0 pointer-events-none !mt-0"
-        )}
-      >
-        <StatusFilterTabs 
-          activeTab={activeTab}
-          onChange={setActiveTab}
-          tabs={tabs}
-        />
-      </div>
-
       <DataTable
-        data={filteredParties}
+        data={sortedParties}
         columns={columns}
+        sortField={sortField}
+        sortDirection={sortDirection}
+        onRequestSort={requestSort}
         rowClassName={(party) => !party.isActive ? "opacity-50" : ""}
         onRowClick={(party) => router.push(`/parties/${party.id}`)}
         emptyMessage="No parties found matching the criteria."
