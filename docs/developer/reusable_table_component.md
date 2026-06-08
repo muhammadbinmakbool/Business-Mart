@@ -6,6 +6,9 @@ The `DataTable` component is a generic, display-only, reusable table component d
 
 ## 🚫 Architectural Boundary & Rules
 
+> [!WARNING]
+> **IMMUTABLE BOUNDARY**: The `DataTable` component (and column renders) is strictly for **PRESENTATION ONLY**. It must never perform or be used inside financial calculations, currency conversions, ledger adjustments, or inventory calculations. All core arithmetic and financial positions must remain pure, floating-point accurate, and database-independent inside `@/lib/financial.js` and `@/lib/units.js`.
+
 To ensure long-term maintainability, the `DataTable` component must adhere to these rules:
 
 1. **Pure Presentation Component**:
