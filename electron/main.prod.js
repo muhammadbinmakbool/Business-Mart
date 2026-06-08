@@ -119,7 +119,7 @@ function spawnStandaloneServer(connectionString, provider) {
 }
 
 // Perform HTTP health checks until Next.js responds
-function checkServerHealth(url, timeoutMs = 10000) {
+function checkServerHealth(url, timeoutMs = 30000) {
   return new Promise((resolve) => {
     const startTime = Date.now();
     const pollInterval = 100;
@@ -456,7 +456,7 @@ app.whenReady().then(async () => {
   if (!isHealthy) {
     dialog.showErrorBox(
       'Server Start Timeout',
-      `Next.js standalone server failed to respond within 10 seconds at http://${HOST}:${PORT}.\n\n` +
+      `Next.js standalone server failed to respond within 30 seconds at http://${HOST}:${PORT}.\n\n` +
       `Please contact system administrator or check logs.`
     );
     killServerProcess();
