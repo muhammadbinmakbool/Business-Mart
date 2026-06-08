@@ -107,7 +107,7 @@ export default function DataTable({
                     <tr
                       onClick={() => onRowClick && onRowClick(row)}
                       className={cn(
-                        "border-b transition-colors",
+                        "border-b transition-colors hover:bg-muted/40",
                         onRowClick && "cursor-pointer",
                         rowClassName && rowClassName(row, isExpanded)
                       )}

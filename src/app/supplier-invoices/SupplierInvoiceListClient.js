@@ -108,7 +108,6 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
       </div>
 
       <div 
-        hidden={!showFilters}
         className={cn(
           "transition-all duration-300 ease-in-out overflow-hidden",
           showFilters ? "opacity-100 max-h-32 !mt-4" : "opacity-0 max-h-0 pointer-events-none !mt-0"

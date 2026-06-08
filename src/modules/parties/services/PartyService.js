@@ -9,6 +9,29 @@ export class PartyService {
     return await PartyRepository.getAll();
   }
 
+  static async listPartiesWithBalances() {
+    const { calculatePartyFinancialPosition } = await import("@/lib/financial");
+    const parties = await PartyRepository.getAllWithRelations();
+    return parties.map(party => {
+      const position = calculatePartyFinancialPosition({
+        sales: party.saleTransactions,
+        purchases: party.supplierInvoices,
+        payments: party.payments,
+        advances: party.intakeAdvances
+      });
+      return {
+        id: party.id,
+        name: party.name,
+        phoneNumber: party.phoneNumber,
+        address: party.address,
+        notes: party.notes,
+        partyType: party.partyType,
+        isActive: party.isActive,
+        netBalance: position.netPosition
+      };
+    });
+  }
+
   static async getParty(id) {
     return await PartyRepository.getById(id);
   }

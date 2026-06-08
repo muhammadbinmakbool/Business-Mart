@@ -56,10 +56,33 @@ export default function PartyListClient({ parties = [] }) {
     {
       key: "address",
       label: "Address",
-      className: "text-muted-foreground truncate max-w-[250px]",
+      className: "text-muted-foreground truncate max-w-[200px]",
       render: (party) => party.address ? (
         <span title={party.address}>{party.address}</span>
       ) : "—"
+    },
+    {
+      key: "notes",
+      label: "Notes",
+      className: "text-muted-foreground truncate max-w-[200px]",
+      render: (party) => party.notes ? (
+        <span title={party.notes}>{party.notes}</span>
+      ) : "—"
+    },
+    {
+      key: "netBalance",
+      label: "Net Balance",
+      className: "text-right font-mono font-semibold",
+      render: (party) => {
+        const bal = party.netBalance || 0;
+        const formatted = Number(Math.abs(bal)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+        if (bal === 0) return <span className="text-muted-foreground">—</span>;
+        return (
+          <span className={bal > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
+            Rs. {formatted} {bal > 0 ? "DR" : "CR"}
+          </span>
+        );
+      }
     },
     {
       key: "actions",
@@ -170,7 +193,6 @@ export default function PartyListClient({ parties = [] }) {
       </div>
 
       <div 
-        hidden={!showFilters}
         className={cn(
           "transition-all duration-300 ease-in-out overflow-hidden",
           showFilters ? "opacity-100 max-h-32 !mt-4" : "opacity-0 max-h-0 pointer-events-none !mt-0"

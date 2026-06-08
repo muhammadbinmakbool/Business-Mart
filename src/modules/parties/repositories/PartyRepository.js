@@ -7,6 +7,35 @@ export class PartyRepository {
     });
   }
 
+  static async getAllWithRelations() {
+    return prisma.party.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        saleTransactions: {
+          where: { isDeleted: false, status: { not: "CANCELLED" } },
+          select: { finalAmount: true }
+        },
+        supplierInvoices: {
+          where: { status: { not: "SUPERSEDED" } },
+          select: { finalPayableAmount: true }
+        },
+        payments: {
+          where: { status: "ACTIVE" },
+          select: { 
+            amount: true, 
+            paymentType: true,
+            allocations: {
+              select: { allocatedAmount: true, referenceType: true }
+            }
+          }
+        },
+        intakeAdvances: {
+          select: { amount: true, supplierInvoiceId: true }
+        }
+      }
+    });
+  }
+
   static async getById(id) {
     return prisma.party.findUnique({
       where: { id: parseInt(id) },
