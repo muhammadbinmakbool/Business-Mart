@@ -80,3 +80,21 @@ You can launch the global command palette from any page inside the system to nav
 - **Enter**: Selects and triggers the highlighted action.
 - **Escape**: Closes the palette.
 
+---
+
+## 6. Smart Inline Assistant Layer
+
+The Smart Inline Assistant provides real-time, non-intrusive predictions directly below empty fields to accelerate data entry.
+
+### Features:
+1. **Adaptive Recommendations**:
+   - **Party fields**: Suggests the last-used supplier or buyer from your successful entries.
+   - **Product/Unit/Rate fields**: Suggests the product, unit, and rate. If you are entering multiple rows on a Sales Invoice, the assistant automatically suggests the values entered in the row above to make repeating entries instant.
+2. **Apply with One Click**:
+   - Visual assistant suggestions appear with a small button: `Apply`.
+   - Click the button or tap it to populate the field immediately.
+3. **No-Disruption Flow**:
+   - Suggestions only appear when a field is empty.
+   - As soon as you start typing, the suggestion box disappears instantly so it never blocks your view or conflicts with your typing.
+
+

@@ -13,6 +13,8 @@ import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getLocalDateString } from "@/lib/utils";
 import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
+import { useFastEntryAssistant } from "@/modules/fast-entry-assistant/hooks/useFastEntryAssistant";
+import InlineSuggestionBox from "@/modules/fast-entry-assistant/components/InlineSuggestionBox";
 
 /** Merge multiple refs (ref objects + ref callbacks) onto one element. */
 const mergeRefs = (...refs) => (el) => {
@@ -44,9 +46,6 @@ export default function IntakeForm({ suppliers, products, settings }) {
   const [bagCountVal, setBagCountVal] = useState("");
   const [saveAndContinue, setSaveAndContinue] = useState(false);
   const [selectedSupplierState, setSelectedSupplierState] = useState("");
-  const [suggestedSupplierId, setSuggestedSupplierId] = useState("");
-  const [suggestedProductId, setSuggestedProductId] = useState("");
-  const [suggestedUnitId, setSuggestedUnitId] = useState("");
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
 
   const defaultProductVal = settings?.defaults?.activeMarketProductId || settings?.defaults?.productId || "";
@@ -64,11 +63,13 @@ export default function IntakeForm({ suppliers, products, settings }) {
     enableSmartDefaults: true,
   });
 
-  useEffect(() => {
-    setSuggestedSupplierId(fastEntryMemoryStore.getLastValue("lastSupplier", "intake"));
-    setSuggestedProductId(fastEntryMemoryStore.getLastValue("lastProduct", "intake"));
-    setSuggestedUnitId(fastEntryMemoryStore.getLastValue("lastUnit", "intake"));
+  const assistantSuggestions = useFastEntryAssistant({
+    context: "intake",
+    partyId: selectedSupplierState,
+    productId: selectedProductId
+  });
 
+  useEffect(() => {
     if (defaultProductVal) {
       const defaultProductStr = defaultProductVal.toString();
       const prodExists = products.some(p => p.id === parseInt(defaultProductStr));
@@ -79,34 +80,30 @@ export default function IntakeForm({ suppliers, products, settings }) {
   }, []);
 
   const applySupplierSuggestion = () => {
-    if (supplierRef.current && !selectedSupplierState && suggestedSupplierId) {
-      supplierRef.current.value = suggestedSupplierId;
-      setSelectedSupplierState(suggestedSupplierId);
-      setIsNewSupplier(suggestedSupplierId === "new");
-      setSuggestedSupplierId("");
+    if (supplierRef.current && !selectedSupplierState && assistantSuggestions.party) {
+      supplierRef.current.value = assistantSuggestions.party;
+      setSelectedSupplierState(assistantSuggestions.party);
+      setIsNewSupplier(assistantSuggestions.party === "new");
     }
   };
 
   const applyProductSuggestion = () => {
-    if (!selectedProductId && suggestedProductId) {
-      handleProductChange(suggestedProductId);
-      setSuggestedProductId("");
+    if (!selectedProductId && assistantSuggestions.product) {
+      handleProductChange(assistantSuggestions.product);
     }
   };
 
   const applyUnitSuggestion = () => {
-    if (!selectedUnit && suggestedUnitId) {
-      handleUnitChange(suggestedUnitId);
-      setSuggestedUnitId("");
+    if (!selectedUnit && assistantSuggestions.unit) {
+      handleUnitChange(assistantSuggestions.unit);
     }
   };
 
-  const suggestedSupplier = suppliers.find(s => s.id.toString() === suggestedSupplierId);
-  const suggestedProduct = products.find(p => p.id.toString() === suggestedProductId);
+  const suggestedSupplier = suppliers.find(s => s.id.toString() === assistantSuggestions.party);
+  const suggestedProduct = products.find(p => p.id.toString() === assistantSuggestions.product);
   const suggestedUnit = selectedProduct
-    ? compatibleUnits.find(u => u.id === suggestedUnitId)
+    ? compatibleUnits.find(u => u.id === assistantSuggestions.unit)
     : null;
-
 
   const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
   const isBagProduct = selectedProduct && (selectedProduct.primaryUnit === "BAG" || selectedProduct.category === "BAG");
@@ -225,10 +222,6 @@ export default function IntakeForm({ suppliers, products, settings }) {
         setSelectedUnit("");
       }
       setSelectedSupplierState("");
-      // Refresh memory suggestions
-      setSuggestedSupplierId(fastEntryMemoryStore.getLastValue("lastSupplier", "intake"));
-      setSuggestedProductId(fastEntryMemoryStore.getLastValue("lastProduct", "intake"));
-      setSuggestedUnitId(fastEntryMemoryStore.getLastValue("lastUnit", "intake"));
       // Restore partyId after reset
       if (keptPartyId && partySelect) {
         requestAnimationFrame(() => { partySelect.value = keptPartyId; });
@@ -272,15 +265,11 @@ export default function IntakeForm({ suppliers, products, settings }) {
               </option>
             ))}
           </select>
-          {suggestedSupplier && !selectedSupplierState && (
-            <button
-              type="button"
-              onClick={applySupplierSuggestion}
-              className="text-xs text-primary/80 hover:text-primary underline mt-1 block text-left"
-            >
-              Suggested: {suggestedSupplier.name} (Click to apply)
-            </button>
-          )}
+          <InlineSuggestionBox 
+            suggestion={assistantSuggestions.party}
+            label={suggestedSupplier?.name}
+            onApply={applySupplierSuggestion}
+          />
         </div>
 
         {/* ... (New Supplier Fields remain unchanged) ... */}
@@ -351,15 +340,11 @@ export default function IntakeForm({ suppliers, products, settings }) {
               <option key={p.id} value={p.id} className="bg-background text-foreground">{p.name}</option>
             ))}
           </select>
-          {suggestedProduct && !selectedProductId && (
-            <button
-              type="button"
-              onClick={applyProductSuggestion}
-              className="text-xs text-primary/80 hover:text-primary underline mt-1 block text-left"
-            >
-              Suggested: {suggestedProduct.name} (Click to apply)
-            </button>
-          )}
+          <InlineSuggestionBox 
+            suggestion={assistantSuggestions.product}
+            label={suggestedProduct?.name}
+            onApply={applyProductSuggestion}
+          />
         </div>         {/* 3. Unit Selection */}
         <div className="space-y-2">
           <label htmlFor="unit" className="text-sm font-medium">Measurement Unit</label>
@@ -378,15 +363,11 @@ export default function IntakeForm({ suppliers, products, settings }) {
             ))}
             {!selectedProductId && <option value="">Select a product first...</option>}
           </select>
-          {suggestedUnit && !selectedUnit && (
-            <button
-              type="button"
-              onClick={applyUnitSuggestion}
-              className="text-xs text-primary/80 hover:text-primary underline mt-1 block text-left"
-            >
-              Suggested: {suggestedUnit.name} (Click to apply)
-            </button>
-          )}
+          <InlineSuggestionBox 
+            suggestion={assistantSuggestions.unit}
+            label={suggestedUnit?.name || assistantSuggestions.unit}
+            onApply={applyUnitSuggestion}
+          />
         </div>
 
         {/* 4. Weight */}

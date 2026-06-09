@@ -17,6 +17,8 @@ import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
+import { useFastEntryAssistant } from "@/modules/fast-entry-assistant/hooks/useFastEntryAssistant";
+import InlineSuggestionBox from "@/modules/fast-entry-assistant/components/InlineSuggestionBox";
 
 export default function SaleForm({ buyers, products, initialData = null, settings = null }) {
   const router = useRouter();
@@ -26,23 +28,37 @@ export default function SaleForm({ buyers, products, initialData = null, setting
   const saveAndNewRef = useRef(false);
   saveAndNewRef.current = saveAndNew;
 
-  const [suggestedBuyerId, setSuggestedBuyerId] = useState("");
-  const [suggestedProductId, setSuggestedProductId] = useState("");
-  const [suggestedRateVal, setSuggestedRateVal] = useState("");
-  const [suggestedUnitVal, setSuggestedUnitVal] = useState("");
+  const [partyId, setPartyId] = useState(initialData?.partyId?.toString() || "");
+  const [entryDate, setEntryDate] = useState(
+    initialData?.entryDate 
+      ? getLocalDateString(initialData.entryDate) 
+      : getLocalDateString()
+  );
+  const [notes, setNotes] = useState(initialData?.notes || "");
+  const [items, setItems] = useState(
+    initialData?.items?.map(item => {
+      const track = item.salesTracks?.[0];
+      return {
+        ...item,
+        productId: item.productId.toString(),
+        unit: item.unit || "KG",
+        rateUnit: item.rateUnit || "KG",
+        salesTrackId: track?.id || null,
+        intakeNumber: track?.intakeTransaction?.intakeNumber || null
+      };
+    }) || [{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]
+  );
 
-  useEffect(() => {
-    setSuggestedBuyerId(fastEntryMemoryStore.getLastValue("lastBuyer", "sales"));
-    setSuggestedProductId(fastEntryMemoryStore.getLastValue("lastProduct", "sales"));
-    setSuggestedRateVal(fastEntryMemoryStore.getLastValue("lastRate", "sales"));
-    setSuggestedUnitVal(fastEntryMemoryStore.getLastValue("lastUnit", "sales"));
-  }, []);
+  const assistantSuggestions = useFastEntryAssistant({
+    context: "sales",
+    partyId,
+    items
+  });
 
   const applyBuyerSuggestion = () => {
-    if (!partyId && suggestedBuyerId) {
-      setPartyId(suggestedBuyerId);
-      setIsNewBuyer(suggestedBuyerId === "new");
-      setSuggestedBuyerId("");
+    if (!partyId && assistantSuggestions.party) {
+      setPartyId(assistantSuggestions.party);
+      setIsNewBuyer(assistantSuggestions.party === "new");
     }
   };
 
@@ -64,29 +80,7 @@ export default function SaleForm({ buyers, products, initialData = null, setting
     }
   };
 
-  const suggestedBuyer = buyers.find(b => b.id.toString() === suggestedBuyerId);
-  
-  // Form State
-  const [partyId, setPartyId] = useState(initialData?.partyId?.toString() || "");
-  const [entryDate, setEntryDate] = useState(
-    initialData?.entryDate 
-      ? getLocalDateString(initialData.entryDate) 
-      : getLocalDateString()
-  );
-  const [notes, setNotes] = useState(initialData?.notes || "");
-  const [items, setItems] = useState(
-    initialData?.items?.map(item => {
-      const track = item.salesTracks?.[0];
-      return {
-        ...item,
-        productId: item.productId.toString(),
-        unit: item.unit || "KG",
-        rateUnit: item.rateUnit || "KG",
-        salesTrackId: track?.id || null,
-        intakeNumber: track?.intakeTransaction?.intakeNumber || null
-      };
-    }) || [{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]
-  );
+  const suggestedBuyer = buyers.find(b => b.id.toString() === assistantSuggestions.party);
   const [adjustments, setAdjustments] = useState(
     initialData?.adjustments?.map(adj => ({
       ...adj,
@@ -435,11 +429,6 @@ export default function SaleForm({ buyers, products, initialData = null, setting
           setAdjustments([]);
           setNotes("");
           showToast.info("Form reset for next entry");
-          // Refresh memory suggestions
-          setSuggestedBuyerId(fastEntryMemoryStore.getLastValue("lastBuyer", "sales"));
-          setSuggestedProductId(fastEntryMemoryStore.getLastValue("lastProduct", "sales"));
-          setSuggestedRateVal(fastEntryMemoryStore.getLastValue("lastRate", "sales"));
-          setSuggestedUnitVal(fastEntryMemoryStore.getLastValue("lastUnit", "sales"));
           // Focus first item's product if keeping party, otherwise party select
           requestAnimationFrame(() => {
             if (partyId && partyId !== "new") {
@@ -506,15 +495,11 @@ export default function SaleForm({ buyers, products, initialData = null, setting
               </option>
             ))}
           </select>
-          {suggestedBuyer && !partyId && (
-            <button
-              type="button"
-              onClick={applyBuyerSuggestion}
-              className="text-xs text-primary/80 hover:text-primary underline mt-1 block text-left"
-            >
-              Suggested: {suggestedBuyer.name} (Click to apply)
-            </button>
-          )}
+          <InlineSuggestionBox 
+            suggestion={assistantSuggestions.party}
+            label={suggestedBuyer?.name}
+            onApply={applyBuyerSuggestion}
+          />
         </div>
 
         {/* Conditional New Buyer Fields */}
@@ -699,18 +684,17 @@ export default function SaleForm({ buyers, products, initialData = null, setting
                         ))}
                       </select>
                       {(() => {
-                        const prevItem = index > 0 ? items[index - 1] : null;
-                        const targetProdId = prevItem?.productId || suggestedProductId;
-                        const suggestedProd = products.find(p => p.id.toString() === targetProdId?.toString());
+                        const rowSuggestion = assistantSuggestions.rowSuggestions?.[index];
+                        const suggestedProd = rowSuggestion?.productId 
+                          ? products.find(p => p.id.toString() === rowSuggestion.productId.toString())
+                          : null;
                         if (suggestedProd && !item.productId) {
                           return (
-                            <button
-                              type="button"
-                              onClick={() => applyItemProductSuggestion(index, targetProdId)}
-                              className="text-[10px] text-primary/80 hover:text-primary underline mt-0.5 block text-left px-2 font-semibold"
-                            >
-                              Suggested: {suggestedProd.name} (Click to apply)
-                            </button>
+                            <InlineSuggestionBox 
+                              suggestion={rowSuggestion.productId}
+                              label={suggestedProd.name}
+                              onApply={() => applyItemProductSuggestion(index, rowSuggestion.productId)}
+                            />
                           );
                         }
                         return null;
@@ -747,17 +731,14 @@ export default function SaleForm({ buyers, products, initialData = null, setting
                         </select>
                       </div>
                       {(() => {
-                        const prevItem = index > 0 ? items[index - 1] : null;
-                        const targetUnit = prevItem?.unit || suggestedUnitVal;
-                        if (targetUnit && !item.unit) {
+                        const rowSuggestion = assistantSuggestions.rowSuggestions?.[index];
+                        if (rowSuggestion?.unit && !item.unit) {
                           return (
-                            <button
-                              type="button"
-                              onClick={() => applyItemUnitSuggestion(index, targetUnit)}
-                              className="text-[10px] text-primary/80 hover:text-primary underline mt-0.5 block text-left px-2 font-semibold"
-                            >
-                              Suggested Unit: {targetUnit}
-                            </button>
+                            <InlineSuggestionBox 
+                              suggestion={rowSuggestion.unit}
+                              label={rowSuggestion.unit}
+                              onApply={() => applyItemUnitSuggestion(index, rowSuggestion.unit)}
+                            />
                           );
                         }
                         return null;
@@ -789,17 +770,14 @@ export default function SaleForm({ buyers, products, initialData = null, setting
                         </select>
                       </div>
                       {(() => {
-                        const prevItem = index > 0 ? items[index - 1] : null;
-                        const targetRate = prevItem?.rate || suggestedRateVal;
-                        if (targetRate && !item.rate) {
+                        const rowSuggestion = assistantSuggestions.rowSuggestions?.[index];
+                        if (rowSuggestion?.rate && !item.rate) {
                           return (
-                            <button
-                              type="button"
-                              onClick={() => applyItemRateSuggestion(index, targetRate)}
-                              className="text-[10px] text-primary/80 hover:text-primary underline mt-0.5 block text-left px-2 font-semibold"
-                            >
-                              Suggested Rate: {targetRate}
-                            </button>
+                            <InlineSuggestionBox 
+                              suggestion={rowSuggestion.rate}
+                              label={`Rs. ${rowSuggestion.rate}`}
+                              onApply={() => applyItemRateSuggestion(index, rowSuggestion.rate)}
+                            />
                           );
                         }
                         return null;
