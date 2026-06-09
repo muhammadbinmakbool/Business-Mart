@@ -46,9 +46,12 @@ The system remembers the last values you saved successfully and suggests them wh
 - **Rate**: Suggests the last rate used. When adding multiple rows to a Sale, it suggests the rate of the previous row.
 
 ### How to use suggestions:
-1. If a field is empty, a subtle suggestion label appears underneath it (e.g. `Suggested: Salim & Co (Click to apply)`).
-2. If you want to use it, **click the suggestion label**. The value will instantly populate the field.
-3. If you want to type something else, just type normally. The suggestion helper will automatically disappear as you type.
+1. If a field is empty, a suggestion appears underneath it with a sparkle icon and an **Apply** button (e.g. `✨ Suggested: Basmati Rice [APPLY]`).
+2. If you want to use it, **click the Apply button**. The value will instantly populate the field, and the suggestion will disappear.
+3. If you want to type something else, just type normally. The suggestion helper will automatically disappear as soon as the field has a value.
+
+> [!NOTE]
+> Suggestions only appear on **creation forms** (New Intake, New Sale). They do not appear when editing an existing record.
 
 ---
 

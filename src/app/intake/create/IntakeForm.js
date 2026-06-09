@@ -99,12 +99,6 @@ export default function IntakeForm({ suppliers, products, settings }) {
     }
   };
 
-  const suggestedSupplier = suppliers.find(s => s.id.toString() === assistantSuggestions.party);
-  const suggestedProduct = products.find(p => p.id.toString() === assistantSuggestions.product);
-  const suggestedUnit = selectedProduct
-    ? compatibleUnits.find(u => u.id === assistantSuggestions.unit)
-    : null;
-
   const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
   const isBagProduct = selectedProduct && (selectedProduct.primaryUnit === "BAG" || selectedProduct.category === "BAG");
   const compatibleUnits = selectedProduct
@@ -112,6 +106,12 @@ export default function IntakeForm({ suppliers, products, settings }) {
         ? getUnitsByCategory(selectedProduct.category).filter(u => u.id === "BAG")
         : getUnitsByCategory(selectedProduct.category))
     : [];
+
+  const suggestedSupplier = suppliers.find(s => s.id.toString() === assistantSuggestions.party);
+  const suggestedProduct = products.find(p => p.id.toString() === assistantSuggestions.product);
+  const suggestedUnit = selectedProduct
+    ? compatibleUnits.find(u => u.id === assistantSuggestions.unit)
+    : null;
 
   const handleProductChange = (productId) => {
     setSelectedProductId(productId);
@@ -269,6 +269,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
             suggestion={assistantSuggestions.party}
             label={suggestedSupplier?.name}
             onApply={applySupplierSuggestion}
+            currentValue={selectedSupplierState}
           />
         </div>
 
@@ -344,6 +345,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
             suggestion={assistantSuggestions.product}
             label={suggestedProduct?.name}
             onApply={applyProductSuggestion}
+            currentValue={selectedProductId}
           />
         </div>         {/* 3. Unit Selection */}
         <div className="space-y-2">
@@ -367,6 +369,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
             suggestion={assistantSuggestions.unit}
             label={suggestedUnit?.name || assistantSuggestions.unit}
             onApply={applyUnitSuggestion}
+            currentValue={selectedUnit}
           />
         </div>
 

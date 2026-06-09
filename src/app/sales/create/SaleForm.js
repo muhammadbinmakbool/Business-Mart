@@ -499,6 +499,7 @@ export default function SaleForm({ buyers, products, initialData = null, setting
             suggestion={assistantSuggestions.party}
             label={suggestedBuyer?.name}
             onApply={applyBuyerSuggestion}
+            currentValue={partyId}
           />
         </div>
 
