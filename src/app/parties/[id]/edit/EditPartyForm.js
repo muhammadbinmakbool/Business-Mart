@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import DuplicateWarningModal from "@/components/ui/DuplicateWarningModal";
 import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
+import FastEntryHelperCard from "@/components/ui/FastEntryHelperCard";
 
 export default function EditPartyForm({ party }) {
   const router = useRouter();
@@ -218,6 +219,7 @@ export default function EditPartyForm({ party }) {
         entityName="Party"
         loading={isSaving}
       />
+      <FastEntryHelperCard type="party" />
     </form>
   );
 }

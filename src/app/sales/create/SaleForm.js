@@ -19,6 +19,7 @@ import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 import { useFastEntryAssistant } from "@/modules/fast-entry-assistant/hooks/useFastEntryAssistant";
 import InlineSuggestionBox from "@/modules/fast-entry-assistant/components/InlineSuggestionBox";
+import FastEntryHelperCard from "@/components/ui/FastEntryHelperCard";
 
 export default function SaleForm({ buyers, products, initialData = null, settings = null }) {
   const router = useRouter();
@@ -1085,6 +1086,8 @@ export default function SaleForm({ buyers, products, initialData = null, setting
           {errorModal.message}
         </p>
       </Modal>
+
+      <FastEntryHelperCard type="sales" />
     </form>
   );
 }

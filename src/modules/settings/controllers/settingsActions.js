@@ -241,7 +241,8 @@ const DEFAULT_GENERAL_SETTINGS = {
   defaultLanguage: "en",
   timezone: "Asia/Karachi",
   dateFormat: "DD/MM/YYYY",
-  decimalPlaces: 2
+  decimalPlaces: 2,
+  showFastEntryHelper: true
 };
 
 /**
@@ -303,7 +304,8 @@ export async function saveGeneralSettingsAction(settings) {
       ...parsed,
       ...settings,
       // Ensure specific types
-      decimalPlaces: settings.decimalPlaces !== undefined ? parseInt(settings.decimalPlaces) : (parsed.decimalPlaces || 2)
+      decimalPlaces: settings.decimalPlaces !== undefined ? parseInt(settings.decimalPlaces) : (parsed.decimalPlaces || 2),
+      showFastEntryHelper: settings.showFastEntryHelper !== undefined ? !!settings.showFastEntryHelper : (parsed.showFastEntryHelper !== undefined ? !!parsed.showFastEntryHelper : true)
     };
 
     const settingsValue = JSON.stringify(updated);

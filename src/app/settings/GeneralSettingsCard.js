@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Building2, Phone, Mail, MapPin, Image as ImageIcon, Landmark, Globe, Clock, Calendar, Check, AlertTriangle, Pencil, X } from "lucide-react";
+import { Building2, Phone, Mail, MapPin, Image as ImageIcon, Landmark, Globe, Clock, Calendar, Check, AlertTriangle, Pencil, X, Keyboard } from "lucide-react";
 import { toast } from "sonner";
 import { getGeneralSettingsAction, saveGeneralSettingsAction, uploadLogoAction } from "@/modules/settings/controllers/settingsActions";
 
@@ -22,7 +22,8 @@ export default function GeneralSettingsCard() {
     defaultLanguage: "en",
     timezone: "Asia/Karachi",
     dateFormat: "DD/MM/YYYY",
-    decimalPlaces: 2
+    decimalPlaces: 2,
+    showFastEntryHelper: true
   });
 
   const [logoFile, setLogoFile] = useState(null);
@@ -379,6 +380,39 @@ export default function GeneralSettingsCard() {
                 <option value="MM/DD/YYYY">MM/DD/YYYY (e.g. 12/31/2026)</option>
                 <option value="YYYY-MM-DD">YYYY-MM-DD (e.g. 2026-12-31)</option>
               </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Fast Entry Guide Section */}
+        <div className="border-t pt-5 space-y-4">
+          <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
+            <Keyboard className="h-4 w-4 text-primary" /> Fast Entry Shortcuts Guide
+          </h4>
+          
+          <div className="flex items-center gap-3 p-4 rounded-xl border bg-muted/10">
+            <input
+              type="checkbox"
+              id="showFastEntryHelper"
+              disabled={!isEditing}
+              checked={settings.showFastEntryHelper !== false}
+              onChange={(e) => {
+                handleChange("showFastEntryHelper", e.target.checked);
+                if (e.target.checked) {
+                  localStorage.removeItem("fast_entry_helper_dismissed_intake");
+                  localStorage.removeItem("fast_entry_helper_dismissed_sales");
+                  localStorage.removeItem("fast_entry_helper_dismissed_party");
+                }
+              }}
+              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer disabled:cursor-not-allowed"
+            />
+            <div className="space-y-0.5">
+              <label htmlFor="showFastEntryHelper" className="text-sm font-bold text-card-foreground cursor-pointer disabled:cursor-not-allowed">
+                Display Floating Shortcuts Help Guide
+              </label>
+              <p className="text-xs text-muted-foreground leading-normal">
+                When active, a floating cheat sheet displays in the bottom-right corner of Fast Entry views (Intake, Sales, and Party Creation) showing keyboard shortcuts. Users can dismiss them individually via the "x" button.
+              </p>
             </div>
           </div>
         </div>
