@@ -49,6 +49,9 @@ export default function EditPartyForm({ party }) {
         await proceedSave(formData);
       }
     } catch (e) {
+      if (e.message?.includes("NEXT_REDIRECT") || e.digest?.includes("NEXT_REDIRECT")) {
+        throw e;
+      }
       toast.error("Failed to check for duplicate parties");
     } finally {
       setIsSaving(false);

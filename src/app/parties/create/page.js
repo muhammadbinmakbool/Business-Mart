@@ -52,6 +52,9 @@ export default function CreatePartyPage() {
         await proceedSave(formData, shouldRedirect);
       }
     } catch (e) {
+      if (e.message?.includes("NEXT_REDIRECT") || e.digest?.includes("NEXT_REDIRECT")) {
+        throw e;
+      }
       toast.error("Failed to check for duplicate parties");
     } finally {
       setIsSaving(false);
