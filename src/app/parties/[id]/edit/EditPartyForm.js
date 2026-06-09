@@ -1,15 +1,36 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { updatePartyAction, checkPartyDuplicateAction } from "@/modules/parties/controllers/partyActions";
 import { PARTY_TYPES } from "@/lib/constants";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import DuplicateWarningModal from "@/components/ui/DuplicateWarningModal";
+import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
 
 export default function EditPartyForm({ party }) {
   const router = useRouter();
+  const formRef = useRef(null);
+
+  const { registerField } = useKeyboardFlow({
+    fields: [
+      { name: "name", next: "phoneNumber", prev: null },
+      { name: "phoneNumber", next: "partyType", prev: "name" },
+      { name: "partyType", next: "address", prev: "phoneNumber" },
+      { name: "address", next: "notes", prev: "partyType" },
+      { name: "notes", next: null, prev: "address" },
+    ],
+    onSubmit: () => {
+      if (!formRef.current) return;
+      if (!formRef.current.reportValidity()) return;
+      const formData = new FormData(formRef.current);
+      handleSaveTrigger(formData);
+    },
+    onCancel: () => {
+      router.push("/parties");
+    },
+  });
 
   const [isWarningOpen, setIsWarningOpen] = useState(false);
   const [warningData, setWarningData] = useState(null); // formData
@@ -80,6 +101,7 @@ export default function EditPartyForm({ party }) {
 
   return (
     <form 
+      ref={formRef}
       onSubmit={(e) => {
         e.preventDefault();
         const formData = new FormData(e.currentTarget);
@@ -91,6 +113,7 @@ export default function EditPartyForm({ party }) {
         <div className="space-y-2">
           <label htmlFor="name" className="text-sm font-medium">Party Name</label>
           <input
+            ref={registerField("name")}
             id="name"
             name="name"
             required
@@ -101,6 +124,7 @@ export default function EditPartyForm({ party }) {
         <div className="space-y-2">
           <label htmlFor="phoneNumber" className="text-sm font-medium">Phone Number</label>
           <input
+            ref={registerField("phoneNumber")}
             id="phoneNumber"
             name="phoneNumber"
             required
@@ -113,6 +137,7 @@ export default function EditPartyForm({ party }) {
       <div className="space-y-2">
         <label htmlFor="partyType" className="text-sm font-medium">Party Type</label>
         <select
+          ref={registerField("partyType")}
           id="partyType"
           name="partyType"
           required
@@ -128,6 +153,7 @@ export default function EditPartyForm({ party }) {
       <div className="space-y-2">
         <label htmlFor="address" className="text-sm font-medium">Address (Optional)</label>
         <textarea
+          ref={registerField("address")}
           id="address"
           name="address"
           rows={2}
@@ -139,6 +165,7 @@ export default function EditPartyForm({ party }) {
       <div className="space-y-2">
         <label htmlFor="notes" className="text-sm font-medium">Notes (Optional)</label>
         <textarea
+          ref={registerField("notes")}
           id="notes"
           name="notes"
           rows={2}
