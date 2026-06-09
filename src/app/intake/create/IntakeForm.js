@@ -15,7 +15,6 @@ import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 import { useFastEntryAssistant } from "@/modules/fast-entry-assistant/hooks/useFastEntryAssistant";
 import InlineSuggestionBox from "@/modules/fast-entry-assistant/components/InlineSuggestionBox";
-import FastEntryHelperCard from "@/components/ui/FastEntryHelperCard";
 
 /** Merge multiple refs (ref objects + ref callbacks) onto one element. */
 const mergeRefs = (...refs) => (el) => {
@@ -537,8 +536,6 @@ export default function IntakeForm({ suppliers, products, settings }) {
           {errorModal.message}
         </p>
       </Modal>
-
-      <FastEntryHelperCard type="intake" />
     </form>
   );
 }

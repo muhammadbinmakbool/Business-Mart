@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import DuplicateWarningModal from "@/components/ui/DuplicateWarningModal";
 import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
-import FastEntryHelperCard from "@/components/ui/FastEntryHelperCard";
 
 export default function CreatePartyPage() {
   const router = useRouter();
@@ -248,7 +247,6 @@ export default function CreatePartyPage() {
         entityName="Party"
         loading={isSaving}
       />
-      <FastEntryHelperCard type="party" />
     </div>
   );
 }

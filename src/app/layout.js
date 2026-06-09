@@ -5,6 +5,7 @@ import { SidebarProvider } from "@/components/layout/SidebarContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import CommandPalette from "@/modules/command-palette/components/CommandPalette";
+import FastEntryHelperCard from "@/components/ui/FastEntryHelperCard";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -35,6 +36,7 @@ export default function RootLayout({ children }) {
             </AppLayout>
             <Toaster position="top-center" richColors />
             <CommandPalette />
+            <FastEntryHelperCard />
           </SidebarProvider>
         </ThemeProvider>
       </body>
