@@ -1,15 +1,18 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, Suspense } from "react";
 import Link from "next/link";
 import { ChevronLeft, Info } from "lucide-react";
 import { createProductAction } from "@/modules/products/controllers/productActions";
 import { UNIT_CATEGORIES, UNITS, getUnitsByCategory, isProductSpecific, BASE_UNITS } from "@/lib/units";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
-export default function CreateProductPage() {
+function CreateProductContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const backUrl = searchParams.get("backUrl") || "/products";
+
   const formRef = useRef(null);
   const nameInputRef = useRef(null);
 
@@ -27,7 +30,7 @@ export default function CreateProductPage() {
     toast.success("Product created successfully");
     
     if (shouldRedirect) {
-      router.push("/products");
+      router.push(backUrl);
     } else {
       formRef.current?.reset();
       setCategory(UNIT_CATEGORIES.WEIGHT);
@@ -44,7 +47,7 @@ export default function CreateProductPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <Link
-          href="/products"
+          href={backUrl}
           className="rounded-full p-2 hover:bg-accent transition-colors"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -139,7 +142,7 @@ export default function CreateProductPage() {
 
           <div className="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t">
             <Link
-              href="/products"
+              href={backUrl}
               className="px-4 py-2 text-sm text-center font-medium hover:bg-accent rounded-md transition-colors"
             >
               Cancel
@@ -167,3 +170,10 @@ export default function CreateProductPage() {
   );
 }
 
+export default function CreateProductPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-muted-foreground">Loading product form...</div>}>
+      <CreateProductContent />
+    </Suspense>
+  );
+}

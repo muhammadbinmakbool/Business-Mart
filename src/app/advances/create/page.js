@@ -6,7 +6,9 @@ import AdvanceForm from "./AdvanceForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function CreateAdvancePage() {
+export default async function CreateAdvancePage({ searchParams: searchParamsPromise }) {
+  const searchParams = searchParamsPromise ? await searchParamsPromise : {};
+  const backUrl = searchParams.backUrl || "/advances";
   const parties = await PartyService.listParties();
   const suppliers = parties.filter(p => p.isActive && (p.partyType === "SUPPLIER" || p.partyType === "BOTH"));
 
@@ -14,7 +16,7 @@ export default async function CreateAdvancePage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <Link
-          href="/advances"
+          href={backUrl}
           className="rounded-full p-2 hover:bg-accent transition-colors"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -26,7 +28,7 @@ export default async function CreateAdvancePage() {
       </div>
 
       <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <AdvanceForm suppliers={suppliers} />
+        <AdvanceForm suppliers={suppliers} backUrl={backUrl} />
       </div>
     </div>
   );

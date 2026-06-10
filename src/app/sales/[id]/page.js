@@ -76,7 +76,7 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
             <p className="text-sm text-muted-foreground">Buyer invoice and transaction breakdown.</p>
           </div>
         }
-        editUrl={sale.status === "PENDING" ? `/sales/${sale.id}/edit` : null}
+        editUrl={sale.status === "PENDING" ? `/sales/${sale.id}/edit?backUrl=${encodeURIComponent(backUrl)}` : null}
         printType="sale"
         printData={sale}
         printFilename={`Sale-${sale.saleNumber || sale.id}`}
@@ -85,7 +85,7 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
         deleteAction={deleteSaleAction}
         hardDeleteAction={hardDeleteSaleAction}
         deleteLabel="Sale Invoice"
-        deleteRedirect="/sales"
+        deleteRedirect={backUrl}
         extraActions={
           <StatusUpdateButtons 
             id={sale.id} 

@@ -6,7 +6,10 @@ import InvoiceGenerator from "./InvoiceGenerator";
 
 export const dynamic = "force-dynamic";
 
-export default async function CreateSupplierInvoicePage() {
+export default async function CreateSupplierInvoicePage({ searchParams: searchParamsPromise }) {
+  const searchParams = searchParamsPromise ? await searchParamsPromise : {};
+  const backUrl = searchParams.backUrl || "/supplier-invoices";
+
   // Query active suppliers (SUPPLIER or BOTH) with uninvoiced intakes whose status is SOLD
   const suppliers = await prisma.party.findMany({
     where: {
@@ -53,7 +56,7 @@ export default async function CreateSupplierInvoicePage() {
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
       <div className="flex items-center gap-4">
         <Link
-          href="/supplier-invoices"
+          href={backUrl}
           className="rounded-full p-2 hover:bg-accent transition-colors"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -64,7 +67,7 @@ export default async function CreateSupplierInvoicePage() {
         </div>
       </div>
 
-      <InvoiceGenerator suppliers={JSON.parse(JSON.stringify(suppliers))} settings={settings} />
+      <InvoiceGenerator suppliers={JSON.parse(JSON.stringify(suppliers))} settings={settings} backUrl={backUrl} />
     </div>
   );
 }

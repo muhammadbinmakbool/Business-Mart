@@ -47,7 +47,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
             <p className="text-sm text-muted-foreground">Detailed arrival record and payments.</p>
           </div>
         }
-        editUrl={intake.status === "PENDING" ? `/intake/${intake.id}/edit` : null}
+        editUrl={intake.status === "PENDING" ? `/intake/${intake.id}/edit?backUrl=${encodeURIComponent(backUrl)}` : null}
         printType="intake"
         printData={intake}
         printFilename={`Intake-${intake.intakeNumber || intake.id}`}
@@ -56,7 +56,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
         deleteAction={deleteIntakeAction}
         hardDeleteAction={hardDeleteIntakeAction}
         deleteLabel="Intake"
-        deleteRedirect="/intake"
+        deleteRedirect={backUrl}
         statusBadge={
           <div className={cn(
             "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border",

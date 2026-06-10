@@ -20,7 +20,7 @@ import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 import { useFastEntryAssistant } from "@/modules/fast-entry-assistant/hooks/useFastEntryAssistant";
 import InlineSuggestionBox from "@/modules/fast-entry-assistant/components/InlineSuggestionBox";
 
-export default function SaleForm({ buyers, products, initialData = null, settings = null }) {
+export default function SaleForm({ buyers, products, initialData = null, settings = null, backUrl = "" }) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
@@ -438,7 +438,8 @@ export default function SaleForm({ buyers, products, initialData = null, setting
             }
           });
         } else {
-          router.push(`/sales/${initialData?.id || result.id || ""}`);
+          const dest = `/sales/${initialData?.id || result.id || ""}`;
+          router.push(backUrl ? `${dest}?backUrl=${encodeURIComponent(backUrl)}` : dest);
         }
       }
     } catch (error) {

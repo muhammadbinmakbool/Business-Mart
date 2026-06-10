@@ -35,7 +35,7 @@ const INTAKE_FIELDS = [
   { name: "notes",       next: null,          prev: "entryDate" },
 ];
 
-export default function IntakeForm({ suppliers, products, settings }) {
+export default function IntakeForm({ suppliers, products, settings, backUrl }) {
   const router = useRouter();
   const formRef = useRef(null);
   const supplierRef = useRef(null);
@@ -206,7 +206,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
     if (savedUnit) fastEntryMemoryStore.setLastValue("lastUnit", savedUnit, "intake");
     
     if (shouldRedirect) {
-      router.push("/intake");
+      router.push(backUrl || "/intake");
     } else {
       // Save & Continue: keep partyId + productId, clear the rest
       formRef.current?.reset();
@@ -496,7 +496,7 @@ export default function IntakeForm({ suppliers, products, settings }) {
 
       <div className="flex flex-col sm:flex-row justify-end gap-3 pt-6 border-t">
         <Link
-          href="/intake"
+          href={backUrl || "/intake"}
           className="px-6 py-2 text-sm text-center font-medium hover:bg-accent rounded-md transition-colors"
         >
           Cancel

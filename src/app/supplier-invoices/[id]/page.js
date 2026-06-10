@@ -109,7 +109,7 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
             <p className="text-sm text-muted-foreground font-mono">{invoice.invoiceNumber}</p>
           </div>
         }
-        editUrl={invoice.status === "PENDING" ? `/supplier-invoices/${invoice.id}/edit` : null}
+        editUrl={invoice.status === "PENDING" ? `/supplier-invoices/${invoice.id}/edit?backUrl=${encodeURIComponent(backUrl)}` : null}
         printType="settlement"
         printData={{
           invoice,
@@ -122,7 +122,7 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
         deleteAction={deleteSupplierInvoiceAction}
         hardDeleteAction={hardDeleteSupplierInvoiceAction}
         deleteLabel="Supplier Invoice"
-        deleteRedirect="/supplier-invoices"
+        deleteRedirect={backUrl}
         extraActions={
           <div className="flex items-center gap-2">
             {invoice.isOutdated && invoice.status !== "SUPERSEDED" && (

@@ -24,7 +24,7 @@ import { ADJUSTMENT_TYPES_SUPPLIER } from "@/lib/constants";
 import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 
-export default function InvoiceGenerator({ suppliers, initialInvoice = null, settings = null }) {
+export default function InvoiceGenerator({ suppliers, initialInvoice = null, settings = null, backUrl = "" }) {
   const router = useRouter();
   const [step, setStep] = useState(initialInvoice ? 2 : 1);
 
@@ -316,7 +316,8 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, set
       const result = await editSupplierInvoiceAction(formData);
       if (result.success) {
         toast.success("Invoice updated successfully!");
-        router.push(`/supplier-invoices/${result.data.id}`);
+        const dest = `/supplier-invoices/${result.data.id}`;
+        router.push(backUrl ? `${dest}?backUrl=${encodeURIComponent(backUrl)}` : dest);
       } else {
         toast.error(result.error);
         setIsSubmitting(false);
@@ -325,7 +326,8 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, set
       const result = await generateSupplierInvoiceAction(formData);
       if (result.success) {
         toast.success("Invoice generated successfully!");
-        router.push(`/supplier-invoices/${result.data.id}`);
+        const dest = `/supplier-invoices/${result.data.id}`;
+        router.push(backUrl ? `${dest}?backUrl=${encodeURIComponent(backUrl)}` : dest);
       } else {
         toast.error(result.error);
         setIsSubmitting(false);
@@ -481,7 +483,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, set
 
           <div className="flex justify-between pt-6">
             {initialInvoice ? (
-              <Link href={`/supplier-invoices/${initialInvoice.id}`} className="px-6 py-2 rounded-lg border hover:bg-muted transition-colors font-medium">Cancel</Link>
+              <Link href={backUrl ? `/supplier-invoices/${initialInvoice.id}?backUrl=${encodeURIComponent(backUrl)}` : `/supplier-invoices/${initialInvoice.id}`} className="px-6 py-2 rounded-lg border hover:bg-muted transition-colors font-medium">Cancel</Link>
             ) : (
               <button onClick={() => setStep(1)} className="px-6 py-2 rounded-lg border hover:bg-muted transition-colors font-medium">Back</button>
             )}

@@ -8,7 +8,10 @@ import IntakeForm from "./IntakeForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function CreateIntakePage() {
+export default async function CreateIntakePage({ searchParams: searchParamsPromise }) {
+  const searchParams = searchParamsPromise ? await searchParamsPromise : {};
+  const backUrl = searchParams.backUrl || "/intake";
+
   const [suppliers, products] = await Promise.all([
     PartyService.listParties(), // We'll filter for suppliers in the component or just show all
     ProductService.listProducts()
@@ -27,7 +30,7 @@ export default async function CreateIntakePage() {
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
         <Link
-          href="/intake"
+          href={backUrl}
           className="rounded-full p-2 hover:bg-accent transition-colors"
         >
           <ChevronLeft className="h-5 w-5" />
@@ -39,7 +42,7 @@ export default async function CreateIntakePage() {
       </div>
 
       <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <IntakeForm suppliers={activeSuppliers} products={activeProducts} settings={settings} />
+        <IntakeForm suppliers={activeSuppliers} products={activeProducts} settings={settings} backUrl={backUrl} />
       </div>
     </div>
   );
