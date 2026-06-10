@@ -78,7 +78,7 @@ export async function getImportSummaryAction() {
       ...openingBalanceMigrations.map(m => m.migrationId)
     ].filter(Boolean)));
 
-    return {
+    return JSON.parse(JSON.stringify({
       success: true,
       summary: {
         partiesCount,
@@ -86,7 +86,7 @@ export async function getImportSummaryAction() {
         migrationCount: uniqueMigrationIds.length,
         migrationIds: uniqueMigrationIds
       }
-    };
+    }));
   } catch (error) {
     console.error("Error in getImportSummaryAction:", error);
     return { success: false, error: error.message || "Failed to fetch import summary." };

@@ -6,10 +6,11 @@ import DashboardClient from "./DashboardClient";
 
 export default async function DashboardPage() {
   const overviewData = await DashboardService.getOverviewData();
+  const serializedData = JSON.parse(JSON.stringify(overviewData));
 
   return (
     <DashboardClient 
-      data={overviewData} 
+      data={serializedData} 
     />
   );
 }
