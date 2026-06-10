@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { LedgerRepository } from "../repositories/LedgerRepository";
 import { calculateReconciliationSummary } from "@/lib/reconciliation";
 import { withOwnership } from "@/lib/session";
+import { emitActivity } from "@/modules/activity-log/activityLogger";
 
 export class LedgerService {
   /**
@@ -138,6 +139,21 @@ export class LedgerService {
 
     const session = await LedgerRepository.create(sessionPayload);
 
+    await emitActivity({
+      entityType: "SYSTEM",
+      entityId: session.id,
+      action: "CREATED",
+      description: `Reconciliation session "${session.title}" created for period ${startDate} to ${endDate}. Diff: Rs. ${Number(session.difference).toLocaleString()}`,
+      meta: {
+        title: session.title,
+        startDate,
+        endDate,
+        difference: Number(session.difference),
+        supplierTotal: Number(session.supplierTotal),
+        buyerTotal: Number(session.buyerTotal)
+      }
+    });
+
     return JSON.parse(JSON.stringify(session));
   }
 
@@ -207,6 +223,18 @@ export class LedgerService {
 
     const newStatus = session.status === "LOCKED" ? "OPEN" : "LOCKED";
     const updated = await LedgerRepository.updateStatus(id, newStatus);
+
+    await emitActivity({
+      entityType: "SYSTEM",
+      entityId: updated.id,
+      action: "UPDATED",
+      description: `Reconciliation session "${updated.title}" status updated to ${newStatus}`,
+      meta: {
+        title: updated.title,
+        status: updated.status
+      }
+    });
+
     return JSON.parse(JSON.stringify(updated));
   }
 
@@ -229,6 +257,18 @@ export class LedgerService {
     } catch (e) {}
 
     await LedgerRepository.softDelete(id, { deletedBy, deleteReason });
+
+    await emitActivity({
+      entityType: "SYSTEM",
+      entityId: session.id,
+      action: "DELETED",
+      description: `Reconciliation session "${session.title}" soft-deleted.${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
+      meta: {
+        title: session.title,
+        deleteReason
+      }
+    });
+
     return { success: true };
   }
 
@@ -245,6 +285,18 @@ export class LedgerService {
     }
 
     await LedgerRepository.hardDelete(id, deleteReason);
+
+    await emitActivity({
+      entityType: "SYSTEM",
+      entityId: session.id,
+      action: "HARD_DELETED",
+      description: `Reconciliation session "${session.title}" PERMANENTLY deleted.${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
+      meta: {
+        title: session.title,
+        deleteReason
+      }
+    });
+
     return { success: true };
   }
 }
