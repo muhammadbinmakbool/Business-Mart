@@ -18,6 +18,79 @@ export default function ExportTab() {
     { id: "ledger", label: "Ledger Reconciliation Snapshots" }
   ];
 
+  const getTodayString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const getMonthString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    return `${year}-${month}`;
+  };
+
+  const currentMonth = getMonthString();
+  const todayDate = getTodayString();
+
+  const presets = [
+    {
+      name: "Today Sales",
+      resource: "sales",
+      format: "xlsx",
+      status: "ALL",
+      searchQuery: "",
+      dateFilter: {
+        preset: "today",
+        startDate: todayDate,
+        endDate: todayDate,
+        month: ""
+      }
+    },
+    {
+      name: "This Month Sales",
+      resource: "sales",
+      format: "xlsx",
+      status: "ALL",
+      searchQuery: "",
+      dateFilter: {
+        preset: "month",
+        startDate: "",
+        endDate: "",
+        month: currentMonth
+      }
+    },
+    {
+      name: "Pending Settlements",
+      resource: "settlements",
+      format: "xlsx",
+      status: "PENDING",
+      searchQuery: "",
+      dateFilter: {
+        preset: "all",
+        startDate: "",
+        endDate: "",
+        month: ""
+      }
+    },
+    {
+      name: "Full Ledger (This Month)",
+      resource: "ledger",
+      format: "xlsx",
+      status: "ALL",
+      searchQuery: "",
+      dateFilter: {
+        preset: "month",
+        startDate: "",
+        endDate: "",
+        month: currentMonth
+      }
+    }
+  ];
+
   const handleExport = () => {
     const params = new URLSearchParams({
       format,
@@ -30,6 +103,27 @@ export default function ExportTab() {
     });
 
     const url = `/api/export/${resource}?${params.toString()}`;
+    window.open(url, "_blank");
+  };
+
+  const applyPreset = (preset) => {
+    setResource(preset.resource);
+    setFormat(preset.format);
+    setSearchQuery(preset.searchQuery);
+    setStatus(preset.status);
+    setDateFilter(preset.dateFilter);
+
+    const params = new URLSearchParams({
+      format: preset.format,
+      searchQuery: preset.searchQuery,
+      status: preset.status,
+      preset: preset.dateFilter.preset,
+      startDate: preset.dateFilter.startDate,
+      endDate: preset.dateFilter.endDate,
+      month: preset.dateFilter.month
+    });
+
+    const url = `/api/export/${preset.resource}?${params.toString()}`;
     window.open(url, "_blank");
   };
 
@@ -105,6 +199,28 @@ export default function ExportTab() {
                 />
                 <span>CSV (.csv)</span>
               </label>
+            </div>
+          </div>
+
+          {/* Quick Export Presets */}
+          <div className="p-4 rounded-xl border bg-card space-y-3 mt-4">
+            <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
+              <span>📦</span> Quick Export Presets
+            </h4>
+            <div className="flex flex-col gap-2">
+              {presets.map((p, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  className="w-full text-left px-3 py-2 text-xs border border-dashed rounded-lg hover:bg-accent/40 text-muted-foreground hover:text-foreground transition-all cursor-pointer flex items-center justify-between"
+                >
+                  <span>{p.name}</span>
+                  <span className="text-[9px] bg-accent text-accent-foreground px-1.5 py-0.5 rounded uppercase font-bold">
+                    {p.format}
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
         </div>

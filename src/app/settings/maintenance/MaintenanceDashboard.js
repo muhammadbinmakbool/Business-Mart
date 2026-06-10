@@ -21,7 +21,7 @@ export default function MaintenanceDashboard() {
     { id: "restore", label: "Restore Database", icon: Upload, component: RestoreTab },
     { id: "import", label: "Import Data", icon: Import, component: ImportDataTab },
     { id: "historical", label: "Historical Onboarding", icon: Import, component: HistoricalImportTab },
-    { id: "export", label: "Data Export", icon: Download, component: ExportTab },
+    { id: "export", label: "Export Data", icon: Download, component: ExportTab },
     { id: "reset", label: "Reset Demo Data", icon: ShieldAlert, component: ResetSystemTab },
     { id: "inventory", label: "Inventory Rebuild", icon: Sliders, component: InventoryToolsTab },
     { id: "ledger", label: "Ledger Rebuild", icon: RefreshCw, component: LedgerToolsTab },
