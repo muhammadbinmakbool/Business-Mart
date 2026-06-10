@@ -7,7 +7,7 @@ The Export System provides a modular, schema-driven framework for downloading ER
 
 ```mermaid
 graph TD
-    UI[Client Registry UI] -->|window.open| API[Dynamic API Route Handler]
+    UI[Maintenance Export Panel] -->|window.open| API[Dynamic API Route Handler]
     API -->|Fetch & Filter| ES[ExportService]
     ES -->|Get Raw Data| Repo[Repositories / Services]
     ES -->|Shared Utility Filters| Filters[salesFilters / invoiceFilters / ledgerFilters]

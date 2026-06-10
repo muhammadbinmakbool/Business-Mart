@@ -15,21 +15,14 @@ Business Mart provides three distinct methods to output or save data:
 
 ## How to Export Data
 
-### 1. Sales & Billing Registry
-1. Go to the **Sales / Billing** page.
-2. Apply any search query, status tab, or date range filter (e.g. filter by "This Month").
-3. Click the **Export Excel** or **Export CSV** button in the top right.
-4. Your browser will download a file containing only the sales matching your filters.
-
-### 2. Supplier Settlements Registry
-1. Go to the **Supplier Settlements** page.
-2. Use the search input or date filter to locate the desired settlement list.
-3. Click **Export Excel** or **Export CSV** next to the "Generate Settlement" action button.
-
-### 3. Ledger Reconciliation History
-1. Go to the **Ledger & Reconciliation** page.
-2. Click the **History** tab.
-3. Click the **Export Excel** or **Export CSV** buttons in the header to download a history of all saved reconciliation session snapshots.
+1. Navigate to **Settings** (via the sidebar/navigation header).
+2. Click on the **Maintenance** tab or option.
+3. Select **Data Export** from the left-hand navigation list of options.
+4. Customize your export using the following steps:
+   - **Select Dataset**: Choose between *Sales & Billing Registry*, *Supplier Settlements Registry*, or *Ledger Reconciliation Snapshots*.
+   - **Configure Filters**: Input optional text search terms, status filters, and specific date range/presets.
+   - **File Format**: Choose *Excel (.xlsx)* or *CSV (.csv)*.
+5. Click **Download Dataset**. Your browser will generate and download the file.
 
 ---
 

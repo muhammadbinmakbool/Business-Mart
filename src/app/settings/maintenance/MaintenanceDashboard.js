@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Database, Upload, Import, ShieldAlert, Sliders, RefreshCw, Trash2 } from "lucide-react";
+import { ArrowLeft, Database, Upload, Import, ShieldAlert, Sliders, RefreshCw, Trash2, Download } from "lucide-react";
 import BackupTab from "@/modules/maintenance/ui/BackupTab";
 import RestoreTab from "@/modules/maintenance/ui/RestoreTab";
 import ImportDataTab from "@/modules/maintenance/ui/ImportDataTab";
@@ -11,6 +11,7 @@ import ResetSystemTab from "@/modules/maintenance/ui/ResetSystemTab";
 import InventoryToolsTab from "@/modules/maintenance/ui/InventoryToolsTab";
 import LedgerToolsTab from "@/modules/maintenance/ui/LedgerToolsTab";
 import LogsCleanupTab from "@/modules/maintenance/ui/LogsCleanupTab";
+import ExportTab from "@/modules/maintenance/ui/ExportTab";
 
 export default function MaintenanceDashboard() {
   const [activeTab, setActiveTab] = useState("backup");
@@ -20,6 +21,7 @@ export default function MaintenanceDashboard() {
     { id: "restore", label: "Restore Database", icon: Upload, component: RestoreTab },
     { id: "import", label: "Import Data", icon: Import, component: ImportDataTab },
     { id: "historical", label: "Historical Onboarding", icon: Import, component: HistoricalImportTab },
+    { id: "export", label: "Data Export", icon: Download, component: ExportTab },
     { id: "reset", label: "Reset Demo Data", icon: ShieldAlert, component: ResetSystemTab },
     { id: "inventory", label: "Inventory Rebuild", icon: Sliders, component: InventoryToolsTab },
     { id: "ledger", label: "Ledger Rebuild", icon: RefreshCw, component: LedgerToolsTab },
@@ -27,6 +29,7 @@ export default function MaintenanceDashboard() {
   ];
 
   const ActiveComponent = tabs.find(t => t.id === activeTab)?.component || BackupTab;
+
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-16">

@@ -59,21 +59,6 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
     { key: "CANCELLED", label: "Cancelled", count: dateFilteredSales.filter(s => s.status === "CANCELLED").length },
   ];
 
-  const handleExport = (formatType) => {
-    const params = new URLSearchParams({
-      format: formatType,
-      searchQuery: searchQuery || "",
-      status: activeTab || "ALL",
-      preset: dateFilter.preset || "all",
-      startDate: dateFilter.startDate || "",
-      endDate: dateFilter.endDate || "",
-      month: dateFilter.month || ""
-    });
-
-    const url = `/api/export/sales?${params.toString()}`;
-    window.open(url, "_blank");
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -81,27 +66,13 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
           <h1 className="text-3xl font-bold tracking-tight">Sales / Billing</h1>
           <p className="text-muted-foreground">Manage buyer invoices and marketplace billing.</p>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            onClick={() => handleExport("xlsx")}
-            className="flex items-center justify-center gap-2 border bg-card text-card-foreground px-3.5 py-2 rounded-lg font-semibold hover:bg-accent transition-all text-sm cursor-pointer"
-          >
-            Export Excel
-          </button>
-          <button
-            onClick={() => handleExport("csv")}
-            className="flex items-center justify-center gap-2 border bg-card text-card-foreground px-3.5 py-2 rounded-lg font-semibold hover:bg-accent transition-all text-sm cursor-pointer"
-          >
-            Export CSV
-          </button>
-          <Link
-            href="/sales/create"
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            New Sale
-          </Link>
-        </div>
+        <Link
+          href="/sales/create"
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          New Sale
+        </Link>
       </div>
 
       {/* Search and Filter Row */}

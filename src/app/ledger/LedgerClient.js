@@ -256,14 +256,6 @@ export default function LedgerClient({
     }
   };
 
-  const handleExport = (formatType) => {
-    const params = new URLSearchParams({
-      format: formatType
-    });
-    const url = `/api/export/ledger?${params.toString()}`;
-    window.open(url, "_blank");
-  };
-
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -289,23 +281,6 @@ export default function LedgerClient({
             >
               <Plus className="h-4 w-4" />
               Save Session Snapshot
-            </button>
-          </div>
-        )}
-
-        {activeTab === "HISTORY" && !viewingSessionDetails && (
-          <div className="flex items-center gap-3 shrink-0">
-            <button
-              onClick={() => handleExport("xlsx")}
-              className="flex items-center justify-center gap-2 border bg-card text-card-foreground px-3.5 py-2 rounded-lg font-semibold hover:bg-accent transition-all text-sm cursor-pointer"
-            >
-              Export Excel
-            </button>
-            <button
-              onClick={() => handleExport("csv")}
-              className="flex items-center justify-center gap-2 border bg-card text-card-foreground px-3.5 py-2 rounded-lg font-semibold hover:bg-accent transition-all text-sm cursor-pointer"
-            >
-              Export CSV
             </button>
           </div>
         )}

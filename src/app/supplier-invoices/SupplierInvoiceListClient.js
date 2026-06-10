@@ -55,21 +55,6 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
     { key: "SUPERSEDED", label: "Superseded", count: dateFilteredInvoices.filter(i => i.status === "SUPERSEDED").length },
   ];
 
-  const handleExport = (formatType) => {
-    const params = new URLSearchParams({
-      format: formatType,
-      searchQuery: searchQuery || "",
-      status: activeTab || "ALL",
-      preset: dateFilter.preset || "all",
-      startDate: dateFilter.startDate || "",
-      endDate: dateFilter.endDate || "",
-      month: dateFilter.month || ""
-    });
-
-    const url = `/api/export/settlements?${params.toString()}`;
-    window.open(url, "_blank");
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -77,27 +62,13 @@ export default function SupplierInvoiceListClient({ invoices = [], defaultPreset
           <h1 className="text-3xl font-bold tracking-tight">Supplier Settlements</h1>
           <p className="text-muted-foreground">Manage and track settlement invoices for suppliers.</p>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            onClick={() => handleExport("xlsx")}
-            className="flex items-center justify-center gap-2 border bg-card text-card-foreground px-3.5 py-2 rounded-lg font-semibold hover:bg-accent transition-all text-sm cursor-pointer"
-          >
-            Export Excel
-          </button>
-          <button
-            onClick={() => handleExport("csv")}
-            className="flex items-center justify-center gap-2 border bg-card text-card-foreground px-3.5 py-2 rounded-lg font-semibold hover:bg-accent transition-all text-sm cursor-pointer"
-          >
-            Export CSV
-          </button>
-          <Link
-            href="/supplier-invoices/create"
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Generate Settlement
-          </Link>
-        </div>
+        <Link
+          href="/supplier-invoices/create"
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          Generate Settlement
+        </Link>
       </div>
 
       {/* Search and Filter Row */}
