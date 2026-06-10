@@ -35,6 +35,8 @@ model Party {
   deleteReason       String?
   userId             Int                 @default(0)
   businessId         Int                 @default(0)
+  migrationId        String?
+  source             String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   intakeAdvances     IntakeAdvance[]
@@ -45,7 +47,7 @@ model Party {
   buyerTracks        SalesTrack[]        @relation("BuyerTrack")
   payments           PartyPayment[]
   allocations        PartyPaymentAllocation[]
-
+  openingBalance     PartyOpeningBalance?
 }
 
 model Product {
@@ -62,12 +64,15 @@ model Product {
   deleteReason       String?
   userId             Int                 @default(0)
   businessId         Int                 @default(0)
+  migrationId        String?
+  source             String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   intakeTransactions IntakeTransaction[]
   saleItems          SaleItem[]
   salesTracks        SalesTrack[]
   rates              ProductRate[]
+  initialStock       InitialStock?
 }
 
 
@@ -177,6 +182,8 @@ model SalesTrack {
   saleTransactionId   Int?
   saleItemId          Int?
   intakeTransactionId Int?
+  initialStockId      Int?
+  type                String    @default("INTAKE_SALE")
 
   supplierPartyId     Int?
   buyerPartyId        Int?
@@ -210,6 +217,7 @@ model SalesTrack {
   saleTransaction     SaleTransaction?   @relation(fields: [saleTransactionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   saleItem            SaleItem?          @relation(fields: [saleItemId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   intakeTransaction   IntakeTransaction? @relation(fields: [intakeTransactionId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  initialStock        InitialStock?      @relation(fields: [initialStockId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   supplier            Party?             @relation("SupplierTrack", fields: [supplierPartyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   buyer               Party?             @relation("BuyerTrack", fields: [buyerPartyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   product             Product?           @relation(fields: [productId], references: [id], onUpdate: NoAction)
@@ -392,4 +400,34 @@ model SystemSetting {
   value     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model InitialStock {
+  id          Int          @id @default(autoincrement())
+  productId   Int          @unique
+  quantity    Decimal
+  unit        String       @default("KG")
+  notes       String?
+  migrationId String?
+  userId      Int          @default(0)
+  businessId  Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  salesTracks SalesTrack[]
+}
+
+model PartyOpeningBalance {
+  id          Int      @id @default(autoincrement())
+  partyId     Int      @unique
+  amount      Decimal
+  type        String   // RECEIVABLE | PAYABLE
+  entryDate   DateTime @default(now())
+  notes       String?
+  migrationId String?
+  userId      Int      @default(0)
+  businessId  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  party       Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
 }

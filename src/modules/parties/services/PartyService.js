@@ -17,7 +17,9 @@ export class PartyService {
         sales: party.saleTransactions,
         purchases: party.supplierInvoices,
         payments: party.payments,
-        advances: party.intakeAdvances
+        advances: party.intakeAdvances,
+        openingBalance: party.openingBalance?.amount || 0,
+        openingBalanceType: party.openingBalance?.type || "RECEIVABLE"
       });
       return {
         id: party.id,

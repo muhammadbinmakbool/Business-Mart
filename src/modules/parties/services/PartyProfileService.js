@@ -88,7 +88,9 @@ export class PartyProfileService {
       sales: party.saleTransactions,
       purchases: party.supplierInvoices,
       payments: party.payments,
-      advances: party.intakeAdvances
+      advances: party.intakeAdvances,
+      openingBalance: party.openingBalance?.amount || 0,
+      openingBalanceType: party.openingBalance?.type || "RECEIVABLE"
     });
 
     const totalSales = position.totalSales;
@@ -115,6 +117,26 @@ export class PartyProfileService {
 
     // Timeline Events: compiles chronological list of business transactions
     const timelineEvents = [];
+
+    // Initial Balance (if set)
+    if (party.openingBalance && Number(party.openingBalance.amount) !== 0) {
+      const isReceivable = party.openingBalance.type === "RECEIVABLE";
+      timelineEvents.push({
+        id: `opening-balance-${party.id}`,
+        targetId: party.id,
+        date: new Date(party.openingBalance.entryDate || party.createdAt),
+        createdAt: new Date(party.openingBalance.createdAt || party.createdAt),
+        type: "OPENING_BALANCE",
+        ref: "OPENING",
+        description: party.openingBalance.notes || `Opening Balance Onboarding (${isReceivable ? "Receivable" : "Payable"})`,
+        debit: isReceivable ? Number(party.openingBalance.amount) : 0,
+        credit: isReceivable ? 0 : Number(party.openingBalance.amount),
+        requiredAmount: Number(party.openingBalance.amount),
+        allocatedAmount: 0,
+        remainingAmount: Number(party.openingBalance.amount),
+        clearingStatus: "PENDING"
+      });
+    }
 
     // Sales events
     sales.forEach(sale => {

@@ -6,6 +6,7 @@ import { ArrowLeft, Database, Upload, Import, ShieldAlert, Sliders, RefreshCw, T
 import BackupTab from "@/modules/maintenance/ui/BackupTab";
 import RestoreTab from "@/modules/maintenance/ui/RestoreTab";
 import ImportDataTab from "@/modules/maintenance/ui/ImportDataTab";
+import HistoricalImportTab from "@/modules/data-import/ui/HistoricalImportTab";
 import ResetSystemTab from "@/modules/maintenance/ui/ResetSystemTab";
 import InventoryToolsTab from "@/modules/maintenance/ui/InventoryToolsTab";
 import LedgerToolsTab from "@/modules/maintenance/ui/LedgerToolsTab";
@@ -18,6 +19,7 @@ export default function MaintenanceDashboard() {
     { id: "backup", label: "Backup Database", icon: Database, component: BackupTab },
     { id: "restore", label: "Restore Database", icon: Upload, component: RestoreTab },
     { id: "import", label: "Import Data", icon: Import, component: ImportDataTab },
+    { id: "historical", label: "Historical Onboarding", icon: Import, component: HistoricalImportTab },
     { id: "reset", label: "Reset Demo Data", icon: ShieldAlert, component: ResetSystemTab },
     { id: "inventory", label: "Inventory Rebuild", icon: Sliders, component: InventoryToolsTab },
     { id: "ledger", label: "Ledger Rebuild", icon: RefreshCw, component: LedgerToolsTab },

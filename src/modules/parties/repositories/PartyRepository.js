@@ -34,7 +34,8 @@ export class PartyRepository {
         },
         intakeAdvances: {
           select: { amount: true, supplierInvoiceId: true }
-        }
+        },
+        openingBalance: true
       }
     });
   }
@@ -119,7 +120,8 @@ export class PartyRepository {
         payments: {
           include: { allocations: true },
           orderBy: { entryDate: "desc" }
-        }
+        },
+        openingBalance: true
       }
     });
   }

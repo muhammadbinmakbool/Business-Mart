@@ -4,11 +4,18 @@ import { assertDestructiveMode } from "@/lib/destructiveSession";
 export class ProductRepository {
   static serializeProduct(p) {
     if (!p) return null;
-    return {
+    const serialized = {
       ...p,
       quantity: p.quantity ? Number(p.quantity) : 0,
       unitConversion: p.unitConversion ? Number(p.unitConversion) : null
     };
+    if (p.initialStock) {
+      serialized.initialStock = {
+        ...p.initialStock,
+        quantity: p.initialStock.quantity ? Number(p.initialStock.quantity) : 0
+      };
+    }
+    return serialized;
   }
 
   static async getAll() {
@@ -37,6 +44,7 @@ export class ProductRepository {
   static async getById(id) {
     const product = await prisma.product.findUnique({
       where: { id: parseInt(id), isDeleted: false },
+      include: { initialStock: true }
     });
     return this.serializeProduct(product);
   }

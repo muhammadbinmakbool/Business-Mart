@@ -39,29 +39,73 @@ export class InventoryService {
    * @param {object} [tx=prisma] - Prisma transaction client (or default prisma).
    */
   static async recalculateProductStock(productId, tx = prisma) {
+    const prodId = parseInt(productId);
+    
+    // Fetch product details for unit normalization context
+    const product = await tx.product.findUnique({
+      where: { id: prodId }
+    });
+    if (!product) {
+      throw new Error(`Product with ID ${prodId} not found.`);
+    }
+
+    // 1. Calculate remaining Initial Stock (InitialStock - AllocatedSales)
+    let remainingInitialStock = 0;
+    const initialStock = await tx.initialStock.findUnique({
+      where: { productId: prodId },
+      include: { product: true }
+    });
+
+    if (initialStock) {
+      const salesTracks = await tx.salesTrack.findMany({
+        where: {
+          initialStockId: initialStock.id,
+          isDeleted: false,
+          saleTransaction: {
+            status: { not: "CANCELLED" }
+          }
+        }
+      });
+
+      let allocatedSales = 0;
+      for (const track of salesTracks) {
+        const trackQty = Number(track.quantity || 0);
+        const trackUnit = track.rateUnit || "KG";
+        const normalizedTrackQty = UnitService.getNormalizedQuantity(trackQty, trackUnit, initialStock.product);
+        allocatedSales += normalizedTrackQty;
+      }
+
+      const normalizedInitialQty = UnitService.getNormalizedQuantity(Number(initialStock.quantity), initialStock.unit, initialStock.product);
+      remainingInitialStock = normalizedInitialQty - allocatedSales; // Do not clamp!
+    }
+
+    // 2. Calculate remaining weight from active Intakes
     const activeIntakes = await tx.intakeTransaction.findMany({
       where: {
-        productId: parseInt(productId),
+        productId: prodId,
         status: { in: ["PENDING", "PARTIAL"] },
+        isDeleted: false
       },
       include: {
         product: true
       }
     });
 
-    let totalNormalizedRemaining = 0;
+    let totalNormalizedIntakes = 0;
     for (const intake of activeIntakes) {
       const remaining = Number(intake.remainingWeight !== null && intake.remainingWeight !== undefined ? intake.remainingWeight : intake.grossWeight);
       const normalizedRemaining = UnitService.getNormalizedQuantity(remaining, intake.unit, intake.product);
-      totalNormalizedRemaining += normalizedRemaining;
+      totalNormalizedIntakes += normalizedRemaining;
     }
 
+    const finalProductQuantity = remainingInitialStock + totalNormalizedIntakes;
+
     await tx.product.update({
-      where: { id: parseInt(productId) },
-      data: { quantity: totalNormalizedRemaining },
+      where: { id: prodId },
+      data: { quantity: finalProductQuantity },
     });
 
-    return totalNormalizedRemaining;
+    return finalProductQuantity;
   }
 
   /**
@@ -150,33 +194,41 @@ export class InventoryService {
 
   /**
    * Called after a new SaleTransaction is created.
-   * NO-OP: Sales do not affect inventory under the current model.
+   * Recalculates stock for affected products to capture initial stock consumption.
    */
-  static async handleSaleCreated(_processedItems, _tx = prisma) {
-    // No-op: Inventory is driven by Intake lifecycle, not sales billing.
+  static async handleSaleCreated(processedItems, tx = prisma) {
+    for (const item of processedItems) {
+      await this.recalculateProductStock(item.productId, tx);
+    }
   }
 
   /**
    * Called after a SaleTransaction is updated.
-   * NO-OP: Sales do not affect inventory under the current model.
+   * Recalculates stock for affected products using the product ID deltas key set.
    */
-  static async handleSaleUpdated(_deltas, _tx = prisma) {
-    // No-op: Inventory is driven by Intake lifecycle, not sales billing.
+  static async handleSaleUpdated(deltas, tx = prisma) {
+    for (const productId of deltas.keys()) {
+      await this.recalculateProductStock(productId, tx);
+    }
   }
 
   /**
    * Called after a SaleTransaction is deleted.
-   * NO-OP: Sales do not affect inventory under the current model.
+   * Recalculates stock for deleted items.
    */
-  static async handleSaleDeleted(_saleItems, _tx = prisma) {
-    // No-op: Inventory is driven by Intake lifecycle, not sales billing.
+  static async handleSaleDeleted(saleItems, tx = prisma) {
+    for (const item of saleItems) {
+      await this.recalculateProductStock(item.productId, tx);
+    }
   }
 
   /**
    * Called after a SaleTransaction status is changed (e.g. CANCELLED, reactivated).
-   * NO-OP: Sales do not affect inventory under the current model.
+   * Recalculates stock for affected products.
    */
-  static async handleSaleStatusUpdated(_saleItems, _oldStatus, _newStatus, _tx = prisma) {
-    // No-op: Inventory is driven by Intake lifecycle, not sales billing.
+  static async handleSaleStatusUpdated(saleItems, _oldStatus, _newStatus, tx = prisma) {
+    for (const item of saleItems) {
+      await this.recalculateProductStock(item.productId, tx);
+    }
   }
 }

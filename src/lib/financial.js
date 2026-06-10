@@ -309,7 +309,7 @@ export function calculateInvoiceClearingFromAllocations(totalAmount, allocations
  * @param {Array} params.advances
  * @returns {object}
  */
-export function calculatePartyFinancialPosition({ sales = [], purchases = [], payments = [], advances = [] }) {
+export function calculatePartyFinancialPosition({ sales = [], purchases = [], payments = [], advances = [], openingBalance = 0, openingBalanceType = "RECEIVABLE" }) {
   const totalSales = sales.reduce((sum, s) => sum + Number(s.finalAmount || 0), 0);
   const totalPurchases = purchases.reduce((sum, p) => sum + Number(p.finalPayableAmount || 0), 0);
   const totalAdvances = advances.reduce((sum, a) => sum + Number(a.amount || 0), 0);
@@ -342,10 +342,17 @@ export function calculatePartyFinancialPosition({ sales = [], purchases = [], pa
   const unallocatedCredit = Math.max(0, totalPaymentsIn - allocatedToSales);
   const unallocatedDebit = Math.max(0, totalPaymentsOut - allocatedToPurchases);
 
-  // Net position: Debits (Sales + Advances + PaymentsOut) - Credits (Purchases + PaymentsIn)
-  const netPosition = (totalSales + unadjustedAdvances + totalPaymentsOut) - (totalPurchases + totalPaymentsIn);
+  const opBalance = Number(openingBalance || 0);
+  const isReceivable = openingBalanceType === "RECEIVABLE";
+  const initialDebit = isReceivable ? opBalance : 0;
+  const initialCredit = isReceivable ? 0 : opBalance;
+
+  // Net position: Debits (InitialDebit + Sales + Advances + PaymentsOut) - Credits (InitialCredit + Purchases + PaymentsIn)
+  const netPosition = (initialDebit + totalSales + unadjustedAdvances + totalPaymentsOut) - (initialCredit + totalPurchases + totalPaymentsIn);
 
   return {
+    openingBalance: opBalance,
+    openingBalanceType,
     totalSales,
     totalPurchases,
     totalPaymentsIn,

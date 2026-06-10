@@ -190,9 +190,38 @@ export class SaleService {
               data: {
                 isBilled: true,
                 saleTransactionId: sale.id,
-                saleItemId: dbItem.id
+                saleItemId: dbItem.id,
+                type: "INTAKE_SALE"
               }
             });
+          }
+        } else {
+          // Check if this product has initial stock registered
+          const initialStock = await tx.initialStock.findUnique({
+            where: { productId: parseInt(item.productId) }
+          });
+          if (initialStock) {
+            const dbItem = sale.items.find(di => di.productId === parseInt(item.productId));
+            if (dbItem) {
+              await tx.salesTrack.create({
+                data: {
+                  type: "INITIAL_STOCK_SALE",
+                  initialStockId: initialStock.id,
+                  saleTransactionId: sale.id,
+                  saleItemId: dbItem.id,
+                  productId: parseInt(item.productId),
+                  quantity: item.weight,
+                  rateUnit: item.unit || DEFAULT_WEIGHT_UNIT,
+                  buyingRate: null,
+                  sellingRate: item.rate ? Number(item.rate) : null,
+                  netWeight: item.weight,
+                  baseAmount: item.amount,
+                  notes: "Consumed from Initial Stock onboarding",
+                  userId: ownership.userId,
+                  businessId: ownership.businessId
+                }
+              });
+            }
           }
         }
       }
@@ -370,9 +399,13 @@ export class SaleService {
         }
       }
 
-      // 3.4 Unlink previous SalesTrack records for this sale
+      // 3.4 Cleanup previous SalesTrack records for this sale
+      await tx.salesTrack.deleteMany({
+        where: { saleTransactionId: parseInt(id), type: "INITIAL_STOCK_SALE" }
+      });
+
       await tx.salesTrack.updateMany({
-        where: { saleTransactionId: parseInt(id) },
+        where: { saleTransactionId: parseInt(id), type: "INTAKE_SALE" },
         data: {
           isBilled: false,
           saleTransactionId: null,
@@ -432,9 +465,38 @@ export class SaleService {
               data: {
                 isBilled: true,
                 saleTransactionId: updatedSale.id,
-                saleItemId: dbItem.id
+                saleItemId: dbItem.id,
+                type: "INTAKE_SALE"
               }
             });
+          }
+        } else {
+          // Check if this product has initial stock registered
+          const initialStock = await tx.initialStock.findUnique({
+            where: { productId: parseInt(item.productId) }
+          });
+          if (initialStock) {
+            const dbItem = updatedSale.items.find(di => di.productId === parseInt(item.productId));
+            if (dbItem) {
+              await tx.salesTrack.create({
+                data: {
+                  type: "INITIAL_STOCK_SALE",
+                  initialStockId: initialStock.id,
+                  saleTransactionId: updatedSale.id,
+                  saleItemId: dbItem.id,
+                  productId: parseInt(item.productId),
+                  quantity: item.weight,
+                  rateUnit: item.unit || DEFAULT_WEIGHT_UNIT,
+                  buyingRate: null,
+                  sellingRate: item.rate ? Number(item.rate) : null,
+                  netWeight: item.weight,
+                  baseAmount: item.amount,
+                  notes: "Consumed from Initial Stock onboarding",
+                  userId: ownership.userId,
+                  businessId: ownership.businessId
+                }
+              });
+            }
           }
         }
       }
@@ -557,7 +619,15 @@ export class SaleService {
 
       // 3. Reset isBilled and clear link on previous SalesTrack records for this sale
       await tx.salesTrack.updateMany({
-        where: { saleTransactionId: parseInt(id) },
+        where: { saleTransactionId: parseInt(id), type: "INITIAL_STOCK_SALE" },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date()
+        }
+      });
+
+      await tx.salesTrack.updateMany({
+        where: { saleTransactionId: parseInt(id), type: "INTAKE_SALE" },
         data: {
           isBilled: false,
           saleTransactionId: null,
@@ -599,8 +669,12 @@ export class SaleService {
       await InventoryService.handleSaleDeleted(sale.items, tx);
 
       // 3. Reset isBilled and clear link on previous SalesTrack records for this sale
+      await tx.salesTrack.deleteMany({
+        where: { saleTransactionId: parseInt(id), type: "INITIAL_STOCK_SALE" }
+      });
+
       await tx.salesTrack.updateMany({
-        where: { saleTransactionId: parseInt(id) },
+        where: { saleTransactionId: parseInt(id), type: "INTAKE_SALE" },
         data: {
           isBilled: false,
           saleTransactionId: null,
