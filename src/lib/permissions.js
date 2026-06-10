@@ -67,3 +67,31 @@ export function canDisableSelf(actorId, targetId) {
 export function canDeleteSelf(actorId, targetId) {
   return String(actorId) !== String(targetId);
 }
+
+/**
+ * Checks if a given role is allowed to view/export the Sales module.
+ * @param {string} role
+ * @returns {boolean}
+ */
+export function canViewSales(role) {
+  return role === USER_ROLES.SUPER_ADMIN || role === USER_ROLES.ADMIN || role === USER_ROLES.USER;
+}
+
+/**
+ * Checks if a given role is allowed to view/export the Supplier Settlements module.
+ * @param {string} role
+ * @returns {boolean}
+ */
+export function canViewSettlements(role) {
+  return role === USER_ROLES.SUPER_ADMIN || role === USER_ROLES.ADMIN || role === USER_ROLES.USER;
+}
+
+/**
+ * Checks if a given role is allowed to view/export the Ledger & Reconciliation module.
+ * @param {string} role
+ * @returns {boolean}
+ */
+export function canViewLedger(role) {
+  return role === USER_ROLES.SUPER_ADMIN || role === USER_ROLES.ADMIN || role === USER_ROLES.USER;
+}
+

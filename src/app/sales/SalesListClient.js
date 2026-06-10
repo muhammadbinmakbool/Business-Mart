@@ -12,6 +12,7 @@ import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/com
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import { getUnitLabel } from "@/lib/units";
 import DataTable from "@/components/ui/DataTable";
+import { filterSales } from "@/modules/sales/utils/salesFilters";
 
 export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -24,20 +25,8 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
   }, [sales, dateFilter]);
 
   const filteredSales = useMemo(() => {
-    return dateFilteredSales.filter((sale) => {
-      if (activeTab !== "ALL" && sale.status !== activeTab) {
-        return false;
-      }
-      if (searchQuery.trim() === "") return true;
-      const query = searchQuery.toLowerCase();
-      const matchNumber = sale.saleNumber?.toLowerCase().includes(query);
-      const matchBuyer = sale.party?.name?.toLowerCase().includes(query);
-      const matchProduct = sale.items?.some((item) =>
-        item.product?.name?.toLowerCase().includes(query)
-      );
-      return matchNumber || matchBuyer || matchProduct;
-    });
-  }, [dateFilteredSales, searchQuery, activeTab]);
+    return filterSales(sales, { searchQuery, status: activeTab, dateFilter });
+  }, [sales, searchQuery, activeTab, dateFilter]);
 
   // Pre-calculate custom fields for sorting
   const mappedSales = useMemo(() => {
@@ -70,6 +59,21 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
     { key: "CANCELLED", label: "Cancelled", count: dateFilteredSales.filter(s => s.status === "CANCELLED").length },
   ];
 
+  const handleExport = (formatType) => {
+    const params = new URLSearchParams({
+      format: formatType,
+      searchQuery: searchQuery || "",
+      status: activeTab || "ALL",
+      preset: dateFilter.preset || "all",
+      startDate: dateFilter.startDate || "",
+      endDate: dateFilter.endDate || "",
+      month: dateFilter.month || ""
+    });
+
+    const url = `/api/export/sales?${params.toString()}`;
+    window.open(url, "_blank");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -77,13 +81,27 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
           <h1 className="text-3xl font-bold tracking-tight">Sales / Billing</h1>
           <p className="text-muted-foreground">Manage buyer invoices and marketplace billing.</p>
         </div>
-        <Link
-          href="/sales/create"
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          New Sale
-        </Link>
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => handleExport("xlsx")}
+            className="flex items-center justify-center gap-2 border bg-card text-card-foreground px-3.5 py-2 rounded-lg font-semibold hover:bg-accent transition-all text-sm cursor-pointer"
+          >
+            Export Excel
+          </button>
+          <button
+            onClick={() => handleExport("csv")}
+            className="flex items-center justify-center gap-2 border bg-card text-card-foreground px-3.5 py-2 rounded-lg font-semibold hover:bg-accent transition-all text-sm cursor-pointer"
+          >
+            Export CSV
+          </button>
+          <Link
+            href="/sales/create"
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
+          >
+            <Plus className="h-4 w-4" />
+            New Sale
+          </Link>
+        </div>
       </div>
 
       {/* Search and Filter Row */}
