@@ -25,16 +25,23 @@ export default function DebouncedSearchInput({
     setInputValue(value);
   }, [value]);
 
+  const onChangeRef = React.useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  }, [onChange]);
+
   // Handle debouncing
   useEffect(() => {
+    if (inputValue === value) return;
+
     const handler = setTimeout(() => {
-      onChange(inputValue);
+      onChangeRef.current(inputValue);
     }, debounceTimeout);
 
     return () => {
       clearTimeout(handler);
     };
-  }, [inputValue, onChange, debounceTimeout]);
+  }, [inputValue, value, debounceTimeout]);
 
   return (
     <div className={`flex-1 flex items-center gap-2 rounded-xl border bg-card px-3 py-2.5 shadow-sm ${className}`}>
