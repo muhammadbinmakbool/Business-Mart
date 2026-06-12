@@ -22,6 +22,94 @@ export class SalesTrackService {
     return JSON.parse(JSON.stringify(tracks));
   }
 
+  static async listPaginated({
+    page = 1,
+    limit = 50,
+    searchQuery = "",
+    preset = "all",
+    startDate = "",
+    endDate = "",
+    month = "",
+    sortField = "createdAt",
+    sortDirection = "desc"
+  } = {}) {
+    const { clampLimit } = await import("@/lib/pagination");
+    const clampedLimit = clampLimit(limit);
+    const skip = (page - 1) * clampedLimit;
+
+    let showDeleted = false;
+    try {
+      const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+      const settings = await getActivityAuditSettings();
+      showDeleted = settings.showDeletedRecords;
+    } catch (e) {}
+
+    const where = showDeleted ? {} : { isDeleted: false };
+
+    if (searchQuery) {
+      const q = searchQuery.trim();
+      where.OR = [
+        { product: { name: { contains: q } } },
+        { supplier: { name: { contains: q } } },
+        { buyer: { name: { contains: q } } },
+        { saleTransaction: { saleNumber: { contains: q } } },
+        { intakeTransaction: { intakeNumber: { contains: q } } }
+      ];
+    }
+
+    if (preset && preset !== "all") {
+      const { getDateRangeFromFilter } = await import("@/lib/dateFilters");
+      const { start, end } = getDateRangeFromFilter({ preset, startDate, endDate, month });
+      if (start || end) {
+        where.createdAt = {};
+        if (start) where.createdAt.gte = start;
+        if (end) where.createdAt.lte = end;
+      }
+    }
+
+    const orderByClause = [];
+    if (sortField) {
+      const direction = sortDirection === "asc" ? "asc" : "desc";
+      if (sortField === "productName") {
+        orderByClause.push({ product: { name: direction } });
+      } else if (sortField === "supplierName") {
+        orderByClause.push({ supplier: { name: direction } });
+      } else if (sortField === "buyerName") {
+        orderByClause.push({ buyer: { name: direction } });
+      } else if (sortField === "refNumber") {
+        // refNumber is computed from saleNumber/intakeNumber, sort by createdAt as fallback
+        orderByClause.push({ createdAt: direction });
+      } else {
+        orderByClause.push({ [sortField]: direction });
+      }
+    } else {
+      orderByClause.push({ createdAt: "desc" });
+    }
+    orderByClause.push({ id: "desc" });
+
+    const [items, totalCount] = await Promise.all([
+      prisma.salesTrack.findMany({
+        where,
+        skip,
+        take: clampedLimit,
+        include: {
+          saleTransaction: true,
+          intakeTransaction: true,
+          supplier: true,
+          buyer: true,
+          product: true
+        },
+        orderBy: orderByClause
+      }),
+      prisma.salesTrack.count({ where })
+    ]);
+
+    return {
+      items: JSON.parse(JSON.stringify(items)),
+      totalCount
+    };
+  }
+
   static async create(data) {
     if (data.intakeTransactionId) {
       const existing = await prisma.salesTrack.findUnique({
