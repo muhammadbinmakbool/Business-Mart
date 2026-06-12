@@ -3,6 +3,7 @@
 import { ProductService } from "../services/ProductService";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { invalidateCacheBucket } from "@/modules/aggregations/cache";
 
 export async function createProductAction(formData) {
   const data = {
@@ -16,6 +17,7 @@ export async function createProductAction(formData) {
   try {
     await ProductService.createProduct(data);
     revalidatePath("/products");
+    invalidateCacheBucket("dashboard");
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to create product" };
@@ -35,6 +37,7 @@ export async function updateProductAction(id, formData) {
   try {
     await ProductService.updateProduct(id, data);
     revalidatePath("/products");
+    invalidateCacheBucket("dashboard");
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to update product" };
@@ -47,6 +50,7 @@ export async function toggleProductStatusAction(id, isActive) {
   try {
     await ProductService.toggleProductStatus(id, isActive);
     revalidatePath("/products");
+    invalidateCacheBucket("dashboard");
   } catch (error) {
     return { error: "Failed to toggle status" };
   }
@@ -58,6 +62,7 @@ export async function deleteProductAction(id, confirmPassword, deleteReason) {
 
     await ProductService.deleteProduct(id, deleteReason);
     revalidatePath("/products");
+    invalidateCacheBucket("dashboard");
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to delete product" };
@@ -69,6 +74,7 @@ export async function hardDeleteProductAction(id, deleteReason) {
     // assertDestructiveMode is called inside ProductRepository.hardDelete
     await ProductService.hardDeleteProduct(id, deleteReason);
     revalidatePath("/products");
+    invalidateCacheBucket("dashboard");
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to permanently delete product" };

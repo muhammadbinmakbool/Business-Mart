@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { LedgerService } from "../services/LedgerService";
+import { invalidateCacheBucket } from "@/modules/aggregations/cache";
 
 /**
  * Action to fetch live reconciliation details.
@@ -36,6 +37,7 @@ export async function createLedgerSessionAction(data) {
   try {
     const session = await LedgerService.createSession(data);
     revalidatePath("/ledger");
+    invalidateCacheBucket("ledger");
     return { success: true, data: session };
   } catch (error) {
     console.error("Failed to create ledger session snapshot:", error);
@@ -77,6 +79,7 @@ export async function toggleLockSessionAction(id) {
   try {
     const updated = await LedgerService.toggleLockSession(id);
     revalidatePath("/ledger");
+    invalidateCacheBucket("ledger");
     return { success: true, data: updated };
   } catch (error) {
     console.error(`Failed to toggle lock for session ${id}:`, error);
@@ -91,6 +94,7 @@ export async function deleteLedgerSessionAction(id, deleteReason) {
   try {
     const result = await LedgerService.deleteSession(id, deleteReason);
     revalidatePath("/ledger");
+    invalidateCacheBucket("ledger");
     return { success: true, data: result };
   } catch (error) {
     console.error(`Failed to delete session ${id}:`, error);
@@ -105,6 +109,7 @@ export async function hardDeleteLedgerSessionAction(id, force = false, deleteRea
   try {
     const result = await LedgerService.hardDeleteSession(id, force, deleteReason);
     revalidatePath("/ledger");
+    invalidateCacheBucket("ledger");
     return { success: true, data: result };
   } catch (error) {
     console.error(`Failed to permanently delete session ${id}:`, error);

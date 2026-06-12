@@ -2,11 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { SaleService } from "../services/SaleService";
+import { invalidateCacheBucket } from "@/modules/aggregations/cache";
+
+function invalidateSalesCache() {
+  invalidateCacheBucket("dashboard");
+  invalidateCacheBucket("ledger");
+}
 
 export async function createSaleAction(data) {
   try {
     const sale = await SaleService.recordSale(data);
     revalidatePath("/sales");
+    invalidateSalesCache();
     return { success: true, data: JSON.parse(JSON.stringify(sale)) };
   } catch (error) {
     console.error("Failed to record sale:", error);
@@ -37,6 +44,7 @@ export async function updateSaleAction(id, data) {
     const sale = await SaleService.updateSale(id, data);
     revalidatePath(`/sales/${id}`);
     revalidatePath("/sales");
+    invalidateSalesCache();
     return { success: true, data: JSON.parse(JSON.stringify(sale)) };
   } catch (error) {
     return { success: false, error: error.message };
@@ -52,6 +60,7 @@ export async function deleteSaleAction(id, confirmPassword, deleteReason) {
 
     await SaleService.deleteSale(id, deleteReason);
     revalidatePath("/sales");
+    invalidateSalesCache();
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -63,6 +72,7 @@ export async function hardDeleteSaleAction(id, deleteReason) {
     // assertDestructiveMode is called inside SaleService.hardDeleteSale
     await SaleService.hardDeleteSale(id, deleteReason);
     revalidatePath("/sales");
+    invalidateSalesCache();
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -74,6 +84,7 @@ export async function updateSaleStatusAction(id, status, notes) {
     const sale = await SaleService.updateStatus(id, status, notes);
     revalidatePath(`/sales/${id}`);
     revalidatePath("/sales");
+    invalidateSalesCache();
     return { success: true, data: JSON.parse(JSON.stringify(sale)) };
   } catch (error) {
     return { success: false, error: error.message };
@@ -85,6 +96,7 @@ export async function revertSaleStatusAction(id) {
     const sale = await SaleService.updateStatus(id, "PENDING");
     revalidatePath(`/sales/${id}`);
     revalidatePath("/sales");
+    invalidateSalesCache();
     return { success: true, data: JSON.parse(JSON.stringify(sale)) };
   } catch (error) {
     return { success: false, error: error.message };
@@ -105,6 +117,7 @@ export async function recordSalePaymentAction(id, amount) {
     const sale = await SaleService.recordPayment(id, amount);
     revalidatePath(`/sales/${id}`);
     revalidatePath("/sales");
+    invalidateSalesCache();
     return { success: true, data: JSON.parse(JSON.stringify(sale)) };
   } catch (error) {
     return { success: false, error: error.message };

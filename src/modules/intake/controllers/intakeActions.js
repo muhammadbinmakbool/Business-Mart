@@ -3,6 +3,12 @@
 import { IntakeService } from "../services/IntakeService";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { invalidateCacheBucket } from "@/modules/aggregations/cache";
+
+function invalidateIntakeCache() {
+  invalidateCacheBucket("dashboard");
+  invalidateCacheBucket("supplier");
+}
 
 export async function createIntakeAction(formData) {
   const data = {
@@ -33,6 +39,7 @@ export async function createIntakeAction(formData) {
     }
     
     revalidatePath("/intake");
+    invalidateIntakeCache();
     return { success: true };
   } catch (error) {
     console.error("Intake creation error:", error);
@@ -45,6 +52,7 @@ export async function updateIntakeStatusAction(id, status, notes) {
     await IntakeService.updateIntake(id, { status, notes });
     revalidatePath("/intake");
     revalidatePath(`/intake/${id}`);
+    invalidateIntakeCache();
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to update status" };
@@ -57,6 +65,7 @@ export async function sellIntakeAction(id, data) {
     revalidatePath("/intake");
     revalidatePath(`/intake/${id}`);
     revalidatePath("/source-tracking");
+    invalidateIntakeCache();
     return { success: true };
   } catch (error) {
     console.error("Error selling intake:", error);
@@ -89,6 +98,7 @@ export async function updateIntakeAction(id, formData) {
     revalidatePath("/intake");
     revalidatePath(`/intake/${id}`);
     revalidatePath("/source-tracking");
+    invalidateIntakeCache();
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to update intake transaction" };
@@ -104,6 +114,7 @@ export async function deleteIntakeAction(id, confirmPassword, deleteReason) {
 
     await IntakeService.deleteIntake(id, deleteReason);
     revalidatePath("/intake");
+    invalidateIntakeCache();
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to delete intake transaction" };
@@ -115,6 +126,7 @@ export async function hardDeleteIntakeAction(id, deleteReason) {
     // assertDestructiveMode is called inside IntakeRepository.hardDelete
     await IntakeService.hardDeleteIntake(id, deleteReason);
     revalidatePath("/intake");
+    invalidateIntakeCache();
     return { success: true };
   } catch (error) {
     return { error: error.message || "Failed to permanently delete intake transaction" };

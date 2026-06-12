@@ -5,6 +5,7 @@ import { SupplierInvoiceService } from "../services/SupplierInvoiceService";
 import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceRepository";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 import { calculateInvoiceClearingState } from "@/lib/financial";
+import { invalidateCacheBucket } from "@/modules/aggregations/cache";
 
 function safeRevalidatePath(path) {
   try {
@@ -14,6 +15,11 @@ function safeRevalidatePath(path) {
   }
 }
 
+function invalidateSupplierCache() {
+  invalidateCacheBucket("dashboard");
+  invalidateCacheBucket("ledger");
+  invalidateCacheBucket("supplier");
+}
 
 export async function generateSupplierInvoiceAction(formData) {
   try {
@@ -26,6 +32,7 @@ export async function generateSupplierInvoiceAction(formData) {
     const invoice = await SupplierInvoiceService.generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake, entryDate);
     
     safeRevalidatePath("/supplier-invoices");
+    invalidateSupplierCache();
     return { success: true, data: invoice };
   } catch (error) {
     console.error("Failed to generate supplier invoice:", error);
@@ -38,6 +45,7 @@ export async function regenerateSupplierInvoiceAction(invoiceId, adjustmentsByIn
     const newInvoice = await SupplierInvoiceService.regenerateInvoice(invoiceId, adjustmentsByIntake);
     safeRevalidatePath(`/supplier-invoices/${invoiceId}`);
     safeRevalidatePath("/supplier-invoices");
+    invalidateSupplierCache();
     return { success: true, data: JSON.parse(JSON.stringify(newInvoice)) };
   } catch (error) {
     console.error("Failed to regenerate supplier invoice:", error);
@@ -106,7 +114,6 @@ export async function listSupplierInvoicesPaginatedAction({
   }
 }
 
-
 export async function updateInvoiceStatusAction(id, status, notes) {
   try {
     const { prisma } = await import("@/lib/prisma");
@@ -165,6 +172,7 @@ export async function updateInvoiceStatusAction(id, status, notes) {
 
     safeRevalidatePath(`/supplier-invoices/${id}`);
     safeRevalidatePath("/supplier-invoices");
+    invalidateSupplierCache();
     return { success: true, data: JSON.parse(JSON.stringify(invoice)) };
   } catch (error) {
     return { success: false, error: error.message };
@@ -173,20 +181,11 @@ export async function updateInvoiceStatusAction(id, status, notes) {
 
 export async function getUninvoicedDataAction(partyId) {
   try {
-    const { IntakeService } = await import("@/modules/intake/services/IntakeService");
-    const { AdvanceRepository } = await import("@/modules/intake/repositories/AdvanceRepository");
-    
-    const [intakes, advances] = await Promise.all([
-      IntakeService.listUninvoicedIntakes(partyId),
-      AdvanceRepository.getUnlinkedByPartyId(partyId)
-    ]);
-    
+    const { getUninvoicedSupplierData } = await import("@/modules/aggregations/supplierAggregator");
+    const data = await getUninvoicedSupplierData(partyId);
     return { 
       success: true, 
-      data: { 
-        intakes: JSON.parse(JSON.stringify(intakes)), 
-        advances: JSON.parse(JSON.stringify(advances)) 
-      } 
+      data 
     };
   } catch (error) {
     return { success: false, error: error.message };
@@ -205,6 +204,7 @@ export async function editSupplierInvoiceAction(formData) {
     
     safeRevalidatePath(`/supplier-invoices/${invoiceId}`);
     safeRevalidatePath("/supplier-invoices");
+    invalidateSupplierCache();
     return { success: true, data: newInvoice };
   } catch (error) {
     console.error("Failed to edit supplier invoice:", error);
@@ -221,6 +221,7 @@ export async function deleteSupplierInvoiceAction(invoiceId, confirmPassword, de
 
     await SupplierInvoiceService.deleteInvoice(invoiceId, deleteReason);
     safeRevalidatePath("/supplier-invoices");
+    invalidateSupplierCache();
     return { success: true };
   } catch (error) {
     console.error("Failed to delete supplier invoice:", error);
@@ -233,6 +234,7 @@ export async function hardDeleteSupplierInvoiceAction(invoiceId, deleteReason) {
     // assertDestructiveMode is called inside SupplierInvoiceRepository.hardDelete
     await SupplierInvoiceService.hardDeleteInvoice(invoiceId, deleteReason);
     safeRevalidatePath("/supplier-invoices");
+    invalidateSupplierCache();
     return { success: true };
   } catch (error) {
     console.error("Failed to permanently delete supplier invoice:", error);
@@ -245,9 +247,9 @@ export async function recordSupplierPaymentAction(id, amount) {
     const invoice = await SupplierInvoiceService.recordPayment(id, amount);
     safeRevalidatePath(`/supplier-invoices/${id}`);
     safeRevalidatePath("/supplier-invoices");
+    invalidateSupplierCache();
     return { success: true, data: JSON.parse(JSON.stringify(invoice)) };
   } catch (error) {
     return { success: false, error: error.message };
   }
 }
-

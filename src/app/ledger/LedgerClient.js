@@ -81,18 +81,37 @@ export default function LedgerClient({
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSupplierId, setSelectedSupplierId] = useState("ALL");
-  const [selectedBuyerId, setSelectedBuyerId] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || "");
+  const [selectedSupplierId, setSelectedSupplierId] = useState(() => searchParams.get("supplierId") || "ALL");
+  const [selectedBuyerId, setSelectedBuyerId] = useState(() => searchParams.get("buyerId") || "ALL");
   
-  // Default date filter to "this_month" for monthly balancing operations
-  const [dateFilter, setDateFilter] = useState(() => getDefaultFilterState("this_month"));
+  // Default date filter to URL state or "this_month" for monthly balancing operations
+  const [dateFilter, setDateFilter] = useState(() => {
+    const preset = searchParams.get("preset") || "this_month";
+    const startDate = searchParams.get("startDate") || "";
+    const endDate = searchParams.get("endDate") || "";
+    const month = searchParams.get("month") || "";
+    return { preset, startDate, endDate, month };
+  });
   
   const [showSaveForm, setShowSaveForm] = useState(false);
   const [sessions, setSessions] = useState(initialSessions);
   const [sessionsCount, setSessionsCount] = useState(initialSessionsCount);
   const [viewingSessionDetails, setViewingSessionDetails] = useState(null);
   const [loadingSessionId, setLoadingSessionId] = useState(null);
+
+  // Sync parameters from URL changes back to component states
+  useEffect(() => {
+    setSearchQuery(searchParams.get("search") || "");
+    setSelectedSupplierId(searchParams.get("supplierId") || "ALL");
+    setSelectedBuyerId(searchParams.get("buyerId") || "ALL");
+    setDateFilter({
+      preset: searchParams.get("preset") || "this_month",
+      startDate: searchParams.get("startDate") || "",
+      endDate: searchParams.get("endDate") || "",
+      month: searchParams.get("month") || ""
+    });
+  }, [searchParams]);
 
   // Sync props to state on changes
   useEffect(() => {
@@ -395,53 +414,75 @@ export default function LedgerClient({
                     </span>
                     <DebouncedSearchInput
                       value={searchQuery}
-                      onChange={setSearchQuery}
+                      onChange={(val) => {
+                        setSearchQuery(val);
+                        updateFilters({ search: val });
+                      }}
                       placeholder="Search #, party..."
                       className="w-full"
                     />
                   </div>
-
-                  {/* Supplier Select */}
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                      Supplier Party
-                    </span>
-                    <select
-                      value={selectedSupplierId}
-                      onChange={(e) => setSelectedSupplierId(e.target.value)}
-                      className="w-full bg-background border rounded-lg px-3 py-2 text-sm h-[38px] focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="ALL">All Suppliers</option>
-                      {suppliers.map(sup => (
-                        <option key={sup.id} value={sup.id}>{sup.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Buyer Select */}
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                      Buyer Party
-                    </span>
-                    <select
-                      value={selectedBuyerId}
-                      onChange={(e) => setSelectedBuyerId(e.target.value)}
-                      className="w-full bg-background border rounded-lg px-3 py-2 text-sm h-[38px] focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="ALL">All Buyers</option>
-                      {buyers.map(buy => (
-                        <option key={buy.id} value={buy.id}>{buy.name}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {/* Date Filter */}
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                      Reconciliation Period
-                    </span>
-                    <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
-                  </div>
+ 
+                   {/* Supplier Select */}
+                   <div className="space-y-1">
+                     <span className="text-[10px] font-bold tracking-wider text-muted-foreground block uppercase">
+                       Supplier Party
+                     </span>
+                     <select
+                       value={selectedSupplierId}
+                       onChange={(e) => {
+                         const val = e.target.value;
+                         setSelectedSupplierId(val);
+                         updateFilters({ supplierId: val });
+                       }}
+                       className="w-full bg-background border rounded-lg px-3 py-2 text-sm h-[38px] focus:outline-none focus:ring-1 focus:ring-primary"
+                     >
+                       <option value="ALL">All Suppliers</option>
+                       {suppliers.map(sup => (
+                         <option key={sup.id} value={sup.id}>{sup.name}</option>
+                       ))}
+                     </select>
+                   </div>
+ 
+                   {/* Buyer Select */}
+                   <div className="space-y-1">
+                     <span className="text-[10px] font-bold tracking-wider text-muted-foreground block uppercase">
+                       Buyer Party
+                     </span>
+                     <select
+                       value={selectedBuyerId}
+                       onChange={(e) => {
+                         const val = e.target.value;
+                         setSelectedBuyerId(val);
+                         updateFilters({ buyerId: val });
+                       }}
+                       className="w-full bg-background border rounded-lg px-3 py-2 text-sm h-[38px] focus:outline-none focus:ring-1 focus:ring-primary"
+                     >
+                       <option value="ALL">All Buyers</option>
+                       {buyers.map(buy => (
+                         <option key={buy.id} value={buy.id}>{buy.name}</option>
+                       ))}
+                     </select>
+                   </div>
+ 
+                   {/* Date Filter */}
+                   <div className="space-y-1">
+                     <span className="text-[10px] font-bold tracking-wider text-muted-foreground block uppercase">
+                       Reconciliation Period
+                     </span>
+                     <DateRangeFilter
+                       value={dateFilter}
+                       onChange={(val) => {
+                         setDateFilter(val);
+                         updateFilters({
+                           preset: val.preset,
+                           startDate: val.startDate,
+                           endDate: val.endDate,
+                           month: val.month
+                         });
+                       }}
+                     />
+                   </div>
                 </div>
               </div>
 

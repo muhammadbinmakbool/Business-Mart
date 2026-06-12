@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { prisma } from "@/lib/prisma";
+import { getSupplierSettlementSetup } from "@/modules/aggregations/supplierAggregator";
 import InvoiceGenerator from "./InvoiceGenerator";
 
 export const dynamic = "force-dynamic";
@@ -10,47 +10,7 @@ export default async function CreateSupplierInvoicePage({ searchParams: searchPa
   const searchParams = searchParamsPromise ? await searchParamsPromise : {};
   const backUrl = searchParams.backUrl || "/supplier-invoices";
 
-  // Query active suppliers (SUPPLIER or BOTH) with uninvoiced intakes whose status is SOLD
-  const suppliers = await prisma.party.findMany({
-    where: {
-      isActive: true,
-      OR: [
-        { partyType: "SUPPLIER" },
-        { partyType: "BOTH" }
-      ],
-      intakeTransactions: {
-        some: {
-          status: { in: ["SOLD", "PARTIAL"] },
-          OR: [
-            {
-              invoiceItems: {
-                none: {
-                  invoice: {
-                    status: {
-                      not: "SUPERSEDED"
-                    }
-                  }
-                }
-              }
-            },
-            {
-              salesTracks: {
-                some: {
-                  isSettled: false
-                }
-              }
-            }
-          ]
-        }
-      }
-    },
-    orderBy: { name: "asc" }
-  });
-
-  const settingsRecord = await prisma.systemSetting.findUnique({
-    where: { key: "adjustment_visibility" }
-  });
-  const settings = settingsRecord ? JSON.parse(settingsRecord.value) : { adjustmentVisibility: {} };
+  const { suppliers, settings } = await getSupplierSettlementSetup();
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">
@@ -67,7 +27,7 @@ export default async function CreateSupplierInvoicePage({ searchParams: searchPa
         </div>
       </div>
 
-      <InvoiceGenerator suppliers={JSON.parse(JSON.stringify(suppliers))} settings={settings} backUrl={backUrl} />
+      <InvoiceGenerator suppliers={suppliers} settings={settings} backUrl={backUrl} />
     </div>
   );
 }

@@ -1,10 +1,8 @@
 export const dynamic = "force-dynamic";
 
 import React from "react";
-import { prisma } from "@/lib/prisma";
-import { LedgerService } from "@/modules/ledger/services/LedgerService";
-import { getPrintSettingsAction, getGeneralSettingsAction, getSettlementLedgerSettingsAction } from "@/modules/settings/controllers/settingsActions";
-import { getMergedDocumentConfig } from "@/print/config/documentConfig";
+import { getLedgerOverview } from "@/modules/aggregations/ledgerAggregator";
+import { getDateRangeFromFilter } from "@/lib/dateFilters";
 import LedgerClient from "./LedgerClient";
 
 export default async function LedgerPage({ searchParams }) {
@@ -13,25 +11,31 @@ export default async function LedgerPage({ searchParams }) {
   const historyPage = parseInt(resolvedSearchParams.page) || 1;
   const historyLimit = parseInt(resolvedSearchParams.limit) || 50;
 
-  // Query active parties for filtering
-  const [parties, liveData, sessionsResult, settingsResult, generalSettingsResult, settlementSettingsResult] = await Promise.all([
-    prisma.party.findMany({
-      where: { isActive: true },
-      orderBy: { name: "asc" }
-    }),
-    LedgerService.getLiveReconciliationData(),
-    LedgerService.listSessionsPaginated({ page: historyPage, limit: historyLimit }),
-    getPrintSettingsAction(),
-    getGeneralSettingsAction(),
-    getSettlementLedgerSettingsAction()
-  ]);
+  // Live filters from URL parameters
+  const supplierId = resolvedSearchParams.supplierId || "ALL";
+  const buyerId = resolvedSearchParams.buyerId || "ALL";
+  const preset = resolvedSearchParams.preset || "this_month";
+  const startDate = resolvedSearchParams.startDate || "";
+  const endDate = resolvedSearchParams.endDate || "";
+  const month = resolvedSearchParams.month || "";
 
-  const suppliers = parties.filter(p => p.partyType === "SUPPLIER" || p.partyType === "BOTH");
-  const buyers = parties.filter(p => p.partyType === "BUYER" || p.partyType === "BOTH");
-  const printConfig = getMergedDocumentConfig(
-    settingsResult?.success ? settingsResult.settings : {},
-    generalSettingsResult?.success ? generalSettingsResult.settings : {}
-  );
+  const dateRange = getDateRangeFromFilter({ preset, startDate, endDate, month });
+
+  const {
+    suppliers,
+    buyers,
+    printConfig,
+    settlementSettings,
+    liveData,
+    sessionsResult
+  } = await getLedgerOverview({
+    startDate: dateRange.startDate ? dateRange.startDate.toISOString() : "",
+    endDate: dateRange.endDate ? dateRange.endDate.toISOString() : "",
+    supplierId,
+    buyerId,
+    page: historyPage,
+    limit: historyLimit
+  });
 
   return (
     <LedgerClient
@@ -44,7 +48,7 @@ export default async function LedgerPage({ searchParams }) {
       initialPage={historyPage}
       initialLimit={historyLimit}
       printConfig={printConfig}
-      settlementSettings={settlementSettingsResult?.success ? settlementSettingsResult.settings : {}}
+      settlementSettings={settlementSettings}
     />
   );
 }
