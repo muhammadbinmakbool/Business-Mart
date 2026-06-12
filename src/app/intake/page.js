@@ -5,9 +5,33 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { IntakeService } from "@/modules/intake/services/IntakeService";
 import IntakeListClient from "./IntakeListClient";
+import { getDateRangeFromFilter } from "@/lib/dateFilters";
 
-export default async function IntakePage() {
-  const intakes = await IntakeService.listIntakes();
+export default async function IntakePage({ searchParams }) {
+  const resolvedSearchParams = await searchParams;
+
+  const page = parseInt(resolvedSearchParams.page) || 1;
+  const limit = parseInt(resolvedSearchParams.limit) || 50;
+  const search = resolvedSearchParams.search || "";
+  const tab = resolvedSearchParams.tab || "ALL";
+  const preset = resolvedSearchParams.preset || "all";
+  const startDate = resolvedSearchParams.startDate || "";
+  const endDate = resolvedSearchParams.endDate || "";
+  const month = resolvedSearchParams.month || "";
+  const sortField = resolvedSearchParams.sortField || "entryDate";
+  const sortDirection = resolvedSearchParams.sortDirection || "desc";
+
+  const dateRange = getDateRangeFromFilter({ preset, startDate, endDate, month });
+
+  const { items: intakes, totalCount, tabCounts } = await IntakeService.listIntakesPaginated({
+    page,
+    limit,
+    searchQuery: search,
+    status: tab,
+    dateRange,
+    sortField,
+    sortDirection
+  });
 
   return (
     <div className="space-y-6">
@@ -25,7 +49,22 @@ export default async function IntakePage() {
         </Link>
       </div>
 
-      <IntakeListClient intakes={intakes} />
+      <IntakeListClient
+        intakes={intakes}
+        totalCount={totalCount}
+        tabCounts={tabCounts}
+        currentPage={page}
+        currentLimit={limit}
+        currentSearch={search}
+        currentTab={tab}
+        currentPreset={preset}
+        currentStartDate={startDate}
+        currentEndDate={endDate}
+        currentMonth={month}
+        currentSortField={sortField}
+        currentSortDirection={sortDirection}
+      />
     </div>
   );
 }
+

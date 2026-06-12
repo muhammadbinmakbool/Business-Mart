@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { 
   BookOpen, 
   History, 
@@ -26,6 +27,7 @@ import LedgerDashboard from "@/modules/ledger/components/LedgerDashboard";
 import ReconciliationTable from "@/modules/ledger/components/ReconciliationTable";
 import LedgerSessionForm from "@/modules/ledger/components/LedgerSessionForm";
 import DataTable from "@/components/ui/DataTable";
+import PaginationControls from "@/components/ui/PaginationControls";
 
 import { 
   calculateReconciliationSummary, 
@@ -47,12 +49,38 @@ export default function LedgerClient({
   suppliers = [], 
   buyers = [], 
   initialSessions = [],
+  initialSessionsCount = 0,
+  initialPage = 1,
+  initialLimit = 50,
   printConfig = null,
   settlementSettings = null
 }) {
   const tolerance = settlementSettings?.reconciliationTolerance !== undefined ? Number(settlementSettings.reconciliationTolerance) : DEFAULT_TOLERANCE;
 
-  const [activeTab, setActiveTab] = useState("LIVE"); // LIVE | HISTORY
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const activeTab = searchParams.get("tab") || "LIVE";
+  const currentPage = parseInt(searchParams.get("page")) || initialPage || 1;
+  const currentLimit = parseInt(searchParams.get("limit")) || initialLimit || 50;
+
+  const setActiveTab = (tab) => {
+    updateFilters({ tab, page: 1 });
+  };
+
+  const updateFilters = (updates) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === "") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSupplierId, setSelectedSupplierId] = useState("ALL");
   const [selectedBuyerId, setSelectedBuyerId] = useState("ALL");
@@ -62,8 +90,25 @@ export default function LedgerClient({
   
   const [showSaveForm, setShowSaveForm] = useState(false);
   const [sessions, setSessions] = useState(initialSessions);
+  const [sessionsCount, setSessionsCount] = useState(initialSessionsCount);
   const [viewingSessionDetails, setViewingSessionDetails] = useState(null);
   const [loadingSessionId, setLoadingSessionId] = useState(null);
+
+  // Sync props to state on changes
+  useEffect(() => {
+    setSessions(initialSessions);
+  }, [initialSessions]);
+
+  useEffect(() => {
+    setSessionsCount(initialSessionsCount);
+  }, [initialSessionsCount]);
+
+  // Gracefully handle deleting last item on the page
+  useEffect(() => {
+    if (activeTab === "HISTORY" && currentPage > 1 && sessions.length === 0) {
+      updateFilters({ page: Math.max(1, currentPage - 1) });
+    }
+  }, [sessions, currentPage, activeTab]);
   
   // Format currency helper
   const formatRs = (val) => {
@@ -192,9 +237,10 @@ export default function LedgerClient({
 
   // Load latest list of sessions from backend
   const refreshSessions = async () => {
-    const result = await listLedgerSessionsAction();
+    const result = await listLedgerSessionsAction({ page: currentPage, limit: currentLimit });
     if (result.success) {
-      setSessions(result.data);
+      setSessions(result.items || result.data || []);
+      setSessionsCount(result.totalCount || (result.data || []).length);
     }
   };
 
@@ -411,7 +457,8 @@ export default function LedgerClient({
 
       {/* Tab Content: Reconciliation History List */}
       {activeTab === "HISTORY" && !viewingSessionDetails && (
-        <DataTable
+        <div className="space-y-4">
+          <DataTable
           data={sessions}
           emptyMessage="No saved reconciliation snapshots found."
           containerClassName="rounded-xl border bg-card shadow-sm overflow-hidden"
@@ -525,6 +572,14 @@ export default function LedgerClient({
             },
           ]}
         />
+        <PaginationControls
+          currentPage={currentPage}
+          totalCount={sessionsCount}
+          limit={currentLimit}
+          onPageChange={(newPage) => updateFilters({ page: newPage })}
+          onLimitChange={(newLimit) => updateFilters({ limit: newLimit })}
+        />
+        </div>
       )}
 
       {/* Viewing Saved Session Detail Page */}

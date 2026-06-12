@@ -10,6 +10,46 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
     return Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
+  const [mounted, setMounted] = React.useState(false);
+  const [invPage, setInvPage] = React.useState(1);
+  const [salePage, setSalePage] = React.useState(1);
+  const pageSize = 15;
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    setInvPage(1);
+  }, [invoices.length]);
+
+  React.useEffect(() => {
+    setSalePage(1);
+  }, [sales.length]);
+
+  const paginatedInvoices = React.useMemo(() => {
+    return invoices.slice((invPage - 1) * pageSize, invPage * pageSize);
+  }, [invoices, invPage]);
+
+  const paginatedSales = React.useMemo(() => {
+    return sales.slice((salePage - 1) * pageSize, salePage * pageSize);
+  }, [sales, salePage]);
+
+  if (!mounted) {
+    return (
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 animate-pulse">
+        <div className="space-y-3">
+          <div className="h-6 bg-muted rounded w-1/3"></div>
+          <div className="h-48 bg-muted rounded-lg"></div>
+        </div>
+        <div className="space-y-3">
+          <div className="h-6 bg-muted rounded w-1/3"></div>
+          <div className="h-48 bg-muted rounded-lg"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
       {/* Supplier Settlements Side */}
@@ -44,7 +84,7 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
                     </td>
                   </tr>
                 ) : (
-                  invoices.map((inv) => (
+                  paginatedInvoices.map((inv) => (
                     <tr key={inv.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-3 py-2 font-mono font-medium text-primary">
                         {inv.invoiceNumber}
@@ -87,6 +127,34 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Footer */}
+          {invoices.length > pageSize && (
+            <div className="flex items-center justify-between border-t bg-muted/20 px-4 py-2 text-xs">
+              <span className="text-muted-foreground">
+                Showing {Math.min(invoices.length, (invPage - 1) * pageSize + 1)}-{Math.min(invoices.length, invPage * pageSize)} of {invoices.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setInvPage(prev => Math.max(1, prev - 1))}
+                  disabled={invPage === 1}
+                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+                >
+                  Previous
+                </button>
+                <span className="font-semibold">
+                  {invPage} / {Math.ceil(invoices.length / pageSize)}
+                </span>
+                <button
+                  onClick={() => setInvPage(prev => Math.min(Math.ceil(invoices.length / pageSize), prev + 1))}
+                  disabled={invPage === Math.ceil(invoices.length / pageSize)}
+                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -122,7 +190,7 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
                     </td>
                   </tr>
                 ) : (
-                  sales.map((sale) => (
+                  paginatedSales.map((sale) => (
                     <tr key={sale.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-3 py-2 font-mono font-medium text-primary">
                         {sale.saleNumber}
@@ -165,6 +233,34 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Footer */}
+          {sales.length > pageSize && (
+            <div className="flex items-center justify-between border-t bg-muted/20 px-4 py-2 text-xs">
+              <span className="text-muted-foreground">
+                Showing {Math.min(sales.length, (salePage - 1) * pageSize + 1)}-{Math.min(sales.length, salePage * pageSize)} of {sales.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSalePage(prev => Math.max(1, prev - 1))}
+                  disabled={salePage === 1}
+                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+                >
+                  Previous
+                </button>
+                <span className="font-semibold">
+                  {salePage} / {Math.ceil(sales.length / pageSize)}
+                </span>
+                <button
+                  onClick={() => setSalePage(prev => Math.min(Math.ceil(sales.length / pageSize), prev + 1))}
+                  disabled={salePage === Math.ceil(sales.length / pageSize)}
+                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

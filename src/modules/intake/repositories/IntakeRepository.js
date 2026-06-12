@@ -13,9 +13,134 @@ export class IntakeRepository {
           select: { advances: true }
         }
       },
-      orderBy: { id: "desc" },
+      orderBy: [
+        { entryDate: "desc" },
+        { id: "desc" }
+      ],
     });
   }
+
+  static async getAllPaginated({
+    page = 1,
+    limit = 50,
+    searchQuery = "",
+    status = "ALL",
+    dateRange = null,
+    sortField = "entryDate",
+    sortDirection = "desc"
+  } = {}) {
+    let showDeleted = false;
+    try {
+      const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+      const settings = await getActivityAuditSettings();
+      showDeleted = settings.showDeletedRecords;
+    } catch (e) {}
+
+    const where = showDeleted ? {} : { isDeleted: false };
+
+    if (searchQuery) {
+      const q = searchQuery.trim();
+      where.OR = [
+        { intakeNumber: { contains: q } },
+        { party: { name: { contains: q } } },
+        { product: { name: { contains: q } } }
+      ];
+    }
+
+    if (status && status !== "ALL") {
+      if (status === "SOLD") {
+        where.status = { in: ["SOLD", "PARTIAL"] };
+      } else {
+        where.status = status;
+      }
+    }
+
+    if (dateRange && (dateRange.start || dateRange.end)) {
+      where.entryDate = {};
+      if (dateRange.start) where.entryDate.gte = dateRange.start;
+      if (dateRange.end) where.entryDate.lte = dateRange.end;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const orderByClause = [];
+    if (sortField) {
+      const direction = sortDirection === "asc" ? "asc" : "desc";
+      if (sortField === "party.name") {
+        orderByClause.push({ party: { name: direction } });
+      } else if (sortField === "product.name") {
+        orderByClause.push({ product: { name: direction } });
+      } else {
+        orderByClause.push({ [sortField]: direction });
+      }
+    } else {
+      orderByClause.push({ entryDate: "desc" });
+    }
+    orderByClause.push({ id: "desc" });
+
+    const [items, totalCount] = await Promise.all([
+      prisma.intakeTransaction.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: orderByClause,
+        include: {
+          party: true,
+          product: true,
+          salesTracks: true,
+          _count: {
+            select: { advances: true }
+          }
+        }
+      }),
+      prisma.intakeTransaction.count({ where })
+    ]);
+
+    return { items, totalCount };
+  }
+
+  static async getTabCounts({ searchQuery = "", dateRange = null } = {}) {
+    let showDeleted = false;
+    try {
+      const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+      const settings = await getActivityAuditSettings();
+      showDeleted = settings.showDeletedRecords;
+    } catch (e) {}
+
+    const baseWhere = showDeleted ? {} : { isDeleted: false };
+
+    if (searchQuery) {
+      const q = searchQuery.trim();
+      baseWhere.OR = [
+        { intakeNumber: { contains: q } },
+        { party: { name: { contains: q } } },
+        { product: { name: { contains: q } } }
+      ];
+    }
+
+    if (dateRange && (dateRange.start || dateRange.end)) {
+      baseWhere.entryDate = {};
+      if (dateRange.start) baseWhere.entryDate.gte = dateRange.start;
+      if (dateRange.end) baseWhere.entryDate.lte = dateRange.end;
+    }
+
+    const [allCount, pendingCount, soldCount, clearedCount, cancelledCount] = await Promise.all([
+      prisma.intakeTransaction.count({ where: baseWhere }),
+      prisma.intakeTransaction.count({ where: { ...baseWhere, status: "PENDING" } }),
+      prisma.intakeTransaction.count({ where: { ...baseWhere, status: { in: ["SOLD", "PARTIAL"] } } }),
+      prisma.intakeTransaction.count({ where: { ...baseWhere, status: "CLEARED" } }),
+      prisma.intakeTransaction.count({ where: { ...baseWhere, status: "CANCELLED" } })
+    ]);
+
+    return {
+      all: allCount,
+      pending: pendingCount,
+      sold: soldCount,
+      cleared: clearedCount,
+      cancelled: cancelledCount
+    };
+  }
+
 
   static async getById(id) {
     return prisma.intakeTransaction.findUnique({

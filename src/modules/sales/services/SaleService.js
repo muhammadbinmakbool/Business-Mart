@@ -26,6 +26,38 @@ export class SaleService {
     return JSON.parse(JSON.stringify(sales));
   }
 
+  static async listSalesPaginated({
+    page = 1,
+    limit = 50,
+    searchQuery = "",
+    status = "ALL",
+    dateRange = null,
+    sortField = "entryDate",
+    sortDirection = "desc"
+  } = {}) {
+    const { clampLimit } = await import("@/lib/pagination");
+    const clampedLimit = clampLimit(limit);
+
+    const { items, totalCount } = await SaleRepository.getAllPaginated({
+      page,
+      limit: clampedLimit,
+      searchQuery,
+      status,
+      dateRange,
+      sortField,
+      sortDirection
+    });
+
+    const tabCounts = await SaleRepository.getTabCounts({ searchQuery, dateRange });
+
+    return {
+      items: JSON.parse(JSON.stringify(items)),
+      totalCount,
+      tabCounts
+    };
+  }
+
+
   static async recordSale(data) {
     let { partyId, items, adjustments = [], entryDate, notes, newPartyData } = data;
 

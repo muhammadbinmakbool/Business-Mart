@@ -118,7 +118,7 @@ async function main() {
             baseAmount: saleAmount.toString(),
             totalAdjustments: "0.00",
             finalAmount: saleAmount.toString(),
-            status: "COMPLETED",
+            status: "CLEARED",
             paidAmount: saleAmount.toString(),
             paymentStatus: "CLEARED"
           }
@@ -167,7 +167,7 @@ async function main() {
             totalDeductions: "0.00",
             totalAdvances: "0.00",
             finalPayableAmount: intakeAmount.toString(),
-            status: "COMPLETED",
+            status: "CLEARED",
             paidAmount: intakeAmount.toString(),
             paymentStatus: "CLEARED"
           }

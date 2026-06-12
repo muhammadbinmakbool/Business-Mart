@@ -15,7 +15,9 @@ export async function fetchActivityLogsAction({
   limit = 20
 }) {
   try {
-    const skip = (page - 1) * limit;
+    const { clampLimit } = await import("@/lib/pagination");
+    const clampedLimit = clampLimit(limit);
+    const skip = (page - 1) * clampedLimit;
     const { logs, total } = await ActivityLogService.getLogs({
       entityType: entityType || undefined,
       action: action || undefined,
@@ -23,7 +25,7 @@ export async function fetchActivityLogsAction({
       startDate: startDate || undefined,
       endDate: endDate || undefined,
       skip,
-      take: limit
+      take: clampedLimit
     });
 
     return {

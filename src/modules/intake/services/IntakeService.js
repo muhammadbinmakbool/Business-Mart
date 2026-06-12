@@ -44,6 +44,62 @@ export class IntakeService {
     }));
   }
 
+  static async listIntakesPaginated({
+    page = 1,
+    limit = 50,
+    searchQuery = "",
+    status = "ALL",
+    dateRange = null,
+    sortField = "entryDate",
+    sortDirection = "desc"
+  } = {}) {
+    const { clampLimit } = await import("@/lib/pagination");
+    const clampedLimit = clampLimit(limit);
+
+    const { items, totalCount } = await IntakeRepository.getAllPaginated({
+      page,
+      limit: clampedLimit,
+      searchQuery,
+      status,
+      dateRange,
+      sortField,
+      sortDirection
+    });
+
+    const tabCounts = await IntakeRepository.getTabCounts({ searchQuery, dateRange });
+
+    const serializedItems = items.map(intake => ({
+      ...intake,
+      grossWeight: Number(intake.grossWeight),
+      remainingWeight: intake.remainingWeight !== null && intake.remainingWeight !== undefined ? Number(intake.remainingWeight) : null,
+      netWeight: intake.netWeight ? Number(intake.netWeight) : null,
+      Bardana: intake.Bardana ? Number(intake.Bardana) : null,
+      Khot: intake.Khot ? Number(intake.Khot) : null,
+      normalizedWeight: Number(intake.normalizedWeight),
+      rate: intake.rate ? Number(intake.rate) : null,
+      rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
+      product: intake.product ? {
+        ...intake.product,
+        quantity: Number(intake.product.quantity),
+        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
+      } : null,
+      salesTracks: intake.salesTracks?.map(st => ({
+        ...st,
+        quantity: Number(st.quantity),
+        buyingRate: st.buyingRate ? Number(st.buyingRate) : null,
+        sellingRate: st.sellingRate ? Number(st.sellingRate) : null,
+        netWeight: st.netWeight ? Number(st.netWeight) : null,
+        baseAmount: st.baseAmount ? Number(st.baseAmount) : null
+      }))
+    }));
+
+    return {
+      items: serializedItems,
+      totalCount,
+      tabCounts
+    };
+  }
+
   static async getIntake(id) {
     const intake = await IntakeRepository.getById(id);
     if (!intake) return null;

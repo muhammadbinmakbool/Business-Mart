@@ -15,9 +15,123 @@ export class SupplierInvoiceRepository {
     return prisma.supplierInvoice.findMany({
       where: { isDeleted: false },
       include: { party: true },
-      orderBy: { createdAt: "desc" }
+      orderBy: [
+        { entryDate: "desc" },
+        { id: "desc" }
+      ]
     });
   }
+
+  static async getAllPaginated({
+    page = 1,
+    limit = 50,
+    searchQuery = "",
+    status = "ALL",
+    dateRange = null,
+    sortField = "entryDate",
+    sortDirection = "desc"
+  } = {}) {
+    let showDeleted = false;
+    try {
+      const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+      const settings = await getActivityAuditSettings();
+      showDeleted = settings.showDeletedRecords;
+    } catch (e) {}
+
+    const where = showDeleted ? {} : { isDeleted: false };
+
+    if (searchQuery) {
+      const q = searchQuery.trim();
+      where.OR = [
+        { invoiceNumber: { contains: q } },
+        { party: { name: { contains: q } } }
+      ];
+    }
+
+    if (status) {
+      if (status === "ALL") {
+        where.status = { not: "SUPERSEDED" };
+      } else {
+        where.status = status;
+      }
+    }
+
+    if (dateRange && (dateRange.start || dateRange.end)) {
+      where.entryDate = {};
+      if (dateRange.start) where.entryDate.gte = dateRange.start;
+      if (dateRange.end) where.entryDate.lte = dateRange.end;
+    }
+
+    const skip = (page - 1) * limit;
+
+    const orderByClause = [];
+    if (sortField) {
+      const direction = sortDirection === "asc" ? "asc" : "desc";
+      if (sortField === "party.name" || sortField === "supplierName") {
+        orderByClause.push({ party: { name: direction } });
+      } else {
+        orderByClause.push({ [sortField]: direction });
+      }
+    } else {
+      orderByClause.push({ entryDate: "desc" });
+    }
+    orderByClause.push({ id: "desc" });
+
+    const [items, totalCount] = await Promise.all([
+      prisma.supplierInvoice.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: orderByClause,
+        include: { party: true }
+      }),
+      prisma.supplierInvoice.count({ where })
+    ]);
+
+    return { items, totalCount };
+  }
+
+  static async getTabCounts({ searchQuery = "", dateRange = null } = {}) {
+    let showDeleted = false;
+    try {
+      const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+      const settings = await getActivityAuditSettings();
+      showDeleted = settings.showDeletedRecords;
+    } catch (e) {}
+
+    const baseWhere = showDeleted ? {} : { isDeleted: false };
+
+    if (searchQuery) {
+      const q = searchQuery.trim();
+      baseWhere.OR = [
+        { invoiceNumber: { contains: q } },
+        { party: { name: { contains: q } } }
+      ];
+    }
+
+    if (dateRange && (dateRange.start || dateRange.end)) {
+      baseWhere.entryDate = {};
+      if (dateRange.start) baseWhere.entryDate.gte = baseWhere.entryDate.gte = dateRange.start;
+      if (dateRange.end) baseWhere.entryDate.lte = dateRange.end;
+    }
+
+    const [allCount, pendingCount, partialCount, clearedCount, supersededCount] = await Promise.all([
+      prisma.supplierInvoice.count({ where: { ...baseWhere, status: { not: "SUPERSEDED" } } }),
+      prisma.supplierInvoice.count({ where: { ...baseWhere, status: "PENDING" } }),
+      prisma.supplierInvoice.count({ where: { ...baseWhere, status: "PARTIAL" } }),
+      prisma.supplierInvoice.count({ where: { ...baseWhere, status: "CLEARED" } }),
+      prisma.supplierInvoice.count({ where: { ...baseWhere, status: "SUPERSEDED" } })
+    ]);
+
+    return {
+      all: allCount,
+      pending: pendingCount,
+      partial: partialCount,
+      cleared: clearedCount,
+      superseded: supersededCount
+    };
+  }
+
 
   static async getByPartyId(partyId) {
     return prisma.supplierInvoice.findMany({

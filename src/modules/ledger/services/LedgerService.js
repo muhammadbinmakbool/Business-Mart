@@ -157,13 +157,31 @@ export class LedgerService {
     return JSON.parse(JSON.stringify(session));
   }
 
-  /**
-   * Lists all saved sessions, including drift checks.
-   */
   static async listSessions() {
     const sessions = await LedgerRepository.getAll();
     return JSON.parse(JSON.stringify(sessions));
   }
+
+  static async listSessionsPaginated({
+    page = 1,
+    limit = 50,
+    searchQuery = ""
+  } = {}) {
+    const { clampLimit } = await import("@/lib/pagination");
+    const clampedLimit = clampLimit(limit);
+
+    const { items, totalCount } = await LedgerRepository.getAllPaginated({
+      page,
+      limit: clampedLimit,
+      searchQuery
+    });
+
+    return {
+      items: JSON.parse(JSON.stringify(items)),
+      totalCount
+    };
+  }
+
 
   /**
    * Gets a specific saved session, including full drift comparison and live active records.

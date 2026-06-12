@@ -34,6 +34,57 @@ export class PartyService {
     });
   }
 
+  static async listPartiesPaginated({
+    page = 1,
+    limit = 50,
+    searchQuery = "",
+    status = "ALL",
+    sortField = "name",
+    sortDirection = "asc"
+  } = {}) {
+    const { clampLimit } = await import("@/lib/pagination");
+    const clampedLimit = clampLimit(limit);
+
+    const { items, totalCount } = await PartyRepository.getAllPaginated({
+      page,
+      limit: clampedLimit,
+      searchQuery,
+      status,
+      sortField,
+      sortDirection
+    });
+
+    const tabCounts = await PartyRepository.getTabCounts({ searchQuery });
+
+    const { calculatePartyFinancialPosition } = await import("@/lib/financial");
+    const serializedItems = items.map(party => {
+      const position = calculatePartyFinancialPosition({
+        sales: party.saleTransactions,
+        purchases: party.supplierInvoices,
+        payments: party.payments,
+        advances: party.intakeAdvances,
+        openingBalance: party.openingBalance?.amount || 0,
+        openingBalanceType: party.openingBalance?.type || "RECEIVABLE"
+      });
+      return {
+        id: party.id,
+        name: party.name,
+        phoneNumber: party.phoneNumber,
+        address: party.address,
+        notes: party.notes,
+        partyType: party.partyType,
+        isActive: party.isActive,
+        netBalance: position.netPosition
+      };
+    });
+
+    return {
+      items: serializedItems,
+      totalCount,
+      tabCounts
+    };
+  }
+
   static async getParty(id) {
     return await PartyRepository.getById(id);
   }

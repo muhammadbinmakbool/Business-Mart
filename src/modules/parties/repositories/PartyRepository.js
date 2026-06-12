@@ -5,9 +5,137 @@ export class PartyRepository {
   static async getAll() {
     return prisma.party.findMany({
       where: { isDeleted: false },
-      orderBy: { name: "asc" },
+      orderBy: [
+        { name: "asc" },
+        { id: "desc" }
+      ],
     });
   }
+
+  static async getAllPaginated({
+    page = 1,
+    limit = 50,
+    searchQuery = "",
+    status = "ALL",
+    sortField = "name",
+    sortDirection = "asc"
+  } = {}) {
+    let showDeleted = false;
+    try {
+      const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+      const settings = await getActivityAuditSettings();
+      showDeleted = settings.showDeletedRecords;
+    } catch (e) {}
+
+    const where = showDeleted ? {} : { isDeleted: false };
+
+    if (searchQuery) {
+      const q = searchQuery.trim();
+      where.OR = [
+        { name: { contains: q } },
+        { phoneNumber: { contains: q } },
+        { address: { contains: q } }
+      ];
+    }
+
+    if (status === "INACTIVE") {
+      where.isActive = false;
+    } else {
+      where.isActive = true;
+      if (status === "BUYER") {
+        where.partyType = { in: ["BUYER", "BOTH"] };
+      } else if (status === "SUPPLIER") {
+        where.partyType = { in: ["SUPPLIER", "BOTH"] };
+      } else if (status === "BOTH") {
+        where.partyType = "BOTH";
+      }
+    }
+
+    const skip = (page - 1) * limit;
+
+    const orderByClause = [];
+    if (sortField && sortField !== "netBalance") {
+      const direction = sortDirection === "asc" ? "asc" : "desc";
+      orderByClause.push({ [sortField]: direction });
+    } else {
+      orderByClause.push({ name: "asc" });
+    }
+    orderByClause.push({ id: "desc" });
+
+    // Load items with relations to calculate balances on the server
+    const [items, totalCount] = await Promise.all([
+      prisma.party.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: orderByClause,
+        include: {
+          saleTransactions: {
+            where: { isDeleted: false, status: { not: "CANCELLED" } },
+            select: { finalAmount: true }
+          },
+          supplierInvoices: {
+            where: { isDeleted: false, status: { not: "SUPERSEDED" } },
+            select: { finalPayableAmount: true }
+          },
+          payments: {
+            where: { status: "ACTIVE" },
+            select: { 
+              amount: true, 
+              paymentType: true,
+              allocations: {
+                select: { allocatedAmount: true, referenceType: true }
+              }
+            }
+          },
+          intakeAdvances: {
+            select: { amount: true, supplierInvoiceId: true }
+          },
+          openingBalance: true
+        }
+      }),
+      prisma.party.count({ where })
+    ]);
+
+    return { items, totalCount };
+  }
+
+  static async getTabCounts({ searchQuery = "" } = {}) {
+    let showDeleted = false;
+    try {
+      const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+      const settings = await getActivityAuditSettings();
+      showDeleted = settings.showDeletedRecords;
+    } catch (e) {}
+
+    const baseWhere = showDeleted ? {} : { isDeleted: false };
+
+    if (searchQuery) {
+      const q = searchQuery.trim();
+      baseWhere.OR = [
+        { name: { contains: q } },
+        { phoneNumber: { contains: q } },
+        { address: { contains: q } }
+      ];
+    }
+
+    const [allCount, buyerCount, supplierCount, bothCount, inactiveCount] = await Promise.all([
+      prisma.party.count({ where: { ...baseWhere, isActive: true } }),
+      prisma.party.count({ where: { ...baseWhere, isActive: true, partyType: { in: ["BUYER", "BOTH"] } } }),
+      prisma.party.count({ where: { ...baseWhere, isActive: true, partyType: { in: ["SUPPLIER", "BOTH"] } } }),
+      prisma.party.count({ where: { ...baseWhere, isActive: true, partyType: "BOTH" } }),
+      prisma.party.count({ where: { ...baseWhere, isActive: false } })
+    ]);
+
+    return {
+      all: allCount,
+      buyer: buyerCount,
+      supplier: supplierCount,
+      both: bothCount,
+      inactive: inactiveCount
+    };
+  }
+
 
   static async getAllWithRelations() {
     return prisma.party.findMany({

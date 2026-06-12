@@ -8,9 +8,49 @@ export class LedgerRepository {
   static async getAll() {
     return prisma.ledgerSession.findMany({
       where: { isDeleted: false },
-      orderBy: { createdAt: "desc" }
+      orderBy: [
+        { createdAt: "desc" },
+        { id: "desc" }
+      ]
     });
   }
+
+  static async getAllPaginated({
+    page = 1,
+    limit = 50,
+    searchQuery = ""
+  } = {}) {
+    let showDeleted = false;
+    try {
+      const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+      const settings = await getActivityAuditSettings();
+      showDeleted = settings.showDeletedRecords;
+    } catch (e) {}
+
+    const where = showDeleted ? {} : { isDeleted: false };
+
+    if (searchQuery) {
+      where.title = { contains: searchQuery.trim() };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [items, totalCount] = await Promise.all([
+      prisma.ledgerSession.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [
+          { createdAt: "desc" },
+          { id: "desc" }
+        ]
+      }),
+      prisma.ledgerSession.count({ where })
+    ]);
+
+    return { items, totalCount };
+  }
+
 
   /**
    * Retrieves a single ledger session by ID.

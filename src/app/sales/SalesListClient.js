@@ -1,36 +1,88 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Search, Eye, ReceiptText, Filter } from "lucide-react";
+import { Plus, Eye, ReceiptText, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { useTableSorting } from "@/hooks/useTableSorting";
-import SortableHeader from "@/components/SortableHeader";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
-import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
+import DateRangeFilter from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import { getUnitLabel } from "@/lib/units";
 import DataTable from "@/components/ui/DataTable";
-import { filterSales } from "@/modules/sales/utils/salesFilters";
+import PaginationControls from "@/components/ui/PaginationControls";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
-export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("ALL");
+export default function SalesListClient({
+  sales = [],
+  totalCount = 0,
+  tabCounts = { all: 0, pending: 0, partial: 0, cleared: 0, cancelled: 0 },
+  currentPage = 1,
+  currentLimit = 50,
+  currentSearch = "",
+  currentTab = "ALL",
+  currentPreset = "all",
+  currentStartDate = "",
+  currentEndDate = "",
+  currentMonth = "",
+  currentSortField = "entryDate",
+  currentSortDirection = "desc"
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [searchQuery, setSearchQuery] = useState(currentSearch);
   const [showFilters, setShowFilters] = useState(true);
-  const [dateFilter, setDateFilter] = useState(() => getDefaultFilterState(defaultPreset));
 
-  const dateFilteredSales = useMemo(() => {
-    return filterByDateRange(sales, "entryDate", dateFilter);
-  }, [sales, dateFilter]);
+  // Sync internal search query state with URL changes
+  useEffect(() => {
+    setSearchQuery(currentSearch);
+  }, [currentSearch]);
 
-  const filteredSales = useMemo(() => {
-    return filterSales(sales, { searchQuery, status: activeTab, dateFilter });
-  }, [sales, searchQuery, activeTab, dateFilter]);
+  const dateFilter = useMemo(() => ({
+    preset: currentPreset,
+    startDate: currentStartDate,
+    endDate: currentEndDate,
+    month: currentMonth
+  }), [currentPreset, currentStartDate, currentEndDate, currentMonth]);
 
-  // Pre-calculate custom fields for sorting
+  const updateFilters = (updates) => {
+    const params = new URLSearchParams(searchParams.toString());
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === "") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    
+    if (!("page" in updates)) {
+      params.set("page", "1");
+    }
+    
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  // Gracefully handle deleting last item on the page
+  useEffect(() => {
+    if (currentPage > 1 && sales.length === 0) {
+      updateFilters({ page: Math.max(1, currentPage - 1) });
+    }
+  }, [sales, currentPage]);
+
+  const handleSort = (field) => {
+    let direction = "asc";
+    if (currentSortField === field && currentSortDirection === "asc") {
+      direction = "desc";
+    }
+    updateFilters({ sortField: field, sortDirection: direction });
+  };
+
+  // Pre-calculate custom fields for sorting/display
   const mappedSales = useMemo(() => {
-    return filteredSales.map((sale) => {
+    return sales.map((sale) => {
       const singleItem = sale.items?.length === 1 ? sale.items[0] : null;
       const rateVal = singleItem ? Number(singleItem.rate || 0) : 0;
       const total = Number(sale.finalAmount);
@@ -42,21 +94,14 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
         remaining: Math.max(0, total - paid)
       };
     });
-  }, [filteredSales]);
-
-  const {
-    sortedData: sortedSales,
-    sortField,
-    sortDirection,
-    requestSort,
-  } = useTableSorting(mappedSales, "entryDate", "desc");
+  }, [sales]);
 
   const tabs = [
-    { key: "ALL", label: "All", count: dateFilteredSales.length },
-    { key: "PENDING", label: "Pending", count: dateFilteredSales.filter(s => s.status === "PENDING").length },
-    { key: "PARTIAL", label: "Partial", count: dateFilteredSales.filter(s => s.status === "PARTIAL").length },
-    { key: "CLEARED", label: "Cleared", count: dateFilteredSales.filter(s => s.status === "CLEARED").length },
-    { key: "CANCELLED", label: "Cancelled", count: dateFilteredSales.filter(s => s.status === "CANCELLED").length },
+    { key: "ALL", label: "All", count: tabCounts.all },
+    { key: "PENDING", label: "Pending", count: tabCounts.pending },
+    { key: "PARTIAL", label: "Partial", count: tabCounts.partial },
+    { key: "CLEARED", label: "Cleared", count: tabCounts.cleared },
+    { key: "CANCELLED", label: "Cancelled", count: tabCounts.cancelled },
   ];
 
   return (
@@ -81,7 +126,7 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
           <div className="flex-1 flex gap-2">
             <DebouncedSearchInput
               value={searchQuery}
-              onChange={setSearchQuery}
+              onChange={(val) => updateFilters({ search: val })}
               placeholder="Search by sale #, buyer or product..."
             />
             <button
@@ -99,7 +144,15 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
               <span>Filters</span>
             </button>
           </div>
-          <DateRangeFilter value={dateFilter} onChange={setDateFilter} />
+          <DateRangeFilter
+            value={dateFilter}
+            onChange={(newDateFilter) => updateFilters({
+              preset: newDateFilter.preset,
+              startDate: newDateFilter.startDate,
+              endDate: newDateFilter.endDate,
+              month: newDateFilter.month
+            })}
+          />
         </div>
 
         <div 
@@ -109,130 +162,140 @@ export default function SalesListClient({ sales = [], defaultPreset = "all" }) {
           )}
         >
           <StatusFilterTabs
-            activeTab={activeTab}
-            onChange={setActiveTab}
+            activeTab={currentTab}
+            onChange={(newTab) => updateFilters({ tab: newTab })}
             tabs={tabs}
           />
         </div>
       </div>
 
-      <DataTable
-        data={sortedSales}
-        emptyMessage="No sale transactions found."
-        containerClassName="rounded-xl border bg-card shadow-sm overflow-hidden"
-        sortField={sortField}
-        sortDirection={sortDirection}
-        onRequestSort={requestSort}
-        columns={[
-          {
-            key: "saleNumber",
-            label: "Sale #",
-            className: "px-4 py-3.5 font-mono font-medium text-primary flex items-center gap-2",
-            render: (row, val) => (
-              <>
-                <ReceiptText className="h-3.5 w-3.5 opacity-40" />
-                {val}
-              </>
-            ),
-          },
-          {
-            key: "entryDate",
-            label: "Date",
-            className: "px-4 py-3.5 whitespace-nowrap opacity-80",
-            render: (row, val) => format(new Date(val), "dd MMM yyyy"),
-          },
-          {
-            key: "buyerName",
-            label: "Buyer",
-            className: "px-4 py-3.5 font-semibold text-foreground",
-          },
-          {
-            key: "totalWeight",
-            label: "Net Weight",
-            className: "px-4 py-3.5 text-right font-mono text-xs",
-            render: (row, val) => (
-              <>
-                {val.toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">KG</span>
-              </>
-            ),
-          },
-          {
-            key: "displayRate",
-            label: "Rate (Rs.)",
-            className: "px-4 py-3.5 text-right font-mono text-xs text-muted-foreground",
-            sortable: false,
-            render: (row) =>
-              row.items.length > 1 ? (
-                <span className="italic">Multiple</span>
-              ) : (
+      <div className="space-y-4">
+        <DataTable
+          data={mappedSales}
+          emptyMessage="No sale transactions found."
+          containerClassName="rounded-xl border bg-card shadow-sm overflow-hidden"
+          sortField={currentSortField}
+          sortDirection={currentSortDirection}
+          onRequestSort={handleSort}
+          columns={[
+            {
+              key: "saleNumber",
+              label: "Sale #",
+              className: "px-4 py-3.5 font-mono font-medium text-primary flex items-center gap-2",
+              render: (row, val) => (
                 <>
-                  Rs. {Number(row.items[0]?.rate || 0).toLocaleString()}
-                  <span className="text-[9px] opacity-60 ml-1 uppercase">
-                    /{" "}
-                    {getUnitLabel(
-                      row.items[0]?.unit === "BAG" ||
-                        row.items[0]?.product?.category === "BAG" ||
-                        row.items[0]?.product?.primaryUnit === "BAG"
-                        ? "BAG"
-                        : row.items[0]?.rateUnit || "KG"
-                    )}
-                  </span>
+                  <ReceiptText className="h-3.5 w-3.5 opacity-40" />
+                  {val}
                 </>
               ),
-          },
-          {
-            key: "finalAmount",
-            label: "Final Amount",
-            className: "px-4 py-3.5 text-right font-bold text-base",
-            render: (row, val) => `Rs. ${val.toLocaleString()}`,
-          },
-          ...(activeTab === "PARTIAL"
-            ? [
-                {
-                  key: "remaining",
-                  label: "Remaining",
-                  className: "px-4 py-3.5 text-right font-semibold text-rose-600 font-mono text-xs",
-                  render: (row, val) => `Rs. ${Number(val).toLocaleString()}`,
-                },
-              ]
-            : []),
-          {
-            key: "status",
-            label: "Status",
-            className: "px-4 py-3.5 text-center",
-            render: (row, val) => (
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
-                  val === "PENDING"
-                    ? "bg-amber-100 text-amber-700 border-amber-200"
-                    : val === "PARTIAL"
-                    ? "bg-blue-100 text-blue-700 border-blue-200"
-                    : val === "CLEARED"
-                    ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                    : "bg-rose-100 text-rose-700 border-rose-200"
-                )}
-              >
-                {val}
-              </span>
-            ),
-          },
-          {
-            key: "actions",
-            label: "Actions",
-            className: "px-4 py-3.5 text-center",
-            sortable: false,
-            render: (row) => (
-              <Link
-                href={`/sales/${row.id}`}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-primary/10 hover:text-primary transition-all shadow-sm"
-              >
-                <Eye className="h-4 w-4" />
-              </Link>
-            ),
-          },
-        ]}
-      />
+            },
+            {
+              key: "entryDate",
+              label: "Date",
+              className: "px-4 py-3.5 whitespace-nowrap opacity-80",
+              render: (row, val) => format(new Date(val), "dd MMM yyyy"),
+            },
+            {
+              key: "buyerName",
+              label: "Buyer",
+              className: "px-4 py-3.5 font-semibold text-foreground",
+            },
+            {
+              key: "totalWeight",
+              label: "Net Weight",
+              className: "px-4 py-3.5 text-right font-mono text-xs",
+              render: (row, val) => (
+                <>
+                  {Number(val).toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">KG</span>
+                </>
+              ),
+            },
+            {
+              key: "displayRate",
+              label: "Rate (Rs.)",
+              className: "px-4 py-3.5 text-right font-mono text-xs text-muted-foreground",
+              sortable: false,
+              render: (row) =>
+                row.items.length > 1 ? (
+                  <span className="italic">Multiple</span>
+                ) : (
+                  <>
+                    Rs. {Number(row.items[0]?.rate || 0).toLocaleString()}
+                    <span className="text-[9px] opacity-60 ml-1 uppercase">
+                      /{" "}
+                      {getUnitLabel(
+                        row.items[0]?.unit === "BAG" ||
+                          row.items[0]?.product?.category === "BAG" ||
+                          row.items[0]?.product?.primaryUnit === "BAG"
+                          ? "BAG"
+                          : row.items[0]?.rateUnit || "KG"
+                      )}
+                    </span>
+                  </>
+                ),
+            },
+            {
+              key: "finalAmount",
+              label: "Final Amount",
+              className: "px-4 py-3.5 text-right font-bold text-base",
+              render: (row, val) => `Rs. ${Number(val).toLocaleString()}`,
+            },
+            ...(currentTab === "PARTIAL"
+              ? [
+                  {
+                    key: "remaining",
+                    label: "Remaining",
+                    className: "px-4 py-3.5 text-right font-semibold text-rose-600 font-mono text-xs",
+                    render: (row, val) => `Rs. ${Number(val).toLocaleString()}`,
+                  },
+                ]
+              : []),
+            {
+              key: "status",
+              label: "Status",
+              className: "px-4 py-3.5 text-center",
+              render: (row, val) => (
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
+                    val === "PENDING"
+                      ? "bg-amber-100 text-amber-700 border-amber-200"
+                      : val === "PARTIAL"
+                      ? "bg-blue-100 text-blue-700 border-blue-200"
+                      : val === "CLEARED"
+                      ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                      : "bg-rose-100 text-rose-700 border-rose-200"
+                  )}
+                >
+                  {val}
+                </span>
+              ),
+            },
+            {
+              key: "actions",
+              label: "Actions",
+              className: "px-4 py-3.5 text-center",
+              sortable: false,
+              render: (row) => (
+                <Link
+                  href={`/sales/${row.id}`}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-primary/10 hover:text-primary transition-all shadow-sm"
+                >
+                  <Eye className="h-4 w-4" />
+                </Link>
+              ),
+            },
+          ]}
+        />
+
+        <PaginationControls
+          currentPage={currentPage}
+          totalCount={totalCount}
+          limit={currentLimit}
+          onPageChange={(newPage) => updateFilters({ page: newPage })}
+          onLimitChange={(newLimit) => updateFilters({ limit: newLimit })}
+        />
+      </div>
     </div>
   );
 }

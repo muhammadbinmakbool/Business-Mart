@@ -43,11 +43,12 @@ export async function createLedgerSessionAction(data) {
   }
 }
 
-/**
- * Action to list saved sessions.
- */
-export async function listLedgerSessionsAction() {
+export async function listLedgerSessionsAction({ page, limit, searchQuery } = {}) {
   try {
+    if (page !== undefined || limit !== undefined || searchQuery !== undefined) {
+      const result = await LedgerService.listSessionsPaginated({ page, limit, searchQuery });
+      return { success: true, ...result };
+    }
     const sessions = await LedgerService.listSessions();
     return { success: true, data: sessions };
   } catch (error) {

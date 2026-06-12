@@ -7,7 +7,12 @@ import { getPrintSettingsAction, getGeneralSettingsAction, getSettlementLedgerSe
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 import LedgerClient from "./LedgerClient";
 
-export default async function LedgerPage() {
+export default async function LedgerPage({ searchParams }) {
+  const resolvedSearchParams = await searchParams;
+  
+  const historyPage = parseInt(resolvedSearchParams.page) || 1;
+  const historyLimit = parseInt(resolvedSearchParams.limit) || 50;
+
   // Query active parties for filtering
   const [parties, liveData, sessionsResult, settingsResult, generalSettingsResult, settlementSettingsResult] = await Promise.all([
     prisma.party.findMany({
@@ -15,7 +20,7 @@ export default async function LedgerPage() {
       orderBy: { name: "asc" }
     }),
     LedgerService.getLiveReconciliationData(),
-    LedgerService.listSessions(),
+    LedgerService.listSessionsPaginated({ page: historyPage, limit: historyLimit }),
     getPrintSettingsAction(),
     getGeneralSettingsAction(),
     getSettlementLedgerSettingsAction()
@@ -34,7 +39,10 @@ export default async function LedgerPage() {
       initialSales={liveData.sales}
       suppliers={JSON.parse(JSON.stringify(suppliers))}
       buyers={JSON.parse(JSON.stringify(buyers))}
-      initialSessions={sessionsResult}
+      initialSessions={sessionsResult.items}
+      initialSessionsCount={sessionsResult.totalCount}
+      initialPage={historyPage}
+      initialLimit={historyLimit}
       printConfig={printConfig}
       settlementSettings={settlementSettingsResult?.success ? settlementSettingsResult.settings : {}}
     />

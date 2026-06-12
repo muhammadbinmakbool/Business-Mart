@@ -14,6 +14,31 @@ export class ProductService {
     return await ProductRepository.getAllWithStock();
   }
 
+  static async listProductsPaginated({
+    page = 1,
+    limit = 50,
+    searchQuery = "",
+    sortField = "name",
+    sortDirection = "asc"
+  } = {}) {
+    const { clampLimit } = await import("@/lib/pagination");
+    const clampedLimit = clampLimit(limit);
+
+    const { items, totalCount } = await ProductRepository.getAllPaginated({
+      page,
+      limit: clampedLimit,
+      searchQuery,
+      sortField,
+      sortDirection
+    });
+
+    return {
+      items: JSON.parse(JSON.stringify(items)),
+      totalCount
+    };
+  }
+
+
   static async getProduct(id) {
     return await ProductRepository.getById(id);
   }

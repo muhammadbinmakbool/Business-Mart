@@ -29,7 +29,10 @@ export class ProductRepository {
   static async getAllWithStock() {
     const products = await prisma.product.findMany({
       where: { isDeleted: false },
-      orderBy: { name: "asc" }
+      orderBy: [
+        { name: "asc" },
+        { id: "desc" }
+      ]
     });
 
     return products.map(p => {
@@ -40,6 +43,63 @@ export class ProductRepository {
       };
     });
   }
+
+  static async getAllPaginated({
+    page = 1,
+    limit = 50,
+    searchQuery = "",
+    sortField = "name",
+    sortDirection = "asc"
+  } = {}) {
+    let showDeleted = false;
+    try {
+      const { getActivityAuditSettings } = await import("@/lib/settings/activityAuditSettings");
+      const settings = await getActivityAuditSettings();
+      showDeleted = settings.showDeletedRecords;
+    } catch (e) {}
+
+    const where = showDeleted ? {} : { isDeleted: false };
+
+    if (searchQuery) {
+      const q = searchQuery.trim();
+      where.OR = [
+        { name: { contains: q } },
+        { category: { contains: q } }
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    const orderByClause = [];
+    if (sortField) {
+      const direction = sortDirection === "asc" ? "asc" : "desc";
+      orderByClause.push({ [sortField]: direction });
+    } else {
+      orderByClause.push({ name: "asc" });
+    }
+    orderByClause.push({ id: "desc" });
+
+    const [items, totalCount] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: orderByClause
+      }),
+      prisma.product.count({ where })
+    ]);
+
+    const mappedItems = items.map(p => {
+      const serialized = this.serializeProduct(p);
+      return {
+        ...serialized,
+        availableStock: serialized.quantity
+      };
+    });
+
+    return { items: mappedItems, totalCount };
+  }
+
 
   static async getById(id) {
     const product = await prisma.product.findUnique({

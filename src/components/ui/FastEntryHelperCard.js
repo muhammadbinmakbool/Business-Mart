@@ -26,7 +26,7 @@ export default function FastEntryHelperCard() {
       }
     }
     checkSettings();
-  }, [pathname]); // Re-evaluate settings on route changes
+  }, []); // Only fetch settings once on initial mount
 
   // 2. Setup periodic wiggle animation for minimized bubble
   useEffect(() => {

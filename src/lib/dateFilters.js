@@ -95,3 +95,75 @@ export function filterByDateRange(records, dateField, filterState) {
     return true;
   });
 }
+
+/**
+ * Returns `{ start: Date | null, end: Date | null }` based on standard date presets.
+ */
+export function getDateRangeFromFilter(filterState) {
+  if (!filterState || filterState.preset === "all") return { start: null, end: null };
+
+  const now = new Date();
+  let start = null;
+  let end = null;
+
+  const getDayBounds = (d) => {
+    const s = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+    const e = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+    return { s, e };
+  };
+
+  switch (filterState.preset) {
+    case "today": {
+      const bounds = getDayBounds(now);
+      start = bounds.s;
+      end = bounds.e;
+      break;
+    }
+    case "yesterday": {
+      const yesterday = new Date(now);
+      yesterday.setDate(now.getDate() - 1);
+      const bounds = getDayBounds(yesterday);
+      start = bounds.s;
+      end = bounds.e;
+      break;
+    }
+    case "this_week": {
+      const tempDate = new Date(now);
+      const day = tempDate.getDay();
+      const diff = tempDate.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(tempDate.setDate(diff));
+      const boundsStart = getDayBounds(monday);
+      const boundsEnd = getDayBounds(new Date());
+      start = boundsStart.s;
+      end = boundsEnd.e;
+      break;
+    }
+    case "this_month": {
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      break;
+    }
+    case "specific_month": {
+      if (filterState.month) {
+        const [year, month] = filterState.month.split("-").map(Number);
+        start = new Date(year, month - 1, 1, 0, 0, 0, 0);
+        end = new Date(year, month, 0, 23, 59, 59, 999);
+      }
+      break;
+    }
+    case "custom": {
+      if (filterState.startDate) {
+        const [yr, mo, dy] = filterState.startDate.split("-").map(Number);
+        start = new Date(yr, mo - 1, dy, 0, 0, 0, 0);
+      }
+      if (filterState.endDate) {
+        const [yr, mo, dy] = filterState.endDate.split("-").map(Number);
+        end = new Date(yr, mo - 1, dy, 23, 59, 59, 999);
+      }
+      break;
+    }
+  }
+
+  return { start, end };
+}
+

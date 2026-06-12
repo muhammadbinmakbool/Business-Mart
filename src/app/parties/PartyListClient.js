@@ -1,22 +1,75 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { Plus, Search, Edit2, Phone, MapPin, Eye, Filter } from "lucide-react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { Plus, Edit2, Eye, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DeleteButton from "@/components/DeleteButton";
 import { deletePartyAction, hardDeletePartyAction } from "@/modules/parties/controllers/partyActions";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import DataTable from "@/components/ui/DataTable";
-import { useTableSorting } from "@/hooks/useTableSorting";
+import PaginationControls from "@/components/ui/PaginationControls";
 
-export default function PartyListClient({ parties = [] }) {
+export default function PartyListClient({
+  parties = [],
+  totalCount = 0,
+  tabCounts = { all: 0, buyer: 0, supplier: 0, both: 0, inactive: 0 },
+  currentPage = 1,
+  currentLimit = 50,
+  currentSearch = "",
+  currentTab = "ALL",
+  currentSortField = "name",
+  currentSortDirection = "asc"
+}) {
   const router = useRouter();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState("ALL");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const [searchQuery, setSearchQuery] = useState(currentSearch);
   const [showFilters, setShowFilters] = useState(true);
+
+  // Sync internal search query state with URL changes
+  useEffect(() => {
+    setSearchQuery(currentSearch);
+  }, [currentSearch]);
+
+  const updateFilters = (updates) => {
+    const params = new URLSearchParams(searchParams.toString());
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === undefined || value === "") {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    });
+    
+    if (!("page" in updates)) {
+      params.set("page", "1");
+    }
+    
+    router.push(`${pathname}?${params.toString()}`);
+  };
+
+  // Gracefully handle deleting last item on the page
+  useEffect(() => {
+    if (currentPage > 1 && parties.length === 0) {
+      updateFilters({ page: Math.max(1, currentPage - 1) });
+    }
+  }, [parties, currentPage]);
+
+  const handleSort = (field) => {
+    // If the field is not sortable (like netBalance), ignore
+    if (field === "netBalance") return;
+
+    let direction = "asc";
+    if (currentSortField === field && currentSortDirection === "asc") {
+      direction = "desc";
+    }
+    updateFilters({ sortField: field, sortDirection: direction });
+  };
 
   const columns = useMemo(() => [
     {
@@ -73,6 +126,7 @@ export default function PartyListClient({ parties = [] }) {
     {
       key: "netBalance",
       label: "Net Balance",
+      sortable: false,
       className: "text-right font-mono font-semibold",
       render: (party) => {
         const bal = party.netBalance || 0;
@@ -118,42 +172,12 @@ export default function PartyListClient({ parties = [] }) {
     }
   ], []);
 
-  const filteredParties = useMemo(() => {
-    return parties.filter((party) => {
-      // 1. Active/Inactive status filter
-      if (activeTab === "INACTIVE") {
-        if (party.isActive) return false;
-      } else {
-        if (!party.isActive) return false;
-      }
-
-      // 2. Party Type Filter
-      if (activeTab === "BUYER" && party.partyType !== "BUYER" && party.partyType !== "BOTH") return false;
-      if (activeTab === "SUPPLIER" && party.partyType !== "SUPPLIER" && party.partyType !== "BOTH") return false;
-      if (activeTab === "BOTH" && party.partyType !== "BOTH") return false;
-
-      // 3. Search Query Filter
-      if (searchQuery.trim() !== "") {
-        const query = searchQuery.toLowerCase();
-        const matchName = party.name?.toLowerCase().includes(query);
-        const matchPhone = party.phoneNumber?.toLowerCase().includes(query);
-        const matchAddress = party.address?.toLowerCase().includes(query);
-        return matchName || matchPhone || matchAddress;
-      }
-
-      return true;
-    });
-  }, [parties, activeTab, searchQuery]);
-
-  const { sortedData: sortedParties, sortField, sortDirection, requestSort } = useTableSorting(filteredParties, "name", "asc");
-
-  // Calculate dynamic tab counts based on active status
   const tabs = [
-    { key: "ALL", label: "All", count: parties.filter(p => p.isActive).length },
-    { key: "BUYER", label: "Buyer", count: parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH")).length },
-    { key: "SUPPLIER", label: "Supplier", count: parties.filter(p => p.isActive && (p.partyType === "SUPPLIER" || p.partyType === "BOTH")).length },
-    { key: "BOTH", label: "Both", count: parties.filter(p => p.isActive && p.partyType === "BOTH").length },
-    { key: "INACTIVE", label: "Inactive", count: parties.filter(p => !p.isActive).length },
+    { key: "ALL", label: "All", count: tabCounts.all },
+    { key: "BUYER", label: "Buyer", count: tabCounts.buyer },
+    { key: "SUPPLIER", label: "Supplier", count: tabCounts.supplier },
+    { key: "BOTH", label: "Both", count: tabCounts.both },
+    { key: "INACTIVE", label: "Inactive", count: tabCounts.inactive },
   ];
 
   return (
@@ -177,7 +201,7 @@ export default function PartyListClient({ parties = [] }) {
           <div className="flex-1 flex gap-2">
             <DebouncedSearchInput
               value={searchQuery}
-              onChange={setSearchQuery}
+              onChange={(val) => updateFilters({ search: val })}
               placeholder="Search parties by name, phone or address..."
             />
             <button
@@ -204,23 +228,33 @@ export default function PartyListClient({ parties = [] }) {
           )}
         >
           <StatusFilterTabs 
-            activeTab={activeTab}
-            onChange={setActiveTab}
+            activeTab={currentTab}
+            onChange={(newTab) => updateFilters({ tab: newTab })}
             tabs={tabs}
           />
         </div>
       </div>
 
-      <DataTable
-        data={sortedParties}
-        columns={columns}
-        sortField={sortField}
-        sortDirection={sortDirection}
-        onRequestSort={requestSort}
-        rowClassName={(party) => !party.isActive ? "opacity-50" : ""}
-        onRowClick={(party) => router.push(`/parties/${party.id}`)}
-        emptyMessage="No parties found matching the criteria."
-      />
+      <div className="space-y-4">
+        <DataTable
+          data={parties}
+          columns={columns}
+          sortField={currentSortField}
+          sortDirection={currentSortDirection}
+          onRequestSort={handleSort}
+          rowClassName={(party) => !party.isActive ? "opacity-50" : ""}
+          onRowClick={(party) => router.push(`/parties/${party.id}`)}
+          emptyMessage="No parties found matching the criteria."
+        />
+
+        <PaginationControls
+          currentPage={currentPage}
+          totalCount={totalCount}
+          limit={currentLimit}
+          onPageChange={(newPage) => updateFilters({ page: newPage })}
+          onLimitChange={(newLimit) => updateFilters({ limit: newLimit })}
+        />
+      </div>
     </div>
   );
 }

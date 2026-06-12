@@ -68,6 +68,45 @@ export async function listSupplierInvoicesAction() {
   }
 }
 
+export async function listSupplierInvoicesPaginatedAction({
+  page = 1,
+  limit = 50,
+  searchQuery = "",
+  status = "ALL",
+  dateRange = null,
+  sortField = "entryDate",
+  sortDirection = "desc"
+} = {}) {
+  try {
+    const { clampLimit } = await import("@/lib/pagination");
+    const clampedLimit = clampLimit(limit);
+
+    const { items, totalCount } = await SupplierInvoiceRepository.getAllPaginated({
+      page,
+      limit: clampedLimit,
+      searchQuery,
+      status,
+      dateRange,
+      sortField,
+      sortDirection
+    });
+
+    const tabCounts = await SupplierInvoiceRepository.getTabCounts({ searchQuery, dateRange });
+
+    return {
+      success: true,
+      data: {
+        items: JSON.parse(JSON.stringify(items)),
+        totalCount,
+        tabCounts
+      }
+    };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+
 export async function updateInvoiceStatusAction(id, status, notes) {
   try {
     const { prisma } = await import("@/lib/prisma");
