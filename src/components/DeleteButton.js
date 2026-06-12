@@ -8,6 +8,26 @@ import { cn } from "@/lib/utils";
 import Modal from "@/components/ui/Modal";
 import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
 
+let cachedSessionPromise = null;
+let cachedDestructivePromise = null;
+
+function fetchSession() {
+  if (!cachedSessionPromise) {
+    cachedSessionPromise = getActiveSessionAction();
+  }
+  return cachedSessionPromise;
+}
+
+function fetchDestructive() {
+  if (!cachedDestructivePromise) {
+    cachedDestructivePromise = (async () => {
+      const { getDestructiveModeStatusAction } = await import("@/modules/auth/controllers/destructiveActions");
+      return getDestructiveModeStatusAction();
+    })();
+  }
+  return cachedDestructivePromise;
+}
+
 export default function DeleteButton({ 
   id, 
   deleteAction, 
@@ -27,15 +47,14 @@ export default function DeleteButton({
   const router = useRouter();
 
   useEffect(() => {
+    let active = true;
     async function loadSessionAndDestructive() {
       try {
         const [sess, destructiveRes] = await Promise.all([
-          getActiveSessionAction(),
-          (async () => {
-            const { getDestructiveModeStatusAction } = await import("@/modules/auth/controllers/destructiveActions");
-            return getDestructiveModeStatusAction();
-          })()
+          fetchSession(),
+          fetchDestructive()
         ]);
+        if (!active) return;
         setCurrentUser(sess);
         if (destructiveRes?.active) {
           setIsDestructiveActive(true);
@@ -45,6 +64,9 @@ export default function DeleteButton({
       }
     }
     loadSessionAndDestructive();
+    return () => {
+      active = false;
+    };
   }, []);
 
   // 1. Hide delete trigger completely if not loaded or if user is not authorized
