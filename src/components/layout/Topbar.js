@@ -4,9 +4,8 @@ import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Sun, Moon, Bell, User, Menu, Settings, LogOut } from "lucide-react";
 import { useTheme } from "@/components/ThemeProvider";
 import { useSidebar } from "./SidebarContext";
+import { useAuth } from "./AuthContext";
 import { logoutAction } from "@/modules/auth/controllers/authActions";
-import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
-import { getDestructiveModeStatusAction } from "@/modules/auth/controllers/destructiveActions";
 import {
   DestructiveModeModal,
   DestructiveModeBanner,
@@ -20,25 +19,9 @@ export function Topbar() {
   const { theme, setTheme } = useTheme();
   const { setIsMobileOpen } = useSidebar();
   const [isOpen, setIsOpen] = useState(false);
-  const [session, setSession] = useState(null);
-  const [isDestructiveActive, setIsDestructiveActive] = useState(false);
+  const { currentUser: session, isDestructiveActive } = useAuth();
   const [showDestructiveModal, setShowDestructiveModal] = useState(false);
   const dropdownRef = useRef(null);
-
-  // Load session and initial destructive mode status
-  useEffect(() => {
-    async function loadSession() {
-      const activeSession = await getActiveSessionAction();
-      setSession(activeSession);
-
-      // Check if destructive mode is already active
-      if (activeSession && ADMIN_ROLES.includes(activeSession.role)) {
-        const status = await getDestructiveModeStatusAction();
-        setIsDestructiveActive(status.active);
-      }
-    }
-    loadSession();
-  }, []);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -56,14 +39,12 @@ export function Topbar() {
   };
 
   const handleDestructiveModeEntered = useCallback(() => {
-    setIsDestructiveActive(true);
     setShowDestructiveModal(false);
     setIsOpen(false);
     window.location.reload();
   }, []);
 
   const handleDestructiveModeExited = useCallback(() => {
-    setIsDestructiveActive(false);
     window.location.reload();
   }, []);
 

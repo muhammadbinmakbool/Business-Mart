@@ -1,34 +1,20 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { useSidebar } from "./SidebarContext";
+import { useAuth } from "./AuthContext";
 import { DestructiveModeBanner } from "./DestructiveModeModal";
-import { getDestructiveModeStatusAction } from "@/modules/auth/controllers/destructiveActions";
 
 export function AppLayout({ children }) {
   const pathname = usePathname();
   const { isCollapsed, toggleCollapse, isMobileOpen, setIsMobileOpen } = useSidebar();
-  const [isDestructiveActive, setIsDestructiveActive] = useState(false);
+  const { isDestructiveActive } = useAuth();
 
   const isLoginPage = pathname === "/login";
-
-  useEffect(() => {
-    async function checkDestructive() {
-      try {
-        const status = await getDestructiveModeStatusAction();
-        setIsDestructiveActive(status.active);
-      } catch (err) {
-        console.error("Failed to check destructive mode status:", err);
-      }
-    }
-    if (!isLoginPage) {
-      checkDestructive();
-    }
-  }, [pathname, isLoginPage]);
 
   const handleDestructiveModeExited = () => {
     setIsDestructiveActive(false);

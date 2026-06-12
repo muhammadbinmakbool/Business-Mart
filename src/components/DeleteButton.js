@@ -1,32 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import Modal from "@/components/ui/Modal";
-import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
-
-let cachedSessionPromise = null;
-let cachedDestructivePromise = null;
-
-function fetchSession() {
-  if (!cachedSessionPromise) {
-    cachedSessionPromise = getActiveSessionAction();
-  }
-  return cachedSessionPromise;
-}
-
-function fetchDestructive() {
-  if (!cachedDestructivePromise) {
-    cachedDestructivePromise = (async () => {
-      const { getDestructiveModeStatusAction } = await import("@/modules/auth/controllers/destructiveActions");
-      return getDestructiveModeStatusAction();
-    })();
-  }
-  return cachedDestructivePromise;
-}
+import { useAuth } from "@/components/layout/AuthContext";
 
 export default function DeleteButton({ 
   id, 
@@ -40,37 +20,14 @@ export default function DeleteButton({
   onSuccess,
   disabled
 }) {
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isDestructiveActive, setIsDestructiveActive] = useState(false);
+  const { currentUser, isDestructiveActive, loading } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const router = useRouter();
 
-  useEffect(() => {
-    let active = true;
-    async function loadSessionAndDestructive() {
-      try {
-        const [sess, destructiveRes] = await Promise.all([
-          fetchSession(),
-          fetchDestructive()
-        ]);
-        if (!active) return;
-        setCurrentUser(sess);
-        if (destructiveRes?.active) {
-          setIsDestructiveActive(true);
-        }
-      } catch (e) {
-        // Fallback for edge cases
-      }
-    }
-    loadSessionAndDestructive();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // 1. Hide delete trigger completely if not loaded or if user is not authorized
-  if (!currentUser) return null; // Wait for session load
+  // Hide delete trigger completely if loading or if user is not authorized
+  if (loading || !currentUser) return null;
+  
   const isAuthorized = currentUser.role === "SUPER_ADMIN" || currentUser.role === "ADMIN";
   if (!isAuthorized) {
     return null; 

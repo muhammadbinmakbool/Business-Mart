@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 import { SidebarProvider } from "@/components/layout/SidebarContext";
+import { AuthProvider } from "@/components/layout/AuthContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import CommandPalette from "@/modules/command-palette/components/CommandPalette";
@@ -30,14 +31,16 @@ export default function RootLayout({ children }) {
         suppressHydrationWarning
       >
         <ThemeProvider>
-          <SidebarProvider>
-            <AppLayout>
-              {children}
-            </AppLayout>
-            <Toaster position="top-center" richColors />
-            <CommandPalette />
-            <FastEntryHelperCard />
-          </SidebarProvider>
+          <AuthProvider>
+            <SidebarProvider>
+              <AppLayout>
+                {children}
+              </AppLayout>
+              <Toaster position="top-center" richColors />
+              <CommandPalette />
+              <FastEntryHelperCard />
+            </SidebarProvider>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
