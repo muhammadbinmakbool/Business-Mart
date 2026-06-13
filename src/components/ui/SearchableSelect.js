@@ -116,6 +116,12 @@ export default React.forwardRef(function SearchableSelect({
     if (disabled) return;
 
     if (!isOpen) {
+      if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        onChange?.("");
+        setSearchQuery("");
+        return;
+      }
       if (e.key === " " || e.key === "Spacebar" || e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         handleToggle();
