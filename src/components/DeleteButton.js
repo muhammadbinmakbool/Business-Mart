@@ -23,6 +23,7 @@ export default function DeleteButton({
   const { currentUser, isDestructiveActive, loading } = useAuth();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState("");
   const router = useRouter();
 
   // Hide delete trigger completely if loading or if user is not authorized
@@ -37,10 +38,11 @@ export default function DeleteButton({
     setIsDeleting(true);
     try {
       let result;
+      const finalReason = deleteReason.trim() || "";
       if (isDestructiveActive && hardDeleteAction) {
-        result = await hardDeleteAction(id, "UI requested permanent delete");
+        result = await hardDeleteAction(id, finalReason);
       } else {
-        result = await deleteAction(id, "", "UI requested delete");
+        result = await deleteAction(id, "", finalReason);
       }
 
       if (result?.error) {
@@ -52,6 +54,7 @@ export default function DeleteButton({
             : `${label} deleted successfully`
         );
         setIsModalOpen(false);
+        setDeleteReason("");
         if (onSuccess) {
           onSuccess();
         }
@@ -73,6 +76,7 @@ export default function DeleteButton({
       e.preventDefault();
       e.stopPropagation();
     }
+    setDeleteReason("");
     setIsModalOpen(true);
   }
 
@@ -108,14 +112,37 @@ export default function DeleteButton({
 
         <Modal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setDeleteReason("");
+          }}
           onConfirm={handleDeleteConfirm}
           title={modalTitle}
           description={modalDesc}
           confirmLabel={modalConfirmLabel}
           loading={isDeleting}
           type="danger"
-        />
+        >
+          <div className="space-y-2 mt-4">
+            <label className="text-xs font-bold text-muted-foreground block text-left">
+              Reason for Deletion <span className="text-[10px] font-normal text-muted-foreground">(Optional)</span>
+            </label>
+            <input
+              type="text"
+              placeholder={`Why are you deleting this ${label.toLowerCase()}? (Optional)`}
+              value={deleteReason}
+              onChange={(e) => setDeleteReason(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleDeleteConfirm();
+                }
+              }}
+              className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+              autoFocus
+            />
+          </div>
+        </Modal>
       </>
     );
   }
@@ -137,14 +164,37 @@ export default function DeleteButton({
 
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setDeleteReason("");
+        }}
         onConfirm={handleDeleteConfirm}
         title={modalTitle}
         description={modalDesc}
         confirmLabel={modalConfirmLabel}
         loading={isDeleting}
         type="danger"
-      />
+      >
+        <div className="space-y-2 mt-4">
+          <label className="text-xs font-bold text-muted-foreground block text-left">
+            Reason for Deletion <span className="text-[10px] font-normal text-muted-foreground">(Optional)</span>
+          </label>
+          <input
+            type="text"
+            placeholder={`Why are you deleting this ${label.toLowerCase()}? (Optional)`}
+            value={deleteReason}
+            onChange={(e) => setDeleteReason(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                handleDeleteConfirm();
+              }
+            }}
+            className="w-full h-10 px-3 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+            autoFocus
+          />
+        </div>
+      </Modal>
     </>
   );
 }
