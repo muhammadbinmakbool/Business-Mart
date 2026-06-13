@@ -17,7 +17,9 @@ import {
   ShieldCheck, 
   ShieldAlert,
   Wallet,
-  Banknote
+  Banknote,
+  ChevronDown,
+  ChevronRight
 } from "lucide-react";
 import { 
   DailyActivityChart, 
@@ -346,6 +348,17 @@ export function PendingAttentionWidget({ data }) {
     driftAlerts 
   } = data.pending;
 
+  const [expanded, setExpanded] = React.useState({
+    drift: true,
+    intakes: true,
+    settlements: true,
+    billing: true
+  });
+
+  const toggleSection = (section) => {
+    setExpanded(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
   const formatAge = (days) => {
     if (days === 0) return "today";
     if (days === 1) return "1 day ago";
@@ -353,7 +366,7 @@ export function PendingAttentionWidget({ data }) {
   };
 
   return (
-    <div className="bg-card border rounded-2xl p-5 shadow-sm space-y-5 h-full border-slate-200 dark:border-slate-900">
+    <div className="bg-card border rounded-2xl p-5 shadow-sm space-y-5 h-full border-slate-200 dark:border-slate-900 flex flex-col justify-between">
       <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
         <h4 className="font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2">
           <AlertTriangle className="h-4.5 w-4.5 text-rose-500" />
@@ -364,91 +377,136 @@ export function PendingAttentionWidget({ data }) {
         </span>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1 flex-1">
         {/* Ledger Drift Warnings */}
         {driftAlerts.length > 0 && (
           <div className="space-y-2">
-            <h5 className="text-[10px] uppercase font-extrabold text-rose-500 tracking-wider">Drift Alerts (Sessions)</h5>
-            {driftAlerts.map(alert => (
-              <div key={alert.id} className="bg-rose-50/50 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-950/40 p-2.5 rounded-lg flex items-center justify-between text-xs">
-                <div className="space-y-0.5">
-                  <div className="font-bold text-rose-700 dark:text-rose-350 truncate max-w-[150px]">{alert.title}</div>
-                  <div className="text-[10px] text-rose-600 dark:text-rose-400 font-mono">Live Drift: Rs. {alert.driftAmount.toLocaleString()}</div>
-                </div>
-                <Link href="/ledger" className="text-[10px] font-bold text-rose-600 dark:text-rose-300 hover:underline shrink-0">
-                  Audit
-                </Link>
+            <button 
+              onClick={() => toggleSection("drift")}
+              className="w-full text-[10px] uppercase font-extrabold text-rose-500 tracking-wider flex items-center justify-between border-b border-rose-100/50 dark:border-rose-950/40 pb-1 hover:text-rose-600 dark:hover:text-rose-400 transition-colors"
+            >
+              <span className="flex items-center gap-1">
+                {expanded.drift ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                <span>Drift Alerts ({driftAlerts.length})</span>
+              </span>
+            </button>
+            {expanded.drift && (
+              <div className="space-y-1.5 transition-all">
+                {driftAlerts.map(alert => (
+                  <div key={alert.id} className="bg-rose-50/50 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-950/40 p-2.5 rounded-lg flex items-center justify-between text-xs">
+                    <div className="space-y-0.5">
+                      <div className="font-bold text-rose-700 dark:text-rose-350 truncate max-w-[150px]">{alert.title}</div>
+                      <div className="text-[10px] text-rose-600 dark:text-rose-400 font-mono">Live Drift: Rs. {alert.driftAmount.toLocaleString()}</div>
+                    </div>
+                    <Link href="/ledger" className="text-[10px] font-bold text-rose-600 dark:text-rose-300 hover:underline shrink-0">
+                      Audit
+                    </Link>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
         )}
 
         {/* Intakes still PENDING */}
         <div className="space-y-2">
-          <h5 className="text-[10px] uppercase font-extrabold text-slate-500 dark:text-slate-450 tracking-wider flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-1">
-            <span>⚠ {pendingIntakesCount} Pending Intakes</span>
+          <button 
+            onClick={() => toggleSection("intakes")}
+            className="w-full text-[10px] uppercase font-extrabold text-slate-500 dark:text-slate-450 tracking-wider flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-1 hover:text-slate-700 dark:hover:text-slate-250 transition-colors"
+          >
+            <span className="flex items-center gap-1">
+              {expanded.intakes ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              <span>⚠ {pendingIntakesCount} Pending Intakes</span>
+            </span>
             <span className="font-semibold font-mono text-[9px] text-slate-400 dark:text-slate-500 lowercase">oldest: {formatAge(intakeOldestAgeDays)}</span>
-          </h5>
-          {pendingIntakes.length > 0 ? (
-            pendingIntakes.map(intake => (
-              <div key={intake.id} className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-xs hover:border-slate-300 dark:hover:border-slate-800 transition-all">
-                <div>
-                  <div className="font-bold text-slate-700 dark:text-slate-200">{intake.intakeNumber}</div>
-                  <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[165px]">{intake.partyName} ({intake.productName})</div>
-                </div>
-                <Link href={`/intake/${intake.id}/edit`} className="text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-primary bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded transition-colors">
-                  Sell
-                </Link>
-              </div>
-            ))
-          ) : (
-            <div className="text-[11px] text-slate-400 dark:text-slate-500 italic px-2">No pending intake logs.</div>
+          </button>
+          
+          {expanded.intakes && (
+            <div className="space-y-1.5 transition-all">
+              {pendingIntakes.length > 0 ? (
+                pendingIntakes.map(intake => (
+                  <div key={intake.id} className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-xs hover:border-slate-300 dark:hover:border-slate-800 transition-all">
+                    <div>
+                      <div className="font-bold text-slate-700 dark:text-slate-200">{intake.intakeNumber}</div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[165px]">{intake.partyName} ({intake.productName})</div>
+                    </div>
+                    <Link href={`/intake/${intake.id}/edit`} className="text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-primary bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded transition-colors">
+                      Sell
+                    </Link>
+                  </div>
+                ))
+              ) : (
+                <div className="text-[11px] text-slate-400 dark:text-slate-500 italic px-2">No pending intake logs.</div>
+              )}
+            </div>
           )}
         </div>
 
         {/* SOLD Intakes Not Settled */}
         <div className="space-y-2">
-          <h5 className="text-[10px] uppercase font-extrabold text-slate-500 dark:text-slate-455 tracking-wider flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-1">
-            <span>⚠ {pendingSettlementsCount} Unsettled Settlements</span>
+          <button 
+            onClick={() => toggleSection("settlements")}
+            className="w-full text-[10px] uppercase font-extrabold text-slate-500 dark:text-slate-455 tracking-wider flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-1 hover:text-slate-700 dark:hover:text-slate-250 transition-colors"
+          >
+            <span className="flex items-center gap-1">
+              {expanded.settlements ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              <span>⚠ {pendingSettlementsCount} Unsettled Settlements</span>
+            </span>
             <span className="font-semibold font-mono text-[9px] text-slate-400 dark:text-slate-500 lowercase">oldest: {formatAge(settlementOldestAgeDays)}</span>
-          </h5>
-          {pendingSettlements.length > 0 ? (
-            pendingSettlements.map(item => (
-              <div key={item.id} className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-xs hover:border-slate-300 dark:hover:border-slate-800 transition-all">
-                <div>
-                  <div className="font-bold text-slate-700 dark:text-slate-200">{item.intakeNumber} (SOLD)</div>
-                  <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[165px]">{item.partyName} ({item.productName})</div>
-                </div>
-                <Link href="/supplier-invoices/create" className="text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-primary bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded transition-colors">
-                  Bill
-                </Link>
-              </div>
-            ))
-          ) : (
-            <div className="text-[11px] text-slate-400 dark:text-slate-500 italic px-2">All sold items settled.</div>
+          </button>
+
+          {expanded.settlements && (
+            <div className="space-y-1.5 transition-all">
+              {pendingSettlements.length > 0 ? (
+                pendingSettlements.map(item => (
+                  <div key={item.id} className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-xs hover:border-slate-300 dark:hover:border-slate-800 transition-all">
+                    <div>
+                      <div className="font-bold text-slate-700 dark:text-slate-200">{item.intakeNumber} (SOLD)</div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate max-w-[165px]">{item.partyName} ({item.productName})</div>
+                    </div>
+                    <Link href="/supplier-invoices/create" className="text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-primary bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded transition-colors">
+                      Bill
+                    </Link>
+                  </div>
+                ))
+              ) : (
+                <div className="text-[11px] text-slate-400 dark:text-slate-500 italic px-2">All sold items settled.</div>
+              )}
+            </div>
           )}
         </div>
 
         {/* Pending Buyer Billing */}
         <div className="space-y-2">
-          <h5 className="text-[10px] uppercase font-extrabold text-slate-500 dark:text-slate-455 tracking-wider flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-1">
-            <span>⚠ {pendingBillingCount} Unbilled Buyer Tracks</span>
+          <button 
+            onClick={() => toggleSection("billing")}
+            className="w-full text-[10px] uppercase font-extrabold text-slate-500 dark:text-slate-455 tracking-wider flex items-center justify-between border-b border-slate-100 dark:border-slate-900 pb-1 hover:text-slate-700 dark:hover:text-slate-250 transition-colors"
+          >
+            <span className="flex items-center gap-1">
+              {expanded.billing ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              <span>⚠ {pendingBillingCount} Unbilled Buyer Tracks</span>
+            </span>
             <span className="font-semibold font-mono text-[9px] text-slate-400 dark:text-slate-500 lowercase">oldest: {formatAge(billingOldestAgeDays)}</span>
-          </h5>
-          {pendingBilling.length > 0 ? (
-            pendingBilling.map(track => (
-              <div key={track.id} className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-xs hover:border-slate-300 dark:hover:border-slate-800 transition-all">
-                <div className="min-w-0 mr-2">
-                  <div className="font-bold text-slate-700 dark:text-slate-200 truncate">{track.productName} ({track.quantity} KG)</div>
-                  <div className="text-[10px] text-slate-400 dark:text-slate-555 truncate">{track.buyerName}</div>
-                </div>
-                <Link href="/sales/create" className="text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-primary bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded shrink-0 transition-colors">
-                  Invoice
-                </Link>
-              </div>
-            ))
-          ) : (
-            <div className="text-[11px] text-slate-400 dark:text-slate-500 italic px-2">No unbilled buyer batches.</div>
+          </button>
+
+          {expanded.billing && (
+            <div className="space-y-1.5 transition-all">
+              {pendingBilling.length > 0 ? (
+                pendingBilling.map(track => (
+                  <div key={track.id} className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-xs hover:border-slate-300 dark:hover:border-slate-800 transition-all">
+                    <div className="min-w-0 mr-2">
+                      <div className="font-bold text-slate-700 dark:text-slate-200 truncate">{track.productName} ({track.quantity} KG)</div>
+                      <div className="text-[10px] text-slate-400 dark:text-slate-555 truncate">{track.buyerName}</div>
+                    </div>
+                    <Link href="/sales/create" className="text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-primary bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded shrink-0 transition-colors">
+                      Invoice
+                    </Link>
+                  </div>
+                ))
+              ) : (
+                <div className="text-[11px] text-slate-400 dark:text-slate-500 italic px-2">No unbilled buyer batches.</div>
+              )}
+            </div>
           )}
         </div>
       </div>
