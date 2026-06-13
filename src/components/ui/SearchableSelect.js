@@ -116,7 +116,7 @@ export default React.forwardRef(function SearchableSelect({
     if (disabled) return;
 
     if (!isOpen) {
-      if (e.key === "Enter" || e.key === "Space" || e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (e.key === " " || e.key === "Spacebar" || e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         handleToggle();
       }
@@ -139,6 +139,7 @@ export default React.forwardRef(function SearchableSelect({
           onChange?.(sortedOptions[highlightedIndex].value);
           setIsOpen(false);
           setSearchQuery("");
+          containerRef.current?.querySelector("button")?.focus();
         }
         break;
       case "Escape":
