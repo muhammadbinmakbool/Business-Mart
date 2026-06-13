@@ -45,17 +45,17 @@ export function DailyActivityChart({ data = [] }) {
                 </div>
 
                 {/* Bars */}
-                <div className="flex-1 w-full flex items-end justify-center gap-0.5">
+                <div className="flex-1 w-full flex items-end justify-center gap-1">
                   <div 
                     style={{ height: `${intakeHeight}%` }} 
-                    className="w-1.5 bg-sky-500/80 hover:bg-sky-500 rounded-t transition-all"
+                    className="w-5 bg-sky-500/80 hover:bg-sky-500 rounded-t transition-all"
                   />
                   <div 
                     style={{ height: `${saleHeight}%` }} 
-                    className="w-1.5 bg-violet-500/80 hover:bg-violet-500 rounded-t transition-all"
+                    className="w-5 bg-violet-500/80 hover:bg-violet-500 rounded-t transition-all"
                   />
                 </div>
-                <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 mt-1 select-none">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-2 select-none">
                   {day.label}
                 </span>
               </div>
@@ -156,17 +156,17 @@ export function FinancialFlowChart({ data = [] }) {
                 </div>
 
                 {/* Bars */}
-                <div className="flex-1 w-full flex items-end justify-center gap-0.5">
+                <div className="flex-1 w-full flex items-end justify-center gap-1">
                   <div 
                     style={{ height: `${settHeight}%` }} 
-                    className="w-1.5 bg-amber-500/80 hover:bg-amber-500 rounded-t transition-all"
+                    className="w-5 bg-amber-500/80 hover:bg-amber-500 rounded-t transition-all"
                   />
                   <div 
                     style={{ height: `${saleHeight}%` }} 
-                    className="w-1.5 bg-teal-500/80 hover:bg-teal-555 rounded-t transition-all"
+                    className="w-5 bg-teal-500/80 hover:bg-teal-555 rounded-t transition-all"
                   />
                 </div>
-                <span className="text-[9px] font-mono text-slate-500 dark:text-slate-400 mt-1 select-none">
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mt-2 select-none">
                   {day.label}
                 </span>
               </div>
