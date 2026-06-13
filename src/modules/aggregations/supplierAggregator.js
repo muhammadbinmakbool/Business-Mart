@@ -12,39 +12,14 @@ export async function getSupplierSettlementSetup() {
     return cached;
   }
 
-  // Query active suppliers (SUPPLIER or BOTH) with uninvoiced intakes whose status is SOLD or PARTIAL
+  // Query active suppliers (SUPPLIER or BOTH)
   const suppliers = await prisma.party.findMany({
     where: {
       isActive: true,
       OR: [
         { partyType: "SUPPLIER" },
         { partyType: "BOTH" }
-      ],
-      intakeTransactions: {
-        some: {
-          status: { in: ["SOLD", "PARTIAL"] },
-          OR: [
-            {
-              invoiceItems: {
-                none: {
-                  invoice: {
-                    status: {
-                      not: "SUPERSEDED"
-                    }
-                  }
-                }
-              }
-            },
-            {
-              salesTracks: {
-                some: {
-                  isSettled: false
-                }
-              }
-            }
-          ]
-        }
-      }
+      ]
     },
     orderBy: { name: "asc" }
   });

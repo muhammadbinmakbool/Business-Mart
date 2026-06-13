@@ -1,9 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { 
-  calculateSupplierTotals, 
-  calculateBuyerTotals, 
-  calculateReconciliationSummary 
-} from "@/lib/reconciliation";
 
 export class DashboardService {
   /**
@@ -14,21 +9,41 @@ export class DashboardService {
 
   // --- 1. FINANCE DOMAIN ---
   static async getFinanceOverview() {
-    // 1. Fetch active invoices (non-superseded)
-    const invoices = await prisma.supplierInvoice.findMany({
-      where: { status: { not: "SUPERSEDED" } }
-    });
+    const [aggInvoices, aggSales] = await Promise.all([
+      prisma.supplierInvoice.aggregate({
+        _sum: {
+          totalGrossValue: true,
+          totalDeductions: true,
+          totalAdvances: true,
+          finalPayableAmount: true
+        },
+        _count: {
+          id: true
+        },
+        where: {
+          status: { not: "SUPERSEDED" }
+        }
+      }),
+      prisma.saleTransaction.aggregate({
+        _sum: {
+          baseAmount: true,
+          totalAdjustments: true,
+          finalAmount: true
+        },
+        _count: {
+          id: true
+        },
+        where: {
+          isDeleted: false,
+          status: { not: "CANCELLED" }
+        }
+      })
+    ]);
 
-    // 2. Fetch active sales (non-deleted, non-cancelled)
-    const sales = await prisma.saleTransaction.findMany({
-      where: { 
-        isDeleted: false,
-        status: { not: "CANCELLED" }
-      }
-    });
-
-    const supplierStats = calculateSupplierTotals(invoices);
-    const buyerStats = calculateBuyerTotals(sales);
+    const supplierPayableTotal = Number(aggInvoices._sum.finalPayableAmount || 0);
+    const activeInvoicesCount = aggInvoices._count.id;
+    const buyerReceivableTotal = Number(aggSales._sum.finalAmount || 0);
+    const activeSalesCount = aggSales._count.id;
 
     // Today's commissions
     const { start, end } = this.getTodayRange();
@@ -46,11 +61,11 @@ export class DashboardService {
     });
 
     return {
-      supplierPayableTotal: supplierStats.finalPayable,
-      buyerReceivableTotal: buyerStats.final,
+      supplierPayableTotal,
+      buyerReceivableTotal,
       todayCommissionTotal: todayCommissions._sum.calculatedAmount ? Number(todayCommissions._sum.calculatedAmount) : 0,
-      activeInvoicesCount: supplierStats.activeCount,
-      activeSalesCount: buyerStats.activeCount
+      activeInvoicesCount,
+      activeSalesCount
     };
   }
 
@@ -273,9 +288,15 @@ export class DashboardService {
 
     const driftAlerts = [];
     for (const session of lastSessions) {
-      // Fetch live data for the session interval
-      const [invoices, sales] = await Promise.all([
-        prisma.supplierInvoice.findMany({
+      // Aggregate live totals for the session interval
+      const [aggSupplier, aggBuyer] = await Promise.all([
+        prisma.supplierInvoice.aggregate({
+          _sum: {
+            totalGrossValue: true
+          },
+          _count: {
+            id: true
+          },
           where: {
             status: { not: "SUPERSEDED" },
             entryDate: {
@@ -284,7 +305,13 @@ export class DashboardService {
             }
           }
         }),
-        prisma.saleTransaction.findMany({
+        prisma.saleTransaction.aggregate({
+          _sum: {
+            baseAmount: true
+          },
+          _count: {
+            id: true
+          },
           where: {
             isDeleted: false,
             status: { not: "CANCELLED" },
@@ -296,20 +323,25 @@ export class DashboardService {
         })
       ]);
 
-      const liveSummary = calculateReconciliationSummary(invoices, sales);
+      const liveSupplierBaseTotal = Number(aggSupplier._sum.totalGrossValue || 0);
+      const liveSupplierActiveCount = aggSupplier._count.id;
+      const liveBuyerBaseTotal = Number(aggBuyer._sum.baseAmount || 0);
+      const liveBuyerActiveCount = aggBuyer._count.id;
+
       const hasDrift = 
-        Number(liveSummary.supplier.baseTotal) !== Number(session.supplierTotal) ||
-        Number(liveSummary.buyer.baseTotal) !== Number(session.buyerTotal) ||
-        liveSummary.supplier.activeCount !== session.supplierInvoiceCount ||
-        liveSummary.buyer.activeCount !== session.buyerInvoiceCount;
+        liveSupplierBaseTotal !== Number(session.supplierTotal) ||
+        liveBuyerBaseTotal !== Number(session.buyerTotal) ||
+        liveSupplierActiveCount !== session.supplierInvoiceCount ||
+        liveBuyerActiveCount !== session.buyerInvoiceCount;
 
       if (hasDrift) {
+        const liveDifference = liveBuyerBaseTotal - liveSupplierBaseTotal;
         driftAlerts.push({
           id: session.id,
           title: session.title,
           savedDifference: Number(session.difference),
-          liveDifference: Number(liveSummary.difference),
-          driftAmount: Math.abs(Number(liveSummary.difference) - Number(session.difference))
+          liveDifference: liveDifference,
+          driftAmount: Math.abs(liveDifference - Number(session.difference))
         });
       }
     }

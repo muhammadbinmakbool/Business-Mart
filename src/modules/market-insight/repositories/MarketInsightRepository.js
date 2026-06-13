@@ -69,42 +69,52 @@ export class MarketInsightRepository {
     return this.serializeRate(r);
   }
 
-  /**
-   * Get raw records for visual trend counting.
-   * Only reads counts of events, never financial aggregates or ledger records.
-   */
   static async getRawActivityEvents(startDate, endDate) {
-    const intakes = await prisma.intakeTransaction.findMany({
-      where: {
-        entryDate: {
-          gte: startDate,
-          lte: endDate
-        }
-      },
-      select: {
-        id: true,
-        entryDate: true,
-        productId: true
-      }
+    const isSqlite = process.env.DB_PROVIDER === "sqlite";
+    let intakesResult = [];
+    let salesResult = [];
+
+    if (isSqlite) {
+      intakesResult = await prisma.$queryRaw`
+        SELECT strftime('%Y-%m-%d', datetime(entryDate / 1000, 'unixepoch')) AS dateStr, COUNT(*) AS count
+        FROM IntakeTransaction
+        WHERE entryDate >= ${startDate.getTime()} AND entryDate <= ${endDate.getTime()}
+        GROUP BY dateStr
+      `;
+      salesResult = await prisma.$queryRaw`
+        SELECT strftime('%Y-%m-%d', datetime(entryDate / 1000, 'unixepoch')) AS dateStr, COUNT(*) AS count
+        FROM SaleTransaction
+        WHERE isDeleted = 0 AND entryDate >= ${startDate.getTime()} AND entryDate <= ${endDate.getTime()}
+        GROUP BY dateStr
+      `;
+    } else {
+      intakesResult = await prisma.$queryRaw`
+        SELECT CONVERT(VARCHAR(10), entryDate, 120) AS dateStr, COUNT(*) AS count
+        FROM IntakeTransaction
+        WHERE entryDate >= ${startDate} AND entryDate <= ${endDate}
+        GROUP BY CONVERT(VARCHAR(10), entryDate, 120)
+      `;
+      salesResult = await prisma.$queryRaw`
+        SELECT CONVERT(VARCHAR(10), entryDate, 120) AS dateStr, COUNT(*) AS count
+        FROM SaleTransaction
+        WHERE isDeleted = 0 AND entryDate >= ${startDate} AND entryDate <= ${endDate}
+        GROUP BY CONVERT(VARCHAR(10), entryDate, 120)
+      `;
+    }
+
+    const intakesDaily = {};
+    intakesResult.forEach(item => {
+      intakesDaily[item.dateStr] = Number(item.count || 0);
     });
 
-    const sales = await prisma.saleTransaction.findMany({
-      where: {
-        isDeleted: false,
-        entryDate: {
-          gte: startDate,
-          lte: endDate
-        }
-      },
-      select: {
-        id: true,
-        entryDate: true
-      }
+    const salesDaily = {};
+    salesResult.forEach(item => {
+      salesDaily[item.dateStr] = Number(item.count || 0);
     });
 
     return {
-      intakes,
-      sales
+      intakesDaily,
+      salesDaily
     };
   }
 }

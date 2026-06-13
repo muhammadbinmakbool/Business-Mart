@@ -74,7 +74,7 @@ export class MarketInsightService {
     const { start, end } = this.calculateDateRange(period);
 
     // 1. Fetch raw transaction event counts (Intake/Sale counts)
-    const { intakes, sales } = await MarketInsightRepository.getRawActivityEvents(start, end);
+    const { intakesDaily, salesDaily } = await MarketInsightRepository.getRawActivityEvents(start, end);
 
     // 2. Fetch price trend history (grouped by product or filtered by a specific product)
     let priceHistory = [];
@@ -110,19 +110,17 @@ export class MarketInsightService {
       };
     }
 
-    // Group Intake counts by date
-    intakes.forEach(item => {
-      const dateStr = new Date(item.entryDate).toISOString().split("T")[0];
+    // Map daily intake counts
+    Object.entries(intakesDaily).forEach(([dateStr, count]) => {
       if (dateMap[dateStr]) {
-        dateMap[dateStr].intakesCount += 1;
+        dateMap[dateStr].intakesCount = count;
       }
     });
 
-    // Group Sale counts by date
-    sales.forEach(item => {
-      const dateStr = new Date(item.entryDate).toISOString().split("T")[0];
+    // Map daily sales counts
+    Object.entries(salesDaily).forEach(([dateStr, count]) => {
       if (dateMap[dateStr]) {
-        dateMap[dateStr].salesCount += 1;
+        dateMap[dateStr].salesCount = count;
       }
     });
 
