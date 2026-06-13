@@ -14,14 +14,16 @@ import {
   RefreshCw, 
   AlertCircle,
   FileText,
-  DollarSign
+  DollarSign,
+  Printer,
+  Download
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import PrintButtons from "@/print/components/PrintButtons";
 
-import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
+import DateRangeFilter, { filterByDateRange } from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import LedgerDashboard from "@/modules/ledger/components/LedgerDashboard";
 import ReconciliationTable from "@/modules/ledger/components/ReconciliationTable";
@@ -29,10 +31,7 @@ import LedgerSessionForm from "@/modules/ledger/components/LedgerSessionForm";
 import DataTable from "@/components/ui/DataTable";
 import PaginationControls from "@/components/ui/PaginationControls";
 
-import { 
-  calculateReconciliationSummary, 
-  DEFAULT_TOLERANCE 
-} from "@/lib/reconciliation";
+import { DEFAULT_TOLERANCE } from "@/lib/reconciliation";
 
 import DeleteButton from "@/components/DeleteButton";
 import { 
@@ -45,13 +44,20 @@ import {
 
 export default function LedgerClient({ 
   initialInvoices = [], 
+  initialInvoicesCount = 0,
   initialSales = [], 
+  initialSalesCount = 0,
+  initialSummary = {},
   suppliers = [], 
   buyers = [], 
   initialSessions = [],
   initialSessionsCount = 0,
   initialPage = 1,
   initialLimit = 50,
+  initialInvPage = 1,
+  initialSalePage = 1,
+  initialLiveLimit = 50,
+  initialSearchQuery = "",
   printConfig = null,
   settlementSettings = null
 }) {
@@ -64,6 +70,10 @@ export default function LedgerClient({
   const activeTab = searchParams.get("tab") || "LIVE";
   const currentPage = parseInt(searchParams.get("page")) || initialPage || 1;
   const currentLimit = parseInt(searchParams.get("limit")) || initialLimit || 50;
+
+  const invPage = parseInt(searchParams.get("invPage")) || initialInvPage || 1;
+  const salePage = parseInt(searchParams.get("salePage")) || initialSalePage || 1;
+  const liveLimit = parseInt(searchParams.get("limit")) || initialLiveLimit || 50;
 
   const setActiveTab = (tab) => {
     updateFilters({ tab, page: 1 });
@@ -81,7 +91,7 @@ export default function LedgerClient({
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || "");
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("search") || initialSearchQuery || "");
   const [selectedSupplierId, setSelectedSupplierId] = useState(() => searchParams.get("supplierId") || "ALL");
   const [selectedBuyerId, setSelectedBuyerId] = useState(() => searchParams.get("buyerId") || "ALL");
   
@@ -99,6 +109,7 @@ export default function LedgerClient({
   const [sessionsCount, setSessionsCount] = useState(initialSessionsCount);
   const [viewingSessionDetails, setViewingSessionDetails] = useState(null);
   const [loadingSessionId, setLoadingSessionId] = useState(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   // Sync parameters from URL changes back to component states
   useEffect(() => {
@@ -134,69 +145,6 @@ export default function LedgerClient({
     return `Rs. ${Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  // 1. Live Data Pipeline (Client-side In-memory Filtering & Calculation)
-  const dateFilteredInvoices = useMemo(() => {
-    return filterByDateRange(initialInvoices, "entryDate", dateFilter);
-  }, [initialInvoices, dateFilter]);
-
-  const dateFilteredSales = useMemo(() => {
-    return filterByDateRange(initialSales, "entryDate", dateFilter);
-  }, [initialSales, dateFilter]);
-
-  // Apply supplier/buyer and search query filters
-  const filteredInvoices = useMemo(() => {
-    return dateFilteredInvoices.filter((inv) => {
-      // Supplier ID Filter
-      if (selectedSupplierId !== "ALL" && inv.partyId !== parseInt(selectedSupplierId)) {
-        return false;
-      }
-      // Buyer ID filter (via SalesTrack cross-linking)
-      if (selectedBuyerId !== "ALL") {
-        const buyerInt = parseInt(selectedBuyerId);
-        const matchesBuyer = inv.items?.some(item =>
-          item.intake?.salesTracks?.some(track => track.buyerPartyId === buyerInt)
-        );
-        if (!matchesBuyer) return false;
-      }
-      // Search query filter (Invoice # or Supplier Name)
-      if (searchQuery.trim() !== "") {
-        const query = searchQuery.toLowerCase();
-        const matchesNum = inv.invoiceNumber?.toLowerCase().includes(query);
-        const matchesName = inv.party?.name?.toLowerCase().includes(query);
-        return matchesNum || matchesName;
-      }
-      return true;
-    });
-  }, [dateFilteredInvoices, selectedSupplierId, selectedBuyerId, searchQuery]);
-
-  const filteredSales = useMemo(() => {
-    return dateFilteredSales.filter((sale) => {
-      // Buyer ID Filter
-      if (selectedBuyerId !== "ALL" && sale.partyId !== parseInt(selectedBuyerId)) {
-        return false;
-      }
-      // Supplier ID Filter (via SalesTrack cross-linking)
-      if (selectedSupplierId !== "ALL") {
-        const supplierInt = parseInt(selectedSupplierId);
-        const matchesSupplier = sale.salesTracks?.some(track => track.supplierPartyId === supplierInt);
-        if (!matchesSupplier) return false;
-      }
-      // Search query filter (Sale # or Buyer Name)
-      if (searchQuery.trim() !== "") {
-        const query = searchQuery.toLowerCase();
-        const matchesNum = sale.saleNumber?.toLowerCase().includes(query);
-        const matchesName = sale.party?.name?.toLowerCase().includes(query);
-        return matchesNum || matchesName;
-      }
-      return true;
-    });
-  }, [dateFilteredSales, selectedBuyerId, selectedSupplierId, searchQuery]);
-
-  // 2. Centralized live calculations invocation (NO INLINE FORMULAS)
-  const liveSummary = useMemo(() => {
-    return calculateReconciliationSummary(filteredInvoices, filteredSales, tolerance);
-  }, [filteredInvoices, filteredSales, tolerance]);
-
   const selectedSupplierName = useMemo(() => {
     if (selectedSupplierId === "ALL") return "All Suppliers";
     return suppliers.find(s => s.id === parseInt(selectedSupplierId))?.name || `Supplier ID: ${selectedSupplierId}`;
@@ -207,20 +155,52 @@ export default function LedgerClient({
     return buyers.find(b => b.id === parseInt(selectedBuyerId))?.name || `Buyer ID: ${selectedBuyerId}`;
   }, [selectedBuyerId, buyers]);
 
-  const printDataLive = useMemo(() => {
-    return {
-      title: "Ledger Reconciliation Report (Live)",
-      startDate: dateFilter.startDate,
-      endDate: dateFilter.endDate,
-      supplierName: selectedSupplierName,
-      buyerName: selectedBuyerName,
-      invoices: filteredInvoices,
-      sales: filteredSales,
-      summary: liveSummary,
-      isSavedSession: false,
-      drift: null
-    };
-  }, [dateFilter, selectedSupplierName, selectedBuyerName, filteredInvoices, filteredSales, liveSummary]);
+  // Handle on-demand fetching for large live reports
+  const handlePrintLive = async (actionType) => {
+    setIsPrinting(true);
+    const toastId = toast.loading("Fetching complete dataset for report...");
+    try {
+      const { getLiveLedgerPrintDataAction } = await import("@/modules/ledger/controllers/ledgerActions");
+      const res = await getLiveLedgerPrintDataAction({
+        startDate: dateFilter.startDate,
+        endDate: dateFilter.endDate,
+        supplierId: selectedSupplierId,
+        buyerId: selectedBuyerId,
+        searchQuery
+      });
+
+      if (!res.success) {
+        throw new Error(res.error || "Failed to fetch print data");
+      }
+
+      const fullPrintData = {
+        title: "Ledger Reconciliation Report (Live)",
+        startDate: dateFilter.startDate,
+        endDate: dateFilter.endDate,
+        supplierName: selectedSupplierName,
+        buyerName: selectedBuyerName,
+        invoices: res.data.invoices,
+        sales: res.data.sales,
+        summary: initialSummary,
+        isSavedSession: false,
+        drift: null
+      };
+
+      toast.success("Data loaded successfully! Generating document...", { id: toastId });
+
+      const { triggerPrint, triggerDownloadPDF } = await import("@/print/utils/printUtils");
+      if (actionType === "print") {
+        triggerPrint("ledger", fullPrintData, "en");
+      } else {
+        triggerDownloadPDF("ledger", fullPrintData, `Ledger-Live-${format(new Date(), "yyyy-MM-dd")}`, "en");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || "Failed to generate print report", { id: toastId });
+    } finally {
+      setIsPrinting(false);
+    }
+  };
 
   const printDataHistory = useMemo(() => {
     if (!viewingSessionDetails) return null;
@@ -334,12 +314,26 @@ export default function LedgerClient({
         
         {activeTab === "LIVE" && !showSaveForm && !viewingSessionDetails && (
           <div className="flex items-center gap-3 shrink-0">
-            <PrintButtons
-              type="ledger"
-              data={printDataLive}
-              filename={`Ledger-Live-${format(new Date(), "yyyy-MM-dd")}`}
-              printConfig={printConfig}
-            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handlePrintLive("print")}
+                disabled={isPrinting}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:bg-accent transition-colors font-medium text-sm text-foreground bg-background cursor-pointer shrink-0 disabled:opacity-50"
+                title="Print Document"
+              >
+                <Printer className="h-4 w-4 text-slate-500" />
+                <span>{isPrinting ? "Fetching..." : "Print"}</span>
+              </button>
+              <button
+                onClick={() => handlePrintLive("pdf")}
+                disabled={isPrinting}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:bg-accent transition-colors font-medium text-sm text-foreground bg-background cursor-pointer shrink-0 disabled:opacity-50"
+                title="Download PDF"
+              >
+                <Download className="h-4 w-4 text-slate-500" />
+                <span>{isPrinting ? "Fetching..." : "Download PDF"}</span>
+              </button>
+            </div>
             <button
               onClick={() => setShowSaveForm(true)}
               className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shrink-0"
@@ -360,7 +354,7 @@ export default function LedgerClient({
               setShowSaveForm(false);
             }}
             className={cn(
-              "px-4 py-2 font-medium text-sm border-b-2 transition-colors flex items-center gap-2",
+              "px-4 py-2 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 cursor-pointer",
               activeTab === "LIVE"
                 ? "border-primary text-primary font-bold"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -372,7 +366,7 @@ export default function LedgerClient({
           <button
             onClick={() => setActiveTab("HISTORY")}
             className={cn(
-              "px-4 py-2 font-medium text-sm border-b-2 transition-colors flex items-center gap-2",
+              "px-4 py-2 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 cursor-pointer",
               activeTab === "HISTORY"
                 ? "border-primary text-primary font-bold"
                 : "border-transparent text-muted-foreground hover:text-foreground"
@@ -389,7 +383,7 @@ export default function LedgerClient({
         <div className="space-y-6">
           {showSaveForm ? (
             <LedgerSessionForm
-              summary={liveSummary}
+              summary={initialSummary}
               dateFilter={dateFilter}
               onCancel={() => setShowSaveForm(false)}
               onSuccess={(newSession) => {
@@ -401,12 +395,12 @@ export default function LedgerClient({
           ) : (
             <>
               {/* Summary Dashboard widgets */}
-              <LedgerDashboard summary={liveSummary} />
+              <LedgerDashboard summary={initialSummary} />
 
               {/* Filters Panel */}
               <div className="rounded-xl border bg-card p-5 shadow-sm space-y-4">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Live Filters</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                   {/* Search Query */}
                   <div className="space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
@@ -416,80 +410,108 @@ export default function LedgerClient({
                       value={searchQuery}
                       onChange={(val) => {
                         setSearchQuery(val);
-                        updateFilters({ search: val });
+                        updateFilters({ search: val, invPage: 1, salePage: 1 });
                       }}
                       placeholder="Search #, party..."
                       className="w-full"
                     />
                   </div>
- 
-                   {/* Supplier Select */}
-                   <div className="space-y-1">
-                     <span className="text-[10px] font-bold tracking-wider text-muted-foreground block uppercase">
-                       Supplier Party
-                     </span>
-                     <select
-                       value={selectedSupplierId}
-                       onChange={(e) => {
-                         const val = e.target.value;
-                         setSelectedSupplierId(val);
-                         updateFilters({ supplierId: val });
-                       }}
-                       className="w-full bg-background border rounded-lg px-3 py-2 text-sm h-[38px] focus:outline-none focus:ring-1 focus:ring-primary"
-                     >
-                       <option value="ALL">All Suppliers</option>
-                       {suppliers.map(sup => (
-                         <option key={sup.id} value={sup.id}>{sup.name}</option>
-                       ))}
-                     </select>
-                   </div>
- 
-                   {/* Buyer Select */}
-                   <div className="space-y-1">
-                     <span className="text-[10px] font-bold tracking-wider text-muted-foreground block uppercase">
-                       Buyer Party
-                     </span>
-                     <select
-                       value={selectedBuyerId}
-                       onChange={(e) => {
-                         const val = e.target.value;
-                         setSelectedBuyerId(val);
-                         updateFilters({ buyerId: val });
-                       }}
-                       className="w-full bg-background border rounded-lg px-3 py-2 text-sm h-[38px] focus:outline-none focus:ring-1 focus:ring-primary"
-                     >
-                       <option value="ALL">All Buyers</option>
-                       {buyers.map(buy => (
-                         <option key={buy.id} value={buy.id}>{buy.name}</option>
-                       ))}
-                     </select>
-                   </div>
- 
-                   {/* Date Filter */}
-                   <div className="space-y-1">
-                     <span className="text-[10px] font-bold tracking-wider text-muted-foreground block uppercase">
-                       Reconciliation Period
-                     </span>
-                     <DateRangeFilter
-                       value={dateFilter}
-                       onChange={(val) => {
-                         setDateFilter(val);
-                         updateFilters({
-                           preset: val.preset,
-                           startDate: val.startDate,
-                           endDate: val.endDate,
-                           month: val.month
-                         });
-                       }}
-                     />
-                   </div>
+
+                  {/* Supplier Select */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold tracking-wider text-muted-foreground block uppercase">
+                      Supplier Party
+                    </span>
+                    <select
+                      value={selectedSupplierId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedSupplierId(val);
+                        updateFilters({ supplierId: val, invPage: 1, salePage: 1 });
+                      }}
+                      className="w-full bg-background border rounded-lg px-3 py-2 text-sm h-[38px] focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="ALL">All Suppliers</option>
+                      {suppliers.map(sup => (
+                        <option key={sup.id} value={sup.id}>{sup.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Buyer Select */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold tracking-wider text-muted-foreground block uppercase">
+                      Buyer Party
+                    </span>
+                    <select
+                      value={selectedBuyerId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedBuyerId(val);
+                        updateFilters({ buyerId: val, invPage: 1, salePage: 1 });
+                      }}
+                      className="w-full bg-background border rounded-lg px-3 py-2 text-sm h-[38px] focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="ALL">All Buyers</option>
+                      {buyers.map(buy => (
+                        <option key={buy.id} value={buy.id}>{buy.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Date Filter */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold tracking-wider text-muted-foreground block uppercase">
+                      Reconciliation Period
+                    </span>
+                    <DateRangeFilter
+                      value={dateFilter}
+                      onChange={(val) => {
+                        setDateFilter(val);
+                        updateFilters({
+                          preset: val.preset,
+                          startDate: val.startDate,
+                          endDate: val.endDate,
+                          month: val.month,
+                          invPage: 1,
+                          salePage: 1
+                        });
+                      }}
+                    />
+                  </div>
+
+                  {/* Limit Selection */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold tracking-wider text-muted-foreground block uppercase">
+                      Show per page
+                    </span>
+                    <select
+                      value={liveLimit}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value);
+                        updateFilters({ limit: val, invPage: 1, salePage: 1 });
+                      }}
+                      className="w-full bg-background border rounded-lg px-3 py-2 text-sm h-[38px] focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value={50}>50 rows</option>
+                      <option value={100}>100 rows</option>
+                      <option value={200}>200 rows</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
               {/* Side-by-side Tables */}
               <ReconciliationTable 
-                invoices={filteredInvoices} 
-                sales={filteredSales} 
+                invoices={initialInvoices} 
+                sales={initialSales}
+                invoicesCount={initialInvoicesCount}
+                salesCount={initialSalesCount}
+                invPage={invPage}
+                salePage={salePage}
+                pageSize={liveLimit}
+                onInvPageChange={(newPage) => updateFilters({ invPage: newPage })}
+                onSalePageChange={(newPage) => updateFilters({ salePage: newPage })}
               />
             </>
           )}
@@ -500,126 +522,126 @@ export default function LedgerClient({
       {activeTab === "HISTORY" && !viewingSessionDetails && (
         <div className="space-y-4">
           <DataTable
-          data={sessions}
-          emptyMessage="No saved reconciliation snapshots found."
-          containerClassName="rounded-xl border bg-card shadow-sm overflow-hidden"
-          columns={[
-            {
-              key: "title",
-              label: "Session Title",
-              className: "px-6 py-4 font-bold text-primary",
-            },
-            {
-              key: "startDate",
-              label: "Audit Period",
-              className: "px-6 py-4 whitespace-nowrap text-muted-foreground text-xs",
-              render: (row) =>
-                `${format(new Date(row.startDate), "dd MMM yyyy")} to ${format(
-                  new Date(row.endDate),
-                  "dd MMM yyyy"
-                )}`,
-            },
-            {
-              key: "supplierTotal",
-              label: "Supplier Base Total",
-              className: "px-6 py-4 text-right font-semibold",
-              render: (row, val) => formatRs(val),
-            },
-            {
-              key: "buyerTotal",
-              label: "Buyer Base Total",
-              className: "px-6 py-4 text-right font-semibold",
-              render: (row, val) => formatRs(val),
-            },
-            {
-              key: "difference",
-              label: "Difference",
-              className: "px-6 py-4 text-right font-bold",
-              render: (row, val) => (
-                <span className={Math.abs(Number(val)) <= tolerance ? "text-emerald-600" : "text-rose-600"}>
-                  {formatRs(val)}
-                </span>
-              ),
-            },
-            {
-              key: "status",
-              label: "Status",
-              className: "px-6 py-4 text-center",
-              render: (row, val) => (
-                <span
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border",
-                    val === "LOCKED"
-                      ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/10 dark:text-rose-400"
-                      : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/10 dark:text-emerald-400"
-                  )}
-                >
-                  {val === "LOCKED" ? <Lock className="h-3 w-3 shrink-0" /> : <Unlock className="h-3 w-3 shrink-0" />}
-                  {val}
-                </span>
-              ),
-            },
-            {
-              key: "counts",
-              label: "Counts (S / B)",
-              className: "px-6 py-4 text-center text-xs text-muted-foreground",
-              render: (row) => `${row.supplierInvoiceCount} / ${row.buyerInvoiceCount}`,
-            },
-            {
-              key: "actions",
-              label: "Actions",
-              className: "px-6 py-4 text-center",
-              sortable: false,
-              render: (row) => (
-                <div className="flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => handleViewSession(row.id)}
-                    className="bg-primary/5 hover:bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
-                    disabled={loadingSessionId === row.id}
-                  >
-                    {loadingSessionId === row.id ? (
-                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      "View Audit Details"
+            data={sessions}
+            emptyMessage="No saved reconciliation snapshots found."
+            containerClassName="rounded-xl border bg-card shadow-sm overflow-hidden"
+            columns={[
+              {
+                key: "title",
+                label: "Session Title",
+                className: "px-6 py-4 font-bold text-primary",
+              },
+              {
+                key: "startDate",
+                label: "Audit Period",
+                className: "px-6 py-4 whitespace-nowrap text-muted-foreground text-xs",
+                render: (row) =>
+                  `${format(new Date(row.startDate), "dd MMM yyyy")} to ${format(
+                    new Date(row.endDate),
+                    "dd MMM yyyy"
+                  )}`,
+              },
+              {
+                key: "supplierTotal",
+                label: "Supplier Base Total",
+                className: "px-6 py-4 text-right font-semibold",
+                render: (row, val) => formatRs(val),
+              },
+              {
+                key: "buyerTotal",
+                label: "Buyer Base Total",
+                className: "px-6 py-4 text-right font-semibold",
+                render: (row, val) => formatRs(val),
+              },
+              {
+                key: "difference",
+                label: "Difference",
+                className: "px-6 py-4 text-right font-bold",
+                render: (row, val) => (
+                  <span className={Math.abs(Number(val)) <= tolerance ? "text-emerald-600" : "text-rose-600"}>
+                    {formatRs(val)}
+                  </span>
+                ),
+              },
+              {
+                key: "status",
+                label: "Status",
+                className: "px-6 py-4 text-center",
+                render: (row, val) => (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold border",
+                      val === "LOCKED"
+                        ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/10 dark:text-rose-400"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/10 dark:text-emerald-400"
                     )}
-                  </button>
-
-                  <button
-                    onClick={() => handleToggleLock(row.id)}
-                    className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
-                    title={row.status === "LOCKED" ? "Unlock Session" : "Lock Session"}
                   >
-                    {row.status === "LOCKED" ? (
-                      <Unlock className="h-4 w-4 text-rose-500" />
-                    ) : (
-                      <Lock className="h-4 w-4 text-emerald-500" />
-                    )}
-                  </button>
+                    {val === "LOCKED" ? <Lock className="h-3 w-3 shrink-0" /> : <Unlock className="h-3 w-3 shrink-0" />}
+                    {val}
+                  </span>
+                ),
+              },
+              {
+                key: "counts",
+                label: "Counts (S / B)",
+                className: "px-6 py-4 text-center text-xs text-muted-foreground",
+                render: (row) => `${row.supplierInvoiceCount} / ${row.buyerInvoiceCount}`,
+              },
+              {
+                key: "actions",
+                label: "Actions",
+                className: "px-6 py-4 text-center",
+                sortable: false,
+                render: (row) => (
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => handleViewSession(row.id)}
+                      className="bg-primary/5 hover:bg-primary/10 text-primary px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                      disabled={loadingSessionId === row.id}
+                    >
+                      {loadingSessionId === row.id ? (
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        "View Audit Details"
+                      )}
+                    </button>
 
-                  <DeleteButton
-                    id={row.id}
-                    deleteAction={deleteLedgerSessionAction}
-                    hardDeleteAction={hardDeleteLedgerSessionAction}
-                    label="Reconciliation Session"
-                    variant="icon"
-                    disabled={row.status === "LOCKED"}
-                    onSuccess={() => {
-                      setViewingSessionDetails(null);
-                      refreshSessions();
-                    }}
-                  />
-                </div>
-              ),
-            },
-          ]}
-        />
-        <PaginationControls
-          currentPage={currentPage}
-          totalCount={sessionsCount}
-          limit={currentLimit}
-          onPageChange={(newPage) => updateFilters({ page: newPage })}
-          onLimitChange={(newLimit) => updateFilters({ limit: newLimit })}
-        />
+                    <button
+                      onClick={() => handleToggleLock(row.id)}
+                      className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer"
+                      title={row.status === "LOCKED" ? "Unlock Session" : "Lock Session"}
+                    >
+                      {row.status === "LOCKED" ? (
+                        <Unlock className="h-4 w-4 text-rose-500" />
+                      ) : (
+                        <Lock className="h-4 w-4 text-emerald-500" />
+                      )}
+                    </button>
+
+                    <DeleteButton
+                      id={row.id}
+                      deleteAction={deleteLedgerSessionAction}
+                      hardDeleteAction={hardDeleteLedgerSessionAction}
+                      label="Reconciliation Session"
+                      variant="icon"
+                      disabled={row.status === "LOCKED"}
+                      onSuccess={() => {
+                        setViewingSessionDetails(null);
+                        refreshSessions();
+                      }}
+                    />
+                  </div>
+                ),
+              },
+            ]}
+          />
+          <PaginationControls
+            currentPage={currentPage}
+            totalCount={sessionsCount}
+            limit={currentLimit}
+            onPageChange={(newPage) => updateFilters({ page: newPage })}
+            onLimitChange={(newLimit) => updateFilters({ limit: newLimit })}
+          />
         </div>
       )}
 
@@ -735,6 +757,13 @@ export default function LedgerClient({
             <ReconciliationTable 
               invoices={viewingSessionDetails.invoices} 
               sales={viewingSessionDetails.sales} 
+              invoicesCount={viewingSessionDetails.invoices.length}
+              salesCount={viewingSessionDetails.sales.length}
+              invPage={1}
+              salePage={1}
+              pageSize={9999}
+              onInvPageChange={() => {}}
+              onSalePageChange={() => {}}
             />
           </div>
         </div>

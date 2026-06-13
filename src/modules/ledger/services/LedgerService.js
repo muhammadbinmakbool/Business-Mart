@@ -6,10 +6,9 @@ import { emitActivity } from "@/modules/activity-log/activityLogger";
 
 export class LedgerService {
   /**
-   * Fetches all raw active transactions for a date range and optional party filters.
-   * Leverages Prisma joins to avoid N+1 queries.
+   * Safe chunk-by-chunk retrieval for printing/downloading large periods.
    */
-  static async getLiveReconciliationData({ startDate, endDate, supplierId, buyerId } = {}) {
+  static async getLiveReconciliationPrintData({ startDate, endDate, supplierId, buyerId, searchQuery } = {}) {
     const invoiceWhere = { status: { not: "SUPERSEDED" } };
     const saleWhere = { isDeleted: false, status: { not: "CANCELLED" } };
 
@@ -18,97 +17,380 @@ export class LedgerService {
       saleWhere.entryDate = { ...saleWhere.entryDate, gte: new Date(startDate) };
     }
     if (endDate) {
-      // Set end date to end of day to include all transactions on that day
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
       invoiceWhere.entryDate = { ...invoiceWhere.entryDate, lte: end };
       saleWhere.entryDate = { ...saleWhere.entryDate, lte: end };
     }
     
-    // Note: On the supplier side, we query by supplierId.
     if (supplierId && supplierId !== "ALL" && supplierId !== "") {
       invoiceWhere.partyId = parseInt(supplierId);
     }
-    
-    // Note: On the buyer side, we query by buyerId.
     if (buyerId && buyerId !== "ALL" && buyerId !== "") {
       saleWhere.partyId = parseInt(buyerId);
     }
 
-    const [invoices, sales] = await Promise.all([
-      prisma.supplierInvoice.findMany({
-        where: invoiceWhere,
-        include: {
-          party: true,
-          items: {
-            include: {
-              intake: {
-                include: {
-                  product: true,
-                  salesTracks: true
-                }
-              },
-              adjustments: true
-            }
-          },
-          advances: true
-        },
-        orderBy: { entryDate: "desc" }
-      }),
-      prisma.saleTransaction.findMany({
-        where: saleWhere,
-        include: {
-          party: true,
-          salesTracks: {
-            include: {
-              product: true
-            }
-          },
-          adjustments: true,
-          items: {
-            include: {
-              product: true
-            }
-          }
-        },
-        orderBy: { entryDate: "desc" }
-      })
-    ]);
-
-    // Apply cross-link filters if filtering by one party only, since source tracking links them
-    let filteredInvoices = invoices;
-    let filteredSales = sales;
-
+    // Apply database-level cross-link filters via relations
     if (supplierId && supplierId !== "ALL" && supplierId !== "") {
       const supplierInt = parseInt(supplierId);
-      // Filter sales to show only those linked to this supplier via SalesTrack
-      filteredSales = sales.filter(sale =>
-        sale.salesTracks?.some(track => track.supplierPartyId === supplierInt)
-      );
+      saleWhere.salesTracks = {
+        some: {
+          supplierPartyId: supplierInt
+        }
+      };
     }
 
     if (buyerId && buyerId !== "ALL" && buyerId !== "") {
       const buyerInt = parseInt(buyerId);
-      // Filter supplier invoices to show only those linked to this buyer via SalesTrack on the items' intakes
-      filteredInvoices = invoices.filter(inv =>
-        inv.items?.some(item =>
-          item.intake?.salesTracks?.some(track => track.buyerPartyId === buyerInt)
-        )
-      );
+      invoiceWhere.items = {
+        some: {
+          intake: {
+            salesTracks: {
+              some: {
+                buyerPartyId: buyerInt
+              }
+            }
+          }
+        }
+      };
+    }
+
+    if (searchQuery && searchQuery.trim() !== "") {
+      const trimmedQuery = searchQuery.trim();
+      invoiceWhere.OR = [
+        { invoiceNumber: { contains: trimmedQuery } },
+        { party: { name: { contains: trimmedQuery } } }
+      ];
+      saleWhere.OR = [
+        { saleNumber: { contains: trimmedQuery } },
+        { party: { name: { contains: trimmedQuery } } }
+      ];
+    }
+
+    // Stream/batch invoices chunk by chunk (1,000 records per batch)
+    const invoices = [];
+    const CHUNK_SIZE = 1000;
+    let invoiceOffset = 0;
+    while (true) {
+      const chunk = await prisma.supplierInvoice.findMany({
+        where: invoiceWhere,
+        select: {
+          id: true,
+          invoiceNumber: true,
+          entryDate: true,
+          createdAt: true,
+          totalGrossValue: true,
+          totalDeductions: true,
+          totalAdvances: true,
+          finalPayableAmount: true,
+          status: true,
+          party: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        },
+        orderBy: [
+          { entryDate: "desc" },
+          { id: "desc" }
+        ],
+        skip: invoiceOffset,
+        take: CHUNK_SIZE
+      });
+      invoices.push(...chunk);
+      if (chunk.length < CHUNK_SIZE) break;
+      invoiceOffset += CHUNK_SIZE;
+    }
+
+    // Stream/batch sales chunk by chunk (1,000 records per batch)
+    const sales = [];
+    let saleOffset = 0;
+    while (true) {
+      const chunk = await prisma.saleTransaction.findMany({
+        where: saleWhere,
+        select: {
+          id: true,
+          saleNumber: true,
+          entryDate: true,
+          baseAmount: true,
+          totalAdjustments: true,
+          finalAmount: true,
+          status: true,
+          party: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        },
+        orderBy: [
+          { entryDate: "desc" },
+          { id: "desc" }
+        ],
+        skip: saleOffset,
+        take: CHUNK_SIZE
+      });
+      sales.push(...chunk);
+      if (chunk.length < CHUNK_SIZE) break;
+      saleOffset += CHUNK_SIZE;
     }
 
     return {
-      invoices: JSON.parse(JSON.stringify(filteredInvoices)),
-      sales: JSON.parse(JSON.stringify(filteredSales))
+      invoices: JSON.parse(JSON.stringify(invoices)),
+      sales: JSON.parse(JSON.stringify(sales))
     };
   }
 
   /**
+   * Fetches all raw active transactions for a date range and optional party filters.
+   * Redirects to the chunked safe retriever to preserve backwards compatibility.
+   */
+  static async getLiveReconciliationData(filters = {}) {
+    return this.getLiveReconciliationPrintData(filters);
+  }
+
+  /**
    * Calculates a live summary for a given filter set.
+   * Runs database-level aggregations ONLY (extremely fast).
    */
   static async getLiveReconciliationSummary({ startDate, endDate, supplierId, buyerId, tolerance } = {}) {
-    const { invoices, sales } = await this.getLiveReconciliationData({ startDate, endDate, supplierId, buyerId });
-    return calculateReconciliationSummary(invoices, sales, tolerance);
+    const invoiceWhere = { status: { not: "SUPERSEDED" } };
+    const saleWhere = { isDeleted: false, status: { not: "CANCELLED" } };
+
+    if (startDate) {
+      invoiceWhere.entryDate = { ...invoiceWhere.entryDate, gte: new Date(startDate) };
+      saleWhere.entryDate = { ...saleWhere.entryDate, gte: new Date(startDate) };
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      invoiceWhere.entryDate = { ...invoiceWhere.entryDate, lte: end };
+      saleWhere.entryDate = { ...saleWhere.entryDate, lte: end };
+    }
+    
+    if (supplierId && supplierId !== "ALL" && supplierId !== "") {
+      invoiceWhere.partyId = parseInt(supplierId);
+    }
+    if (buyerId && buyerId !== "ALL" && buyerId !== "") {
+      saleWhere.partyId = parseInt(buyerId);
+    }
+
+    // Apply database-level cross-link filters via relations
+    if (supplierId && supplierId !== "ALL" && supplierId !== "") {
+      const supplierInt = parseInt(supplierId);
+      saleWhere.salesTracks = {
+        some: {
+          supplierPartyId: supplierInt
+        }
+      };
+    }
+
+    if (buyerId && buyerId !== "ALL" && buyerId !== "") {
+      const buyerInt = parseInt(buyerId);
+      invoiceWhere.items = {
+        some: {
+          intake: {
+            salesTracks: {
+              some: {
+                buyerPartyId: buyerInt
+              }
+            }
+          }
+        }
+      };
+    }
+
+    const [invoiceAgg, saleAgg, invoiceCount, saleCount] = await Promise.all([
+      prisma.supplierInvoice.aggregate({
+        where: invoiceWhere,
+        _sum: {
+          totalGrossValue: true,
+          totalDeductions: true,
+          totalAdvances: true,
+          finalPayableAmount: true
+        }
+      }),
+      prisma.saleTransaction.aggregate({
+        where: saleWhere,
+        _sum: {
+          baseAmount: true,
+          totalAdjustments: true,
+          finalAmount: true
+        }
+      }),
+      prisma.supplierInvoice.count({ where: invoiceWhere }),
+      prisma.saleTransaction.count({ where: saleWhere })
+    ]);
+
+    const difference = Number(saleAgg._sum.finalAmount || 0) - Number(invoiceAgg._sum.finalPayableAmount || 0);
+    const tol = tolerance !== undefined ? Number(tolerance) : 0.01;
+
+    return {
+      supplier: {
+        gross: Number(invoiceAgg._sum.totalGrossValue || 0),
+        deductions: Number(invoiceAgg._sum.totalDeductions || 0),
+        advances: Number(invoiceAgg._sum.totalAdvances || 0),
+        baseTotal: Number(invoiceAgg._sum.finalPayableAmount || 0),
+        activeCount: invoiceCount
+      },
+      buyer: {
+        base: Number(saleAgg._sum.baseAmount || 0),
+        adjustments: Number(saleAgg._sum.totalAdjustments || 0),
+        baseTotal: Number(saleAgg._sum.finalAmount || 0),
+        activeCount: saleCount
+      },
+      difference,
+      matched: Math.abs(difference) <= tol
+    };
+  }
+
+  /**
+   * Queries a paginated list of supplier invoices.
+   */
+  static async getLiveInvoices({ startDate, endDate, supplierId, buyerId, searchQuery, page = 1, limit = 50 } = {}) {
+    const invoiceWhere = { status: { not: "SUPERSEDED" } };
+
+    if (startDate) {
+      invoiceWhere.entryDate = { ...invoiceWhere.entryDate, gte: new Date(startDate) };
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      invoiceWhere.entryDate = { ...invoiceWhere.entryDate, lte: end };
+    }
+    
+    if (supplierId && supplierId !== "ALL" && supplierId !== "") {
+      invoiceWhere.partyId = parseInt(supplierId);
+    }
+
+    if (buyerId && buyerId !== "ALL" && buyerId !== "") {
+      const buyerInt = parseInt(buyerId);
+      invoiceWhere.items = {
+        some: {
+          intake: {
+            salesTracks: {
+              some: {
+                buyerPartyId: buyerInt
+              }
+            }
+          }
+        }
+      };
+    }
+
+    if (searchQuery && searchQuery.trim() !== "") {
+      const trimmedQuery = searchQuery.trim();
+      invoiceWhere.OR = [
+        { invoiceNumber: { contains: trimmedQuery } },
+        { party: { name: { contains: trimmedQuery } } }
+      ];
+    }
+
+    const [items, totalCount] = await Promise.all([
+      prisma.supplierInvoice.findMany({
+        where: invoiceWhere,
+        select: {
+          id: true,
+          invoiceNumber: true,
+          entryDate: true,
+          createdAt: true,
+          totalGrossValue: true,
+          totalDeductions: true,
+          totalAdvances: true,
+          finalPayableAmount: true,
+          status: true,
+          party: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        },
+        orderBy: [
+          { entryDate: "desc" },
+          { id: "desc" }
+        ],
+        skip: (parseInt(page) - 1) * parseInt(limit),
+        take: parseInt(limit)
+      }),
+      prisma.supplierInvoice.count({ where: invoiceWhere })
+    ]);
+
+    return {
+      items: JSON.parse(JSON.stringify(items)),
+      totalCount
+    };
+  }
+
+  /**
+   * Queries a paginated list of sale transactions.
+   */
+  static async getLiveSales({ startDate, endDate, supplierId, buyerId, searchQuery, page = 1, limit = 50 } = {}) {
+    const saleWhere = { isDeleted: false, status: { not: "CANCELLED" } };
+
+    if (startDate) {
+      saleWhere.entryDate = { ...saleWhere.entryDate, gte: new Date(startDate) };
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      saleWhere.entryDate = { ...saleWhere.entryDate, lte: end };
+    }
+    
+    if (buyerId && buyerId !== "ALL" && buyerId !== "") {
+      saleWhere.partyId = parseInt(buyerId);
+    }
+
+    if (supplierId && supplierId !== "ALL" && supplierId !== "") {
+      const supplierInt = parseInt(supplierId);
+      saleWhere.salesTracks = {
+        some: {
+          supplierPartyId: supplierInt
+        }
+      };
+    }
+
+    if (searchQuery && searchQuery.trim() !== "") {
+      const trimmedQuery = searchQuery.trim();
+      saleWhere.OR = [
+        { saleNumber: { contains: trimmedQuery } },
+        { party: { name: { contains: trimmedQuery } } }
+      ];
+    }
+
+    const [items, totalCount] = await Promise.all([
+      prisma.saleTransaction.findMany({
+        where: saleWhere,
+        select: {
+          id: true,
+          saleNumber: true,
+          entryDate: true,
+          baseAmount: true,
+          totalAdjustments: true,
+          finalAmount: true,
+          status: true,
+          party: {
+            select: {
+              id: true,
+              name: true
+            }
+          }
+        },
+        orderBy: [
+          { entryDate: "desc" },
+          { id: "desc" }
+        ],
+        skip: (parseInt(page) - 1) * parseInt(limit),
+        take: parseInt(limit)
+      }),
+      prisma.saleTransaction.count({ where: saleWhere })
+    ]);
+
+    return {
+      items: JSON.parse(JSON.stringify(items)),
+      totalCount
+    };
   }
 
   /**

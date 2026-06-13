@@ -4,51 +4,24 @@ import { format } from "date-fns";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function ReconciliationTable({ invoices = [], sales = [] }) {
+export default function ReconciliationTable({ 
+  invoices = [], 
+  sales = [],
+  invoicesCount = 0,
+  salesCount = 0,
+  invPage = 1,
+  salePage = 1,
+  pageSize = 50,
+  onInvPageChange,
+  onSalePageChange
+}) {
   // Format currency helper
   const formatRs = (val) => {
     return Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   };
 
-  const [mounted, setMounted] = React.useState(false);
-  const [invPage, setInvPage] = React.useState(1);
-  const [salePage, setSalePage] = React.useState(1);
-  const pageSize = 15;
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  React.useEffect(() => {
-    setInvPage(1);
-  }, [invoices.length]);
-
-  React.useEffect(() => {
-    setSalePage(1);
-  }, [sales.length]);
-
-  const paginatedInvoices = React.useMemo(() => {
-    return invoices.slice((invPage - 1) * pageSize, invPage * pageSize);
-  }, [invoices, invPage]);
-
-  const paginatedSales = React.useMemo(() => {
-    return sales.slice((salePage - 1) * pageSize, salePage * pageSize);
-  }, [sales, salePage]);
-
-  if (!mounted) {
-    return (
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 animate-pulse">
-        <div className="space-y-3">
-          <div className="h-6 bg-muted rounded w-1/3"></div>
-          <div className="h-48 bg-muted rounded-lg"></div>
-        </div>
-        <div className="space-y-3">
-          <div className="h-6 bg-muted rounded w-1/3"></div>
-          <div className="h-48 bg-muted rounded-lg"></div>
-        </div>
-      </div>
-    );
-  }
+  const totalInvPages = Math.ceil(invoicesCount / pageSize);
+  const totalSalePages = Math.ceil(salesCount / pageSize);
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -57,7 +30,7 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
         <div className="flex items-center justify-between border-b pb-2">
           <h2 className="text-base font-bold text-foreground">Supplier Settlements</h2>
           <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded text-[10px] font-bold uppercase">
-            {invoices.length} Active Records
+            {invoicesCount} Active Records
           </span>
         </div>
         
@@ -84,7 +57,7 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
                     </td>
                   </tr>
                 ) : (
-                  paginatedInvoices.map((inv) => (
+                  invoices.map((inv) => (
                     <tr key={inv.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-3 py-2 font-mono font-medium text-primary">
                         {inv.invoiceNumber}
@@ -129,26 +102,26 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
           </div>
 
           {/* Pagination Footer */}
-          {invoices.length > pageSize && (
+          {invoicesCount > pageSize && (
             <div className="flex items-center justify-between border-t bg-muted/20 px-4 py-2 text-xs">
               <span className="text-muted-foreground">
-                Showing {Math.min(invoices.length, (invPage - 1) * pageSize + 1)}-{Math.min(invoices.length, invPage * pageSize)} of {invoices.length}
+                Showing {Math.min(invoicesCount, (invPage - 1) * pageSize + 1)}-{Math.min(invoicesCount, invPage * pageSize)} of {invoicesCount}
               </span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setInvPage(prev => Math.max(1, prev - 1))}
+                  onClick={() => onInvPageChange(Math.max(1, invPage - 1))}
                   disabled={invPage === 1}
-                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   Previous
                 </button>
                 <span className="font-semibold">
-                  {invPage} / {Math.ceil(invoices.length / pageSize)}
+                  {invPage} / {totalInvPages}
                 </span>
                 <button
-                  onClick={() => setInvPage(prev => Math.min(Math.ceil(invoices.length / pageSize), prev + 1))}
-                  disabled={invPage === Math.ceil(invoices.length / pageSize)}
-                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+                  onClick={() => onInvPageChange(Math.min(totalInvPages, invPage + 1))}
+                  disabled={invPage === totalInvPages || totalInvPages <= 1}
+                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   Next
                 </button>
@@ -163,7 +136,7 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
         <div className="flex items-center justify-between border-b pb-2">
           <h2 className="text-base font-bold text-foreground">Buyer Billing / Invoices</h2>
           <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded text-[10px] font-bold uppercase">
-            {sales.length} Active Records
+            {salesCount} Active Records
           </span>
         </div>
         
@@ -190,7 +163,7 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
                     </td>
                   </tr>
                 ) : (
-                  paginatedSales.map((sale) => (
+                  sales.map((sale) => (
                     <tr key={sale.id} className="hover:bg-muted/20 transition-colors">
                       <td className="px-3 py-2 font-mono font-medium text-primary">
                         {sale.saleNumber}
@@ -235,26 +208,26 @@ export default function ReconciliationTable({ invoices = [], sales = [] }) {
           </div>
 
           {/* Pagination Footer */}
-          {sales.length > pageSize && (
+          {salesCount > pageSize && (
             <div className="flex items-center justify-between border-t bg-muted/20 px-4 py-2 text-xs">
               <span className="text-muted-foreground">
-                Showing {Math.min(sales.length, (salePage - 1) * pageSize + 1)}-{Math.min(sales.length, salePage * pageSize)} of {sales.length}
+                Showing {Math.min(salesCount, (salePage - 1) * pageSize + 1)}-{Math.min(salesCount, salePage * pageSize)} of {salesCount}
               </span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setSalePage(prev => Math.max(1, prev - 1))}
+                  onClick={() => onSalePageChange(Math.max(1, salePage - 1))}
                   disabled={salePage === 1}
-                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   Previous
                 </button>
                 <span className="font-semibold">
-                  {salePage} / {Math.ceil(sales.length / pageSize)}
+                  {salePage} / {totalSalePages}
                 </span>
                 <button
-                  onClick={() => setSalePage(prev => Math.min(Math.ceil(sales.length / pageSize), prev + 1))}
-                  disabled={salePage === Math.ceil(sales.length / pageSize)}
-                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors"
+                  onClick={() => onSalePageChange(Math.min(totalSalePages, salePage + 1))}
+                  disabled={salePage === totalSalePages || totalSalePages <= 1}
+                  className="px-2 py-1 rounded border bg-background hover:bg-accent disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   Next
                 </button>

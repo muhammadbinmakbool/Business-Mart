@@ -116,3 +116,70 @@ export async function hardDeleteLedgerSessionAction(id, force = false, deleteRea
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Expose a single Server Action to fetch the entire page details in a single round-trip
+ */
+export async function getLiveLedgerPageAction({ startDate, endDate, supplierId, buyerId, searchQuery, invPage, salePage, limit }) {
+  try {
+    const [invoicesResult, salesResult, summary] = await Promise.all([
+      LedgerService.getLiveInvoices({
+        startDate,
+        endDate,
+        supplierId,
+        buyerId,
+        searchQuery,
+        page: invPage,
+        limit
+      }),
+      LedgerService.getLiveSales({
+        startDate,
+        endDate,
+        supplierId,
+        buyerId,
+        searchQuery,
+        page: salePage,
+        limit
+      }),
+      LedgerService.getLiveReconciliationSummary({
+        startDate,
+        endDate,
+        supplierId,
+        buyerId
+      })
+    ]);
+
+    return {
+      success: true,
+      data: {
+        invoices: invoicesResult.items,
+        invoicesCount: invoicesResult.totalCount,
+        sales: salesResult.items,
+        salesCount: salesResult.totalCount,
+        summary
+      }
+    };
+  } catch (error) {
+    console.error("Failed to fetch live ledger page details:", error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Expose a Server Action to fetch the full unpaginated data chunked for print
+ */
+export async function getLiveLedgerPrintDataAction({ startDate, endDate, supplierId, buyerId, searchQuery }) {
+  try {
+    const data = await LedgerService.getLiveReconciliationPrintData({
+      startDate,
+      endDate,
+      supplierId,
+      buyerId,
+      searchQuery
+    });
+    return { success: true, data };
+  } catch (error) {
+    console.error("Failed to fetch live ledger print data:", error);
+    return { success: false, error: error.message };
+  }
+}

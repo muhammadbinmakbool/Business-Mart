@@ -14,11 +14,16 @@ export async function getLedgerOverview({
   endDate = "", 
   supplierId = "ALL", 
   buyerId = "ALL",
+  invPage = 1,
+  invLimit = 50,
+  salePage = 1,
+  saleLimit = 50,
+  searchQuery = "",
   page = 1,
   limit = 50 
 } = {}) {
   // Construct dynamic cache keys based on filters to support different queries
-  const liveDataKey = `live_${startDate}_${endDate}_${supplierId}_${buyerId}`;
+  const liveDataKey = `live_${startDate}_${endDate}_${supplierId}_${buyerId}_${invPage}_${salePage}_${invLimit}_${saleLimit}_${searchQuery}`;
   const sessionsKey = `sessions_${page}_${limit}`;
   const staticDataKey = "static_ledger_setup";
 
@@ -50,12 +55,40 @@ export async function getLedgerOverview({
   // Check cache for live reconciliation data
   let liveData = getCached("ledger", liveDataKey);
   if (!liveData) {
-    liveData = await LedgerService.getLiveReconciliationData({ 
-      startDate, 
-      endDate, 
-      supplierId, 
-      buyerId 
-    });
+    const [invoicesResult, salesResult, summary] = await Promise.all([
+      LedgerService.getLiveInvoices({
+        startDate,
+        endDate,
+        supplierId,
+        buyerId,
+        searchQuery,
+        page: invPage,
+        limit: invLimit
+      }),
+      LedgerService.getLiveSales({
+        startDate,
+        endDate,
+        supplierId,
+        buyerId,
+        searchQuery,
+        page: salePage,
+        limit: saleLimit
+      }),
+      LedgerService.getLiveReconciliationSummary({
+        startDate,
+        endDate,
+        supplierId,
+        buyerId
+      })
+    ]);
+
+    liveData = {
+      invoices: invoicesResult.items,
+      invoicesCount: invoicesResult.totalCount,
+      sales: salesResult.items,
+      salesCount: salesResult.totalCount,
+      summary
+    };
     setCached("ledger", liveDataKey, liveData, 30 * 1000);
   }
 
