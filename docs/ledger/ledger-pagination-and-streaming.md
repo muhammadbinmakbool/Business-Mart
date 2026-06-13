@@ -40,7 +40,7 @@ To display the Ledger Dashboard summary cards (Totals, Differences, Count badges
 ### C. Offset-Based Chunked Streaming (Print & Export)
 When printing or exporting a report, the client requires the entire, unpaginated dataset for that period. To prevent NodeJS heap memory overflows on 100k+ records:
 - **API Method**: `LedgerService.getLiveReconciliationPrintData`.
-- **Strategy**: Executes a sequential offset loop, fetching rows in batches of `5,000` records until all matching items are read and streamed.
+- **Strategy**: Executes a sequential offset loop, fetching rows in batches of `1,000` records until all matching items are read and streamed.
 
 ---
 
