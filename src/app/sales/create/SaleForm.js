@@ -13,6 +13,7 @@ import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-unit
 import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
 import Alert from "@/components/ui/Alert";
 import Modal from "@/components/ui/Modal";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
@@ -48,6 +49,20 @@ export default function SaleForm({ buyers, products, initialData = null, setting
       };
     }) || [{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]
   );
+
+  const buyerOptions = useMemo(() => [
+    { value: "new", label: "➕ Add New Buyer", specialOption: true },
+    ...buyers.map(b => ({
+      value: b.id.toString(),
+      label: b.name,
+      subLabel: b.phoneNumber
+    }))
+  ], [buyers]);
+
+  const productOptions = useMemo(() => products.map(p => ({
+    value: p.id.toString(),
+    label: p.name
+  })), [products]);
 
   const assistantSuggestions = useFastEntryAssistant({
     context: "sales",
@@ -476,26 +491,19 @@ export default function SaleForm({ buyers, products, initialData = null, setting
         )}
         <div className="space-y-2">
           <label className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Buyer (Party)</label>
-          <select
-            autoFocus
+          <SearchableSelect
             ref={!initialData ? registerField("partyId") : undefined}
-            value={partyId}
-            onChange={(e) => {
-              setPartyId(e.target.value);
-              setIsNewBuyer(e.target.value === "new");
-            }}
-            className="w-full bg-background text-foreground border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+            id="partyId"
+            name="partyId"
             required
-          >
-            <option value="" className="bg-background text-foreground">Select Buyer...</option>
-            <option value="new" className="font-bold text-primary bg-background">➕ Add New Buyer</option>
-            <hr />
-            {buyers.map((buyer) => (
-              <option key={buyer.id} value={buyer.id} className="bg-background text-foreground">
-                {buyer.name} {buyer.phoneNumber ? `(${buyer.phoneNumber})` : ""}
-              </option>
-            ))}
-          </select>
+            value={partyId}
+            onChange={(val) => {
+              setPartyId(val);
+              setIsNewBuyer(val === "new");
+            }}
+            options={buyerOptions}
+            placeholder="Select Buyer..."
+          />
           <InlineSuggestionBox 
             suggestion={assistantSuggestions.party}
             label={suggestedBuyer?.name}
@@ -670,21 +678,15 @@ export default function SaleForm({ buyers, products, initialData = null, setting
                 return (
                   <tr key={index} className="group">
                     <td className="px-2 py-2">
-                      <select
-                        data-field={`item-${index}-productId`}
+                      <SearchableSelect
                         ref={!initialData ? registerField(`item-${index}-productId`) : undefined}
-                        value={item.productId}
-                        onChange={(e) => updateItem(index, "productId", e.target.value)}
-                        className="w-full bg-background text-foreground border-none rounded-lg px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none font-medium"
+                        id={`item-${index}-productId`}
                         required
-                      >
-                        <option value="" className="bg-background text-foreground">Select Product...</option>
-                        {products.map((p) => (
-                          <option key={p.id} value={p.id} className="bg-background text-foreground">
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
+                        value={item.productId}
+                        onChange={(val) => updateItem(index, "productId", val)}
+                        options={productOptions}
+                        placeholder="Select Product..."
+                      />
                       {(() => {
                         const rowSuggestion = assistantSuggestions.rowSuggestions?.[index];
                         const suggestedProd = rowSuggestion?.productId 

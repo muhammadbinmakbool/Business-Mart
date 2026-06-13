@@ -9,6 +9,7 @@ import { getUnitsByCategory, calculateIntakeNetWeight, normalizeQuantity, conver
 import { Scale, User, DollarSign, Box, X, XCircle } from "lucide-react";
 import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getLocalDateString } from "@/lib/utils";
 
@@ -22,6 +23,24 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   const [bagCount, setBagCount] = useState(intake.bagCount || "");
   const [status, setStatus] = useState(intake.status || "PENDING");
   const [notes, setNotes] = useState(intake.notes || "");
+  const [selectedSupplierState, setSelectedSupplierState] = useState(intake.partyId.toString());
+
+  const supplierOptions = React.useMemo(() => suppliers.map(s => ({
+    value: s.id.toString(),
+    label: s.name,
+    subLabel: s.phoneNumber
+  })), [suppliers]);
+
+  const productOptions = React.useMemo(() => products.map(p => ({
+    value: p.id.toString(),
+    label: p.name
+  })), [products]);
+
+  const buyerOptions = React.useMemo(() => buyers.map(b => ({
+    value: b.id.toString(),
+    label: b.name,
+    subLabel: b.phoneNumber
+  })), [buyers]);
 
   // SOLD calculations states
   const [buyerPartyId, setBuyerPartyId] = useState(intake.salesTracks?.[0]?.buyerPartyId?.toString() || "");
@@ -133,6 +152,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
   const executeSubmit = async (formData) => {
     setIsSubmitting(true);
+    formData.set("partyId", selectedSupplierState);
     formData.set("productId", selectedProductId);
     formData.set("unit", unit);
     formData.set("grossWeight", grossWeight);
@@ -225,32 +245,28 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
       <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
           <label htmlFor="partyId" className="text-sm font-medium">Supplier</label>
-          <select
+          <SearchableSelect
             id="partyId"
             name="partyId"
             required
-            defaultValue={intake.partyId}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
-          >
-            {suppliers.map(s => (
-              <option key={s.id} value={s.id}>{s.name} ({s.phoneNumber})</option>
-            ))}
-          </select>
+            value={selectedSupplierState}
+            onChange={setSelectedSupplierState}
+            options={supplierOptions}
+            placeholder="Select a supplier..."
+          />
         </div>
 
         <div className="space-y-2">
           <label htmlFor="productId" className="text-sm font-medium">Product</label>
-          <select
+          <SearchableSelect
             id="productId"
+            name="productId"
             required
             value={selectedProductId}
-            onChange={(e) => handleProductChange(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
-          >
-            {products.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+            onChange={handleProductChange}
+            options={productOptions}
+            placeholder="Select a product..."
+          />
         </div>
 
         <div className="space-y-2">
@@ -364,17 +380,15 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
               <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
                 <User className="h-3.5 w-3.5" /> Buyer Party
               </label>
-              <select
+              <SearchableSelect
+                id="buyerPartyId"
+                name="buyerPartyId"
                 required={allowedActions.rules?.requiresBuyer}
                 value={buyerPartyId}
-                onChange={e => setBuyerPartyId(e.target.value)}
-                className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
-              >
-                <option value="">Select Buyer...</option>
-                {buyers.map(b => (
-                  <option key={b.id} value={b.id}>{b.name} ({b.phoneNumber})</option>
-                ))}
-              </select>
+                onChange={setBuyerPartyId}
+                options={buyerOptions}
+                placeholder="Select Buyer..."
+              />
             </div>
 
             {/* Rate & Unit */}

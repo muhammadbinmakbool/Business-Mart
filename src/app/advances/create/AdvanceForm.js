@@ -1,15 +1,23 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import { recordAdvanceAction } from "@/modules/intake/controllers/advanceActions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 
 export default function AdvanceForm({ suppliers, backUrl }) {
   const router = useRouter();
   const formRef = useRef(null);
   const supplierRef = useRef(null);
+  const [supplierId, setSupplierId] = useState("");
+
+  const supplierOptions = useMemo(() => suppliers.map(s => ({
+    value: s.id.toString(),
+    label: s.name,
+    subLabel: s.phoneNumber
+  })), [suppliers]);
 
   async function handleSubmit(formData, shouldRedirect) {
     const result = await recordAdvanceAction(formData);
@@ -25,6 +33,7 @@ export default function AdvanceForm({ suppliers, backUrl }) {
       router.push(backUrl || "/advances");
     } else {
       formRef.current?.reset();
+      setSupplierId("");
       supplierRef.current?.focus();
     }
   }
@@ -37,19 +46,16 @@ export default function AdvanceForm({ suppliers, backUrl }) {
     >
       <div className="space-y-2">
         <label htmlFor="partyId" className="text-sm font-medium">Supplier</label>
-        <select
+        <SearchableSelect
           ref={supplierRef}
           id="partyId"
           name="partyId"
           required
-          autoFocus
-          className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          <option value="">Select a supplier...</option>
-          {suppliers.map(s => (
-            <option key={s.id} value={s.id}>{s.name} ({s.phoneNumber})</option>
-          ))}
-        </select>
+          value={supplierId}
+          onChange={setSupplierId}
+          options={supplierOptions}
+          placeholder="Select a supplier..."
+        />
       </div>
 
       <div className="space-y-2">

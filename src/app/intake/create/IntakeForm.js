@@ -9,6 +9,7 @@ import Link from "next/link";
 import { getUnitsByCategory, normalizeQuantity, convertFromBase, UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { getPreferredWeightUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getLocalDateString } from "@/lib/utils";
 import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
@@ -49,6 +50,20 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
 
   const defaultProductVal = settings?.defaults?.activeMarketProductId || settings?.defaults?.productId || "";
+
+  const supplierOptions = React.useMemo(() => [
+    { value: "new", label: "➕ Add New Supplier", specialOption: true },
+    ...suppliers.map(s => ({
+      value: s.id.toString(),
+      label: s.name,
+      subLabel: s.phoneNumber
+    }))
+  ], [suppliers]);
+
+  const productOptions = React.useMemo(() => products.map(p => ({
+    value: p.id.toString(),
+    label: p.name
+  })), [products]);
 
   // ── Keyboard Flow Integration ──
   const handleKeyboardSubmit = useCallback(() => {
@@ -244,27 +259,19 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
         {/* 1. Supplier */}
         <div className="space-y-2">
           <label htmlFor="partyId" className="text-sm font-medium">Supplier</label>
-          <select
+          <SearchableSelect
             ref={mergeRefs(supplierRef, registerField("partyId"))}
             id="partyId"
             name="partyId"
             required
-            autoFocus
-            onChange={(e) => {
-              setIsNewSupplier(e.target.value === "new");
-              setSelectedSupplierState(e.target.value);
+            value={selectedSupplierState}
+            onChange={(val) => {
+              setIsNewSupplier(val === "new");
+              setSelectedSupplierState(val);
             }}
-            className="w-full rounded-md border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
-          >
-            <option value="" className="bg-background text-foreground">Select a supplier...</option>
-            <option value="new" className="font-bold text-primary bg-background">➕ Add New Supplier</option>
-            <hr />
-            {suppliers.map(s => (
-              <option key={s.id} value={s.id} className="bg-background text-foreground">
-                {s.name} ({s.phoneNumber})
-              </option>
-            ))}
-          </select>
+            options={supplierOptions}
+            placeholder="Select a supplier..."
+          />
           <InlineSuggestionBox 
             suggestion={assistantSuggestions.party}
             label={suggestedSupplier?.name}
@@ -327,20 +334,16 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
         {/* 2. Product */}
         <div className="space-y-2">
           <label htmlFor="productId" className="text-sm font-medium">Product</label>
-          <select
+          <SearchableSelect
             ref={registerField("productId")}
             id="productId"
             name="productId"
             required
             value={selectedProductId}
-            onChange={(e) => handleProductChange(e.target.value)}
-            className="w-full rounded-md border bg-background text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
-          >
-            <option value="" className="bg-background text-foreground">Select a product...</option>
-            {products.map(p => (
-              <option key={p.id} value={p.id} className="bg-background text-foreground">{p.name}</option>
-            ))}
-          </select>
+            onChange={handleProductChange}
+            options={productOptions}
+            placeholder="Select a product..."
+          />
           <InlineSuggestionBox 
             suggestion={assistantSuggestions.product}
             label={suggestedProduct?.name}
