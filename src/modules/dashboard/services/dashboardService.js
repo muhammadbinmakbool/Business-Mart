@@ -9,7 +9,9 @@ export class DashboardService {
 
   // --- 1. FINANCE DOMAIN ---
   static async getFinanceOverview() {
-    const [aggInvoices, aggSales] = await Promise.all([
+    const { start, end } = this.getTodayRange();
+
+    const [aggInvoices, aggSales, todayInvoicesDelta, todaySalesDelta, todayCommissions] = await Promise.all([
       prisma.supplierInvoice.aggregate({
         _sum: {
           totalGrossValue: true,
@@ -37,6 +39,37 @@ export class DashboardService {
           isDeleted: false,
           status: { not: "CANCELLED" }
         }
+      }),
+      prisma.supplierInvoice.aggregate({
+        _sum: {
+          finalPayableAmount: true
+        },
+        where: {
+          status: { not: "SUPERSEDED" },
+          entryDate: { gte: start, lte: end }
+        }
+      }),
+      prisma.saleTransaction.aggregate({
+        _sum: {
+          finalAmount: true
+        },
+        where: {
+          isDeleted: false,
+          status: { not: "CANCELLED" },
+          entryDate: { gte: start, lte: end }
+        }
+      }),
+      prisma.transactionAdjustment.aggregate({
+        _sum: {
+          calculatedAmount: true
+        },
+        where: {
+          adjustmentType: "Commission",
+          sale: {
+            entryDate: { gte: start, lte: end },
+            isDeleted: false
+          }
+        }
       })
     ]);
 
@@ -44,25 +77,14 @@ export class DashboardService {
     const activeInvoicesCount = aggInvoices._count.id;
     const buyerReceivableTotal = Number(aggSales._sum.finalAmount || 0);
     const activeSalesCount = aggSales._count.id;
-
-    // Today's commissions
-    const { start, end } = this.getTodayRange();
-    const todayCommissions = await prisma.transactionAdjustment.aggregate({
-      _sum: {
-        calculatedAmount: true
-      },
-      where: {
-        adjustmentType: "Commission",
-        sale: {
-          entryDate: { gte: start, lte: end },
-          isDeleted: false
-        }
-      }
-    });
+    const supplierPayableTodayChange = Number(todayInvoicesDelta._sum.finalPayableAmount || 0);
+    const buyerReceivableTodayChange = Number(todaySalesDelta._sum.finalAmount || 0);
 
     return {
       supplierPayableTotal,
       buyerReceivableTotal,
+      supplierPayableTodayChange,
+      buyerReceivableTodayChange,
       todayCommissionTotal: todayCommissions._sum.calculatedAmount ? Number(todayCommissions._sum.calculatedAmount) : 0,
       activeInvoicesCount,
       activeSalesCount
@@ -78,9 +100,26 @@ export class DashboardService {
     const totalStockQuantity = products.reduce((sum, p) => sum + Number(p.quantity), 0);
     const lowStockCount = products.filter(p => Number(p.quantity) < 50).length;
 
+    // Calculate Top Category based on physical quantities
+    const categories = {};
+    products.forEach(p => {
+      const cat = p.category || "WEIGHT";
+      categories[cat] = (categories[cat] || 0) + Number(p.quantity);
+    });
+
+    let topCategory = "WEIGHT";
+    let maxQty = -1;
+    Object.entries(categories).forEach(([cat, qty]) => {
+      if (qty > maxQty) {
+        maxQty = qty;
+        topCategory = cat;
+      }
+    });
+
     return {
       totalStockQuantity,
       lowStockCount,
+      topCategory,
       products: products.map(p => ({
         id: p.id,
         name: p.name,
@@ -101,7 +140,8 @@ export class DashboardService {
         difference: 0,
         status: "N/A",
         matched: true,
-        title: "No saved sessions"
+        title: "No saved sessions",
+        endDate: null
       };
     }
 
@@ -113,15 +153,23 @@ export class DashboardService {
       title: latestSession.title,
       difference,
       status: latestSession.status, // OPEN | LOCKED
-      matched
+      matched,
+      endDate: latestSession.endDate
     };
   }
 
   // --- 4. ACTIVITY & SUMMARIES DOMAIN ---
   static async getActivityOverview() {
     const { start, end } = this.getTodayRange();
+    const { start: yStart, end: yEnd } = this.getYesterdayRange();
 
-    const [todayIntakesCount, todaySalesCount, todaySettlementsCount] = await Promise.all([
+    const [
+      todayIntakesCount,
+      todaySalesCount,
+      todaySettlementsCount,
+      yesterdayIntakesCount,
+      yesterdaySalesCount
+    ] = await Promise.all([
       prisma.intakeTransaction.count({
         where: { entryDate: { gte: start, lte: end } }
       }),
@@ -135,6 +183,15 @@ export class DashboardService {
         where: {
           status: { not: "SUPERSEDED" },
           entryDate: { gte: start, lte: end }
+        }
+      }),
+      prisma.intakeTransaction.count({
+        where: { entryDate: { gte: yStart, lte: yEnd } }
+      }),
+      prisma.saleTransaction.count({
+        where: { 
+          isDeleted: false,
+          entryDate: { gte: yStart, lte: yEnd } 
         }
       })
     ]);
@@ -241,50 +298,112 @@ export class DashboardService {
       todaySalesCount,
       todaySettlementsCount,
       todayBuyerInvoicesCount: todaySalesCount, // SaleTransaction IS the buyer invoice
+      yesterdayIntakesCount,
+      yesterdaySalesCount,
       feed: sortedFeed
     };
   }
 
   // --- 5. PENDING ATTENTION DOMAIN ---
   static async getPendingAttention() {
-    // A. Pending Intakes (status = "PENDING")
-    const pendingIntakes = await prisma.intakeTransaction.findMany({
-      where: { status: "PENDING" },
-      take: 5,
-      orderBy: { entryDate: "desc" },
-      include: { party: true, product: true }
-    });
-
-    // B. Pending Settlements (SOLD intakes not yet settled in active invoices)
-    const pendingSettlements = await prisma.intakeTransaction.findMany({
-      where: {
-        status: "SOLD",
-        invoiceItems: {
-          none: {
-            invoice: {
-              status: { not: "SUPERSEDED" }
+    // Parallel fetching of top 5 lists, total counts, and oldest dates to determine exact aging on the server
+    const [
+      pendingIntakes,
+      pendingSettlements,
+      pendingBilling,
+      pendingIntakesCount,
+      pendingSettlementsCount,
+      pendingBillingCount,
+      oldestIntake,
+      oldestSettlement,
+      oldestBilling,
+      lastSessions
+    ] = await Promise.all([
+      prisma.intakeTransaction.findMany({
+        where: { status: "PENDING" },
+        take: 5,
+        orderBy: { entryDate: "desc" },
+        include: { party: true, product: true }
+      }),
+      prisma.intakeTransaction.findMany({
+        where: {
+          status: "SOLD",
+          invoiceItems: {
+            none: {
+              invoice: {
+                status: { not: "SUPERSEDED" }
+              }
+            }
+          }
+        },
+        take: 5,
+        orderBy: { entryDate: "desc" },
+        include: { party: true, product: true }
+      }),
+      prisma.salesTrack.findMany({
+        where: { isBilled: false },
+        take: 5,
+        orderBy: { createdAt: "desc" },
+        include: { buyer: true, product: true }
+      }),
+      prisma.intakeTransaction.count({ where: { status: "PENDING" } }),
+      prisma.intakeTransaction.count({
+        where: {
+          status: "SOLD",
+          invoiceItems: {
+            none: {
+              invoice: {
+                status: { not: "SUPERSEDED" }
+              }
             }
           }
         }
-      },
-      take: 5,
-      orderBy: { entryDate: "desc" },
-      include: { party: true, product: true }
-    });
+      }),
+      prisma.salesTrack.count({ where: { isBilled: false } }),
+      prisma.intakeTransaction.findFirst({
+        where: { status: "PENDING" },
+        orderBy: { entryDate: "asc" },
+        select: { entryDate: true }
+      }),
+      prisma.intakeTransaction.findFirst({
+        where: {
+          status: "SOLD",
+          invoiceItems: {
+            none: {
+              invoice: {
+                status: { not: "SUPERSEDED" }
+              }
+            }
+          }
+        },
+        orderBy: { entryDate: "asc" },
+        select: { entryDate: true }
+      }),
+      prisma.salesTrack.findFirst({
+        where: { isBilled: false },
+        orderBy: { createdAt: "asc" },
+        select: { createdAt: true }
+      }),
+      prisma.ledgerSession.findMany({
+        take: 5,
+        orderBy: { endDate: "desc" }
+      })
+    ]);
 
-    // C. Pending Buyer Billing (unbilled SalesTrack records)
-    const pendingBilling = await prisma.salesTrack.findMany({
-      where: { isBilled: false },
-      take: 5,
-      orderBy: { createdAt: "desc" },
-      include: { buyer: true, product: true }
-    });
+    const now = new Date();
 
-    // D. Reconciliation alerts: drift warnings check on the last 5 saved sessions
-    const lastSessions = await prisma.ledgerSession.findMany({
-      take: 5,
-      orderBy: { endDate: "desc" }
-    });
+    // Compute exact aging in days on the server side
+    const intakeOldestAgeDays = oldestIntake 
+      ? Math.max(0, Math.ceil((now - new Date(oldestIntake.entryDate)) / (1000 * 60 * 60 * 24)))
+      : 0;
+
+    const settlementOldestAgeDays = oldestSettlement
+      ? Math.max(0, Math.ceil((now - new Date(oldestSettlement.entryDate)) / (1000 * 60 * 60 * 24)))
+      : 0;
+
+    const billingOldestAgeDays = oldestBilling
+      ? Math.max(0, Math.ceil((now - new Date(oldestBilling.createdAt)) / (1000 * 60 * 60 * 24)))
+      : 0;
 
     const driftAlerts = [];
     for (const session of lastSessions) {
@@ -350,6 +469,12 @@ export class DashboardService {
       pendingIntakes: pendingIntakes.map(this.serializeIntake),
       pendingSettlements: pendingSettlements.map(this.serializeIntake),
       pendingBilling: pendingBilling.map(this.serializeTrack),
+      pendingIntakesCount,
+      pendingSettlementsCount,
+      pendingBillingCount,
+      intakeOldestAgeDays,
+      settlementOldestAgeDays,
+      billingOldestAgeDays,
       driftAlerts
     };
   }
@@ -501,6 +626,16 @@ export class DashboardService {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
     const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+  }
+
+  static getYesterdayRange() {
+    const start = new Date();
+    start.setDate(start.getDate() - 1);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date();
+    end.setDate(end.getDate() - 1);
     end.setHours(23, 59, 59, 999);
     return { start, end };
   }

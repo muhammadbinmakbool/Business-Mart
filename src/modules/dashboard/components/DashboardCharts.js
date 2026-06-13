@@ -29,7 +29,7 @@ export function DailyActivityChart({ data = [] }) {
         </div>
       </div>
 
-      <div className="h-[160px] bg-white dark:bg-slate-950/40 rounded-xl p-3 border border-slate-200 dark:border-slate-900 flex items-end justify-between gap-2 shadow-inner">
+      <div className="h-[200px] bg-white dark:bg-slate-950/40 rounded-xl p-3 border border-slate-200 dark:border-slate-900 flex items-end justify-between gap-2 shadow-inner">
         {data.length > 0 ? (
           data.map((day, idx) => {
             const intakeHeight = (day.intakeCount / maxVal) * 100;
@@ -140,7 +140,7 @@ export function FinancialFlowChart({ data = [] }) {
         </div>
       </div>
 
-      <div className="h-[160px] bg-white dark:bg-slate-950/40 rounded-xl p-3 border border-slate-200 dark:border-slate-900 flex items-end justify-between gap-2 shadow-inner">
+      <div className="h-[200px] bg-white dark:bg-slate-950/40 rounded-xl p-3 border border-slate-200 dark:border-slate-900 flex items-end justify-between gap-2 shadow-inner">
         {data.length > 0 ? (
           data.map((day, idx) => {
             const settHeight = (day.settlementValue / maxVal) * 100;
