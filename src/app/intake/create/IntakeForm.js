@@ -75,6 +75,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
   const { registerField } = useKeyboardFlow({
     fields: INTAKE_FIELDS,
     onSubmit: handleKeyboardSubmit,
+    onCancel: () => router.push(backUrl || "/intake"),
     enableSmartDefaults: true,
   });
 
@@ -264,6 +265,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
             id="partyId"
             name="partyId"
             required
+            autoFocus
             value={selectedSupplierState}
             onChange={(val) => {
               setIsNewSupplier(val === "new");

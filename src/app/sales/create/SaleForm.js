@@ -134,6 +134,7 @@ export default function SaleForm({ buyers, products, initialData = null, setting
   const { registerField } = useKeyboardFlow({
     fields: saleFields,
     onSubmit: handleKeyboardSubmit,
+    onCancel: () => router.push(backUrl || "/sales"),
     enableSmartDefaults: true,
   });
 
@@ -496,6 +497,7 @@ export default function SaleForm({ buyers, products, initialData = null, setting
             id="partyId"
             name="partyId"
             required
+            autoFocus={!initialData}
             value={partyId}
             onChange={(val) => {
               setPartyId(val);

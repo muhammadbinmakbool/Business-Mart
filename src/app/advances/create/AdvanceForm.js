@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useEffect } from "react";
 import { recordAdvanceAction } from "@/modules/intake/controllers/advanceActions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -12,6 +12,16 @@ export default function AdvanceForm({ suppliers, backUrl }) {
   const formRef = useRef(null);
   const supplierRef = useRef(null);
   const [supplierId, setSupplierId] = useState("");
+
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        router.push(backUrl || "/advances");
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [backUrl, router]);
 
   const supplierOptions = useMemo(() => suppliers.map(s => ({
     value: s.id.toString(),
@@ -51,6 +61,7 @@ export default function AdvanceForm({ suppliers, backUrl }) {
           id="partyId"
           name="partyId"
           required
+          autoFocus
           value={supplierId}
           onChange={setSupplierId}
           options={supplierOptions}

@@ -16,7 +16,8 @@ export default React.forwardRef(function SearchableSelect({
   disabled = false,
   required = false,
   id,
-  className = ""
+  className = "",
+  autoFocus = false
 }, ref) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -178,6 +179,7 @@ export default React.forwardRef(function SearchableSelect({
         id={id}
         type="button"
         disabled={disabled}
+        autoFocus={autoFocus}
         onClick={handleToggle}
         className={`w-full flex items-center justify-between rounded-md border bg-background text-foreground px-3 py-2 text-sm text-left focus:outline-none focus:ring-2 focus:ring-primary font-medium transition-all ${
           disabled 

@@ -240,6 +240,24 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     }
   };
 
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        if (
+          !showBilledBlockModal && 
+          !showSupplierBlockModal && 
+          !errorModal.isOpen && 
+          !showUnbilledConfirmModal
+        ) {
+          router.push(`/intake/${intake.id}`);
+        }
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [showBilledBlockModal, showSupplierBlockModal, errorModal.isOpen, showUnbilledConfirmModal, intake.id, router]);
+
+
   return (
     <form onSubmit={onSubmit} className="space-y-6">
       <div className="grid gap-6 md:grid-cols-2">
@@ -249,6 +267,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
             id="partyId"
             name="partyId"
             required
+            autoFocus
             value={selectedSupplierState}
             onChange={setSelectedSupplierState}
             options={supplierOptions}

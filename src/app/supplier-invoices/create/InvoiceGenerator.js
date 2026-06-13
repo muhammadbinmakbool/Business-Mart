@@ -54,6 +54,24 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, set
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === "Escape") {
+        if (!isAdjustmentModalOpen) {
+          if (step === 3) {
+            setStep(2);
+          } else if (step === 2) {
+            setStep(1);
+          } else if (step === 1) {
+            router.push(backUrl || "/supplier-invoices");
+          }
+        }
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [step, isAdjustmentModalOpen, backUrl, router]);
+
   const visibleAdjustmentTypes = getVisibleAdjustments(ADJUSTMENT_TYPES_SUPPLIER, settings);
 
   // Per-intake adjustments state: { [intakeId]: [adjustments] }
@@ -358,9 +376,10 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, set
       {/* Step 1: Select Party */}
       {step === 1 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {suppliers.map(s => (
+          {suppliers.map((s, index) => (
             <button
               key={s.id}
+              autoFocus={index === 0}
               onClick={() => { setSelectedParty(s); setStep(2); }}
               className="flex flex-col items-start gap-2 p-4 rounded-xl border bg-card hover:border-primary hover:bg-primary/5 transition-all text-left group"
             >
