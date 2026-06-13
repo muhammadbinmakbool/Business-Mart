@@ -637,7 +637,16 @@ export class SaleService {
     return updated;
   }
 
-  static async deleteSale(id) {
+  static async deleteSale(id, deleteReason) {
+    let performedByUserId = 0;
+    try {
+      const { getSession } = await import("@/lib/session");
+      const session = await getSession();
+      if (session) {
+        performedByUserId = session.userId || 0;
+      }
+    } catch (e) {}
+
     const deleted = await prisma.$transaction(async (tx) => {
       // 1. Get current sale with items
       const sale = await tx.saleTransaction.findUnique({
@@ -670,7 +679,12 @@ export class SaleService {
       // 4. Soft delete the sale transaction
       return tx.saleTransaction.update({
         where: { id: parseInt(id) },
-        data: { isDeleted: true }
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          deletedBy: performedByUserId || null,
+          deleteReason: deleteReason || null
+        }
       });
     });
 
@@ -678,10 +692,11 @@ export class SaleService {
       entityType: "SALE",
       entityId: deleted.id,
       action: "DELETED",
-      description: `Sale ${deleted.saleNumber} deleted (soft-delete)`,
+      description: `Sale ${deleted.saleNumber} deleted (soft-delete).${deleteReason ? ` Reason: ${deleteReason}` : ""}`,
       meta: {
         buyerId: deleted.partyId,
-        finalAmount: Number(deleted.finalAmount)
+        finalAmount: Number(deleted.finalAmount),
+        deleteReason
       }
     });
 
