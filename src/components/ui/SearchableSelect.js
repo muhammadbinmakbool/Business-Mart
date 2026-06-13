@@ -95,6 +95,19 @@ export default React.forwardRef(function SearchableSelect({
     }
   }, [highlightedIndex, isOpen]);
 
+  // Helper to open the dropdown and pre-populate the search query
+  const handleOpenWithQuery = (initialQuery) => {
+    if (disabled) return;
+    setIsOpen(true);
+    setSearchQuery(initialQuery);
+    setTimeout(() => {
+      inputRef.current?.focus();
+      if (listRef.current) {
+        listRef.current.scrollTop = 0;
+      }
+    }, 50);
+  };
+
   // Reset scroll to top when opening
   const handleToggle = () => {
     if (disabled) return;
@@ -126,6 +139,12 @@ export default React.forwardRef(function SearchableSelect({
       if (e.key === " " || e.key === "Spacebar" || e.key === "ArrowDown" || e.key === "ArrowUp") {
         e.preventDefault();
         handleToggle();
+        return;
+      }
+      if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        e.preventDefault();
+        handleOpenWithQuery(e.key);
+        return;
       }
       return;
     }
