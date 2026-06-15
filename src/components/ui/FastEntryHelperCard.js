@@ -47,6 +47,8 @@ export default function FastEntryHelperCard() {
   let pageType = "global";
   if (pathname.includes("/intake/create")) {
     pageType = "intake";
+  } else if (pathname.includes("/sales/pos")) {
+    pageType = "pos";
   } else if (pathname.includes("/sales/create")) {
     pageType = "sales";
   } else if (pathname.includes("/parties/create") || /\/parties\/[^/]+\/edit/.test(pathname)) {
@@ -59,6 +61,18 @@ export default function FastEntryHelperCard() {
     ];
 
     switch (pageType) {
+      case "pos":
+        return [
+          ...common,
+          { key: "F2", desc: "Focus barcode scan / search input" },
+          { key: "F3", desc: "Focus cash received calculator field" },
+          { key: "F4", desc: "Focus product entry table grid" },
+          { key: "F5", desc: "Focus / open customer dropdown" },
+          { key: "F7 / Ctrl+P", desc: "Save bill & print thermal receipt" },
+          { key: "Ctrl + Space", desc: "Quick checkout (save & reset cart)" },
+          { key: "Ctrl + Enter", desc: "Save invoice & close page" },
+          { key: "Escape", desc: "Clear cart / cancel current bill" }
+        ];
       case "intake":
         return [
           ...common,

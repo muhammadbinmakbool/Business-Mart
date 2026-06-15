@@ -17,7 +17,10 @@ export default React.forwardRef(function SearchableSelect({
   required = false,
   id,
   className = "",
-  autoFocus = false
+  autoFocus = false,
+  onKeyDown,
+  variant = "default",
+  ...rest
 }, ref) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -129,6 +132,11 @@ export default React.forwardRef(function SearchableSelect({
   const handleKeyDown = (e) => {
     if (disabled) return;
 
+    if (onKeyDown) {
+      onKeyDown(e, isOpen);
+      if (e.defaultPrevented) return;
+    }
+
     if (!isOpen) {
       if (e.key === "Backspace" || e.key === "Delete") {
         e.preventDefault();
@@ -200,13 +208,20 @@ export default React.forwardRef(function SearchableSelect({
         disabled={disabled}
         autoFocus={autoFocus}
         onClick={handleToggle}
-        className={`w-full flex items-center justify-between rounded-md border bg-background text-foreground px-3 py-2 text-sm text-left focus:outline-none focus:ring-2 focus:ring-primary font-medium transition-all ${
+        className={`w-full flex items-center justify-between text-sm text-left focus:outline-none font-medium transition-all ${
+          variant === "compact"
+            ? "border-0 bg-transparent rounded-lg px-2 py-1 text-foreground"
+            : "rounded-md border bg-background text-foreground px-3 py-2"
+        } ${
           disabled 
             ? "opacity-50 cursor-not-allowed bg-muted border-input" 
-            : isOpen 
-              ? "ring-2 ring-primary border-primary" 
-              : "border-input hover:border-muted-foreground/30"
+            : variant === "compact"
+              ? "focus:ring-1 focus:ring-primary hover:bg-muted/20"
+              : isOpen 
+                ? "ring-2 ring-primary border-primary" 
+                : "border-input hover:border-muted-foreground/30"
         } ${className}`}
+        {...rest}
       >
         <span className={selectedOption ? "text-foreground font-medium" : "text-muted-foreground"}>
           {selectedOption ? selectedOption.label : placeholder}

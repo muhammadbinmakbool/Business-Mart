@@ -38,25 +38,33 @@ export function AppLayout({ children }) {
 
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Desktop Sidebar (hidden on mobile) */}
-        <div 
-          className="relative hidden md:block h-full transition-all duration-300 ease-in-out shrink-0 border-r"
-          style={{ width: isCollapsed ? "80px" : "256px" }}
-        >
-          <Sidebar />
+        {(() => {
+          const isPosPage = pathname === "/sales/pos";
+          const effectiveCollapsed = isCollapsed || isPosPage;
+          return (
+            <div 
+              className="relative hidden md:block h-full transition-all duration-300 ease-in-out shrink-0 border-r"
+              style={{ width: effectiveCollapsed ? "80px" : "256px" }}
+            >
+              <Sidebar forceCollapsed={isPosPage} />
 
-          {/* Collapse / Expand toggle — lives here so it's never clipped by Sidebar's overflow-hidden */}
-          <button
-            onClick={toggleCollapse}
-            className="absolute -right-3 top-20 z-40 flex h-6 w-6 items-center justify-center rounded-full border bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground cursor-pointer transition-all duration-200 hover:scale-110"
-            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-          >
-            {isCollapsed ? (
-              <ChevronRight className="h-3 w-3" />
-            ) : (
-              <ChevronLeft className="h-3 w-3" />
-            )}
-          </button>
-        </div>
+              {/* Collapse / Expand toggle — lives here so it's never clipped by Sidebar's overflow-hidden */}
+              {!isPosPage && (
+                <button
+                  onClick={toggleCollapse}
+                  className="absolute -right-3 top-20 z-40 flex h-6 w-6 items-center justify-center rounded-full border bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground cursor-pointer transition-all duration-200 hover:scale-110"
+                  title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+                >
+                  {isCollapsed ? (
+                    <ChevronRight className="h-3 w-3" />
+                  ) : (
+                    <ChevronLeft className="h-3 w-3" />
+                  )}
+                </button>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Mobile Slide-over Drawer */}
         {isMobileOpen && (
@@ -76,7 +84,7 @@ export function AppLayout({ children }) {
         {/* Main Content Area - Transitions automatically in sync with the Sidebar */}
         <div className="flex flex-1 flex-col overflow-hidden min-w-0 transition-all duration-300 ease-in-out">
           <Topbar />
-          <main className="flex-1 overflow-y-auto p-6 bg-background">
+          <main className={`flex-1 p-6 bg-background ${pathname === "/sales/pos" ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"}`}>
             {children}
           </main>
         </div>

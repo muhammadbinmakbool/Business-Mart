@@ -36,12 +36,12 @@ const menuItems = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar({ forceExpanded = false, onClose }) {
+export function Sidebar({ forceExpanded = false, forceCollapsed = false, onClose }) {
   const pathname = usePathname();
   const { isCollapsed: contextCollapsed } = useSidebar();
 
   // If forceExpanded is true (e.g. mobile drawer), ignore collapsed state
-  const isCollapsed = forceExpanded ? false : contextCollapsed;
+  const isCollapsed = forceExpanded ? false : (forceCollapsed || contextCollapsed);
 
   // Fixed-position tooltip state — renders outside all overflow containers
   const [tooltip, setTooltip] = useState({ visible: false, text: "", top: 0 });

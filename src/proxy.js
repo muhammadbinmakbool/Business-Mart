@@ -16,6 +16,11 @@ export default async function proxy(request) {
     return NextResponse.next();
   }
 
+  // Bypass proxy redirects for Server Actions (handled individually inside the action)
+  if (request.headers.has("next-action")) {
+    return NextResponse.next();
+  }
+
   const isLoginPage = pathname === "/login";
   const sessionCookie = request.cookies.get(AUTH_COOKIE_NAME)?.value;
 
