@@ -23,12 +23,16 @@ import SettlementLedgerSettingsCard from "./SettlementLedgerSettingsCard";
 import ActivityAuditSettingsCard from "./ActivityAuditSettingsCard";
 import IntakeWorkflowSettingsCard from "./IntakeWorkflowSettingsCard";
 import { getActiveSessionAction } from "@/modules/auth/controllers/userActions";
+import { getFeatureFlagsAction } from "@/modules/settings/controllers/settingsActions";
+import FeatureFlagCard from "./FeatureFlagCard";
 
 function SettingsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("general");
   const [authorized, setAuthorized] = useState(false);
+  const [userRole, setUserRole] = useState(null);
+  const [featureFlags, setFeatureFlags] = useState(null);
 
   useEffect(() => {
     async function checkAuth() {
@@ -38,6 +42,13 @@ function SettingsContent() {
         router.push("/dashboard");
       } else {
         setAuthorized(true);
+        setUserRole(session.role);
+        
+        // Fetch feature flags for adjusting adjustments tab
+        const flagsRes = await getFeatureFlagsAction();
+        if (flagsRes.success) {
+          setFeatureFlags(flagsRes.flags);
+        }
       }
     }
     checkAuth();
@@ -45,10 +56,35 @@ function SettingsContent() {
 
   useEffect(() => {
     const tab = searchParams.get("tab");
-    if (tab === "security" || tab === "general" || tab === "adjustments" || tab === "defaults" || tab === "print" || tab === "inventory" || tab === "settlement-ledger" || tab === "activity-audit" || tab === "intake-workflow") {
-      setActiveTab(tab);
+    const validTabs = [
+      "security", "general", "adjustments", "defaults", "print",
+      "inventory", "settlement-ledger", "activity-audit", "intake-workflow", "feature-flags"
+    ];
+    if (validTabs.includes(tab)) {
+      if (tab !== "feature-flags" || userRole === "SUPER_ADMIN") {
+        setActiveTab(tab);
+      }
     }
-  }, [searchParams]);
+  }, [searchParams, userRole]);
+
+  const allowedAdjustments = React.useMemo(() => {
+    if (!featureFlags) return null;
+    const { ADJUSTMENT_TYPES_BUYER, ADJUSTMENT_TYPES_SUPPLIER } = require("@/lib/constants");
+    
+    const buyer = [
+      ...ADJUSTMENT_TYPES_BUYER.filter(type => type !== "GST" && type !== "Discount"),
+      ...(featureFlags.features?.gst ? ["GST"] : []),
+      ...(featureFlags.features?.discount ? ["Discount"] : [])
+    ];
+    
+    const supplier = [
+      ...ADJUSTMENT_TYPES_SUPPLIER.filter(type => type !== "GST" && type !== "Discount"),
+      ...(featureFlags.features?.gst ? ["GST"] : []),
+      ...(featureFlags.features?.discount ? ["Discount"] : [])
+    ];
+    
+    return { buyer, supplier };
+  }, [featureFlags]);
 
 
   if (!authorized) {
@@ -205,6 +241,20 @@ function SettingsContent() {
             Activity & Audit Settings
           </button>
 
+          {userRole === "SUPER_ADMIN" && (
+            <button 
+              onClick={() => setActiveTab("feature-flags")}
+              className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
+                activeTab === "feature-flags"
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
+            >
+              <Sliders className="h-4 w-4" />
+              Feature Flags Configuration
+            </button>
+          )}
+
           <Link
             href="/settings/maintenance"
             className="w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -226,7 +276,7 @@ function SettingsContent() {
           </div>
 
           <div className={activeTab === "adjustments" ? "animate-in fade-in duration-200" : "hidden"}>
-            <AdjustmentVisibilityCard />
+            <AdjustmentVisibilityCard allowedAdjustments={allowedAdjustments} />
           </div>
 
           <div className={activeTab === "defaults" ? "space-y-6 animate-in fade-in duration-200" : "hidden"}>
@@ -295,6 +345,12 @@ function SettingsContent() {
           <div className={activeTab === "intake-workflow" ? "animate-in fade-in duration-200" : "hidden"}>
             <IntakeWorkflowSettingsCard />
           </div>
+
+          {userRole === "SUPER_ADMIN" && (
+            <div className={activeTab === "feature-flags" ? "animate-in fade-in duration-200" : "hidden"}>
+              <FeatureFlagCard />
+            </div>
+          )}
         </div>
       </div>
     </div>

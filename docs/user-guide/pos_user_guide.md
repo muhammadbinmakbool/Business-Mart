@@ -2,6 +2,9 @@
 
 Welcome to the **Retail POS Terminal**. This billing interface is designed for high-speed, keyboard-first, and mouse-free cashier checkouts.
 
+> [!NOTE]
+> The POS interface is activated system-wide by a Super Admin under **System Settings > Feature Flags Configuration**. If enabled, navigating to **New Sale Invoice** will automatically launch this terminal workflow instead of the classic billing form.
+
 ---
 
 ## 🚀 Step-by-Step Checkout Workflow

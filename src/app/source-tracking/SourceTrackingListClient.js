@@ -22,7 +22,8 @@ export default function SourceTrackingListClient({
   currentEndDate = "",
   currentMonth = "",
   currentSortField = "createdAt",
-  currentSortDirection = "desc"
+  currentSortDirection = "desc",
+  isSupplierMappingEnabled = true
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -112,7 +113,30 @@ export default function SourceTrackingListClient({
           <h1 className="text-3xl font-bold tracking-tight">Source Tracking</h1>
           <p className="text-muted-foreground">Automated register for business mapping and informational tracking.</p>
         </div>
+        {isSupplierMappingEnabled && (
+          <Link
+            href="/source-tracking/create"
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+          >
+            <Plus className="h-5 w-5" />
+            New Mapping
+          </Link>
+        )}
       </div>
+
+      {!isSupplierMappingEnabled && (
+        <div className="bg-amber-500/15 border border-amber-500/30 rounded-xl p-4 flex items-start gap-3 text-amber-800 dark:text-amber-400">
+          <div className="p-1 bg-amber-500/10 rounded-lg text-amber-500 shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-alert-triangle"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div>
+            <h4 className="font-bold text-sm">Supplier Mapping is disabled</h4>
+            <p className="text-xs mt-1 leading-relaxed opacity-90">
+              Active mapping creation and editing capabilities are locked in read-only mode. Active database associations remain intact.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Search and Filter Row */}
       <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">

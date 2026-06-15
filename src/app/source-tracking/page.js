@@ -1,10 +1,18 @@
 export const dynamic = "force-dynamic";
 
 import React from "react";
+import { redirect } from "next/navigation";
 import { SalesTrackService } from "@/modules/sales/services/SalesTrackService";
 import SourceTrackingListClient from "./SourceTrackingListClient";
+import { getFeatureFlags } from "@/lib/settings/featureFlags";
 
 export default async function SourceTrackingPage({ searchParams }) {
+  const flags = await getFeatureFlags();
+  
+  if (flags.modules?.sourceTracking === false) {
+    redirect("/disabled");
+  }
+
   const resolvedSearchParams = await searchParams;
 
   const page = parseInt(resolvedSearchParams.page) || 1;
@@ -42,6 +50,7 @@ export default async function SourceTrackingPage({ searchParams }) {
       currentMonth={month}
       currentSortField={sortField}
       currentSortDirection={sortDirection}
+      isSupplierMappingEnabled={flags.modules?.supplierMapping !== false}
     />
   );
 }

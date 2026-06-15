@@ -5,10 +5,16 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSupplierInvoiceAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
 import InvoiceGenerator from "../../create/InvoiceGenerator";
+import { getFeatureFlags } from "@/lib/settings/featureFlags";
+import { ADJUSTMENT_TYPES_SUPPLIER } from "@/lib/constants";
+import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 
 export default async function EditSupplierInvoicePage({ params }) {
   const { id } = await params;
-  const result = await getSupplierInvoiceAction(id);
+  const [flags, result] = await Promise.all([
+    getFeatureFlags(),
+    getSupplierInvoiceAction(id)
+  ]);
 
   if (!result.success) {
     return redirect("/supplier-invoices");
@@ -59,6 +65,14 @@ export default async function EditSupplierInvoicePage({ params }) {
   });
   const settings = settingsRecord ? JSON.parse(settingsRecord.value) : { adjustmentVisibility: {} };
 
+  // Filter adjustment types dynamically based on feature flags
+  const allowedAdjustments = [
+    ...ADJUSTMENT_TYPES_SUPPLIER.filter(type => type !== "GST" && type !== "Discount"),
+    ...(flags.features?.gst ? ["GST"] : []),
+    ...(flags.features?.discount ? ["Discount"] : [])
+  ];
+  const visibleAdjustmentTypes = getVisibleAdjustments(allowedAdjustments, settings);
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
       <div className="flex items-center gap-4">
@@ -78,7 +92,7 @@ export default async function EditSupplierInvoicePage({ params }) {
         <InvoiceGenerator 
           suppliers={JSON.parse(JSON.stringify(suppliers))} 
           initialInvoice={invoice} 
-          settings={settings}
+          visibleAdjustmentTypes={visibleAdjustmentTypes}
         />
       </div>
     </div>

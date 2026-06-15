@@ -20,11 +20,9 @@ import { getUninvoicedDataAction, generateSupplierInvoiceAction, editSupplierInv
 import { calculateSupplierDeductions } from "@/lib/financial";
 import { cn, getLocalDateString } from "@/lib/utils";
 import { toast } from "sonner";
-import { ADJUSTMENT_TYPES_SUPPLIER } from "@/lib/constants";
 import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
-import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 
-export default function InvoiceGenerator({ suppliers, initialInvoice = null, settings = null, backUrl = "" }) {
+export default function InvoiceGenerator({ suppliers, initialInvoice = null, visibleAdjustmentTypes = [], backUrl = "" }) {
   const router = useRouter();
   const [step, setStep] = useState(initialInvoice ? 2 : 1);
 
@@ -72,14 +70,12 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, set
     return () => window.removeEventListener("keydown", handleEscape);
   }, [step, isAdjustmentModalOpen, backUrl, router]);
 
-  const visibleAdjustmentTypes = getVisibleAdjustments(ADJUSTMENT_TYPES_SUPPLIER, settings);
-
   // Per-intake adjustments state: { [intakeId]: [adjustments] }
   const [adjustmentsByIntake, setAdjustmentsByIntake] = useState({});
   const [activeIntakeForAdjustment, setActiveIntakeForAdjustment] = useState(null);
   const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
   const [currentAdjustment, setCurrentAdjustment] = useState({
-    adjustmentType: visibleAdjustmentTypes[0] || ADJUSTMENT_TYPES_SUPPLIER[0] || "Labour",
+    adjustmentType: visibleAdjustmentTypes[0] || "Labour",
     method: "PERCENTAGE",
     direction: "SUBTRACT",
     value: "",

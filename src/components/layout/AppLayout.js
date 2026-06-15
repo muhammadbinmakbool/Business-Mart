@@ -9,7 +9,7 @@ import { useSidebar } from "./SidebarContext";
 import { useAuth } from "./AuthContext";
 import { DestructiveModeBanner } from "./DestructiveModeModal";
 
-export function AppLayout({ children }) {
+export function AppLayout({ children, salesWorkflow, isSourceTrackingEnabled }) {
   const pathname = usePathname();
   const { isCollapsed, toggleCollapse, isMobileOpen, setIsMobileOpen } = useSidebar();
   const { isDestructiveActive } = useAuth();
@@ -29,6 +29,8 @@ export function AppLayout({ children }) {
     );
   }
 
+  const isPosPage = pathname === "/sales/pos" || (pathname === "/sales/create" && salesWorkflow === "POS");
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background">
       {/* Destructive Mode Warning Banner - Spans the full width of the screen */}
@@ -39,14 +41,13 @@ export function AppLayout({ children }) {
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Desktop Sidebar (hidden on mobile) */}
         {(() => {
-          const isPosPage = pathname === "/sales/pos";
           const effectiveCollapsed = isCollapsed || isPosPage;
           return (
             <div 
               className="relative hidden md:block h-full transition-all duration-300 ease-in-out shrink-0 border-r"
               style={{ width: effectiveCollapsed ? "80px" : "256px" }}
             >
-              <Sidebar forceCollapsed={isPosPage} />
+              <Sidebar forceCollapsed={isPosPage} isSourceTrackingEnabled={isSourceTrackingEnabled} />
 
               {/* Collapse / Expand toggle — lives here so it's never clipped by Sidebar's overflow-hidden */}
               {!isPosPage && (
@@ -76,7 +77,7 @@ export function AppLayout({ children }) {
             />
             {/* Drawer Sidebar with slide-in animation */}
             <div className="relative z-10 flex h-full w-64 flex-col bg-card shadow-2xl animate-in slide-in-from-left duration-300 ease-in-out border-r">
-              <Sidebar forceExpanded onClose={() => setIsMobileOpen(false)} />
+              <Sidebar forceExpanded onClose={() => setIsMobileOpen(false)} isSourceTrackingEnabled={isSourceTrackingEnabled} />
             </div>
           </div>
         )}
@@ -84,7 +85,7 @@ export function AppLayout({ children }) {
         {/* Main Content Area - Transitions automatically in sync with the Sidebar */}
         <div className="flex flex-1 flex-col overflow-hidden min-w-0 transition-all duration-300 ease-in-out">
           <Topbar />
-          <main className={`flex-1 p-6 bg-background ${pathname === "/sales/pos" ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"}`}>
+          <main className={`flex-1 p-6 bg-background ${isPosPage ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"}`}>
             {children}
           </main>
         </div>

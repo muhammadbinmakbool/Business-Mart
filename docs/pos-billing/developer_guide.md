@@ -31,11 +31,11 @@ The POS billing UI introduces an alternative entry-point for recording customer 
 
 ## ⚙️ Layout Preference & Sidebar Control
 
-To provide maximum horizontal screen space for the billing spreadsheet, the sidebar is collapsed automatically.
+To provide maximum horizontal screen space for the billing spreadsheet under the POS workflow, the sidebar is collapsed automatically.
 
-* **Reactive Route Observation**: The main `AppLayout` component is modified to monitor the active path.
-* **Non-destructive Behavior**: When `pathname === "/sales/pos"`, `AppLayout` forces the collapsed state (`80px` width) for the sidebar.
-* **No State Pollution**: This layout override does not overwrite the user's saved preferences in `localStorage`. Once they navigate away, the sidebar returns to its previous state.
+* **Unified Route**: The POS workflow is unified under `/sales/create` instead of a separate route.
+* **Server-Driven Layout**: The `RootLayout` fetches feature flags server-side and passes them to `AppLayout`. If the `salesWorkflow` flag is configured to `"POS"`, `AppLayout` dynamically collapses the sidebar (`80px` width) and locks scroll heights on the creation viewport.
+* **Non-destructive Behavior**: The layout override applies reactively and does not overwrite the user's saved preferences in `localStorage`. Once they navigate away, the sidebar returns to its previous state.
 
 ---
 
@@ -113,14 +113,18 @@ For retail checkouts, the POS provides a payment helper section:
 
 ## 📂 File Organization
 
-The POS components are structured as follows:
+The sales and POS components are structured as follows:
 
 ```
-src/app/sales/pos/
-├── page.js                 # Server Component (data-fetching)
-├── PosBillingClient.js     # Main Client Shell (state and key handlers)
-└── components/
-    ├── PosProductTable.js  # Spreadsheet-style editable grid
-    ├── PosTotals.js        # Subtotal, adjustments, and final bill display
-    └── PosCashCalculator.js# Cash received and change due calculator
+src/app/sales/
+├── create/
+│   ├── page.js                 # Unified page loader (computes visible adjustments, determines POS vs Classic)
+│   └── SaleForm.js             # Classic Form Client Shell
+├── pos/
+│   ├── page.js                 # Redirects server-side to /sales/create
+│   ├── PosBillingClient.js     # POS Interface Client Shell
+│   └── components/
+│       ├── PosProductTable.js  # Spreadsheet-style editable grid
+│       ├── PosTotals.js        # Subtotal, adjustments, and final bill display
+│       └── PosCashCalculator.js# Cash received and change due calculator
 ```

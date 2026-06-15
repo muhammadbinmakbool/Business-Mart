@@ -9,6 +9,9 @@ import { getInventorySettings, DEFAULT_INVENTORY_SETTINGS } from "@/lib/settings
 import { getSettlementLedgerSettings, DEFAULT_SETTLEMENT_LEDGER_SETTINGS } from "@/lib/settings/settlementLedgerSettings";
 import { getActivityAuditSettings, DEFAULT_ACTIVITY_AUDIT_SETTINGS } from "@/lib/settings/activityAuditSettings";
 import { WorkflowSettingsProvider, DEFAULT_INTAKE_WORKFLOW_SETTINGS } from "@/modules/workflow/core/WorkflowSettingsProvider";
+import { withSecurity } from "@/lib/authGuard";
+import { getSession } from "@/lib/session";
+
 
 export async function getSettings() {
   try {
@@ -545,6 +548,46 @@ export async function saveIntakeWorkflowSettingsAction(settings) {
     return { success: false, error: error.message || "Failed to save intake workflow settings" };
   }
 }
+
+export async function getFeatureFlagsAction() {
+  try {
+    const session = await getSession();
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
+    const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
+    const flags = await getFeatureFlags();
+    return { success: true, flags };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+export const saveFeatureFlagsAction = withSecurity(
+  async function (flags) {
+    try {
+      const value = JSON.stringify(flags);
+      await prisma.systemSetting.upsert({
+        where: { key: "feature_flags" },
+        update: { value },
+        create: { key: "feature_flags", value }
+      });
+      revalidatePath("/", "layout");
+      revalidatePath("/settings");
+      revalidatePath("/sales");
+      revalidatePath("/source-tracking");
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  },
+  {
+    actionName: "Update Feature Flags",
+    roleCheck: (role) => role === "SUPER_ADMIN",
+    requirePassword: true
+  }
+);
+
 
 
 

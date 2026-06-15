@@ -23,8 +23,6 @@ import { triggerPrint } from "@/print/utils/printUtils";
 import { calculateTransactionTotals, round } from "@/lib/financial";
 import { normalizeQuantity, normalizeRate, getUnitsByCategory } from "@/lib/units";
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
-import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
-import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 
 // Components
@@ -32,7 +30,7 @@ import PosProductTable from "./components/PosProductTable";
 import PosTotals from "./components/PosTotals";
 import PosCashCalculator from "./components/PosCashCalculator";
 
-export default function PosBillingClient({ buyers = [], products = [], settings = {}, printConfig = null }) {
+export default function PosBillingClient({ buyers = [], products = [], visibleAdjustmentTypes = [], printConfig = null }) {
   const router = useRouter();
 
   // 1. Initial State Resolution (Hydration safe)
@@ -99,10 +97,6 @@ export default function PosBillingClient({ buyers = [], products = [], settings 
   // Refs for focusing
   const scannerInputRef = useRef(null);
   const cashCalculatorRef = useRef(null);
-
-  const visibleAdjustmentTypes = useMemo(() => {
-    return getVisibleAdjustments(ADJUSTMENT_TYPES_BUYER, settings);
-  }, [settings]);
 
   const buyerOptions = useMemo(() => [
     { value: "new", label: "➕ Add New Buyer", specialOption: true },

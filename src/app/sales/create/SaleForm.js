@@ -10,18 +10,17 @@ import { cn, getLocalDateString } from "@/lib/utils";
 import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/financial";
 import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate, convertRate, convertFromBase, UNIT_IDS } from "@/lib/units";
 import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
-import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
 import Alert from "@/components/ui/Alert";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
-import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 import { useFastEntryAssistant } from "@/modules/fast-entry-assistant/hooks/useFastEntryAssistant";
 import InlineSuggestionBox from "@/modules/fast-entry-assistant/components/InlineSuggestionBox";
 
-export default function SaleForm({ buyers, products, initialData = null, settings = null, backUrl = "" }) {
+export default function SaleForm({ buyers, products, initialData = null, visibleAdjustmentTypes = [], backUrl = "" }) {
+
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
@@ -103,8 +102,6 @@ export default function SaleForm({ buyers, products, initialData = null, setting
     })) || []
   );
   
-  const visibleAdjustmentTypes = getVisibleAdjustments(ADJUSTMENT_TYPES_BUYER, settings);
-
   // ── Keyboard Flow: dynamic field array ──
   const saleFields = useMemo(() => {
     if (initialData) return []; // Disable keyboard flow in edit mode

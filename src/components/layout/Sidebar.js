@@ -36,12 +36,23 @@ const menuItems = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export function Sidebar({ forceExpanded = false, forceCollapsed = false, onClose }) {
+export function Sidebar({ forceExpanded = false, forceCollapsed = false, onClose, isSourceTrackingEnabled = true }) {
   const pathname = usePathname();
   const { isCollapsed: contextCollapsed } = useSidebar();
 
   // If forceExpanded is true (e.g. mobile drawer), ignore collapsed state
   const isCollapsed = forceExpanded ? false : (forceCollapsed || contextCollapsed);
+
+  // Filter menuItems dynamically based on feature flags passed as prop
+  const filteredMenuItems = React.useMemo(() => {
+    return menuItems.filter(item => {
+      // Source tracking module check
+      if (item.href === "/source-tracking" && !isSourceTrackingEnabled) {
+        return false;
+      }
+      return true;
+    });
+  }, [isSourceTrackingEnabled]);
 
   // Fixed-position tooltip state — renders outside all overflow containers
   const [tooltip, setTooltip] = useState({ visible: false, text: "", top: 0 });
@@ -98,7 +109,7 @@ export function Sidebar({ forceExpanded = false, forceCollapsed = false, onClose
 
       {/* Navigation Menu */}
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
-        {menuItems.map((item) => {
+        {filteredMenuItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
           
@@ -130,6 +141,7 @@ export function Sidebar({ forceExpanded = false, forceCollapsed = false, onClose
           );
         })}
       </nav>
+
 
       {/* Sidebar Footer */}
       <div className="border-t p-4 flex items-center justify-center shrink-0">

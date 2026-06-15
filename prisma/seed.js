@@ -27,6 +27,27 @@ async function main() {
     console.log(`ℹ️  Admin user already exists: ${existingAdmin.email}`);
   }
 
+  // Create default Super Admin user
+  const existingSuperAdmin = await prisma.user.findUnique({
+    where: { email: "superadmin@businessmart.com" },
+  });
+
+  if (!existingSuperAdmin) {
+    const hashedPassword = await bcrypt.hash("admin123", 12);
+    const superAdmin = await prisma.user.create({
+      data: {
+        email: "superadmin@businessmart.com",
+        name: "Super Admin",
+        password: hashedPassword,
+        role: "SUPER_ADMIN",
+        isActive: true,
+      },
+    });
+    console.log(`✅ Default Super Admin user created: ${superAdmin.email} (ID: ${superAdmin.id})`);
+  } else {
+    console.log(`ℹ️  Super Admin user already exists: ${existingSuperAdmin.email}`);
+  }
+
   console.log("🌱 Seeding complete.");
 }
 

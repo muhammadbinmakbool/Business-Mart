@@ -7,10 +7,14 @@ import RevertStatusButton from "../RevertStatusButton";
 import Link from "next/link";
 import { ChevronLeft, AlertCircle } from "lucide-react";
 import { redirect } from "next/navigation";
+import { getFeatureFlags } from "@/lib/settings/featureFlags";
+import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
+import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 
 export default async function EditSalePage({ params: paramsPromise }) {
   const params = await paramsPromise;
-  const [sale, parties, products] = await Promise.all([
+  const [flags, sale, parties, products] = await Promise.all([
+    getFeatureFlags(),
     SaleService.getSale(params.id),
     PartyService.listParties(),
     ProductService.listProducts()
@@ -56,6 +60,14 @@ export default async function EditSalePage({ params: paramsPromise }) {
   });
   const settings = settingsRecord ? JSON.parse(settingsRecord.value) : { adjustmentVisibility: {} };
 
+  // Filter adjustment types dynamically based on feature flags
+  const allowedAdjustments = [
+    ...ADJUSTMENT_TYPES_BUYER.filter(type => type !== "GST" && type !== "Discount"),
+    ...(flags.features?.gst ? ["GST"] : []),
+    ...(flags.features?.discount ? ["Discount"] : [])
+  ];
+  const visibleAdjustmentTypes = getVisibleAdjustments(allowedAdjustments, settings);
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 pb-20">
       <div className="flex items-center gap-4">
@@ -72,7 +84,12 @@ export default async function EditSalePage({ params: paramsPromise }) {
       </div>
 
       <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <SaleForm buyers={buyers} products={activeProducts} initialData={sale} settings={settings} />
+        <SaleForm 
+          buyers={buyers} 
+          products={activeProducts} 
+          initialData={sale} 
+          visibleAdjustmentTypes={visibleAdjustmentTypes} 
+        />
       </div>
     </div>
   );

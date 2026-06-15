@@ -7,14 +7,17 @@ import { ADJUSTMENT_TYPES_BUYER, ADJUSTMENT_TYPES_SUPPLIER } from "@/lib/constan
 import { getAdjustmentKey } from "@/lib/settings/adjustmentsVisibility";
 import { getAdjustmentVisibilityAction, saveAdjustmentVisibilityAction } from "@/modules/settings/controllers/settingsActions";
 
-export default function AdjustmentVisibilityCard() {
+export default function AdjustmentVisibilityCard({ allowedAdjustments = null }) {
   const [mounted, setMounted] = useState(false);
   const [visibility, setVisibility] = useState({});
   const [saving, setSaving] = useState(false);
 
-  // Derive unique adjustments dynamically from the existing constants
+  const buyerAdjustments = allowedAdjustments?.buyer || ADJUSTMENT_TYPES_BUYER;
+  const supplierAdjustments = allowedAdjustments?.supplier || ADJUSTMENT_TYPES_SUPPLIER;
+
+  // Derive unique adjustments dynamically from the allowed lists
   const uniqueAdjustments = Array.from(
-    new Set([...ADJUSTMENT_TYPES_BUYER, ...ADJUSTMENT_TYPES_SUPPLIER])
+    new Set([...buyerAdjustments, ...supplierAdjustments])
   );
 
   useEffect(() => {
@@ -102,9 +105,9 @@ export default function AdjustmentVisibilityCard() {
                     {type}
                   </label>
                   <span className="text-[10px] text-muted-foreground uppercase font-semibold">
-                    {ADJUSTMENT_TYPES_BUYER.includes(type) && ADJUSTMENT_TYPES_SUPPLIER.includes(type)
+                    {buyerAdjustments.includes(type) && supplierAdjustments.includes(type)
                       ? "Buyer & Supplier"
-                      : ADJUSTMENT_TYPES_BUYER.includes(type)
+                      : buyerAdjustments.includes(type)
                       ? "Buyer Only"
                       : "Supplier Only"}
                   </span>

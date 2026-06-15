@@ -7,6 +7,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import CommandPalette from "@/modules/command-palette/components/CommandPalette";
 import FastEntryHelperCard from "@/components/ui/FastEntryHelperCard";
+import { getFeatureFlags } from "@/lib/settings/featureFlags";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,7 +24,11 @@ export const metadata = {
   description: "Modular Business Management System",
 };
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const flags = await getFeatureFlags();
+  const salesWorkflow = flags.salesWorkflow || "CLASSIC";
+  const isSourceTrackingEnabled = flags.modules?.sourceTracking !== false;
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body 
@@ -33,7 +38,7 @@ export default function RootLayout({ children }) {
         <ThemeProvider>
           <AuthProvider>
             <SidebarProvider>
-              <AppLayout>
+              <AppLayout salesWorkflow={salesWorkflow} isSourceTrackingEnabled={isSourceTrackingEnabled}>
                 {children}
               </AppLayout>
               <Toaster position="top-center" richColors />
@@ -46,3 +51,4 @@ export default function RootLayout({ children }) {
     </html>
   );
 }
+

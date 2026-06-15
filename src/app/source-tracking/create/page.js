@@ -3,14 +3,25 @@ export const dynamic = "force-dynamic";
 import React from "react";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import { redirect } from "next/navigation";
 import { SaleService } from "@/modules/sales/services/SaleService";
 import { IntakeService } from "@/modules/intake/services/IntakeService";
 import { PartyService } from "@/modules/parties/services/PartyService";
 import { ProductService } from "@/modules/products/services/ProductService";
 import { SalesTrackService } from "@/modules/sales/services/SalesTrackService";
 import MappingForm from "../MappingForm";
+import { getFeatureFlags } from "@/lib/settings/featureFlags";
 
 export default async function CreateMappingPage() {
+  const flags = await getFeatureFlags();
+
+  if (flags.modules?.sourceTracking === false) {
+    redirect("/disabled");
+  }
+  if (flags.modules?.supplierMapping === false) {
+    redirect("/source-tracking");
+  }
+
   const [sales, intakes, parties, products, tracks] = await Promise.all([
     SaleService.listSales(),
     IntakeService.listIntakes(),
