@@ -253,6 +253,8 @@ model TransactionAdjustment {
   id               Int             @id @default(autoincrement())
   saleId           Int
   adjustmentType   String // Commission, Labour, Rent, Kaat, etc.
+  code             String          @default("LEGACY") @db.NVarChar(100)
+  isLegacySnapshot Boolean         @default(false)
   method           String // FIXED, PERCENTAGE, PER_WEIGHT
   value            Decimal         @db.Decimal(18, 2)
   calculatedAmount Decimal         @db.Decimal(18, 2)
@@ -300,6 +302,8 @@ model SupplierInvoiceAdjustment {
   id                    Int                 @id @default(autoincrement())
   supplierInvoiceItemId Int
   adjustmentType        String              // Commission, Labour, Rent, Kaat, etc.
+  code                  String              @default("LEGACY") @db.NVarChar(100)
+  isLegacySnapshot      Boolean             @default(false)
   method                String              // FIXED, PERCENTAGE, PER_WEIGHT
   value                 Decimal             @db.Decimal(18, 2)
   calculatedAmount      Decimal             @db.Decimal(18, 2)
@@ -458,4 +462,24 @@ model PartyOpeningBalance {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   party       Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+}
+
+model AdjustmentDefinition {
+  id                     Int      @id @default(autoincrement())
+  code                   String   @unique @db.NVarChar(100)
+  name                   String   @db.NVarChar(255)
+  method                 String   @db.NVarChar(50) // FIXED, PERCENTAGE, PER_WEIGHT, PER_BAG
+  direction              String   @db.NVarChar(50) // ADD, SUBTRACT
+  defaultConfiguredValue Decimal? @db.Decimal(18, 4)
+  isUserEditable         Boolean  @default(true)
+  isEnabledByDefault     Boolean  @default(false)
+  isActive               Boolean  @default(true)
+  isDeleted              Boolean  @default(false)
+  isSystemDefined        Boolean  @default(false)
+  version                Int      @default(1)
+  displayOrder           Int      @default(0)
+  description            String?  @db.NVarChar(Max)
+  applicableTo           String   @default("BOTH") @db.NVarChar(50) // BUYER, SUPPLIER, BOTH
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }

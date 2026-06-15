@@ -110,7 +110,13 @@ export class SaleService {
         }
       });
       return {
-        ...cleanAdj,
+        adjustmentType: cleanAdj.adjustmentType,
+        code: cleanAdj.code || "CUSTOM",
+        isLegacySnapshot: cleanAdj.isLegacySnapshot === true,
+        method: cleanAdj.method,
+        value: cleanAdj.value,
+        direction: cleanAdj.direction || "ADD",
+        unit: cleanAdj.unit || null,
         calculatedAmount: calculateAdjustment(cleanAdj.method, cleanAdj.value, { 
           baseAmount, 
           totalWeight, 
@@ -334,7 +340,13 @@ export class SaleService {
         }
       });
       return {
-        ...cleanAdj,
+        adjustmentType: cleanAdj.adjustmentType,
+        code: cleanAdj.code || "CUSTOM",
+        isLegacySnapshot: cleanAdj.isLegacySnapshot === true,
+        method: cleanAdj.method,
+        value: cleanAdj.value,
+        direction: cleanAdj.direction || "ADD",
+        unit: cleanAdj.unit || null,
         calculatedAmount: calculateAdjustment(cleanAdj.method, cleanAdj.value, { 
           baseAmount, 
           totalWeight, 

@@ -30,7 +30,7 @@ import PosProductTable from "./components/PosProductTable";
 import PosTotals from "./components/PosTotals";
 import PosCashCalculator from "./components/PosCashCalculator";
 
-export default function PosBillingClient({ buyers = [], products = [], visibleAdjustmentTypes = [], printConfig = null }) {
+export default function PosBillingClient({ buyers = [], products = [], adjustmentDefinitions = [], printConfig = null }) {
   const router = useRouter();
 
   // 1. Initial State Resolution (Hydration safe)
@@ -81,7 +81,18 @@ export default function PosBillingClient({ buyers = [], products = [], visibleAd
     }
   }, [buyers]);
 
-  const [adjustments, setAdjustments] = useState([]);
+  const [adjustments, setAdjustments] = useState(() => {
+    return (adjustmentDefinitions || [])
+      .filter(d => d.isEnabledByDefault)
+      .map(d => ({
+        code: d.code,
+        adjustmentType: d.name,
+        method: d.method,
+        value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
+        direction: d.direction,
+        unit: "KG"
+      }));
+  });
   const [cashReceived, setCashReceived] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -137,7 +148,18 @@ export default function PosBillingClient({ buyers = [], products = [], visibleAd
         amount: 0
       }
     ]);
-    setAdjustments([]);
+    setAdjustments(() => {
+      return (adjustmentDefinitions || [])
+        .filter(d => d.isEnabledByDefault)
+        .map(d => ({
+          code: d.code,
+          adjustmentType: d.name,
+          method: d.method,
+          value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
+          direction: d.direction,
+          unit: "KG"
+        }));
+    });
     setCashReceived("");
     setNotes("");
     setScannerQuery("");
@@ -253,6 +275,14 @@ export default function PosBillingClient({ buyers = [], products = [], visibleAd
   const handleRemoveAdjustment = useCallback((index) => {
     setAdjustments(prev => prev.filter((_, i) => i !== index));
     toast.info("Adjustment removed.");
+  }, []);
+
+  const handleEditAdjustmentValue = useCallback((index, value) => {
+    setAdjustments(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], value };
+      return updated;
+    });
   }, []);
 
   // 6. Barcode Scanner & Search Handler
@@ -791,7 +821,8 @@ export default function PosBillingClient({ buyers = [], products = [], visibleAd
             adjustments={adjustments}
             onAddAdjustment={handleAddAdjustment}
             onRemoveAdjustment={handleRemoveAdjustment}
-            visibleAdjustmentTypes={visibleAdjustmentTypes}
+            onEditAdjustmentValue={handleEditAdjustmentValue}
+            adjustmentDefinitions={adjustmentDefinitions}
             notes={notes}
             onChangeNotes={setNotes}
           />

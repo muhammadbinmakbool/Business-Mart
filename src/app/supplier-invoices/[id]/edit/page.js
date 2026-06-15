@@ -60,18 +60,21 @@ export default async function EditSupplierInvoicePage({ params }) {
     orderBy: { name: "asc" }
   });
 
-  const settingsRecord = await prisma.systemSetting.findUnique({
-    where: { key: "adjustment_visibility" }
-  });
-  const settings = settingsRecord ? JSON.parse(settingsRecord.value) : { adjustmentVisibility: {} };
-
-  // Filter adjustment types dynamically based on feature flags
-  const allowedAdjustments = [
-    ...ADJUSTMENT_TYPES_SUPPLIER.filter(type => type !== "GST" && type !== "Discount"),
-    ...(flags.features?.gst ? ["GST"] : []),
-    ...(flags.features?.discount ? ["Discount"] : [])
-  ];
-  const visibleAdjustmentTypes = getVisibleAdjustments(allowedAdjustments, settings);
+  // Fetch active adjustments from DB
+  const { AdjustmentService } = await import("@/modules/adjustments/services/AdjustmentService");
+  const dbAdjustments = await AdjustmentService.listActiveAdjustments();
+  
+  // Filter supplier adjustments and check feature flags
+  let activeSupplierAdjustments = dbAdjustments.filter(
+    adj => adj.applicableTo === "SUPPLIER" || adj.applicableTo === "BOTH"
+  );
+  
+  if (!flags.features?.gst) {
+    activeSupplierAdjustments = activeSupplierAdjustments.filter(adj => adj.code !== "GST");
+  }
+  if (!flags.features?.discount) {
+    activeSupplierAdjustments = activeSupplierAdjustments.filter(adj => adj.code !== "DISCOUNT");
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-20">
@@ -92,7 +95,7 @@ export default async function EditSupplierInvoicePage({ params }) {
         <InvoiceGenerator 
           suppliers={JSON.parse(JSON.stringify(suppliers))} 
           initialInvoice={invoice} 
-          visibleAdjustmentTypes={visibleAdjustmentTypes}
+          adjustmentDefinitions={activeSupplierAdjustments}
         />
       </div>
     </div>

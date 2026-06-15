@@ -19,7 +19,7 @@ import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 import { useFastEntryAssistant } from "@/modules/fast-entry-assistant/hooks/useFastEntryAssistant";
 import InlineSuggestionBox from "@/modules/fast-entry-assistant/components/InlineSuggestionBox";
 
-export default function SaleForm({ buyers, products, initialData = null, visibleAdjustmentTypes = [], backUrl = "" }) {
+export default function SaleForm({ buyers, products, initialData = null, adjustmentDefinitions = [], backUrl = "" }) {
 
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -95,12 +95,24 @@ export default function SaleForm({ buyers, products, initialData = null, visible
   };
 
   const suggestedBuyer = buyers.find(b => b.id.toString() === assistantSuggestions.party);
-  const [adjustments, setAdjustments] = useState(
-    initialData?.adjustments?.map(adj => ({
-      ...adj,
-      unit: adj.unit || "KG"
-    })) || []
-  );
+  const [adjustments, setAdjustments] = useState(() => {
+    if (initialData?.adjustments) {
+      return initialData.adjustments.map(adj => ({
+        ...adj,
+        unit: adj.unit || "KG"
+      }));
+    }
+    return (adjustmentDefinitions || [])
+      .filter(d => d.isEnabledByDefault)
+      .map(d => ({
+        code: d.code,
+        adjustmentType: d.name,
+        method: d.method,
+        value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
+        direction: d.direction,
+        unit: "KG"
+      }));
+  });
   
   // ── Keyboard Flow: dynamic field array ──
   const saleFields = useMemo(() => {
@@ -160,8 +172,9 @@ export default function SaleForm({ buyers, products, initialData = null, visible
   const [isNewBuyer, setIsNewBuyer] = useState(false);
   const [newBuyerData, setNewBuyerData] = useState({ name: "", phoneNumber: "", address: "", notes: "" });
   const [currentAdjustment, setCurrentAdjustment] = useState({ 
-    adjustmentType: visibleAdjustmentTypes[0] || ADJUSTMENT_TYPES_BUYER[0] || "Commission", 
-    method: "PERCENTAGE", 
+    code: null,
+    adjustmentType: "Custom", 
+    method: "FIXED", 
     value: "", 
     direction: "ADD",
     unit: "KG"
@@ -348,13 +361,16 @@ export default function SaleForm({ buyers, products, initialData = null, visible
     setAdjustments([
       ...adjustments,
       {
-        ...currentAdjustment,
+        code: currentAdjustment.code || "CUSTOM",
+        adjustmentType: currentAdjustment.adjustmentType,
+        method: currentAdjustment.method,
         value: parseFloat(currentAdjustment.value),
+        direction: currentAdjustment.direction,
         unit: currentAdjustment.method === "PER_WEIGHT" ? currentAdjustment.unit : null
       }
     ]);
     setIsAdjustmentModalOpen(false);
-    setCurrentAdjustment({ adjustmentType: "Commission", method: "PERCENTAGE", value: "", direction: "ADD", unit: getPreferredWeightUnit() || "KG" });
+    setCurrentAdjustment({ code: null, adjustmentType: "Custom", method: "FIXED", value: "", direction: "ADD", unit: getPreferredWeightUnit() || "KG" });
   };
 
   const removeAdjustment = (index) => {
@@ -846,23 +862,51 @@ export default function SaleForm({ buyers, products, initialData = null, visible
                   bagCount: totals.totalBagCount || 0,
                   adjustmentUnit: adj.unit
                 });
+                const definition = adjustmentDefinitions.find(d => d.code === adj.code);
+                const isEditable = definition ? definition.isUserEditable : true;
                 return (
-                  <div key={index} className="flex items-center justify-between bg-muted/30 px-4 py-3 rounded-lg border group">
-                    <div>
-                      <div className="font-bold text-sm">{adj.adjustmentType}</div>
-                      <div className="text-[10px] uppercase text-muted-foreground font-semibold">
-                        {adj.method === "PERCENTAGE" ? `${adj.value}%` : 
-                         adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per ${adj.unit || "KG"}` : 
-                         `Fixed Rs. ${adj.value}`} 
-                        {" • "} 
+                  <div key={index} className="flex items-center justify-between bg-muted/30 px-4 py-3 rounded-lg border group gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-sm truncate">{adj.adjustmentType}</div>
+                      <div className="text-[10px] uppercase text-muted-foreground font-semibold flex flex-wrap items-center gap-1.5 mt-0.5">
+                        <span>{adj.method}</span>
+                        <span>•</span>
                         <span className={adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"}>
                           {adj.direction}
                         </span>
+                        {adj.unit && (
+                          <>
+                            <span>•</span>
+                            <span>per {adj.unit}</span>
+                          </>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    
+                    <div className="flex items-center gap-4 shrink-0">
+                      <div className="w-24">
+                        {isEditable ? (
+                          <input
+                            type="number"
+                            step="any"
+                            value={adj.value}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const updated = [...adjustments];
+                              updated[index].value = val === "" ? "" : Number(val);
+                              setAdjustments(updated);
+                            }}
+                            className="w-full px-2 py-1 text-xs border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right"
+                          />
+                        ) : (
+                          <span className="text-xs font-mono font-bold text-muted-foreground bg-muted px-2 py-1 rounded block text-right">
+                            {adj.value}
+                          </span>
+                        )}
+                      </div>
+
                       <span className={cn(
-                        "font-mono font-bold text-sm",
+                        "font-mono font-bold text-sm min-w-[70px] text-right",
                         adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
                       )}>
                         {adj.direction === "ADD" ? "+" : "-"} {amount.toLocaleString()}
@@ -989,66 +1033,102 @@ export default function SaleForm({ buyers, products, initialData = null, visible
         footer={null}
       >
         <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Type</label>
-            <select 
-              value={currentAdjustment.adjustmentType}
-              onChange={e => setCurrentAdjustment({...currentAdjustment, adjustmentType: e.target.value})}
-              className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
-            >
-              {visibleAdjustmentTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
+          {(() => {
+            const selectedDef = currentAdjustment.code ? adjustmentDefinitions.find(d => d.code === currentAdjustment.code) : null;
+            const isCurrentEditable = selectedDef ? selectedDef.isUserEditable : true;
+            return (
+              <>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Adjustment Template / Type</label>
+                  <select 
+                    value={currentAdjustment.code || "CUSTOM"}
+                    onChange={e => {
+                      const selectedCode = e.target.value;
+                      if (selectedCode === "CUSTOM") {
+                        setCurrentAdjustment({
+                          code: null,
+                          adjustmentType: "Custom",
+                          method: "FIXED",
+                          value: "",
+                          direction: "ADD",
+                          unit: "KG"
+                        });
+                      } else {
+                        const def = adjustmentDefinitions.find(d => d.code === selectedCode);
+                        if (def) {
+                          setCurrentAdjustment({
+                            code: def.code,
+                            adjustmentType: def.name,
+                            method: def.method,
+                            value: def.defaultConfiguredValue !== null ? String(def.defaultConfiguredValue) : "",
+                            direction: def.direction,
+                            unit: "KG"
+                          });
+                        }
+                      }
+                    }}
+                    className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+                  >
+                    <option value="CUSTOM">Custom (Manual Adjustment)</option>
+                    {adjustmentDefinitions.map(def => (
+                      <option key={def.code} value={def.code}>{def.name} ({def.code})</option>
+                    ))}
+                  </select>
+                </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Method</label>
-              <select 
-                value={currentAdjustment.method}
-                onChange={e => {
-                  const method = e.target.value;
-                  setCurrentAdjustment({
-                    ...currentAdjustment, 
-                    method,
-                    unit: method === "PER_WEIGHT" ? (getPreferredWeightUnit() || "KG") : null
-                  });
-                }}
-                className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="PERCENTAGE">% Percentage</option>
-                <option value="FIXED">Fixed Amount</option>
-                <option value="PER_WEIGHT">Per Weight</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Direction</label>
-              <select 
-                value={currentAdjustment.direction}
-                onChange={e => setCurrentAdjustment({...currentAdjustment, direction: e.target.value})}
-                className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                <option value="ADD">Add (+)</option>
-                <option value="SUBTRACT">Subtract (-)</option>
-              </select>
-            </div>
-          </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Method</label>
+                    <select 
+                      value={currentAdjustment.method}
+                      onChange={e => {
+                        const method = e.target.value;
+                        setCurrentAdjustment({
+                          ...currentAdjustment, 
+                          method,
+                          unit: method === "PER_WEIGHT" ? (getPreferredWeightUnit() || "KG") : null
+                        });
+                      }}
+                      disabled={!isCurrentEditable}
+                      className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                    >
+                      <option value="PERCENTAGE">% Percentage</option>
+                      <option value="FIXED">Fixed Amount</option>
+                      <option value="PER_WEIGHT">Per Weight</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Direction</label>
+                    <select 
+                      value={currentAdjustment.direction}
+                      onChange={e => setCurrentAdjustment({...currentAdjustment, direction: e.target.value})}
+                      disabled={!isCurrentEditable}
+                      className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                    >
+                      <option value="ADD">Add (+)</option>
+                      <option value="SUBTRACT">Subtract (-)</option>
+                    </select>
+                  </div>
+                </div>
 
-          {currentAdjustment.method === "PER_WEIGHT" && (
-            <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>
-              <select 
-                value={currentAdjustment.unit || "KG"}
-                onChange={e => setCurrentAdjustment({...currentAdjustment, unit: e.target.value})}
-                className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20"
-              >
-                {Object.keys(UNITS).map(u => (
-                  <option key={u} value={u}>{u}</option>
-                ))}
-              </select>
-            </div>
-          )}
+                {currentAdjustment.method === "PER_WEIGHT" && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>
+                    <select 
+                      value={currentAdjustment.unit || "KG"}
+                      onChange={e => setCurrentAdjustment({...currentAdjustment, unit: e.target.value})}
+                      disabled={!isCurrentEditable}
+                      className="w-full bg-background border rounded-lg px-4 py-2 outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-60"
+                    >
+                      {Object.keys(UNITS).map(u => (
+                        <option key={u} value={u}>{u}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Value</label>
@@ -1058,7 +1138,11 @@ export default function SaleForm({ buyers, products, initialData = null, visible
               placeholder="0.00"
               value={currentAdjustment.value}
               onChange={e => setCurrentAdjustment({...currentAdjustment, value: e.target.value})}
-              className="w-full bg-background border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 font-mono text-lg"
+              disabled={(() => {
+                const selectedDef = currentAdjustment.code ? adjustmentDefinitions.find(d => d.code === currentAdjustment.code) : null;
+                return selectedDef ? !selectedDef.isUserEditable : false;
+              })()}
+              className="w-full bg-background border rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-primary/20 font-mono text-lg disabled:opacity-60"
               autoFocus
             />
           </div>

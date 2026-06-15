@@ -35,3 +35,10 @@ This document defines the immutable architectural rules and boundaries of the Bu
 
 * **Derived Views Only**: Ledger entries, account statement balances, and report summaries are derived views generated from transaction source documents (Sales, Intakes, Payments). They are not independent sources of truth.
 * **Reconciliation Integrity**: Adjusting a source transaction must cascade recalculations to update its corresponding ledger entries, maintaining perfect double-entry alignment.
+
+---
+
+## 🏷️ 5. Dynamic Adjustment Snapshots
+
+* **Snapshot Source Lock**: A transaction adjustment snapshot is immutable and self-sufficient. Once a sale or settlement is finalized, its associated adjustments are persisted as static copies (`code`, `adjustmentType`, `method`, `direction`, `value`, `unit`, and `isLegacySnapshot` markers) in the transaction adjustments table.
+* **No Live Re-fetching**: Invoice rendering, printing, detail views, ledger statements, and edit history must **never** join or re-fetch configurations from the live `AdjustmentDefinition` master table. The system must use the snapshotted values from the transaction to guarantee historical integrity even if the master definition is modified or deleted.

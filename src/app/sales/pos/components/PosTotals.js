@@ -9,14 +9,16 @@ export default function PosTotals({
   adjustments = [],
   onAddAdjustment,
   onRemoveAdjustment,
-  visibleAdjustmentTypes = [],
+  onEditAdjustmentValue,
+  adjustmentDefinitions = [],
   notes = "",
   onChangeNotes
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [newAdj, setNewAdj] = useState({
-    adjustmentType: visibleAdjustmentTypes[0] || "Commission",
-    method: "PERCENTAGE",
+    code: null,
+    adjustmentType: "Custom",
+    method: "FIXED",
     value: "",
     direction: "ADD",
     unit: "KG"
@@ -27,6 +29,7 @@ export default function PosTotals({
     if (!newAdj.value || isNaN(parseFloat(newAdj.value))) return;
     
     onAddAdjustment({
+      code: newAdj.code || "CUSTOM",
       adjustmentType: newAdj.adjustmentType,
       method: newAdj.method,
       value: parseFloat(newAdj.value),
@@ -35,8 +38,12 @@ export default function PosTotals({
     });
     
     setNewAdj({
-      ...newAdj,
-      value: ""
+      code: null,
+      adjustmentType: "Custom",
+      method: "FIXED",
+      value: "",
+      direction: "ADD",
+      unit: "KG"
     });
     setShowAdd(false);
   };
@@ -69,23 +76,36 @@ export default function PosTotals({
           <div className="max-h-20 overflow-y-auto space-y-1 pr-1">
             {adjustments.map((adj, index) => {
               const sign = adj.direction === "SUBTRACT" ? "-" : "+";
-              const formattedVal = adj.method === "PERCENTAGE" 
-                ? `${adj.value}%` 
-                : adj.method === "PER_WEIGHT" 
-                  ? `${adj.value}/${adj.unit || "KG"}`
-                  : adj.method === "PER_BAG"
-                    ? `${adj.value}/BAG`
-                    : `PKR ${adj.value}`;
+              const definition = adjustmentDefinitions.find(d => d.code === adj.code);
+              const isEditable = definition ? definition.isUserEditable : true;
               
               return (
-                <div key={index} className="flex items-center justify-between bg-muted/40 border rounded-lg px-2.5 py-1 text-[11px]">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-semibold text-foreground">{adj.adjustmentType}</span>
-                    <span className="text-muted-foreground text-[9px]">({adj.method.toLowerCase().replace("_", " ")})</span>
+                <div key={index} className="flex items-center justify-between bg-muted/40 border rounded-lg px-2.5 py-1 text-[11px] gap-2">
+                  <div className="flex-1 min-w-0">
+                    <span className="font-semibold text-foreground block truncate">{adj.adjustmentType}</span>
+                    <span className="text-muted-foreground text-[8px]">({adj.method.toLowerCase().replace("_", " ")})</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`font-mono font-bold ${adj.direction === "SUBTRACT" ? "text-red-500" : "text-green-500"}`}>
-                      {sign}{formattedVal}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="w-14">
+                      {isEditable ? (
+                        <input
+                          type="number"
+                          step="any"
+                          value={adj.value}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            onEditAdjustmentValue?.(index, val === "" ? "" : Number(val));
+                          }}
+                          className="w-full px-1 py-0.5 text-[10px] border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right"
+                        />
+                      ) : (
+                        <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded block text-right">
+                          {adj.value}
+                        </span>
+                      )}
+                    </div>
+                    <span className={`font-mono font-bold shrink-0 ${adj.direction === "SUBTRACT" ? "text-red-500" : "text-green-500"}`}>
+                      {sign}{adj.method === "PERCENTAGE" ? "%" : adj.method === "PER_WEIGHT" ? `/${adj.unit || "KG"}` : adj.method === "PER_BAG" ? "/BAG" : "PKR"}
                     </span>
                     <button
                       type="button"
@@ -121,74 +141,109 @@ export default function PosTotals({
               </div>
 
               <form onSubmit={handleAdd} className="space-y-3">
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Adjustment Type</label>
-                    <select
-                      value={newAdj.adjustmentType}
-                      onChange={(e) => setNewAdj({ ...newAdj, adjustmentType: e.target.value })}
-                      className="w-full bg-background border rounded px-2 py-1 text-xs outline-none focus:border-primary text-foreground"
-                    >
-                      {visibleAdjustmentTypes.map((type) => (
-                        <option key={type} value={type}>{type}</option>
-                      ))}
-                    </select>
-                  </div>
+                {(() => {
+                  const selectedDef = newAdj.code ? adjustmentDefinitions.find(d => d.code === newAdj.code) : null;
+                  const isCurrentEditable = selectedDef ? selectedDef.isUserEditable : true;
+                  return (
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="col-span-2 space-y-1">
+                        <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Adjustment Type</label>
+                        <select
+                          value={newAdj.code || "CUSTOM"}
+                          onChange={(e) => {
+                            const selectedCode = e.target.value;
+                            if (selectedCode === "CUSTOM") {
+                              setNewAdj({
+                                code: null,
+                                adjustmentType: "Custom",
+                                method: "FIXED",
+                                value: "",
+                                direction: "ADD",
+                                unit: "KG"
+                              });
+                            } else {
+                              const def = adjustmentDefinitions.find(d => d.code === selectedCode);
+                              if (def) {
+                                setNewAdj({
+                                  code: def.code,
+                                  adjustmentType: def.name,
+                                  method: def.method,
+                                  value: def.defaultConfiguredValue !== null ? String(def.defaultConfiguredValue) : "",
+                                  direction: def.direction,
+                                  unit: "KG"
+                                });
+                              }
+                            }
+                          }}
+                          className="w-full bg-background border rounded px-2 py-1 text-xs outline-none focus:border-primary text-foreground"
+                        >
+                          <option value="CUSTOM">Custom (Manual)</option>
+                          {adjustmentDefinitions.map((def) => (
+                            <option key={def.code} value={def.code}>{def.name} ({def.code})</option>
+                          ))}
+                        </select>
+                      </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Calculation Mode</label>
-                    <select
-                      value={newAdj.method}
-                      onChange={(e) => setNewAdj({ ...newAdj, method: e.target.value })}
-                      className="w-full bg-background border rounded px-2 py-1 text-xs outline-none focus:border-primary text-foreground"
-                    >
-                      <option value="PERCENTAGE">Percentage (%)</option>
-                      <option value="FIXED">Fixed Amount (PKR)</option>
-                      <option value="PER_WEIGHT">Per Weight (PKR/Unit)</option>
-                      <option value="PER_BAG">Per Bag (PKR/Bag)</option>
-                    </select>
-                  </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Calculation Mode</label>
+                        <select
+                          value={newAdj.method}
+                          onChange={(e) => setNewAdj({ ...newAdj, method: e.target.value })}
+                          disabled={!isCurrentEditable}
+                          className="w-full bg-background border rounded px-2 py-1 text-xs outline-none focus:border-primary text-foreground disabled:opacity-60"
+                        >
+                          <option value="PERCENTAGE">Percentage (%)</option>
+                          <option value="FIXED">Fixed Amount (PKR)</option>
+                          <option value="PER_WEIGHT">Per Weight (PKR/Unit)</option>
+                          <option value="PER_BAG">Per Bag (PKR/Bag)</option>
+                        </select>
+                      </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Value</label>
-                    <input
-                      type="number"
-                      step="any"
-                      required
-                      placeholder="0.00"
-                      value={newAdj.value}
-                      onChange={(e) => setNewAdj({ ...newAdj, value: e.target.value })}
-                      className="w-full bg-background border rounded px-2 py-1 text-xs outline-none focus:border-primary font-semibold text-foreground"
-                    />
-                  </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Value</label>
+                        <input
+                          type="number"
+                          step="any"
+                          required
+                          placeholder="0.00"
+                          value={newAdj.value}
+                          onChange={(e) => setNewAdj({ ...newAdj, value: e.target.value })}
+                          disabled={!isCurrentEditable}
+                          className="w-full bg-background border rounded px-2 py-1 text-xs outline-none focus:border-primary font-semibold text-foreground disabled:opacity-60"
+                        />
+                      </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Direction</label>
-                    <select
-                      value={newAdj.direction}
-                      onChange={(e) => setNewAdj({ ...newAdj, direction: e.target.value })}
-                      className="w-full bg-background border rounded px-2 py-1 text-xs outline-none focus:border-primary text-foreground"
-                    >
-                      <option value="ADD">Add (+)</option>
-                      <option value="SUBTRACT">Subtract (-)</option>
-                    </select>
-                  </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Direction</label>
+                        <select
+                          value={newAdj.direction}
+                          onChange={(e) => setNewAdj({ ...newAdj, direction: e.target.value })}
+                          disabled={!isCurrentEditable}
+                          className="w-full bg-background border rounded px-2 py-1 text-xs outline-none focus:border-primary text-foreground disabled:opacity-60"
+                        >
+                          <option value="ADD">Add (+)</option>
+                          <option value="SUBTRACT">Subtract (-)</option>
+                        </select>
+                      </div>
 
-                  {newAdj.method === "PER_WEIGHT" && (
-                    <div className="col-span-2 space-y-1">
-                      <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Weight Unit</label>
-                      <select
-                        value={newAdj.unit}
-                        onChange={(e) => setNewAdj({ ...newAdj, unit: e.target.value })}
-                        className="w-full bg-background border rounded px-2 py-1 text-xs outline-none focus:border-primary text-foreground"
-                      >
-                        <option value="KG">KG</option>
-                        <option value="MAUND">Maund</option>
-                        <option value="TON">Ton</option>
-                      </select>
+                      {newAdj.method === "PER_WEIGHT" && (
+                        <div className="col-span-2 space-y-1">
+                          <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">Weight Unit</label>
+                          <select
+                            value={newAdj.unit}
+                            onChange={(e) => setNewAdj({ ...newAdj, unit: e.target.value })}
+                            disabled={!isCurrentEditable}
+                            className="w-full bg-background border rounded px-2 py-1 text-xs outline-none focus:border-primary text-foreground disabled:opacity-60"
+                          >
+                            <option value="KG">KG</option>
+                            <option value="MAUND">Maund</option>
+                            <option value="TON">Ton</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  );
+                })()}
 
                 <div className="flex items-center justify-end gap-2 pt-2 border-t">
                   <button

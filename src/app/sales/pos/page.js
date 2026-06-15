@@ -3,8 +3,6 @@ import { PartyService } from "@/modules/parties/services/PartyService";
 import { ProductService } from "@/modules/products/services/ProductService";
 import PosBillingClient from "./PosBillingClient";
 import { getFeatureFlags } from "@/lib/settings/featureFlags";
-import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
-import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 
@@ -20,20 +18,21 @@ export default async function PosSalesPage() {
   const buyers = parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH"));
   const activeProducts = products.filter(p => p.isActive);
 
-  // Fetch adjustments visibility settings
-  const { prisma } = await import("@/lib/prisma");
-  const settingsRecord = await prisma.systemSetting.findUnique({
-    where: { key: "adjustment_visibility" }
-  });
-  const settings = settingsRecord ? JSON.parse(settingsRecord.value) : { adjustmentVisibility: {} };
-
-  // Filter adjustment types dynamically based on feature flags
-  const allowedAdjustments = [
-    ...ADJUSTMENT_TYPES_BUYER.filter(type => type !== "GST" && type !== "Discount"),
-    ...(flags.features?.gst ? ["GST"] : []),
-    ...(flags.features?.discount ? ["Discount"] : [])
-  ];
-  const visibleAdjustmentTypes = getVisibleAdjustments(allowedAdjustments, settings);
+  // Fetch active adjustments from DB
+  const { AdjustmentService } = await import("@/modules/adjustments/services/AdjustmentService");
+  const dbAdjustments = await AdjustmentService.listActiveAdjustments();
+  
+  // Filter buyer adjustments and check feature flags
+  let activeBuyerAdjustments = dbAdjustments.filter(
+    adj => adj.applicableTo === "BUYER" || adj.applicableTo === "BOTH"
+  );
+  
+  if (!flags.features?.gst) {
+    activeBuyerAdjustments = activeBuyerAdjustments.filter(adj => adj.code !== "GST");
+  }
+  if (!flags.features?.discount) {
+    activeBuyerAdjustments = activeBuyerAdjustments.filter(adj => adj.code !== "DISCOUNT");
+  }
 
   const [printSettingsRes, generalSettingsRes] = await Promise.all([
     getPrintSettingsAction(),
@@ -48,7 +47,7 @@ export default async function PosSalesPage() {
     <PosBillingClient 
       buyers={buyers} 
       products={activeProducts} 
-      visibleAdjustmentTypes={visibleAdjustmentTypes}
+      adjustmentDefinitions={activeBuyerAdjustments}
       printConfig={printConfig}
     />
   );
