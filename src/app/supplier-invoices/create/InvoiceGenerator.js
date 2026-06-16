@@ -102,6 +102,8 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
         initialSelected.push(virtualId);
         initialAdjustments[virtualId] = (item.adjustments || []).map(adj => ({
           adjustmentType: adj.adjustmentType,
+          code: adj.code || "CUSTOM",
+          isUserEditable: typeof adj.isUserEditable !== "undefined" && adj.isUserEditable !== null ? adj.isUserEditable : true,
           method: adj.method,
           value: Number(adj.value),
           direction: adj.direction,
@@ -207,7 +209,8 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
                 method: d.method,
                 value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
                 direction: d.direction,
-                unit: d.method === "PER_WEIGHT" ? "KG" : null
+                unit: d.method === "PER_WEIGHT" ? "KG" : null,
+                isUserEditable: d.isUserEditable
               }));
           });
         } else {
@@ -221,7 +224,8 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
               method: d.method,
               value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
               direction: d.direction,
-              unit: d.method === "PER_WEIGHT" ? "KG" : null
+              unit: d.method === "PER_WEIGHT" ? "KG" : null,
+              isUserEditable: d.isUserEditable
             }));
         }
       });
@@ -251,7 +255,8 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
               method: d.method,
               value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
               direction: d.direction,
-              unit: d.method === "PER_WEIGHT" ? "KG" : null
+              unit: d.method === "PER_WEIGHT" ? "KG" : null,
+              isUserEditable: d.isUserEditable
             }));
           return {
             ...adjPrev,
@@ -276,6 +281,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
     }
     if (!activeIntakeForAdjustment) return;
 
+    const selectedDef = currentAdjustment.code ? adjustmentDefinitions.find(d => d.code === currentAdjustment.code) : null;
     setAdjustmentsByIntake(prev => {
       const currentList = prev[activeIntakeForAdjustment] || [];
       return {
@@ -288,7 +294,8 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
             method: currentAdjustment.method,
             value: parseFloat(currentAdjustment.value),
             direction: currentAdjustment.direction,
-            unit: currentAdjustment.method === "PER_WEIGHT" ? currentAdjustment.unit : null
+            unit: currentAdjustment.method === "PER_WEIGHT" ? currentAdjustment.unit : null,
+            isUserEditable: selectedDef ? selectedDef.isUserEditable : true
           }
         ]
       };
@@ -632,7 +639,9 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
                           <div className="space-y-1.5">
                             {breakdown.adjustments.map((adj, idx) => {
                               const definition = adjustmentDefinitions.find(d => d.code === adj.code);
-                              const isEditable = definition ? definition.isUserEditable : true;
+                              const isEditable = typeof adj.isUserEditable !== "undefined" && adj.isUserEditable !== null
+                                ? adj.isUserEditable
+                                : (definition ? definition.isUserEditable : true);
                               return (
                                 <div key={idx} className="flex justify-between items-center text-xs bg-card border rounded-lg px-3 py-1.5 group/item gap-4">
                                   <div className="flex-1 min-w-0">

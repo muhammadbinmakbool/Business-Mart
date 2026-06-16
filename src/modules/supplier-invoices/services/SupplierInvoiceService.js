@@ -503,6 +503,9 @@ export class SupplierInvoiceService {
               adjustments: {
                 create: (item.adjustments || []).map(adj => ({
                   adjustmentType: adj.adjustmentType,
+                  code: adj.code || "CUSTOM",
+                  isLegacySnapshot: adj.isLegacySnapshot === true,
+                  isUserEditable: typeof adj.isUserEditable !== "undefined" ? adj.isUserEditable : true,
                   method: adj.method,
                   value: adj.value,
                   calculatedAmount: adj.calculatedAmount,

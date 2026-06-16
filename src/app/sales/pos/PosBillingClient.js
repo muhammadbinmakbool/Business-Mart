@@ -90,7 +90,8 @@ export default function PosBillingClient({ buyers = [], products = [], adjustmen
         method: d.method,
         value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
         direction: d.direction,
-        unit: "KG"
+        unit: "KG",
+        isUserEditable: d.isUserEditable
       }));
   });
   const [cashReceived, setCashReceived] = useState("");

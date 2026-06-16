@@ -34,13 +34,16 @@ export default function PosTotals({
     e.preventDefault();
     if (!newAdj.value || isNaN(parseFloat(newAdj.value))) return;
     
+    const selectedDef = newAdj.code ? adjustmentDefinitions.find(d => d.code === newAdj.code) : null;
+    
     onAddAdjustment({
       code: newAdj.code || "CUSTOM",
       adjustmentType: newAdj.adjustmentType,
       method: newAdj.method,
       value: parseFloat(newAdj.value),
       direction: newAdj.direction,
-      unit: newAdj.method === "PER_WEIGHT" ? newAdj.unit : null
+      unit: newAdj.method === "PER_WEIGHT" ? newAdj.unit : null,
+      isUserEditable: selectedDef ? selectedDef.isUserEditable : true
     });
     
     setNewAdj({
@@ -83,7 +86,9 @@ export default function PosTotals({
             {adjustments.map((adj, index) => {
               const sign = adj.direction === "SUBTRACT" ? "-" : "+";
               const definition = adjustmentDefinitions.find(d => d.code === adj.code);
-              const isEditable = definition ? definition.isUserEditable : true;
+              const isEditable = typeof adj.isUserEditable !== "undefined" && adj.isUserEditable !== null
+                ? adj.isUserEditable
+                : (definition ? definition.isUserEditable : true);
               
               return (
                 <div key={index} className="flex items-center justify-between bg-muted/40 border rounded-lg px-2.5 py-1 text-[11px] gap-2">

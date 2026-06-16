@@ -99,7 +99,8 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     if (initialData?.adjustments) {
       return initialData.adjustments.map(adj => ({
         ...adj,
-        unit: adj.unit || "KG"
+        unit: adj.unit || "KG",
+        isUserEditable: typeof adj.isUserEditable !== "undefined" && adj.isUserEditable !== null ? adj.isUserEditable : true
       }));
     }
     return (adjustmentDefinitions || [])
@@ -110,7 +111,8 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
         method: d.method,
         value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
         direction: d.direction,
-        unit: "KG"
+        unit: "KG",
+        isUserEditable: d.isUserEditable
       }));
   });
   
@@ -358,6 +360,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
       showToast.error("Please enter a valid positive numeric value");
       return;
     }
+    const selectedDef = currentAdjustment.code ? adjustmentDefinitions.find(d => d.code === currentAdjustment.code) : null;
     setAdjustments([
       ...adjustments,
       {
@@ -366,7 +369,8 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
         method: currentAdjustment.method,
         value: parseFloat(currentAdjustment.value),
         direction: currentAdjustment.direction,
-        unit: currentAdjustment.method === "PER_WEIGHT" ? currentAdjustment.unit : null
+        unit: currentAdjustment.method === "PER_WEIGHT" ? currentAdjustment.unit : null,
+        isUserEditable: selectedDef ? selectedDef.isUserEditable : true
       }
     ]);
     setIsAdjustmentModalOpen(false);
@@ -863,7 +867,9 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                   adjustmentUnit: adj.unit
                 });
                 const definition = adjustmentDefinitions.find(d => d.code === adj.code);
-                const isEditable = definition ? definition.isUserEditable : true;
+                const isEditable = typeof adj.isUserEditable !== "undefined" && adj.isUserEditable !== null
+                  ? adj.isUserEditable
+                  : (definition ? definition.isUserEditable : true);
                 return (
                   <div key={index} className="flex items-center justify-between bg-muted/30 px-4 py-3 rounded-lg border group gap-4">
                     <div className="flex-1 min-w-0">

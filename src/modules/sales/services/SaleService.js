@@ -117,6 +117,7 @@ export class SaleService {
         value: cleanAdj.value,
         direction: cleanAdj.direction || "ADD",
         unit: cleanAdj.unit || null,
+        isUserEditable: typeof cleanAdj.isUserEditable !== "undefined" ? cleanAdj.isUserEditable : true,
         calculatedAmount: calculateAdjustment(cleanAdj.method, cleanAdj.value, { 
           baseAmount, 
           totalWeight, 
@@ -347,6 +348,7 @@ export class SaleService {
         value: cleanAdj.value,
         direction: cleanAdj.direction || "ADD",
         unit: cleanAdj.unit || null,
+        isUserEditable: typeof cleanAdj.isUserEditable !== "undefined" ? cleanAdj.isUserEditable : true,
         calculatedAmount: calculateAdjustment(cleanAdj.method, cleanAdj.value, { 
           baseAmount, 
           totalWeight, 

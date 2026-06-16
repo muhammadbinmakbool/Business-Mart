@@ -182,6 +182,8 @@ export function calculateSupplierDeductions(intakes) {
       }
       return {
         adjustmentType: adj.adjustmentType,
+        code: adj.code || "CUSTOM",
+        isUserEditable: typeof adj.isUserEditable !== "undefined" ? adj.isUserEditable : true,
         method: adj.method,
         value: Number(adj.value),
         direction: adj.direction,

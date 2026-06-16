@@ -25,7 +25,10 @@ export async function listUsersAction() {
     if (!session || (session.role !== USER_ROLES.SUPER_ADMIN && session.role !== USER_ROLES.ADMIN)) {
       throw new Error("Unauthorized access to user directories");
     }
-    const users = await UserService.listUsers();
+    let users = await UserService.listUsers();
+    if (session.role !== USER_ROLES.SUPER_ADMIN) {
+      users = users.filter(user => user.role !== USER_ROLES.SUPER_ADMIN);
+    }
     return { success: true, users };
   } catch (error) {
     return { error: error.message || "Failed to list users" };

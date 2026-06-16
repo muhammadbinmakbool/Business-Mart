@@ -40,5 +40,8 @@ This document defines the immutable architectural rules and boundaries of the Bu
 
 ## 🏷️ 5. Dynamic Adjustment Snapshots
 
-* **Snapshot Source Lock**: A transaction adjustment snapshot is immutable and self-sufficient. Once a sale or settlement is finalized, its associated adjustments are persisted as static copies (`code`, `adjustmentType`, `method`, `direction`, `value`, `unit`, and `isLegacySnapshot` markers) in the transaction adjustments table.
+* **Snapshot Source Lock**: A transaction adjustment snapshot is immutable and self-sufficient. Once a sale or settlement is finalized, its associated adjustments are persisted as static copies (`code`, `adjustmentType`, `method`, `direction`, `value`, `unit`, `isUserEditable`, and `isLegacySnapshot` markers) in the transaction adjustments table.
 * **No Live Re-fetching**: Invoice rendering, printing, detail views, ledger statements, and edit history must **never** join or re-fetch configurations from the live `AdjustmentDefinition` master table. The system must use the snapshotted values from the transaction to guarantee historical integrity even if the master definition is modified or deleted.
+* **Editability & Recalculation Isolation**: When editing an existing transaction, the adjustment parameters (such as `value`, `method`, `direction`, `unit`, and `isUserEditable` constraints) must be loaded entirely from the stored snapshot. The editing forms must lock or enable input fields according to the snapshot's persisted `isUserEditable` flag, and totals recalculation must use these snapshot values, never rehydrating or synchronizing configurations from the live master template.
+* **Name & Display Integrity**: The stored `adjustmentType` acts as the display name for the snapshot. If the master `AdjustmentDefinition` is renamed or edited, historical records and their edit states must continue to use the stored `adjustmentType` snapshot to prevent retro-modifying printed history.
+
