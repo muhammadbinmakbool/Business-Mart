@@ -445,9 +445,9 @@ export default function AdjustmentsListClient({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             {/* Target */}
-            <div className="space-y-1">
+            <div className="space-y-1 col-span-2">
               <label className="text-xs font-bold text-muted-foreground uppercase">Target Document</label>
               <select
                 value={applicableTo}
