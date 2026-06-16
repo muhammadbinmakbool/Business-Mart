@@ -14,11 +14,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import DisplayUnitSettingsCard from "./DisplayUnitSettingsCard";
 import UsersManagement from "./UsersManagement";
-import AdjustmentVisibilityCard from "./AdjustmentVisibilityCard";
 import DefaultsCard from "./DefaultsCard";
 import PrintSettingsCard from "./PrintSettingsCard";
-import AdjustmentsListClient from "@/app/adjustments/AdjustmentsListClient";
-import { listAdjustmentsAction } from "@/modules/adjustments/controllers/adjustmentActions";
 import GeneralSettingsCard from "./GeneralSettingsCard";
 import InventorySettingsCard from "./InventorySettingsCard";
 import SettlementLedgerSettingsCard from "./SettlementLedgerSettingsCard";
@@ -35,36 +32,6 @@ function SettingsContent() {
   const [authorized, setAuthorized] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [featureFlags, setFeatureFlags] = useState(null);
-
-  const [adjustmentsSubTab, setAdjustmentsSubTab] = useState("templates");
-  const [adjustmentsData, setAdjustmentsData] = useState({ items: [], totalCount: 0 });
-  const [loadingAdjustments, setLoadingAdjustments] = useState(false);
-
-  const page = parseInt(searchParams.get("page")) || 1;
-  const limit = parseInt(searchParams.get("limit")) || 50;
-  const search = searchParams.get("search") || "";
-  const applicableTo = searchParams.get("applicableTo") || "ALL";
-
-  useEffect(() => {
-    if (activeTab === "adjustments" && adjustmentsSubTab === "templates") {
-      async function fetchAdjustments() {
-        setLoadingAdjustments(true);
-        const res = await listAdjustmentsAction({
-          page,
-          limit,
-          searchQuery: search,
-          applicableTo,
-          sortField: "displayOrder",
-          sortDirection: "asc"
-        });
-        if (res.success) {
-          setAdjustmentsData({ items: res.items, totalCount: res.totalCount });
-        }
-        setLoadingAdjustments(false);
-      }
-      fetchAdjustments();
-    }
-  }, [activeTab, adjustmentsSubTab, page, limit, search, applicableTo]);
 
   useEffect(() => {
     async function checkAuth() {
@@ -89,7 +56,7 @@ function SettingsContent() {
   useEffect(() => {
     const tab = searchParams.get("tab");
     const validTabs = [
-      "security", "general", "adjustments", "defaults", "print",
+      "security", "general", "defaults", "print",
       "inventory", "settlement-ledger", "activity-audit", "intake-workflow", "feature-flags"
     ];
     if (validTabs.includes(tab)) {
@@ -98,25 +65,6 @@ function SettingsContent() {
       }
     }
   }, [searchParams, userRole]);
-
-  const allowedAdjustments = React.useMemo(() => {
-    if (!featureFlags) return null;
-    const { ADJUSTMENT_TYPES_BUYER, ADJUSTMENT_TYPES_SUPPLIER } = require("@/lib/constants");
-    
-    const buyer = [
-      ...ADJUSTMENT_TYPES_BUYER.filter(type => type !== "GST" && type !== "Discount"),
-      ...(featureFlags.features?.gst ? ["GST"] : []),
-      ...(featureFlags.features?.discount ? ["Discount"] : [])
-    ];
-    
-    const supplier = [
-      ...ADJUSTMENT_TYPES_SUPPLIER.filter(type => type !== "GST" && type !== "Discount"),
-      ...(featureFlags.features?.gst ? ["GST"] : []),
-      ...(featureFlags.features?.discount ? ["Discount"] : [])
-    ];
-    
-    return { buyer, supplier };
-  }, [featureFlags]);
 
 
   if (!authorized) {
@@ -189,17 +137,13 @@ function SettingsContent() {
             Security & Users
           </button>
 
-          <button 
-            onClick={() => setActiveTab("adjustments")}
-            className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === "adjustments"
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-            }`}
+          <Link
+            href="/settings/adjustments"
+            className="w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer text-muted-foreground hover:bg-accent hover:text-accent-foreground"
           >
             <Sliders className="h-4 w-4" />
             Adjustments
-          </button>
+          </Link>
 
           <button 
             onClick={() => setActiveTab("defaults")}
@@ -307,46 +251,7 @@ function SettingsContent() {
             <UsersManagement />
           </div>
 
-          <div className={activeTab === "adjustments" ? "animate-in fade-in duration-200" : "hidden"}>
-            <div className="space-y-6">
-              {/* Sub-tabs header */}
-              <div className="flex border-b border-muted">
-                <button
-                  onClick={() => setAdjustmentsSubTab("templates")}
-                  className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
-                    adjustmentsSubTab === "templates"
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Configure Templates
-                </button>
-                <button
-                  onClick={() => setAdjustmentsSubTab("visibility")}
-                  className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all cursor-pointer ${
-                    adjustmentsSubTab === "visibility"
-                      ? "border-primary text-primary"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Visibility Settings
-                </button>
-              </div>
-
-              {adjustmentsSubTab === "templates" ? (
-                <AdjustmentsListClient
-                  adjustments={adjustmentsData.items}
-                  totalCount={adjustmentsData.totalCount}
-                  currentPage={page}
-                  currentLimit={limit}
-                  currentSearch={search}
-                  currentApplicableTo={applicableTo}
-                />
-              ) : (
-                <AdjustmentVisibilityCard allowedAdjustments={allowedAdjustments} />
-              )}
-            </div>
-          </div>
+          {/* Note: Adjustments are managed at /settings/adjustments for layout consistency */}
 
           <div className={activeTab === "defaults" ? "space-y-6 animate-in fade-in duration-200" : "hidden"}>
             <DefaultsCard />
