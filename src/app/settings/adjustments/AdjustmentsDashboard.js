@@ -16,6 +16,9 @@ function DashboardContent({ userRole }) {
   const [adjustmentsData, setAdjustmentsData] = useState({ items: [], totalCount: 0 });
   const [loadingAdjustments, setLoadingAdjustments] = useState(false);
 
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const triggerRefresh = () => setRefreshTrigger(prev => prev + 1);
+
   const page = parseInt(searchParams.get("page")) || 1;
   const limit = parseInt(searchParams.get("limit")) || 50;
   const search = searchParams.get("search") || "";
@@ -50,7 +53,7 @@ function DashboardContent({ userRole }) {
       }
       fetchAdjustments();
     }
-  }, [activeTab, page, limit, search, applicableTo]);
+  }, [activeTab, page, limit, search, applicableTo, refreshTrigger]);
 
   const allowedAdjustments = useMemo(() => {
     if (!featureFlags) return null;
@@ -128,6 +131,7 @@ function DashboardContent({ userRole }) {
                 currentLimit={limit}
                 currentSearch={search}
                 currentApplicableTo={applicableTo}
+                onRefresh={triggerRefresh}
               />
             ) : (
               <AdjustmentVisibilityCard allowedAdjustments={allowedAdjustments} />

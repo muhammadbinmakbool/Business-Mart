@@ -23,7 +23,8 @@ export default function AdjustmentsListClient({
   currentPage = 1,
   currentLimit = 50,
   currentSearch = "",
-  currentApplicableTo = "ALL"
+  currentApplicableTo = "ALL",
+  onRefresh
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -167,6 +168,7 @@ export default function AdjustmentsListClient({
             : `Adjustment "${payload.name}" created successfully`
         );
         setIsFormOpen(false);
+        onRefresh?.();
         router.refresh();
       } else {
         showToast.error(res.error || "Failed to save adjustment definition");
@@ -184,6 +186,7 @@ export default function AdjustmentsListClient({
       const res = await toggleAdjustmentStatusAction(id, newVal);
       if (res.success) {
         showToast.success(`Adjustment status updated`);
+        onRefresh?.();
         router.refresh();
       } else {
         showToast.error(res.error || "Failed to toggle status");
@@ -314,6 +317,23 @@ export default function AdjustmentsListClient({
               }
             },
             {
+              key: "isUserEditable",
+              label: "User Override",
+              className: "px-6 py-4 text-center",
+              render: (row, val) => (
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
+                    val
+                      ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/30"
+                      : "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800/30"
+                  )}
+                >
+                  {val ? "Allowed" : "Locked"}
+                </span>
+              )
+            },
+            {
               key: "isActive",
               label: "Active status",
               className: "px-6 py-4 text-center",
@@ -353,6 +373,7 @@ export default function AdjustmentsListClient({
                       deleteAction={deleteAdjustmentAction}
                       label="Adjustment Template"
                       variant="icon"
+                      onSuccess={onRefresh}
                     />
                   ) : (
                     <div className="w-8 h-8 flex items-center justify-center text-muted-foreground/30">
