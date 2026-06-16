@@ -63,3 +63,12 @@ export async function getActiveAdjustmentsAction() {
     return { success: false, error: error.message || "Failed to load active adjustments" };
   }
 }
+
+export async function listAdjustmentsAction(params) {
+  try {
+    const res = await AdjustmentService.listAdjustmentsPaginated(params);
+    return { success: true, ...res };
+  } catch (error) {
+    return { success: false, error: error.message || "Failed to list adjustments" };
+  }
+}
