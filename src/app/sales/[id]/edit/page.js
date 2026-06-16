@@ -8,8 +8,6 @@ import Link from "next/link";
 import { ChevronLeft, AlertCircle } from "lucide-react";
 import { redirect } from "next/navigation";
 import { getFeatureFlags } from "@/lib/settings/featureFlags";
-import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
-import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 
 export default async function EditSalePage({ params: paramsPromise }) {
   const params = await paramsPromise;

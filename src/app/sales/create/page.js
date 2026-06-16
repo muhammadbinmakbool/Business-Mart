@@ -6,8 +6,6 @@ import PosBillingClient from "../pos/PosBillingClient";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { getFeatureFlags } from "@/lib/settings/featureFlags";
-import { ADJUSTMENT_TYPES_BUYER } from "@/lib/constants";
-import { getVisibleAdjustments } from "@/lib/settings/adjustmentsVisibility";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 

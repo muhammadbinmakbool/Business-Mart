@@ -253,6 +253,8 @@ model TransactionAdjustment {
   id               Int             @id @default(autoincrement())
   saleId           Int
   adjustmentType   String // Commission, Labour, Rent, Kaat, etc.
+  code             String          @default("LEGACY")
+  isLegacySnapshot Boolean         @default(false)
   method           String // FIXED, PERCENTAGE, PER_WEIGHT
   value            Decimal
   calculatedAmount Decimal
@@ -300,6 +302,8 @@ model SupplierInvoiceAdjustment {
   id                    Int                 @id @default(autoincrement())
   supplierInvoiceItemId Int
   adjustmentType        String              // Commission, Labour, Rent, Kaat, etc.
+  code                  String              @default("LEGACY")
+  isLegacySnapshot      Boolean             @default(false)
   method                String              // FIXED, PERCENTAGE, PER_WEIGHT
   value                 Decimal
   calculatedAmount      Decimal
@@ -458,4 +462,24 @@ model PartyOpeningBalance {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   party       Party    @relation(fields: [partyId], references: [id], onDelete: Cascade)
+}
+
+model AdjustmentDefinition {
+  id                     Int      @id @default(autoincrement())
+  code                   String   @unique
+  name                   String
+  method                 String   // FIXED, PERCENTAGE, PER_WEIGHT, PER_BAG
+  direction              String   // ADD, SUBTRACT
+  defaultConfiguredValue Decimal?
+  isUserEditable         Boolean  @default(true)
+  isEnabledByDefault     Boolean  @default(false)
+  isActive               Boolean  @default(true)
+  isDeleted              Boolean  @default(false)
+  isSystemDefined        Boolean  @default(false)
+  version                Int      @default(1)
+  displayOrder           Int      @default(0)
+  description            String?
+  applicableTo           String   @default("BOTH") // BUYER, SUPPLIER, BOTH
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 }

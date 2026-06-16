@@ -1,7 +1,6 @@
 import { AdjustmentRepository } from "../repositories/AdjustmentRepository";
 import { adjustmentSchema } from "../validations/adjustmentSchema";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
-import { withOwnership } from "@/lib/session";
 
 export class AdjustmentService {
   static async listAdjustments() {
@@ -54,8 +53,7 @@ export class AdjustmentService {
       throw new Error(`Adjustment code "${validatedData.code}" already exists.`);
     }
 
-    const ownedData = await withOwnership(validatedData);
-    const adjustment = await AdjustmentRepository.create(ownedData);
+    const adjustment = await AdjustmentRepository.create(validatedData);
 
     await emitActivity({
       entityType: "SYSTEM_SETTING",
@@ -92,11 +90,11 @@ export class AdjustmentService {
       }
     }
 
-    const ownedData = await withOwnership(validatedData);
+    const updateData = { ...validatedData };
     // Remove code since it is immutable
-    delete ownedData.code;
+    delete updateData.code;
 
-    const adjustment = await AdjustmentRepository.update(id, ownedData);
+    const adjustment = await AdjustmentRepository.update(id, updateData);
 
     await emitActivity({
       entityType: "SYSTEM_SETTING",

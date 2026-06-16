@@ -52,6 +52,19 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Per-intake adjustments state: { [intakeId]: [adjustments] }
+  const [adjustmentsByIntake, setAdjustmentsByIntake] = useState({});
+  const [activeIntakeForAdjustment, setActiveIntakeForAdjustment] = useState(null);
+  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
+  const [currentAdjustment, setCurrentAdjustment] = useState({
+    code: null,
+    adjustmentType: "Custom",
+    method: "FIXED",
+    direction: "SUBTRACT",
+    value: "",
+    unit: DEFAULT_WEIGHT_UNIT
+  });
+
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === "Escape") {
@@ -69,19 +82,6 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [step, isAdjustmentModalOpen, backUrl, router]);
-
-  // Per-intake adjustments state: { [intakeId]: [adjustments] }
-  const [adjustmentsByIntake, setAdjustmentsByIntake] = useState({});
-  const [activeIntakeForAdjustment, setActiveIntakeForAdjustment] = useState(null);
-  const [isAdjustmentModalOpen, setIsAdjustmentModalOpen] = useState(false);
-  const [currentAdjustment, setCurrentAdjustment] = useState({
-    code: null,
-    adjustmentType: "Custom",
-    method: "FIXED",
-    direction: "SUBTRACT",
-    value: "",
-    unit: DEFAULT_WEIGHT_UNIT
-  });
 
   // Group and load initial adjustments if editing
   useEffect(() => {
