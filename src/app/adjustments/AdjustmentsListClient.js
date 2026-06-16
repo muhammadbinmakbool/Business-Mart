@@ -259,7 +259,7 @@ export default function AdjustmentsListClient({
                     <span>{val}</span>
                     {row.isSystemDefined && (
                       <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-amber-600 dark:text-amber-500 uppercase mt-0.5">
-                        <Lock className="h-1.8 w-1.8" /> System Locked
+                        <Lock className="h-2 w-2 shrink-0" /> System Locked
                       </span>
                     )}
                   </div>

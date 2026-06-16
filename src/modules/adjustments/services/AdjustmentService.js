@@ -93,6 +93,8 @@ export class AdjustmentService {
     const updateData = { ...validatedData };
     // Remove code since it is immutable
     delete updateData.code;
+    // Keep the existing isSystemDefined status
+    updateData.isSystemDefined = existing.isSystemDefined;
 
     const adjustment = await AdjustmentRepository.update(id, updateData);
 
