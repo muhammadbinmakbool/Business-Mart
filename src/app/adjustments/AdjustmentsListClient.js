@@ -244,22 +244,22 @@ export default function AdjustmentsListClient({
             {
               key: "displayOrder",
               label: "Order",
-              className: "px-6 py-4 text-center font-mono text-xs text-muted-foreground w-16",
+              className: "px-3 py-2.5 text-center font-mono text-xs text-muted-foreground w-12",
             },
             {
               key: "name",
               label: "Template Name",
-              className: "px-6 py-4 font-bold text-base",
+              className: "px-3 py-2.5 font-bold text-sm",
               render: (row, val) => (
-                <div className="flex items-center gap-2">
-                  <div className="p-2 bg-primary/10 rounded-lg shrink-0">
-                    <Sliders className="h-4 w-4 text-primary" />
+                <div className="flex items-center gap-1.5">
+                  <div className="p-1.5 bg-primary/10 rounded-md shrink-0">
+                    <Sliders className="h-3.5 w-3.5 text-primary" />
                   </div>
                   <div className="flex flex-col">
                     <span>{val}</span>
                     {row.isSystemDefined && (
-                      <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-600 dark:text-amber-500 uppercase mt-0.5">
-                        <Lock className="h-2 w-2" /> System Locked
+                      <span className="inline-flex items-center gap-0.5 text-[8px] font-bold text-amber-600 dark:text-amber-500 uppercase mt-0.5">
+                        <Lock className="h-1.8 w-1.8" /> System Locked
                       </span>
                     )}
                   </div>
@@ -269,12 +269,12 @@ export default function AdjustmentsListClient({
             {
               key: "code",
               label: "Code",
-              className: "px-6 py-4 font-mono text-sm uppercase text-muted-foreground",
+              className: "px-3 py-2.5 font-mono text-xs uppercase text-muted-foreground",
             },
             {
               key: "applicableTo",
               label: "Applicable To",
-              className: "px-6 py-4 text-center text-xs font-bold text-muted-foreground",
+              className: "px-3 py-2.5 text-center text-xs font-bold text-muted-foreground",
               render: (row, val) => (
                 <span className="px-2 py-0.5 rounded bg-muted text-[10px] uppercase">
                   {val === "BOTH" ? "Buyer & Supplier" : val}
@@ -284,7 +284,7 @@ export default function AdjustmentsListClient({
             {
               key: "method",
               label: "Method / Rule",
-              className: "px-6 py-4 text-center text-xs font-bold",
+              className: "px-3 py-2.5 text-center text-xs font-bold",
               render: (row) => {
                 const methodMap = {
                   FIXED: "Fixed Amount",
@@ -309,7 +309,7 @@ export default function AdjustmentsListClient({
             {
               key: "defaultConfiguredValue",
               label: "Default Value",
-              className: "px-6 py-4 text-right font-mono font-bold text-sm",
+              className: "px-3 py-2.5 text-right font-mono font-bold text-xs",
               render: (row, val) => {
                 if (val === null || val === undefined) return <span className="text-muted-foreground font-normal">None</span>;
                 if (row.method === "PERCENTAGE") return `${val.toFixed(2)}%`;
@@ -319,7 +319,7 @@ export default function AdjustmentsListClient({
             {
               key: "isUserEditable",
               label: "User Override",
-              className: "px-6 py-4 text-center",
+              className: "px-3 py-2.5 text-center",
               render: (row, val) => (
                 <span
                   className={cn(
@@ -336,7 +336,7 @@ export default function AdjustmentsListClient({
             {
               key: "isActive",
               label: "Active status",
-              className: "px-6 py-4 text-center",
+              className: "px-3 py-2.5 text-center",
               render: (row, val) => (
                 <button
                   onClick={() => handleToggleStatus(row.id, val)}
@@ -356,10 +356,10 @@ export default function AdjustmentsListClient({
             {
               key: "actions",
               label: "Actions",
-              className: "px-6 py-4 text-center w-24",
+              className: "px-3 py-2.5 text-center w-20",
               sortable: false,
               render: (row) => (
-                <div className="flex items-center justify-center gap-1" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-center gap-0.5" onClick={(e) => e.stopPropagation()}>
                   <button
                     onClick={() => handleOpenEdit(row)}
                     className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer"
