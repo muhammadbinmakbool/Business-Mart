@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Trash2, Tag, Percent, DollarSign, Scale, Archive, X } from "lucide-react";
 import { round } from "@/lib/financial";
 
@@ -15,6 +16,11 @@ export default function PosTotals({
   onChangeNotes
 }) {
   const [showAdd, setShowAdd] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const [newAdj, setNewAdj] = useState({
     code: null,
     adjustmentType: "Custom",
@@ -123,9 +129,9 @@ export default function PosTotals({
         )}
 
         {/* Add Adjustment Form */}
-        {showAdd && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm p-3.5 space-y-3 animate-in zoom-in-95 duration-200 text-left">
+        {showAdd && mounted && createPortal(
+          <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setShowAdd(false)}>
+            <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm p-3.5 space-y-3 animate-in zoom-in-95 duration-200 text-left" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between border-b pb-2">
                 <h4 className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <Tag className="h-4 w-4 text-primary" />
@@ -262,7 +268,8 @@ export default function PosTotals({
                 </div>
               </form>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Invoice Notes / Remarks */}
