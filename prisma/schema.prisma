@@ -190,6 +190,9 @@ model SaleItem {
   sale                SaleTransaction    @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   product             Product            @relation(fields: [productId], references: [id], onUpdate: NoAction)
   salesTracks         SalesTrack[]
+
+  @@index([saleId])
+  @@index([productId])
 }
 
 model SalesTrack {
@@ -244,6 +247,7 @@ model SalesTrack {
   @@index([supplierPartyId])
   @@index([buyerPartyId])
   @@index([productId])
+  @@index([saleItemId])
 }
 
 
