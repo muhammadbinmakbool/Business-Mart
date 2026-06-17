@@ -138,16 +138,16 @@ export default function PosBillingClient({
       setBuyerId(last.toString());
     }
 
-    const lastRate = fastEntryMemoryStore.getLastValue("lastRate", "sales");
     const lastUnit = fastEntryMemoryStore.getLastValue("lastUnit", "sales");
-    if (lastRate || lastUnit) {
+    const lastRateUnit = fastEntryMemoryStore.getLastValue("lastRateUnit", "sales");
+    if (lastUnit || lastRateUnit) {
       setItems(prev => prev.map(item => {
         if (!item.productId) {
           return {
             ...item,
             unit: lastUnit || "KG",
-            rateUnit: lastUnit || "KG",
-            rate: lastRate || ""
+            rateUnit: lastRateUnit || lastUnit || "KG",
+            rate: ""
           };
         }
         return item;
@@ -301,9 +301,14 @@ export default function PosBillingClient({
           const existingItemWithSameProd = prev.find(item => item.productId === value && item.rate);
           if (existingItemWithSameProd) {
             newItems[index].rate = existingItemWithSameProd.rate;
+            newItems[index].rateUnit = existingItemWithSameProd.rateUnit || newItems[index].unit;
           } else {
             const lastRate = fastEntryMemoryStore.getLastValue("lastRate", "sales");
+            const lastRateUnit = fastEntryMemoryStore.getLastValue("lastRateUnit", "sales");
             newItems[index].rate = lastRate || "";
+            if (lastRateUnit) {
+              newItems[index].rateUnit = lastRateUnit;
+            }
           }
 
           // Auto-append empty row if this is the last row being populated
@@ -632,6 +637,7 @@ export default function PosBillingClient({
           fastEntryMemoryStore.setLastValue("lastProduct", lastItem.productId, "sales");
           fastEntryMemoryStore.setLastValue("lastRate", lastItem.rate, "sales");
           fastEntryMemoryStore.setLastValue("lastUnit", lastItem.unit, "sales");
+          fastEntryMemoryStore.setLastValue("lastRateUnit", lastItem.rateUnit, "sales");
         }
 
         if (shouldPrint) {

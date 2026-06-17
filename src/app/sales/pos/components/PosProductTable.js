@@ -169,20 +169,35 @@ export default function PosProductTable({
 
                   {/* Rate Column */}
                   <td className="px-2 py-0.5">
-                    <input
-                      id={`cell-${index}-rate`}
-                      type="number"
-                      step="any"
-                      placeholder="0.00"
-                      value={item.rate}
-                      onFocus={(e) => {
-                        e.target.select();
-                        setFocusedRowIndex(index);
-                      }}
-                      onKeyDown={(e) => handleKeyDown(e, index, "rate")}
-                      onChange={(e) => onChangeItem(index, "rate", e.target.value)}
-                      className="w-full bg-transparent border-0 focus:ring-1 focus:ring-primary rounded-md px-1.5 py-1 text-xs text-foreground outline-none font-mono font-medium"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        id={`cell-${index}-rate`}
+                        type="number"
+                        step="any"
+                        placeholder="0.00"
+                        value={item.rate}
+                        onFocus={(e) => {
+                          e.target.select();
+                          setFocusedRowIndex(index);
+                        }}
+                        onKeyDown={(e) => handleKeyDown(e, index, "rate")}
+                        onChange={(e) => onChangeItem(index, "rate", e.target.value)}
+                        className="w-full bg-transparent border-0 focus:ring-1 focus:ring-primary rounded-md px-1.5 py-1 text-xs text-foreground outline-none font-mono font-medium"
+                      />
+                      <select
+                        id={`cell-${index}-rateUnit`}
+                        value={item.rateUnit || item.unit || "KG"}
+                        onFocus={() => setFocusedRowIndex(index)}
+                        onChange={(e) => onChangeItem(index, "rateUnit", e.target.value)}
+                        className="bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase rounded px-1.5 py-1 border-none outline-none focus:ring-1 focus:ring-primary shrink-0 transition-colors cursor-pointer"
+                      >
+                        {compatibleUnits.map((u) => (
+                          <option key={u.id} value={u.id} className="bg-background text-foreground">
+                            /{u.id}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </td>
 
                   {/* Amount Column (Computed, read-only) */}
