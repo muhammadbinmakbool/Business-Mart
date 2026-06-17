@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Plus, Trash2, Calculator, ReceiptText, Loader2, PlusCircle, X, Save, AlertCircle } from "lucide-react";
 import { createSaleAction, updateSaleAction } from "@/modules/sales/controllers/saleActions";
-import { getUnbilledTracksAction } from "@/modules/sales/controllers/trackActions";
+import { getBuyerDraftSuggestionAction } from "@/modules/sales-workbench/controllers/workbenchActions";
+import DraftSuggestionCard from "@/components/sales/DraftSuggestionCard";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import { cn, getLocalDateString } from "@/lib/utils";
@@ -181,24 +182,25 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     direction: "ADD",
     unit: "KG"
   });
-
-  // Track Suggestions State
-  const [unbilledTracks, setUnbilledTracks] = useState([]);
-  const [loadingTracks, setLoadingTracks] = useState(false);
-  const initialUnbilledTracksRef = React.useRef([]);
-
+  // Centralized Suggestions Engine State
   const [draftSuggestion, setDraftSuggestion] = useState(null);
   const [loadingDraftSuggestion, setLoadingDraftSuggestion] = useState(false);
 
   useEffect(() => {
+    // Skip suggestion lookup if initialData already contains items or is marked as prefilled
+    if (initialData?.prefilled === true || (initialData?.items && initialData.items.length > 0)) {
+      setDraftSuggestion(null);
+      return;
+    }
+
     if (partyId && partyId !== "new" && flags?.salesMode !== "DIRECT" && flags?.enablePrefilledInvoices !== false) {
       setLoadingDraftSuggestion(true);
-      fetch("/api/sales-workbench/drafts")
-        .then(res => res.json())
-        .then(json => {
-          if (json.success && json.drafts) {
-            const match = json.drafts.find(d => d.buyerId.toString() === partyId.toString());
-            setDraftSuggestion(match || null);
+      getBuyerDraftSuggestionAction(partyId)
+        .then(res => {
+          if (res.success && res.draft) {
+            setDraftSuggestion(res.draft);
+          } else {
+            setDraftSuggestion(null);
           }
         })
         .catch(err => console.error("Error loading drafts:", err))
@@ -206,11 +208,12 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     } else {
       setDraftSuggestion(null);
     }
-  }, [partyId, flags]);
+  }, [partyId, flags, initialData]);
 
-  const handleApplyPrefill = () => {
-    if (!draftSuggestion) return;
-    const newItems = draftSuggestion.items.map(item => ({
+  const handleApplyPrefill = (suggestionToApply) => {
+    const target = suggestionToApply || draftSuggestion;
+    if (!target) return;
+    const newItems = target.items.map(item => ({
       productId: item.productId.toString(),
       weight: item.weight.toString(),
       rate: item.rate.toString(),
@@ -222,67 +225,6 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     }));
     setItems(newItems);
     showToast.success("Draft items prefilled successfully!");
-  };
-
-  const fetchUnbilledTracks = useCallback(async (buyerId) => {
-    setLoadingTracks(true);
-    try {
-      const result = await getUnbilledTracksAction(buyerId);
-      if (result.success) {
-        // Filter out tracks that are already selected in items
-        const currentSalesTrackIds = items.map(i => i.salesTrackId).filter(Boolean);
-        const filteredTracks = result.data.filter(t => !currentSalesTrackIds.includes(t.id));
-        setUnbilledTracks(filteredTracks);
-        initialUnbilledTracksRef.current = result.data;
-      } else {
-        showToast.error("Failed to load available sold intakes: " + result.error);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoadingTracks(false);
-    }
-  }, [items]);
-
-  useEffect(() => {
-    if (partyId && partyId !== "new") {
-      fetchUnbilledTracks(partyId);
-    } else {
-      setUnbilledTracks([]);
-    }
-  }, [partyId]);
-
-  const handleSelectTrack = (track) => {
-    const hasOnlyEmptyRow = items.length === 1 && !items[0].productId && !items[0].weight && !items[0].rate;
-    
-    const originalUnit = track.intakeTransaction?.unit || "KG";
-    const originalRateUnit = track.rateUnit || track.intakeTransaction?.rateUnit || "KG";
-    const product = products.find(p => p.id === track.productId);
-    
-    // Use original rate and weight directly (no back-conversion needed)
-    const displayRate = track.sellingRate || track.buyingRate || 0;
-    const displayWeight = track.netWeight !== null && track.netWeight !== undefined
-      ? track.netWeight
-      : (track.quantity || 0);
-
-    const newRow = {
-      productId: track.productId?.toString() || "",
-      weight: displayWeight || "",
-      rate: displayRate || "",
-      unit: originalUnit,
-      rateUnit: originalRateUnit,
-      salesTrackId: track.id,
-      intakeNumber: track.intakeTransaction?.intakeNumber
-    };
-
-    if (hasOnlyEmptyRow) {
-      setItems([newRow]);
-    } else {
-      setItems([...items, newRow]);
-    }
-
-    setUnbilledTracks(prev => prev.filter(t => t.id !== track.id));
-    showToast.success(`Prefilled item from Intake ${track.intakeTransaction?.intakeNumber || ""}`);
   };
 
   // Totals State
@@ -638,101 +580,21 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
         </div>
       </div>
 
-      {/* 1.5 Available Sold Intakes Suggestions */}
-      {partyId && partyId !== "new" && flags?.salesMode !== "DIRECT" && (
-        <div className="animate-in fade-in slide-in-from-top-4 duration-300">
-          {loadingTracks ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground p-4 bg-muted/20 border rounded-xl">
+      {/* Centralized Presentational DraftSuggestionCard */}
+      {partyId && partyId !== "new" && (
+        <div className="space-y-3">
+          {loadingDraftSuggestion ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground p-4 bg-muted/20 border rounded-xl animate-pulse">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span>Loading available sold intakes...</span>
+              <span>Searching for intelligent draft suggestions...</span>
             </div>
-          ) : unbilledTracks.length > 0 ? (
-            <div className="bg-card border rounded-xl p-5 space-y-4 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-sm font-bold text-foreground">
-                    Available Sold Intakes (Suggestions)
-                  </h4>
-                  <p className="text-xs text-muted-foreground">Select an intake to prefill item details (fully editable).</p>
-                </div>
-                <span className="bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-full">
-                  {unbilledTracks.length} Available
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {unbilledTracks.map((track) => {
-                  const originalUnit = track.intakeTransaction?.unit || "KG";
-                  const originalRateUnit = track.rateUnit || track.intakeTransaction?.rateUnit || "KG";
-                  const product = products.find(p => p.id === track.productId);
-                  const displayRate = track.sellingRate || track.buyingRate || 0;
-                  const displayWeight = track.netWeight !== null && track.netWeight !== undefined
-                    ? track.netWeight
-                    : (track.quantity || 0);
-
-                  return (
-                    <div
-                      key={track.id}
-                      onClick={() => handleSelectTrack(track)}
-                      className="flex items-center justify-between p-4 rounded-xl border bg-background hover:border-primary hover:bg-primary/5 transition-all text-left cursor-pointer group shadow-sm"
-                    >
-                      <div className="space-y-1">
-                        <div className="text-xs font-bold text-primary">
-                          {track.intakeTransaction?.intakeNumber || `Track #${track.id}`}
-                        </div>
-                        <div className="text-sm font-bold text-card-foreground group-hover:text-primary transition-colors">
-                          {track.product?.name || "Unknown Product"}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          Rate: Rs. {displayRate} / {originalRateUnit === UNIT_IDS.MAUND ? "Maund" : originalRateUnit}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-black">{displayWeight} {originalUnit}</div>
-                        <div className="text-[10px] text-primary font-bold uppercase group-hover:underline mt-1">
-                          + Add
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-        </div>
-      )}
-      {/* Intelligent Draft Suggestion alert banner */}
-      {draftSuggestion && draftSuggestion.items?.length > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-start gap-2.5">
-              <span className="text-lg mt-0.5">💡</span>
-              <div>
-                <h4 className="text-sm font-bold text-foreground">Intelligent Draft Suggestion Available</h4>
-                <p className="text-[11px] text-muted-foreground">We matched unbilled intakes or recurring purchase patterns for this buyer.</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleApplyPrefill}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer self-start sm:self-center"
-            >
-              Apply Prefill ({draftSuggestion.items.length} Items)
-            </button>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-            {draftSuggestion.items.map((item, idx) => (
-              <div key={idx} className="bg-background/80 border rounded-xl p-2.5 flex items-center justify-between gap-3">
-                <div>
-                  <div className="font-semibold text-foreground">{item.productName}</div>
-                  <div className="text-[10px] text-muted-foreground italic">{item.rationale}</div>
-                </div>
-                <div className="text-right">
-                  <div className="font-bold text-foreground">{item.weight} {item.unit}</div>
-                  <div className="text-[10px] text-muted-foreground">Rs. {item.rate}/{item.rateUnit}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          ) : (
+            <DraftSuggestionCard
+              draftSuggestion={draftSuggestion}
+              onApply={handleApplyPrefill}
+              buttonText="Use Draft"
+            />
+          )}
         </div>
       )}
 

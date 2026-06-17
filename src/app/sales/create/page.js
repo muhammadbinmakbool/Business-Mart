@@ -45,6 +45,7 @@ export default async function CreateSalePage({ searchParams: searchParamsPromise
   const salesTrackIdsParam = searchParams.salesTrackIds || "";
   const directPrefillsParam = searchParams.directPrefills || "";
   const queryPartyId = searchParams.partyId || "";
+  const isPrefilled = searchParams.prefilled === "true" || !!salesTrackIdsParam || !!directPrefillsParam;
 
   let initialData = null;
 
@@ -52,7 +53,8 @@ export default async function CreateSalePage({ searchParams: searchParamsPromise
     initialData = {
       partyId: queryPartyId || "",
       items: [],
-      notes: "Prefilled from Operational Workbench"
+      notes: isPrefilled ? "Prefilled from Operational Workbench" : "",
+      prefilled: isPrefilled
     };
 
     if (salesTrackIdsParam) {

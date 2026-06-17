@@ -19,6 +19,7 @@ import {
 import { showToast } from "@/components/ui/Toast";
 import { sellIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import DraftSuggestionCard from "@/components/sales/DraftSuggestionCard";
 
 export default function SalesWorkbenchClient({ buyers = [], products = [], flags = {} }) {
   const router = useRouter();
@@ -208,6 +209,7 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
     const queryParams = new URLSearchParams();
     queryParams.set("partyId", draft.buyerId.toString());
     queryParams.set("backUrl", "/sales-workbench");
+    queryParams.set("prefilled", "true");
 
     if (salesTrackIds) {
       queryParams.set("salesTrackIds", salesTrackIds);
@@ -399,54 +401,14 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
                         Convert to Invoice ({selectedSet.size})
                         <ArrowRight className="h-3 w-3" />
                       </button>
-                    </div>
-
-                    {/* Suggestions Lines */}
-                    <div className="divide-y">
-                      {draft.items.map(item => {
-                        const isChecked = selectedSet.has(item.id);
-                        return (
-                          <div 
-                            key={item.id} 
-                            onClick={() => toggleItemSelection(draft.buyerId, item.id)}
-                            className="flex items-start gap-3 px-4 py-3 hover:bg-muted/10 transition-colors cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              readOnly
-                              className="mt-1 h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary shrink-0 pointer-events-none"
-                            />
-                            <div className="flex-1 space-y-0.5">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm font-semibold">{item.productName}</span>
-                                <span className="text-xs font-bold text-foreground">
-                                  {item.weight} {item.unit} @ Rs. {item.rate}
-                                </span>
-                              </div>
-                              
-                              <div className="flex items-center justify-between text-[11px]">
-                                <span className="text-muted-foreground italic">
-                                  {item.rationale}
-                                </span>
-                                
-                                {item.type === "TRACKED" ? (
-                                  <span className="text-xs text-primary font-bold">100% Match</span>
-                                ) : (
-                                  <span className={`text-xs font-bold ${
-                                    item.confidence >= 0.8 
-                                      ? "text-emerald-600 dark:text-emerald-400" 
-                                      : "text-amber-600 dark:text-amber-400"
-                                  }`}>
-                                    {Math.round(item.confidence * 100)}% Confidence
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                    </div>                    {/* Centralized Presentational DraftSuggestionCard */}
+                    <DraftSuggestionCard
+                      draftSuggestion={draft}
+                      onApply={() => convertDraftToInvoice(draft)}
+                      onToggleItemSelection={toggleItemSelection}
+                      selectedItemIds={selectedSet}
+                      buttonText="Convert"
+                    />
                   </div>
                 );
               })}

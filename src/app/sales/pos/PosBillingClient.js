@@ -19,6 +19,8 @@ import {
 } from "lucide-react";
 
 import { createSaleAction, getSaleAction } from "@/modules/sales/controllers/saleActions";
+import { getBuyerDraftSuggestionAction } from "@/modules/sales-workbench/controllers/workbenchActions";
+import DraftSuggestionCard from "@/components/sales/DraftSuggestionCard";
 import { triggerPrint } from "@/print/utils/printUtils";
 import { calculateTransactionTotals, round } from "@/lib/financial";
 import { normalizeQuantity, normalizeRate, getUnitsByCategory } from "@/lib/units";
@@ -60,14 +62,20 @@ export default function PosBillingClient({
   const [loadingDraftSuggestion, setLoadingDraftSuggestion] = useState(false);
 
   useEffect(() => {
+    // Skip suggestion lookup if initialData already contains items or is marked as prefilled
+    if (initialData?.prefilled === true || (initialData?.items && initialData.items.length > 0)) {
+      setDraftSuggestion(null);
+      return;
+    }
+
     if (buyerId && buyerId !== "new" && flags?.salesMode !== "DIRECT" && flags?.enablePrefilledInvoices !== false) {
       setLoadingDraftSuggestion(true);
-      fetch("/api/sales-workbench/drafts")
-        .then(res => res.json())
-        .then(json => {
-          if (json.success && json.drafts) {
-            const match = json.drafts.find(d => d.buyerId.toString() === buyerId.toString());
-            setDraftSuggestion(match || null);
+      getBuyerDraftSuggestionAction(buyerId)
+        .then(res => {
+          if (res.success && res.draft) {
+            setDraftSuggestion(res.draft);
+          } else {
+            setDraftSuggestion(null);
           }
         })
         .catch(err => console.error("Error loading drafts:", err))
@@ -75,11 +83,12 @@ export default function PosBillingClient({
     } else {
       setDraftSuggestion(null);
     }
-  }, [buyerId, flags]);
+  }, [buyerId, flags, initialData]);
 
-  const handleApplyPrefill = () => {
-    if (!draftSuggestion) return;
-    const newItems = draftSuggestion.items.map((item, idx) => ({
+  const handleApplyPrefill = (suggestionToApply) => {
+    const target = suggestionToApply || draftSuggestion;
+    if (!target) return;
+    const newItems = target.items.map((item, idx) => ({
       id: `row-${idx}`,
       productId: item.productId.toString(),
       weight: item.weight.toString(),
@@ -874,22 +883,21 @@ export default function PosBillingClient({
         )}
       </div>
       {/* Draft Suggestion Alert Banner */}
-      {draftSuggestion && draftSuggestion.items?.length > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-3 duration-200">
-          <div className="flex items-start gap-2.5">
-            <span className="text-base mt-0.5">💡</span>
-            <div>
-              <h4 className="text-xs font-bold text-foreground">Intelligent Draft Invoice Available</h4>
-              <p className="text-[10px] text-muted-foreground">We matched unbilled intakes or direct purchase history patterns for this buyer.</p>
+      {buyerId && buyerId !== "new" && (
+        <div className="space-y-2">
+          {loadingDraftSuggestion ? (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex items-center gap-2 text-xs text-muted-foreground animate-pulse">
+              <span className="animate-spin h-3.5 w-3.5 border-2 border-primary border-t-transparent rounded-full shrink-0" />
+              <span>Searching for intelligent suggestions...</span>
             </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleApplyPrefill}
-            className="shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground text-[10.5px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer self-start md:self-center"
-          >
-            Apply Prefill ({draftSuggestion.items.length} Items)
-          </button>
+          ) : (
+            <DraftSuggestionCard
+              draftSuggestion={draftSuggestion}
+              onApply={handleApplyPrefill}
+              isCompact={true}
+              buttonText="Use Draft"
+            />
+          )}
         </div>
       )}
 

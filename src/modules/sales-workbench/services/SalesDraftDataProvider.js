@@ -4,12 +4,16 @@ export class SalesDraftDataProvider {
   /**
    * Fetch all active unbilled SalesTrack records.
    */
-  static async fetchUnbilledTracks() {
+  static async fetchUnbilledTracks(buyerId = null) {
+    const whereClause = {
+      isBilled: false,
+      isDeleted: false
+    };
+    if (buyerId) {
+      whereClause.buyerId = parseInt(buyerId);
+    }
     return await prisma.salesTrack.findMany({
-      where: {
-        isBilled: false,
-        isDeleted: false
-      },
+      where: whereClause,
       include: {
         buyer: {
           select: {
@@ -86,31 +90,34 @@ export class SalesDraftDataProvider {
     });
   }
 
-  /**
-   * Fetch recent finalized direct sale items (no linked intake) within a date range to identify purchase frequency.
-   */
-  static async fetchRecentSales(daysLimit = 30) {
+  static async fetchRecentSales(buyerId = null, daysLimit = 30) {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysLimit);
 
-    // Fetch sale items that do not have an intake-linked SalesTrack
-    return await prisma.saleItem.findMany({
-      where: {
-        sale: {
-          isDeleted: false,
-          status: {
-            not: "CANCELLED"
-          },
-          createdAt: {
-            gte: cutoffDate
-          }
+    const whereClause = {
+      sale: {
+        isDeleted: false,
+        status: {
+          not: "CANCELLED"
         },
-        salesTracks: {
-          none: {
-            type: "INTAKE_SALE"
-          }
+        createdAt: {
+          gte: cutoffDate
         }
       },
+      salesTracks: {
+        none: {
+          type: "INTAKE_SALE"
+        }
+      }
+    };
+
+    if (buyerId) {
+      whereClause.sale.partyId = parseInt(buyerId);
+    }
+
+    // Fetch sale items that do not have an intake-linked SalesTrack
+    return await prisma.saleItem.findMany({
+      where: whereClause,
       include: {
         sale: {
           select: {

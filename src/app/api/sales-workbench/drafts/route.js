@@ -1,6 +1,6 @@
 import { getFeatureFlags } from "@/lib/settings/featureFlags";
 import { SalesDraftDataProvider } from "@/modules/sales-workbench/services/SalesDraftDataProvider";
-import { SalesDraftBuilder } from "@/modules/sales-workbench/services/SalesDraftBuilder";
+import { SalesDraftService } from "@/modules/sales-workbench/services/SalesDraftService";
 import { NextResponse } from "next/server";
 
 export async function GET(request) {
@@ -15,14 +15,12 @@ export async function GET(request) {
     let recentSales = [];
     
     if (enableSuggestions) {
-      const [unbilledTracks, rawIntakes, rawSales] = await Promise.all([
-        SalesDraftDataProvider.fetchUnbilledTracks(),
-        SalesDraftDataProvider.fetchActiveIntakes(),
-        SalesDraftDataProvider.fetchRecentSales()
+      const [draftsRes, activeIntakes] = await Promise.all([
+        SalesDraftService.getAllSuggestedDrafts(),
+        SalesDraftDataProvider.fetchActiveIntakes()
       ]);
-      
-      drafts = SalesDraftBuilder.buildSuggestedDrafts(unbilledTracks, rawIntakes, rawSales);
-      pendingIntakes = rawIntakes;
+      drafts = draftsRes;
+      pendingIntakes = activeIntakes;
     } else {
       // Suggestions are disabled, but we still fetch raw pending intakes for flow B tracker
       pendingIntakes = await SalesDraftDataProvider.fetchActiveIntakes();
