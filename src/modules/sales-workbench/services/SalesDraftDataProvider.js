@@ -135,7 +135,7 @@ export class SalesDraftDataProvider {
         }
       },
       orderBy: {
-        createdAt: "desc"
+        id: "desc"
       }
     });
   }
