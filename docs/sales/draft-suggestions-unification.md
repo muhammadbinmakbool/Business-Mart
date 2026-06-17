@@ -87,3 +87,18 @@ To avoid duplicate prompts or overriding manual invoice overrides, **never fetch
 3. The page calls `getBuyerDraftSuggestionAction(buyerId)` asynchronously.
 4. A card displaying "Intelligent Draft Invoice Available" appears as a banner.
 5. Click **Use Draft** to immediately prefill the invoice details.
+
+---
+
+## 4. Architectural Safety & Future Extensions
+
+### Strict Service Boundary Rule
+To prevent suggestion generation code duplication from creeping back:
+*   **Boundary Restriction**: `SalesDraftBuilder` must **never** be imported or instantiated directly by API routes, Server Actions, controllers, or UI components. Only `SalesDraftService` is authorized to invoke draft building logic.
+
+### Domain-Driven Prefills & Safety (Future Recommendations)
+1.  **Stateful Prefill Invalidation**:
+    *   Currently, the prefill bypass depends on frontend state parameters (`prefilled=true` in query string). In future iterations, we recommend introducing a backend-persisted draft state or transaction session token to enforce state checks at the domain level.
+2.  **Buyer Switch Conflict Handling**:
+    *   If a user loads prefilled items from one buyer but manually changes the buyer selector afterward, the form should trigger a confirmation prompt to clear/re-evaluate draft suggestions corresponding to the new buyer.
+
