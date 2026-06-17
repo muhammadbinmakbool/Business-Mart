@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { UnitService } from "./UnitService";
+import { normalizeQuantity } from "@/lib/units";
 
 /**
  * ══════════════════════════════════════════════════════════════════════════════
@@ -49,6 +50,7 @@ export class InventoryService {
       throw new Error(`Product with ID ${prodId} not found.`);
     }
 
+    const unitRegistry = await UnitService.getUnitRegistry();
     let totalStockIn = 0;
 
     // 1. Calculate Initial Stock In
@@ -58,10 +60,11 @@ export class InventoryService {
     });
 
     if (initialStock) {
-      const normalizedInitialQty = UnitService.getNormalizedQuantity(
+      const normalizedInitialQty = normalizeQuantity(
         Number(initialStock.quantity), 
         initialStock.unit, 
-        initialStock.product
+        initialStock.product,
+        unitRegistry
       );
       totalStockIn += normalizedInitialQty;
     }
@@ -79,9 +82,7 @@ export class InventoryService {
     });
 
     for (const intake of activeIntakes) {
-      const gross = Number(intake.grossWeight);
-      const normalizedGross = UnitService.getNormalizedQuantity(gross, intake.unit, intake.product);
-      totalStockIn += normalizedGross;
+      totalStockIn += Number(intake.normalizedWeight || 0);
     }
 
     // 3. Calculate weight from active Sale items

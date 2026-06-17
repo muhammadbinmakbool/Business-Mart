@@ -132,10 +132,19 @@ export class UnitService {
   }
 
   static async deleteCategory(id) {
+    const existing = await UnitRepository.findCategoryById(id);
+    if (!existing) throw new Error("Category not found");
+
     const units = await UnitRepository.findUnitsByCategory(id);
     if (units.length > 0) {
       throw new Error("Cannot delete category with associated units.");
     }
+
+    const usageCount = await UnitRepository.countProductsWithCategory(existing.code);
+    if (usageCount > 0) {
+      throw new Error(`Cannot delete category ${existing.code} because it is referenced by active products.`);
+    }
+
     const res = await UnitRepository.deleteCategory(id);
     this.invalidateCache();
     return res;

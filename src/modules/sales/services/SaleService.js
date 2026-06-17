@@ -7,7 +7,7 @@ import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
 import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity, logSaleEvent, logPaymentEvent } from "@/modules/activity-log/activityLogger";
-import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { DEFAULT_WEIGHT_UNIT, normalizeQuantity, normalizeRate, isUnitCompatible } from "@/lib/units";
 import { withOwnership } from "@/lib/session";
 import { SalesWorkflowEngine } from "../workflow/SalesWorkflowEngine";
 export class SaleService {
@@ -68,6 +68,8 @@ export class SaleService {
 
     const ownership = await withOwnership();
 
+    const unitRegistry = await UnitService.getUnitRegistry();
+
     // 1. Validate units and normalize quantities
     const processedItems = [];
     for (const item of items) {
@@ -78,11 +80,13 @@ export class SaleService {
         throw new Error(`Product "${product.name}" is disabled/inactive and cannot be sold. Please reactivate the product first.`);
       }
 
-      const validation = UnitService.validateCompatibility(item.unit || DEFAULT_WEIGHT_UNIT, product);
-      if (!validation.valid) throw new Error(validation.error);
+      const isCompatible = isUnitCompatible(item.unit || DEFAULT_WEIGHT_UNIT, product.unitCategory || product.category, unitRegistry);
+      if (!isCompatible) {
+        throw new Error(`Unit "${item.unit}" is incompatible with product "${product.name}" (category: ${product.unitCategory || product.category})`);
+      }
 
-      const normalizedQty = UnitService.getNormalizedQuantity(item.weight, item.unit || DEFAULT_WEIGHT_UNIT, product);
-      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.rateUnit || DEFAULT_WEIGHT_UNIT, product);
+      const normalizedQty = normalizeQuantity(item.weight, item.unit || DEFAULT_WEIGHT_UNIT, product, unitRegistry);
+      const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || DEFAULT_WEIGHT_UNIT, product, unitRegistry);
 
       processedItems.push({
         ...item,
@@ -149,7 +153,8 @@ export class SaleService {
         const product = productMap.get(prodId);
         const currentQty = product ? Number(product.quantity) : 0;
         if (currentQty < requiredWeight) {
-          throw createAppError("INSUFFICIENT_STOCK", `Product "${product?.name || prodId}" has insufficient stock. Available: ${currentQty} ${UnitService.getBaseUnit(product?.category || "WEIGHT")}`);
+          const baseUnit = unitRegistry.baseUnits[product?.unitCategory || product?.category || "WEIGHT"] || "KG";
+          throw createAppError("INSUFFICIENT_STOCK", `Product "${product?.name || prodId}" has insufficient stock. Available: ${currentQty} ${baseUnit}`);
         }
       }
 
@@ -279,6 +284,8 @@ export class SaleService {
 
     const ownership = await withOwnership();
 
+    const unitRegistry = await UnitService.getUnitRegistry();
+
     // 1. Validate units and normalize new items
     const processedItems = [];
     for (const item of items) {
@@ -289,11 +296,13 @@ export class SaleService {
         throw new Error(`Product "${product.name}" is disabled/inactive and cannot be sold. Please reactivate the product first.`);
       }
 
-      const validation = UnitService.validateCompatibility(item.unit || DEFAULT_WEIGHT_UNIT, product);
-      if (!validation.valid) throw new Error(validation.error);
+      const isCompatible = isUnitCompatible(item.unit || DEFAULT_WEIGHT_UNIT, product.unitCategory || product.category, unitRegistry);
+      if (!isCompatible) {
+        throw new Error(`Unit "${item.unit}" is incompatible with product "${product.name}" (category: ${product.unitCategory || product.category})`);
+      }
 
-      const normalizedQty = UnitService.getNormalizedQuantity(item.weight, item.unit || DEFAULT_WEIGHT_UNIT, product);
-      const normalizedRate = UnitService.getNormalizedRate(item.rate || 0, item.rateUnit || DEFAULT_WEIGHT_UNIT, product);
+      const normalizedQty = normalizeQuantity(item.weight, item.unit || DEFAULT_WEIGHT_UNIT, product, unitRegistry);
+      const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || DEFAULT_WEIGHT_UNIT, product, unitRegistry);
 
       processedItems.push({
         ...item,

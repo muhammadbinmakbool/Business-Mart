@@ -7,7 +7,7 @@ import { UnitService } from "../../products/services/UnitService";
 import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
 import { prisma } from "@/lib/prisma";
-import { convertRate, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { convertRate, DEFAULT_WEIGHT_UNIT, normalizeQuantity } from "@/lib/units";
 import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity, logIntakeEvent, logPaymentEvent } from "@/modules/activity-log/activityLogger";
 import { calculateIntakeState } from "@/lib/financial";
@@ -170,7 +170,8 @@ export class IntakeService {
       throw new Error(`Product "${product.name}" is disabled/inactive. New goods intakes cannot be created for disabled products.`);
     }
     
-    const normalizedWeight = UnitService.getNormalizedQuantity(validated.grossWeight, validated.unit || DEFAULT_WEIGHT_UNIT, product);
+    const unitRegistry = await UnitService.getUnitRegistry();
+    const normalizedWeight = normalizeQuantity(validated.grossWeight, validated.unit || DEFAULT_WEIGHT_UNIT, product, unitRegistry);
     
     const isBagProduct = product && (product.primaryUnit === "BAG" || product.category === "BAG");
 
@@ -256,7 +257,8 @@ export class IntakeService {
     const workflowSettings = await getIntakeWorkflowSettings();
     
     let oldStatus;
-    
+    const unitRegistry = await UnitService.getUnitRegistry();
+
     const updated = await prisma.$transaction(async (tx) => {
       // 1. Get current state
       const current = await tx.intakeTransaction.findUnique({
@@ -336,9 +338,8 @@ export class IntakeService {
       if (hasWeightChange || hasUnitChange || hasProductChange) {
         const product = await tx.product.findUnique({ where: { id: newProductId } });
         if (!product) throw new Error("Product not found");
-        const rawWeight = hasWeightChange ? validated.grossWeight : Number(current.grossWeight);
-        const unit = hasUnitChange ? validated.unit : current.unit;
-        newWeight = UnitService.getNormalizedQuantity(rawWeight, unit, product);
+        const unitRegistry = await UnitService.getUnitRegistry();
+        newWeight = normalizeQuantity(rawWeight, unit, product, unitRegistry);
       }
 
       // Recalculate remainingWeight safely if grossWeight changed
@@ -415,7 +416,7 @@ export class IntakeService {
         const weightForTotal = updated.netWeight !== null && updated.netWeight !== undefined 
           ? Number(updated.netWeight) 
           : Number(updated.grossWeight);
-        const quantityInKg = UnitService.getNormalizedQuantity(weightForTotal, updated.unit, product);
+        const quantityInKg = normalizeQuantity(weightForTotal, updated.unit, product, unitRegistry);
         const actualRate = convertRate(updated.rate, updated.rateUnit || DEFAULT_WEIGHT_UNIT, updated.unit || DEFAULT_WEIGHT_UNIT, product);
         const rateForTotal = actualRate ? Number(actualRate) : 0;
         const baseAmount = weightForTotal * rateForTotal;
@@ -581,6 +582,7 @@ export class IntakeService {
 
     const isPartial = !!data.isPartialSale;
     const ownership = await withOwnership();
+    const unitRegistry = await UnitService.getUnitRegistry();
 
     const updatedIntake = await prisma.$transaction(async (tx) => {
       // 1. Get the current intake record
@@ -655,7 +657,7 @@ export class IntakeService {
       await InventoryService.handleIntakeSold(intake.productId, tx);
 
       // 3. Create unique SalesTrack record for this partial sale portion
-      const quantityInKg = UnitService.getNormalizedQuantity(netWeight, intake.unit, intake.product);
+      const quantityInKg = normalizeQuantity(netWeight, intake.unit, intake.product, unitRegistry);
       const baseAmount = netWeight * convertRate(rate, rateUnit, intake.unit, intake.product);
 
       const trackData = {
