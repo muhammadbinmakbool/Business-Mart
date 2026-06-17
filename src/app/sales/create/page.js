@@ -71,10 +71,10 @@ export default async function CreateSalePage({ searchParams: searchParamsPromise
         });
 
         for (const track of tracks) {
-          const displayRate = track.sellingRate || track.buyingRate || 0;
+          const displayRate = Number(track.sellingRate || track.buyingRate || 0);
           const displayWeight = track.netWeight !== null && track.netWeight !== undefined
-            ? track.netWeight
-            : (track.quantity || 0);
+            ? Number(track.netWeight)
+            : Number(track.quantity || 0);
 
           initialData.items.push({
             productId: track.productId,
