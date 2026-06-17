@@ -49,41 +49,28 @@ export class InventoryService {
       throw new Error(`Product with ID ${prodId} not found.`);
     }
 
-    // 1. Calculate remaining Initial Stock (InitialStock - AllocatedSales)
-    let remainingInitialStock = 0;
+    let totalStockIn = 0;
+
+    // 1. Calculate Initial Stock In
     const initialStock = await tx.initialStock.findUnique({
       where: { productId: prodId },
       include: { product: true }
     });
 
     if (initialStock) {
-      const salesTracks = await tx.salesTrack.findMany({
-        where: {
-          initialStockId: initialStock.id,
-          isDeleted: false,
-          saleTransaction: {
-            status: { not: "CANCELLED" }
-          }
-        }
-      });
-
-      let allocatedSales = 0;
-      for (const track of salesTracks) {
-        const trackQty = Number(track.quantity || 0);
-        const trackUnit = track.rateUnit || "KG";
-        const normalizedTrackQty = UnitService.getNormalizedQuantity(trackQty, trackUnit, initialStock.product);
-        allocatedSales += normalizedTrackQty;
-      }
-
-      const normalizedInitialQty = UnitService.getNormalizedQuantity(Number(initialStock.quantity), initialStock.unit, initialStock.product);
-      remainingInitialStock = normalizedInitialQty - allocatedSales; // Do not clamp!
+      const normalizedInitialQty = UnitService.getNormalizedQuantity(
+        Number(initialStock.quantity), 
+        initialStock.unit, 
+        initialStock.product
+      );
+      totalStockIn += normalizedInitialQty;
     }
 
-    // 2. Calculate remaining weight from active Intakes
+    // 2. Calculate gross weight from active Intakes
     const activeIntakes = await tx.intakeTransaction.findMany({
       where: {
         productId: prodId,
-        status: { in: ["PENDING", "PARTIAL"] },
+        status: { not: "CANCELLED" },
         isDeleted: false
       },
       include: {
@@ -91,14 +78,29 @@ export class InventoryService {
       }
     });
 
-    let totalNormalizedIntakes = 0;
     for (const intake of activeIntakes) {
-      const remaining = Number(intake.remainingWeight !== null && intake.remainingWeight !== undefined ? intake.remainingWeight : intake.grossWeight);
-      const normalizedRemaining = UnitService.getNormalizedQuantity(remaining, intake.unit, intake.product);
-      totalNormalizedIntakes += normalizedRemaining;
+      const gross = Number(intake.grossWeight);
+      const normalizedGross = UnitService.getNormalizedQuantity(gross, intake.unit, intake.product);
+      totalStockIn += normalizedGross;
     }
 
-    const finalProductQuantity = remainingInitialStock + totalNormalizedIntakes;
+    // 3. Calculate weight from active Sale items
+    const activeSaleItems = await tx.saleItem.findMany({
+      where: {
+        productId: prodId,
+        sale: {
+          status: { not: "CANCELLED" },
+          isDeleted: false
+        }
+      }
+    });
+
+    let totalStockOut = 0;
+    for (const item of activeSaleItems) {
+      totalStockOut += Number(item.normalizedWeight || 0);
+    }
+
+    const finalProductQuantity = totalStockIn - totalStockOut;
 
     await tx.product.update({
       where: { id: prodId },

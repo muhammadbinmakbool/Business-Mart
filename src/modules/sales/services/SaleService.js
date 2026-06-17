@@ -129,42 +129,22 @@ export class SaleService {
 
     // 3. Atomically execute transaction
     return prisma.$transaction(async (tx) => {
-      // 3.1 Fetch any sales tracks to get linked intake weights
-      const salesTrackIds = processedItems
-        .map(item => item.salesTrackId ? parseInt(item.salesTrackId) : null)
-        .filter(Boolean);
-
-      const salesTracks = salesTrackIds.length > 0
-        ? await tx.salesTrack.findMany({
-            where: { id: { in: salesTrackIds } },
-            include: { intakeTransaction: true }
-          })
-        : [];
-
-      const salesTrackMap = new Map(salesTracks.map(st => [st.id, st]));
-
-      // 3.2 Calculate general pool requirements (excluding weights of linked SOLD intakes)
+      // 3.1 Calculate general pool requirements (representing total weight sold for each product in this transaction)
       const generalPoolRequirements = new Map();
       for (const item of processedItems) {
-        let required = item.normalizedWeight;
-        if (item.salesTrackId) {
-          const st = salesTrackMap.get(parseInt(item.salesTrackId));
-          if (st && st.intakeTransaction && st.intakeTransaction.status === "SOLD") {
-            required = Math.max(0, item.normalizedWeight - Number(st.intakeTransaction.normalizedWeight));
-          }
-        }
+        const required = item.normalizedWeight;
         const prodId = parseInt(item.productId);
         generalPoolRequirements.set(prodId, (generalPoolRequirements.get(prodId) || 0) + required);
       }
 
-      // 3.3 Fetch current quantities within the transaction for lock & check
+      // 3.2 Fetch current quantities within the transaction for lock & check
       const productIds = processedItems.map(item => parseInt(item.productId));
       const dbProducts = await tx.product.findMany({
         where: { id: { in: productIds } }
       });
       const productMap = new Map(dbProducts.map(p => [p.id, p]));
 
-      // 3.4 Validate stock safety against general pool requirements
+      // 3.3 Validate stock safety against general pool requirements
       for (const [prodId, requiredWeight] of generalPoolRequirements.entries()) {
         const product = productMap.get(prodId);
         const currentQty = product ? Number(product.quantity) : 0;
@@ -378,39 +358,15 @@ export class SaleService {
       // 3.2 Calculate general pool requirements for old items
       const oldGeneralPoolRequirements = new Map();
       for (const oldItem of oldSale.items) {
-        let required = Number(oldItem.normalizedWeight);
-        const linkedTrack = oldItem.salesTracks?.[0];
-        if (linkedTrack && linkedTrack.intakeTransaction && linkedTrack.intakeTransaction.status === "SOLD") {
-          required = Math.max(0, required - Number(linkedTrack.intakeTransaction.normalizedWeight));
-        }
+        const required = Number(oldItem.normalizedWeight);
         const prodId = oldItem.productId;
         oldGeneralPoolRequirements.set(prodId, (oldGeneralPoolRequirements.get(prodId) || 0) + required);
       }
 
-      // 3.3 Fetch new items sales track ids to check linked intakes
-      const newSalesTrackIds = processedItems
-        .map(item => item.salesTrackId ? parseInt(item.salesTrackId) : null)
-        .filter(Boolean);
-
-      const newSalesTracks = newSalesTrackIds.length > 0
-        ? await tx.salesTrack.findMany({
-            where: { id: { in: newSalesTrackIds } },
-            include: { intakeTransaction: true }
-          })
-        : [];
-
-      const newSalesTrackMap = new Map(newSalesTracks.map(st => [st.id, st]));
-
       // Calculate general pool requirements for new items
       const newGeneralPoolRequirements = new Map();
       for (const item of processedItems) {
-        let required = item.normalizedWeight;
-        if (item.salesTrackId) {
-          const st = newSalesTrackMap.get(parseInt(item.salesTrackId));
-          if (st && st.intakeTransaction && st.intakeTransaction.status === "SOLD") {
-            required = Math.max(0, item.normalizedWeight - Number(st.intakeTransaction.normalizedWeight));
-          }
-        }
+        const required = item.normalizedWeight;
         const prodId = parseInt(item.productId);
         newGeneralPoolRequirements.set(prodId, (newGeneralPoolRequirements.get(prodId) || 0) + required);
       }
@@ -428,13 +384,13 @@ export class SaleService {
         generalPoolDeltas.set(prodId, oldReq - newReq);
       }
 
-      // 3.4 Fetch all involved product snapshots for validation
+      // 3.3 Fetch all involved product snapshots for validation
       const dbProducts = await tx.product.findMany({
         where: { id: { in: Array.from(allProductIds) } }
       });
       const productMap = new Map(dbProducts.map(p => [p.id, p]));
 
-      // 3.5 Validate safety constraint against general pool requirements
+      // 3.4 Validate safety constraint against general pool requirements
       for (const [productId, delta] of generalPoolDeltas.entries()) {
         if (delta < 0) {
           const product = productMap.get(productId);

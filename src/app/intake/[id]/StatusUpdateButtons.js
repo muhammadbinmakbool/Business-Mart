@@ -546,10 +546,6 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
               <span className="text-amber-600 font-bold">•</span>
               <span><strong>Remove Billing Eligibility</strong>: It will no longer be eligible to generate a Sales Invoice.</span>
             </li>
-            <li className="flex items-start gap-2">
-              <span className="text-amber-600 font-bold">•</span>
-              <span><strong>Restore Inventory</strong>: The quantity ({Number(intake?.normalizedWeight || 0).toLocaleString()} KG) will be returned to inventory.</span>
-            </li>
           </ul>
 
           <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg flex gap-3 text-xs text-amber-800 dark:text-amber-300">

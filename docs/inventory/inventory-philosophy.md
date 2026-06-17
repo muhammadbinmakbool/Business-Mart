@@ -6,29 +6,51 @@ This document defines the authoritative inventory model for Business Mart. All d
 
 ## Core Principle
 
-> **Physical inventory is controlled exclusively through the Intake lifecycle.**
+> **Physical inventory is increased by active Intakes and decreased by finalized Sales.**
 >
-> - **PENDING intake** = stock physically available in the warehouse.
-> - **SOLD intake** = stock already allocated/sold — removed from available inventory.
-> - **CANCELLED intake** = excluded from inventory entirely.
+> - **Intake Role = Pure Stock In Register**: Active intakes (non-cancelled, non-deleted) represent physical stock arriving at the warehouse. Their `status` and `remainingWeight` are purely operational metadata (Flow B) and do **NOT** affect available stock calculations.
+> - **Sale Role = Pure Stock Out Register**: Active sales (non-cancelled, non-deleted) represent physical stock leaving the warehouse. Stock is deducted only when the `SaleTransaction` is finalized.
 >
-> **Sales invoices are billing/accounting records and do NOT directly mutate inventory.**
-> Inventory movement happens at Intake status transition, **NOT** at billing/sales stage.
+> **The Single Source of Truth Rule:**
+> Stock is always derived strictly from:
+> $$\text{Stock} = \text{InitialStock} + \text{Gross Intakes} - \text{Sales}$$
+
+---
+
+## Flow A vs. Flow B Separation
+
+To prevent developer confusion and eliminate the double-deduction bug, the system maintains a strict conceptual and code-level separation:
+
+```mermaid
+graph TD
+    subgraph Flow A: Inventory Impact
+        I[IntakeTransaction: grossWeight] -->|Stock In| INV[InventoryService]
+        IS[InitialStock] -->|Stock In| INV
+        SI[SaleItem: normalizedWeight] -->|Stock Out| INV
+        INV -->|recalculateProductStock| DB[(Product.quantity)]
+    end
+
+    subgraph Flow B: Traceability & UI Only
+        ST[SalesTrack Table] -->|Buyer-Supplier Mapping| UI[UI Reporting / Lot Selection]
+        RW[IntakeTransaction: remainingWeight] -->|Lot Allocation Limit| UI
+    end
+```
+
+- **Flow A (Inventory Impact)**: Authorized purely by `InitialStock`, `IntakeTransaction` gross weights, and `SaleItem` normalized weights. The `InventoryService` manages this logic.
+- **Flow B (Traceability & UI Only)**: Used for reporting, historical tracing, and preventing over-allocation in the Create Sale UI. Creating a `SalesTrack` or updating an intake's `remainingWeight` has **zero** effect on physical inventory math.
 
 ---
 
 ## Stock Formula
 
 ```
-Product.quantity = SUM(normalizedWeight)
-                   FROM IntakeTransaction
-                   WHERE productId = <product>
-                     AND status = "PENDING"
+Product.quantity = InitialStock + SUM(normalized gross weight of Intakes) - SUM(normalized weight of Sales)
 ```
 
-- `normalizedWeight` is derived from `grossWeight` (the raw arriving weight).
+- `normalized gross weight` is derived from `grossWeight` (the raw arriving weight).
 - `netWeight` is a billing/settlement value (after Bardana/Khot deductions) and does **NOT** affect inventory.
-- The stock calculation is always based on **gross weight**, never net weight.
+- `remainingWeight` is an operational traceability value (Flow B) and does **NOT** affect inventory.
+- All stock calculations are based on gross weight.
 
 ---
 
@@ -38,56 +60,24 @@ All stock modifications pass through a single unified service:
 
 **Location:** `src/modules/products/services/InventoryService.js`
 
-```mermaid
-graph TD
-    IS[IntakeService] -->|handleIntakeCreated| INV[InventoryService]
-    IS -->|handleIntakeUpdated| INV
-    IS -->|handleIntakeSold| INV
-    IS -->|handleIntakeDeleted| INV
-    SS[SaleService] -->|handleSaleCreated| INV
-    SS -->|handleSaleUpdated| INV
-    SS -->|handleSaleDeleted| INV
-    SS -->|handleSaleStatusUpdated| INV
-    INV -->|recalculateProductStock| DB[(Product.quantity)]
-```
-
-### Intake Events (ACTIVE — modify inventory)
+### Recalculation Trigger Hooks
 
 | Method | Trigger | Effect |
 |--------|---------|--------|
-| `handleIntakeCreated(productId, tx)` | New intake created | Recalculates stock to include new pending intake |
+| `handleIntakeCreated(productId, tx)` | New intake created | Recalculates stock to include the new intake gross weight |
 | `handleIntakeUpdated(oldProductId, newProductId, tx)` | Intake edited (weight, product, status) | Recalculates stock for both old and new product |
-| `handleIntakeSold(productId, tx)` | Intake marked as SOLD | Recalculates stock — intake no longer pending |
 | `handleIntakeDeleted(productId, tx)` | Intake deleted | Recalculates stock — deleted intake excluded |
-
-### Sales Events (NO-OP under current model)
-
-| Method | Trigger | Effect |
-|--------|---------|--------|
-| `handleSaleCreated(items, tx)` | New sale recorded | No-op |
-| `handleSaleUpdated(deltas, tx)` | Sale edited | No-op |
-| `handleSaleDeleted(items, tx)` | Sale deleted | No-op |
-| `handleSaleStatusUpdated(items, old, new, tx)` | Sale status changed | No-op |
-
-> **Why no-ops?** Under the intake-driven model, sales are accounting/billing records.
-> The physical stock change already happened when the corresponding intake was marked SOLD.
-> If you were to deduct stock on both "Intake → SOLD" and "Sale recorded", you would get
-> **double-deduction** — the exact bug this architecture eliminates.
+| `handleSaleCreated(items, tx)` | New sale recorded | Recalculates stock to deduct the finalized sale weights |
+| `handleSaleUpdated(deltas, tx)` | Sale edited | Recalculates stock for all affected products |
+| `handleSaleDeleted(items, tx)` | Sale deleted | Recalculates stock — deleted sale items excluded |
+| `handleSaleStatusUpdated(items, old, new, tx)` | Sale status changed | Recalculates stock — cancelled/restored sales handled correctly |
 
 ---
 
-## Recalculation vs. Delta-Based Updates
+## Onboarding Snapshot Updates
 
-The previous architecture used **incremental delta** updates (`increment` / `decrement`).
-This approach was fragile:
-- Concurrent transactions could cause drift.
-- Complex branching for status changes, product changes, and weight changes was error-prone.
-- Over time, the running total diverged from the true state.
-
-The new architecture uses **full recalculation** (`SUM` aggregate query) on every change:
-- The stock value is always **derived from source data**, never from a running counter.
-- No possibility of drift or mismatch.
-- Simpler code — no delta branching logic.
+- `InitialStock` represents the onboarding snapshot.
+- If a product's `InitialStock` is updated (e.g. via Data Import corrections), it is treated as a live correction to the onboarding starting point, immediately triggering a full stock recalculation for the affected product.
 
 ---
 
@@ -99,29 +89,10 @@ If the database ever needs re-alignment, run:
 node scripts/backfill-product-quantity.mjs
 ```
 
-This script:
-1. Queries all products.
-2. For each product, sums `normalizedWeight` of PENDING intakes.
-3. Sets `Product.quantity` to the computed sum.
-4. Prints a verification table and validates sample products.
-
----
-
-## Future Extensibility
-
-If the business model evolves to require sales-driven inventory deduction:
-1. Implement the logic **inside `InventoryService`** (in the `handleSale*` methods).
-2. Do **NOT** add `tx.product.update` calls directly in `SaleService`.
-3. Update this document to reflect the new rules.
-
-The no-op stubs exist precisely for this purpose — they are documented extension points
-that can be activated without changing the call sites in `IntakeService` or `SaleService`.
-
 ---
 
 ## Implementation References
 
 - **InventoryService**: [InventoryService.js](file:///d:/Projects/Next%20JS/src/modules/products/services/InventoryService.js)
-- **IntakeService** (delegator): [IntakeService.js](file:///d:/Projects/Next%20JS/src/modules/intake/services/IntakeService.js)
-- **SaleService** (delegator): [SaleService.js](file:///d:/Projects/Next%20JS/src/modules/sales/services/SaleService.js)
-- **Backfill Script**: [backfill-product-quantity.mjs](file:///d:/Projects/Next%20JS/scripts/backfill-product-quantity.mjs)
+- **IntakeService**: [IntakeService.js](file:///d:/Projects/Next%20JS/src/modules/intake/services/IntakeService.js)
+- **SaleService**: [SaleService.js](file:///d:/Projects/Next%20JS/src/modules/sales/services/SaleService.js)
