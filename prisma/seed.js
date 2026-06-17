@@ -152,6 +152,68 @@ async function main() {
     console.log(`✅ Default AdjustmentDefinition seeded/verified: ${adj.code}`);
   }
 
+  // Seed Unit Categories
+  const categories = [
+    { code: "WEIGHT", name: "Weight" },
+    { code: "LIQUID", name: "Liquid" },
+    { code: "QUANTITY", name: "Quantity" }
+  ];
+
+  const categoryMap = {};
+  for (const cat of categories) {
+    const dbCat = await prisma.unitCategory.upsert({
+      where: { code: cat.code },
+      update: { name: cat.name },
+      create: { code: cat.code, name: cat.name }
+    });
+    categoryMap[cat.code] = dbCat.id;
+    console.log(`✅ UnitCategory seeded/verified: ${cat.code} (ID: ${dbCat.id})`);
+  }
+
+  // Seed Units
+  const units = [
+    // WEIGHT
+    { code: "KG", name: "Kilogram", unitCategoryCode: "WEIGHT", isBase: true, isCustom: false, conversionRate: 1.0 },
+    { code: "MAUND", name: "Maund", unitCategoryCode: "WEIGHT", isBase: false, isCustom: false, conversionRate: 40.0 },
+    { code: "BAG", name: "Bag", unitCategoryCode: "WEIGHT", isBase: false, isCustom: true, conversionRate: null },
+    
+    // LIQUID
+    { code: "LITER", name: "Liter", unitCategoryCode: "LIQUID", isBase: true, isCustom: false, conversionRate: 1.0 },
+    { code: "ML", name: "Milliliter", unitCategoryCode: "LIQUID", isBase: false, isCustom: false, conversionRate: 0.001 },
+    
+    // QUANTITY
+    { code: "PIECE", name: "Piece", unitCategoryCode: "QUANTITY", isBase: true, isCustom: false, conversionRate: 1.0 },
+    { code: "PACK", name: "Pack", unitCategoryCode: "QUANTITY", isBase: false, isCustom: true, conversionRate: null },
+    { code: "BOX", name: "Box", unitCategoryCode: "QUANTITY", isBase: false, isCustom: true, conversionRate: null }
+  ];
+
+  for (const u of units) {
+    const unitCategoryId = categoryMap[u.unitCategoryCode];
+    if (!unitCategoryId) {
+      console.warn(`⚠️ Skipping unit ${u.code}: Category ${u.unitCategoryCode} not found.`);
+      continue;
+    }
+    await prisma.unit.upsert({
+      where: { code: u.code },
+      update: {
+        name: u.name,
+        unitCategoryId,
+        isBase: u.isBase,
+        isCustom: u.isCustom,
+        conversionRate: u.conversionRate
+      },
+      create: {
+        code: u.code,
+        name: u.name,
+        unitCategoryId,
+        isBase: u.isBase,
+        isCustom: u.isCustom,
+        conversionRate: u.conversionRate
+      }
+    });
+    console.log(`✅ Unit seeded/verified: ${u.code} under category ${u.unitCategoryCode}`);
+  }
+
   console.log("🌱 Seeding complete.");
 }
 

@@ -1,71 +1,180 @@
-import { UNITS, BASE_UNITS, getConversionFactor, normalizeQuantity, convertFromBase, normalizeRate } from "@/lib/units";
+import { UnitRepository } from "../repositories/UnitRepository";
 
-/**
- * UnitService — Architectural Proxy Layer
- * This service provides a backend-safe entry point for unit-related logic.
- * It delegates mathematical calculations to the core registry (units.js)
- * while maintaining compatibility with Product objects.
- */
+// Request-scoped / Process-level in-memory read-through cache
+let globalRegistryCache = null;
+let globalRegistryTimestamp = 0;
+const CACHE_TTL_MS = 15000; // 15 seconds
+
 export class UnitService {
-  /**
-   * Normalizes a quantity to the base unit of its category.
-   * Delegates to the shared registry logic.
-   */
-  static getNormalizedQuantity(value, unitId, product) {
-    return normalizeQuantity(value, unitId, product);
-  }
+  static async getUnitRegistry() {
+    const now = Date.now();
+    if (globalRegistryCache && (now - globalRegistryTimestamp < CACHE_TTL_MS)) {
+      return globalRegistryCache;
+    }
 
-  /**
-   * Normalizes a rate (Rate per Unit -> Rate per Base Unit).
-   */
-  static getNormalizedRate(rate, unitId, product) {
-    return normalizeRate(rate, unitId, product);
-  }
+    const categories = await UnitRepository.findAllCategories();
+    const units = await UnitRepository.findAllUnits();
 
-  /**
-   * Resolves the conversion factor for a unit.
-   * Useful for financial normalization (rates).
-   */
-  static getConversionFactor(unitId, product) {
-    return getConversionFactor(unitId, product);
-  }
+    const activeCategories = categories.filter(c => c.isActive);
+    const activeUnits = units.filter(u => u.isActive);
 
-  /**
-   * Validates if a unit is compatible with a product.
-   * Enforces strict category matching.
-   */
-  static validateCompatibility(unitId, product) {
-    const unit = UNITS[unitId];
-    if (!unit) return { valid: false, error: `Invalid unit: ${unitId}` };
+    const registry = {
+      categories: {},
+      units: {},
+      baseUnits: {}
+    };
 
-    if (unit.category !== product.category) {
-      return { 
-        valid: false, 
-        error: `Unit ${unitId} (${unit.category}) is incompatible with product category (${product.category})` 
+    for (const cat of activeCategories) {
+      registry.categories[cat.code] = {
+        id: cat.id,
+        name: cat.name,
+        code: cat.code
       };
     }
 
-    if (unit.productSpecific && (!product.unitConversion || Number(product.unitConversion) <= 0)) {
-      return { 
-        valid: false, 
-        error: `Product-specific conversion missing for ${unitId}. Please define it in Product settings.` 
+    for (const u of activeUnits) {
+      registry.units[u.code] = {
+        id: u.id,
+        name: u.name,
+        code: u.code,
+        unitCategoryCode: u.unitCategory.code,
+        isBase: u.isBase,
+        isCustom: u.isCustom,
+        conversionRate: u.conversionRate ? Number(u.conversionRate) : null
       };
+
+      if (u.isBase) {
+        registry.baseUnits[u.unitCategory.code] = u.code;
+      }
     }
 
-    return { valid: true };
+    globalRegistryCache = registry;
+    globalRegistryTimestamp = now;
+    return registry;
   }
 
-  /**
-   * Gets the base unit ID for a category.
-   */
-  static getBaseUnit(category) {
-    return BASE_UNITS[category];
+  static invalidateCache() {
+    globalRegistryCache = null;
+    globalRegistryTimestamp = 0;
   }
 
-  /**
-   * Converts a normalized quantity back to a display quantity in a specific unit.
-   */
-  static getDisplayQuantity(normalizedValue, targetUnitId, product) {
-    return convertFromBase(normalizedValue, targetUnitId, product);
+  // --- Core Domain Validation ---
+  static async isValidUnitForCategory(unitCode, categoryCode) {
+    if (!unitCode || !categoryCode) return false;
+    const registry = await this.getUnitRegistry();
+    const unit = registry.units[unitCode.toUpperCase().trim()];
+    return unit?.unitCategoryCode.toUpperCase() === categoryCode.toUpperCase().trim();
+  }
+
+  // --- Dynamic Conversions ---
+  static async getConversionFactor(unitCode, product) {
+    if (!unitCode) return 1.0;
+    const registry = await this.getUnitRegistry();
+    const unit = registry.units[unitCode.toUpperCase().trim()];
+    if (!unit) return 1.0;
+
+    if (unit.isCustom) {
+      const factor = Number(product?.unitConversion);
+      if (!factor || factor <= 0) {
+        throw new Error(
+          `MISSING_CONVERSION: Unit ${unitCode} is custom but no conversion factor is defined for product "${product?.name || 'Unknown'}"`
+        );
+      }
+      return factor;
+    }
+
+    return unit.conversionRate !== null ? Number(unit.conversionRate) : 1.0;
+  }
+
+  static async getNormalizedQuantity(value, unitCode, product) {
+    if (value == null) return 0;
+    const factor = await this.getConversionFactor(unitCode, product);
+    return Number(value) * factor;
+  }
+
+  static async getNormalizedRate(rate, unitCode, product) {
+    if (rate == null) return 0;
+    const factor = await this.getConversionFactor(unitCode, product);
+    return Number(rate) / factor;
+  }
+
+  static async getDisplayQuantity(normalizedValue, targetUnitCode, product) {
+    if (normalizedValue == null) return 0;
+    const factor = await this.getConversionFactor(targetUnitCode, product);
+    return factor > 0 ? (Number(normalizedValue) / factor) : Number(normalizedValue);
+  }
+
+  static async getBaseUnit(categoryCode) {
+    if (!categoryCode) return "KG";
+    const registry = await this.getUnitRegistry();
+    return registry.baseUnits[categoryCode.toUpperCase().trim()] || "KG";
+  }
+
+  // --- CRUD Services ---
+  static async listCategories() {
+    return UnitRepository.findAllCategories();
+  }
+
+  static async listUnits() {
+    return UnitRepository.findAllUnits();
+  }
+
+  static async createCategory(data) {
+    const res = await UnitRepository.createCategory(data);
+    this.invalidateCache();
+    return res;
+  }
+
+  static async updateCategory(id, data) {
+    const res = await UnitRepository.updateCategory(id, data);
+    this.invalidateCache();
+    return res;
+  }
+
+  static async deleteCategory(id) {
+    const units = await UnitRepository.findUnitsByCategory(id);
+    if (units.length > 0) {
+      throw new Error("Cannot delete category with associated units.");
+    }
+    const res = await UnitRepository.deleteCategory(id);
+    this.invalidateCache();
+    return res;
+  }
+
+  static async createUnit(data) {
+    if (data.isBase) {
+      await UnitRepository.clearBaseFlagsForCategory(data.unitCategoryId);
+    }
+    const res = await UnitRepository.createUnit(data);
+    this.invalidateCache();
+    return res;
+  }
+
+  static async updateUnit(id, data) {
+    const existing = await UnitRepository.findUnitById(id);
+    if (!existing) throw new Error("Unit not found");
+
+    if (data.isBase) {
+      const catId = data.unitCategoryId || existing.unitCategoryId;
+      await UnitRepository.clearBaseFlagsForCategory(catId);
+    }
+
+    const res = await UnitRepository.updateUnit(id, data);
+    this.invalidateCache();
+    return res;
+  }
+
+  static async deleteUnit(id) {
+    const existing = await UnitRepository.findUnitById(id);
+    if (!existing) throw new Error("Unit not found");
+
+    const usageCount = await UnitRepository.countProductsWithUnit(existing.code);
+    if (usageCount > 0) {
+      throw new Error(`Cannot delete unit ${existing.code} because it is referenced by active products.`);
+    }
+
+    const res = await UnitRepository.deleteUnit(id);
+    this.invalidateCache();
+    return res;
   }
 }

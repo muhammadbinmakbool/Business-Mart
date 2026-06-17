@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { updateIntakeAction } from "@/modules/intake/controllers/intakeActions";
+import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -60,6 +61,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   const [formDataToSubmit, setFormDataToSubmit] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
+  const [unitRegistry, setUnitRegistry] = useState(null);
 
   const salesTrack = intake.salesTracks?.[0];
   const hasSalesTrack = !!salesTrack;
@@ -68,21 +70,45 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   const supplierInvoiceItem = intake.invoiceItems?.[0];
   const hasSupplierInvoice = !!supplierInvoiceItem;
 
+  useEffect(() => {
+    async function loadRegistry() {
+      const res = await getUnitRegistryAction();
+      if (res.success) {
+        setUnitRegistry(res.data);
+      }
+    }
+    loadRegistry();
+  }, []);
+
+  const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
+  const isBagProduct = selectedProduct && (
+    unitRegistry
+      ? unitRegistry.units[selectedProduct.primaryUnit]?.isCustom === true
+      : (selectedProduct.primaryUnit === "BAG" || selectedProduct.category === "BAG")
+  );
+
   React.useEffect(() => {
     if (!intake.unit) {
       setUnit(getPreferredWeightUnit());
     }
     if (!intake.rateUnit || intake.status === "PENDING") {
-      setRateUnit(isBagProduct ? "BAG" : getPreferredRateUnit());
+      const customUnitCode = selectedProduct && (
+        unitRegistry
+          ? (unitRegistry.units[selectedProduct.primaryUnit]?.isCustom ? selectedProduct.primaryUnit : null)
+          : (selectedProduct.primaryUnit === "BAG" ? "BAG" : null)
+      );
+      setRateUnit(customUnitCode || getPreferredRateUnit());
     }
-  }, [intake, isBagProduct]);
+  }, [intake, selectedProduct, unitRegistry]);
 
-  const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
-  const isBagProduct = selectedProduct && (selectedProduct.primaryUnit === "BAG" || selectedProduct.category === "BAG");
   const compatibleUnits = selectedProduct
     ? (isBagProduct
-        ? getUnitsByCategory(selectedProduct.category).filter(u => u.id === "BAG")
-        : getUnitsByCategory(selectedProduct.category))
+        ? (unitRegistry
+            ? Object.values(unitRegistry.units).filter(u => u.code === selectedProduct.primaryUnit).map(u => ({ id: u.code, name: u.name }))
+            : getUnitsByCategory(selectedProduct.category).filter(u => u.id === selectedProduct.primaryUnit))
+        : (unitRegistry
+            ? Object.values(unitRegistry.units).filter(u => u.unitCategoryCode === (selectedProduct.unitCategory || selectedProduct.category)).map(u => ({ id: u.code, name: u.name }))
+            : getUnitsByCategory(selectedProduct.category)))
     : [];
 
   const handleProductChange = async (productId) => {
@@ -93,12 +119,15 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
       const defaultUnit = result.success ? result.defaults.unit : "KG";
       setUnit(defaultUnit);
 
-      const isProdBag = prod.primaryUnit === "BAG" || (prod.unitCategory || prod.category) === "BAG";
-      if (defaultUnit === UNIT_IDS.BAG) {
+      const customUnitCode = unitRegistry
+        ? (unitRegistry.units[prod.primaryUnit]?.isCustom ? prod.primaryUnit : null)
+        : (prod.primaryUnit === "BAG" ? "BAG" : null);
+
+      if (customUnitCode && defaultUnit === customUnitCode) {
         setGrossWeight(bagCount);
-      } else if (isProdBag && grossWeight) {
-        const weightInKg = normalizeQuantity(grossWeight, defaultUnit, prod);
-        const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, prod);
+      } else if (customUnitCode && grossWeight) {
+        const weightInKg = normalizeQuantity(grossWeight, defaultUnit, prod, unitRegistry);
+        const bags = convertFromBase(weightInKg, customUnitCode, prod, unitRegistry);
         const calculatedBags = Math.ceil(bags);
         setBagCount(calculatedBags ? calculatedBags.toString() : "");
       }
@@ -111,9 +140,14 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
   const handleGrossWeightChange = (val) => {
     setGrossWeight(val);
-    if (isBagProduct && (unit === UNIT_IDS.KG || unit === UNIT_IDS.MAUND)) {
-      const weightInKg = normalizeQuantity(val, unit, selectedProduct);
-      const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, selectedProduct);
+    const customUnitCode = selectedProduct && (
+      unitRegistry
+        ? (unitRegistry.units[selectedProduct.primaryUnit]?.isCustom ? selectedProduct.primaryUnit : null)
+        : (selectedProduct.primaryUnit === "BAG" ? "BAG" : null)
+    );
+    if (customUnitCode && (unit === UNIT_IDS.KG || unit === UNIT_IDS.MAUND)) {
+      const weightInKg = normalizeQuantity(val, unit, selectedProduct, unitRegistry);
+      const bags = convertFromBase(weightInKg, customUnitCode, selectedProduct, unitRegistry);
       const calculatedBags = Math.ceil(bags);
       setBagCount(calculatedBags ? calculatedBags.toString() : "");
     }
@@ -121,11 +155,16 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
   const handleUnitChange = (newUnit) => {
     setUnit(newUnit);
-    if (newUnit === UNIT_IDS.BAG) {
+    const customUnitCode = selectedProduct && (
+      unitRegistry
+        ? (unitRegistry.units[selectedProduct.primaryUnit]?.isCustom ? selectedProduct.primaryUnit : null)
+        : (selectedProduct.primaryUnit === "BAG" ? "BAG" : null)
+    );
+    if (customUnitCode && newUnit === customUnitCode) {
       setGrossWeight(bagCount);
-    } else if (isBagProduct) {
-      const weightInKg = normalizeQuantity(grossWeight, newUnit, selectedProduct);
-      const bags = convertFromBase(weightInKg, UNIT_IDS.BAG, selectedProduct);
+    } else if (customUnitCode) {
+      const weightInKg = normalizeQuantity(grossWeight, newUnit, selectedProduct, unitRegistry);
+      const bags = convertFromBase(weightInKg, customUnitCode, selectedProduct, unitRegistry);
       const calculatedBags = Math.ceil(bags);
       setBagCount(calculatedBags ? calculatedBags.toString() : "");
     }
@@ -133,7 +172,12 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
   const handleBagCountChange = (val) => {
     setBagCount(val);
-    if (unit === UNIT_IDS.BAG) {
+    const customUnitCode = selectedProduct && (
+      unitRegistry
+        ? (unitRegistry.units[selectedProduct.primaryUnit]?.isCustom ? selectedProduct.primaryUnit : null)
+        : (selectedProduct.primaryUnit === "BAG" ? "BAG" : null)
+    );
+    if (customUnitCode && unit === customUnitCode) {
       setGrossWeight(val);
     }
   };
@@ -146,7 +190,8 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     bardanaGramPerBag: Number(bardanaGramPerBag) || 0,
     khotRate: Number(khotRate) || 0,
     khotRateUnit: khotRateUnit,
-    product: selectedProduct
+    product: selectedProduct,
+    unitRegistry
   });
 
   const executeSubmit = async (formData) => {

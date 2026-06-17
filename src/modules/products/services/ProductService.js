@@ -189,4 +189,26 @@ export class ProductService {
     });
     return existing;
   }
+
+  /**
+   * Validates if a unit is compatible with the product's category.
+   */
+  static async validateProductUnit(productId, unitCode) {
+    const product = await this.getProduct(productId);
+    if (!product) {
+      return { valid: false, error: "Product not found" };
+    }
+
+    const { UnitService } = await import("./UnitService");
+    const isCompatible = await UnitService.isValidUnitForCategory(unitCode, product.unitCategory);
+    if (!isCompatible) {
+      return {
+        valid: false,
+        error: `Unit "${unitCode}" is incompatible with product unit category "${product.unitCategory}"`
+      };
+    }
+
+    return { valid: true };
+  }
 }
+

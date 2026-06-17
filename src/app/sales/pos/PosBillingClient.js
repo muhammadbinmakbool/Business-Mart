@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 
 import { createSaleAction, getSaleAction } from "@/modules/sales/controllers/saleActions";
+import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 import { getBuyerDraftSuggestionAction } from "@/modules/sales-workbench/controllers/workbenchActions";
 import DraftSuggestionCard from "@/components/sales/DraftSuggestionCard";
 import { triggerPrint } from "@/print/utils/printUtils";
@@ -58,6 +59,7 @@ export default function PosBillingClient({
   const [notes, setNotes] = useState(initialData?.notes || "");
   const [isNewBuyer, setIsNewBuyer] = useState(false);
   const [newBuyerData, setNewBuyerData] = useState({ name: "", phoneNumber: "", address: "", notes: "" });
+  const [unitRegistry, setUnitRegistry] = useState(null);
 
   const [draftSuggestion, setDraftSuggestion] = useState(null);
   const [loadingDraftSuggestion, setLoadingDraftSuggestion] = useState(false);
@@ -133,6 +135,14 @@ export default function PosBillingClient({
 
   // Client-side initialization after hydration is complete
   useEffect(() => {
+    async function loadRegistry() {
+      const res = await getUnitRegistryAction();
+      if (res.success) {
+        setUnitRegistry(res.data);
+      }
+    }
+    loadRegistry();
+
     if (initialData) return; // Skip memory store recovery for prefilled data
     const last = fastEntryMemoryStore.getLastValue("lastBuyer", "sales");
     if (last && buyers.some(b => b.id.toString() === last.toString())) {
@@ -200,8 +210,8 @@ export default function PosBillingClient({
       const product = products.find(p => p.id === parseInt(item.productId));
       if (!product) return { normalizedWeight: 0, normalizedRate: 0 };
       try {
-        const nWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
-        const nRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product);
+        const nWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product, unitRegistry);
+        const nRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product, unitRegistry);
         return { normalizedWeight: nWeight, normalizedRate: nRate, product };
       } catch (e) {
         return { normalizedWeight: 0, normalizedRate: 0 };
@@ -209,7 +219,7 @@ export default function PosBillingClient({
     });
 
     return calculateTransactionTotals(processedItems, adjustments);
-  }, [items, adjustments, products]);
+  }, [items, adjustments, products, unitRegistry]);
 
   // Reset function
   const handleReset = useCallback(() => {
@@ -320,8 +330,8 @@ export default function PosBillingClient({
         const prod = products.find(p => p.id === parseInt(newItems[index].productId));
         if (prod) {
           try {
-            const nQty = normalizeQuantity(newItems[index].weight || 0, newItems[index].unit || "KG", prod);
-            const nRate = normalizeRate(newItems[index].rate || 0, newItems[index].rateUnit || "KG", prod);
+            const nQty = normalizeQuantity(newItems[index].weight || 0, newItems[index].unit || "KG", prod, unitRegistry);
+            const nRate = normalizeRate(newItems[index].rate || 0, newItems[index].rateUnit || "KG", prod, unitRegistry);
             newItems[index].amount = round(nQty * nRate);
           } catch (e) {
             newItems[index].amount = 0;
@@ -344,8 +354,8 @@ export default function PosBillingClient({
         const prod = products.find(p => p.id === parseInt(newItems[index].productId));
         if (prod) {
           try {
-            const nQty = normalizeQuantity(newItems[index].weight || 0, newItems[index].unit || "KG", prod);
-            const nRate = normalizeRate(newItems[index].rate || 0, newItems[index].rateUnit || "KG", prod);
+            const nQty = normalizeQuantity(newItems[index].weight || 0, newItems[index].unit || "KG", prod, unitRegistry);
+            const nRate = normalizeRate(newItems[index].rate || 0, newItems[index].rateUnit || "KG", prod, unitRegistry);
             newItems[index].amount = round(nQty * nRate);
           } catch (e) {
             newItems[index].amount = 0;
@@ -357,7 +367,7 @@ export default function PosBillingClient({
         return newItems;
       });
     }
-  }, [products]);
+  }, [products, unitRegistry]);
 
   // 5. Adjustments Handlers
   const handleAddAdjustment = useCallback((adj) => {
@@ -424,8 +434,8 @@ export default function PosBillingClient({
         
         // Recalculate amount
         try {
-          const nQty = normalizeQuantity(newWeight, newItems[existingIndex].unit, product);
-          const nRate = normalizeRate(newItems[existingIndex].rate || 0, newItems[existingIndex].rateUnit, product);
+          const nQty = normalizeQuantity(newWeight, newItems[existingIndex].unit, product, unitRegistry);
+          const nRate = normalizeRate(newItems[existingIndex].rate || 0, newItems[existingIndex].rateUnit, product, unitRegistry);
           newItems[existingIndex].amount = round(nQty * nRate);
         } catch (e) {
           newItems[existingIndex].amount = 0;
@@ -435,16 +445,18 @@ export default function PosBillingClient({
         return newItems;
       } else {
         // Append new product row
-        const isProdBag = product.primaryUnit === "BAG" || product.category === "BAG";
-        const unit = isProdBag ? "BAG" : "KG";
-        const rateUnit = isProdBag ? "BAG" : "KG";
+        const isProdBag = unitRegistry
+          ? unitRegistry.units[product.primaryUnit]?.isCustom === true
+          : (product.primaryUnit === "BAG" || product.category === "BAG");
+        const unit = isProdBag ? product.primaryUnit : "KG";
+        const rateUnit = isProdBag ? product.primaryUnit : "KG";
         const lastRate = fastEntryMemoryStore.getLastValue("lastRate", "sales") || "";
         
         // Calculate amount
         let amount = 0;
         try {
-          const nQty = normalizeQuantity(1, unit, product);
-          const nRate = normalizeRate(lastRate || 0, rateUnit, product);
+          const nQty = normalizeQuantity(1, unit, product, unitRegistry);
+          const nRate = normalizeRate(lastRate || 0, rateUnit, product, unitRegistry);
           amount = round(nQty * nRate);
         } catch (e) {}
 
@@ -930,6 +942,7 @@ export default function PosBillingClient({
           onRemoveItem={handleRemoveItem}
           focusedRowIndex={focusedRowIndex}
           setFocusedRowIndex={setFocusedRowIndex}
+          unitRegistry={unitRegistry}
         />
       </div>
 

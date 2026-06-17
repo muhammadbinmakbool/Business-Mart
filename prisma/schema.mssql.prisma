@@ -107,6 +107,27 @@ model ProductCategory {
   @@index([isActive])
 }
 
+model UnitCategory {
+  id        Int     @id @default(autoincrement())
+  name      String  @db.NVarChar(255)
+  code      String  @unique @db.NVarChar(255)
+  isActive  Boolean @default(true)
+  units     Unit[]
+}
+
+model Unit {
+  id              Int          @id @default(autoincrement())
+  name            String       @db.NVarChar(255)
+  code            String       @unique @db.NVarChar(255)
+  unitCategoryId  Int
+  unitCategory    UnitCategory @relation(fields: [unitCategoryId], references: [id])
+  isBase          Boolean      @default(false)
+  isCustom        Boolean      @default(false)
+  conversionRate  Decimal?
+  isActive        Boolean      @default(true)
+}
+
+
 
 model IntakeTransaction {
   id               Int                   @id @default(autoincrement())

@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { cn, getLocalDateString } from "@/lib/utils";
 import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/financial";
 import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate, convertRate, convertFromBase, UNIT_IDS } from "@/lib/units";
+import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
 import Alert from "@/components/ui/Alert";
 import Modal from "@/components/ui/Modal";
@@ -26,6 +27,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
+  const [unitRegistry, setUnitRegistry] = useState(null);
   const [saveAndNew, setSaveAndNew] = useState(false);
   const saveAndNewRef = useRef(false);
   saveAndNewRef.current = saveAndNew;
@@ -239,8 +241,8 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
       if (!product) return { normalizedWeight: 0, normalizedRate: 0 };
 
       try {
-        const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product);
-        const normalizedWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
+        const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product, unitRegistry);
+        const normalizedWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product, unitRegistry);
         return { normalizedWeight, normalizedRate, product };
       } catch (e) {
         return { normalizedWeight: 0, normalizedRate: 0 };
@@ -250,7 +252,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     // Delegate ALL math to the centralized financial engine
     const result = calculateTransactionTotals(processedItems, adjustments);
     setTotals(result);
-  }, [items, adjustments, products]);
+  }, [items, adjustments, products, unitRegistry]);
 
   useEffect(() => {
     updateTotals();
@@ -258,6 +260,14 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
 
   // Client-safe initial mount preference loader to prevent hydration mismatch
   useEffect(() => {
+    async function loadRegistry() {
+      const res = await getUnitRegistryAction();
+      if (res.success) {
+        setUnitRegistry(res.data);
+      }
+    }
+    loadRegistry();
+
     if (!initialData && items.length === 1 && items[0].productId === "") {
       setItems([{ 
         productId: "", 
@@ -633,11 +643,19 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
             <tbody className="divide-y">
               {items.map((item, index) => {
                 const product = products.find(p => p.id === parseInt(item.productId));
-                const isProdBag = product && (product.primaryUnit === "BAG" || product.category === "BAG");
+                const isProdBag = product && (
+                  unitRegistry
+                    ? unitRegistry.units[product.primaryUnit]?.isCustom === true
+                    : (product.primaryUnit === "BAG" || product.category === "BAG")
+                );
                 const compatibleUnits = product
                   ? (isProdBag
-                      ? getUnitsByCategory(product.category).filter(u => u.id === "BAG")
-                      : getUnitsByCategory(product.category))
+                      ? (unitRegistry
+                          ? Object.values(unitRegistry.units).filter(u => u.code === product.primaryUnit).map(u => ({ id: u.code, name: u.name }))
+                          : getUnitsByCategory(product.category).filter(u => u.id === product.primaryUnit))
+                      : (unitRegistry
+                          ? Object.values(unitRegistry.units).filter(u => u.unitCategoryCode === (product.unitCategory || product.category)).map(u => ({ id: u.code, name: u.name }))
+                          : getUnitsByCategory(product.category)))
                   : [];
 
                 return (

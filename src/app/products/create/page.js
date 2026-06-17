@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, Info } from "lucide-react";
 import { createProductAction } from "@/modules/products/controllers/productActions";
 import { getCategoriesAction } from "@/modules/products/controllers/productCategoryActions";
+import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 import { UNIT_CATEGORIES, getUnitsByCategory, isProductSpecific, BASE_UNITS } from "@/lib/units";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -19,6 +20,7 @@ function CreateProductContent() {
 
   // Categories Lookup
   const [categories, setCategories] = useState([]);
+  const [unitRegistry, setUnitRegistry] = useState(null);
 
   // Form Field States
   const [unitCategory, setUnitCategory] = useState(UNIT_CATEGORIES.WEIGHT);
@@ -31,20 +33,28 @@ function CreateProductContent() {
   const [defaultSellingUnit, setDefaultSellingUnit] = useState("KG");
   const [displayOrder, setDisplayOrder] = useState("0");
 
-  // Load Categories on mount
+  // Load Categories and Unit Registry on mount
   useEffect(() => {
-    async function loadCategories() {
-      const res = await getCategoriesAction();
-      if (res.success) {
-        setCategories(res.data || []);
+    async function loadData() {
+      const [catRes, unitRes] = await Promise.all([
+        getCategoriesAction(),
+        getUnitRegistryAction()
+      ]);
+      if (catRes.success) {
+        setCategories(catRes.data || []);
+      }
+      if (unitRes.success) {
+        setUnitRegistry(unitRes.data);
       }
     }
-    loadCategories();
+    loadData();
   }, []);
 
   const handleUnitCategoryChange = (newCat) => {
     setUnitCategory(newCat);
-    const base = BASE_UNITS[newCat] || "KG";
+    const base = unitRegistry
+      ? unitRegistry.baseUnits[newCat]
+      : BASE_UNITS[newCat] || "KG";
     setPrimaryUnit(base);
     setBuyingRateUnit(base);
     setSellingRateUnit(base);
@@ -85,9 +95,19 @@ function CreateProductContent() {
     }
   }
 
-  const compatibleUnits = getUnitsByCategory(unitCategory);
-  const showConversion = isProductSpecific(primaryUnit);
-  const baseUnit = BASE_UNITS[unitCategory];
+  const compatibleUnits = unitRegistry
+    ? Object.values(unitRegistry.units)
+        .filter(u => u.unitCategoryCode === unitCategory)
+        .map(u => ({ id: u.code, name: u.name }))
+    : getUnitsByCategory(unitCategory);
+
+  const showConversion = unitRegistry
+    ? unitRegistry.units[primaryUnit]?.isCustom === true
+    : isProductSpecific(primaryUnit);
+
+  const baseUnit = unitRegistry
+    ? unitRegistry.baseUnits[unitCategory]
+    : BASE_UNITS[unitCategory] || "KG";
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">

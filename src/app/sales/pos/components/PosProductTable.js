@@ -11,7 +11,8 @@ export default function PosProductTable({
   onAddItem,
   onRemoveItem,
   focusedRowIndex,
-  setFocusedRowIndex
+  setFocusedRowIndex,
+  unitRegistry = null
 }) {
   const tableRef = useRef(null);
 
@@ -97,8 +98,19 @@ export default function PosProductTable({
           <tbody className="divide-y divide-border/40">
             {items.map((item, index) => {
               const selectedProduct = products.find(p => p.id === parseInt(item.productId));
-              const compatibleUnits = selectedProduct 
-                ? getUnitsByCategory(selectedProduct.category) 
+              const isProdBag = selectedProduct && (
+                unitRegistry
+                  ? unitRegistry.units[selectedProduct.primaryUnit]?.isCustom === true
+                  : (selectedProduct.primaryUnit === "BAG" || selectedProduct.category === "BAG")
+              );
+              const compatibleUnits = selectedProduct
+                ? (isProdBag
+                    ? (unitRegistry
+                        ? Object.values(unitRegistry.units).filter(u => u.code === selectedProduct.primaryUnit).map(u => ({ id: u.code, name: u.name }))
+                        : getUnitsByCategory(selectedProduct.category).filter(u => u.id === selectedProduct.primaryUnit))
+                    : (unitRegistry
+                        ? Object.values(unitRegistry.units).filter(u => u.unitCategoryCode === (selectedProduct.unitCategory || selectedProduct.category)).map(u => ({ id: u.code, name: u.name }))
+                        : getUnitsByCategory(selectedProduct.category)))
                 : [{ id: "KG", name: "Kilogram" }];
               
               const isFocused = focusedRowIndex === index;

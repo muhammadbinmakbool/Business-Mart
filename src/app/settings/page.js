@@ -15,6 +15,7 @@ import { Suspense, useEffect } from "react";
 import DisplayUnitSettingsCard from "./DisplayUnitSettingsCard";
 import UsersManagement from "./UsersManagement";
 import DefaultsCard from "./DefaultsCard";
+import UnitManagementCard from "./UnitManagementCard";
 import PrintSettingsCard from "./PrintSettingsCard";
 import GeneralSettingsCard from "./GeneralSettingsCard";
 import InventorySettingsCard from "./InventorySettingsCard";
@@ -255,6 +256,7 @@ function SettingsContent() {
 
           <div className={activeTab === "defaults" ? "space-y-6 animate-in fade-in duration-200" : "hidden"}>
             <DefaultsCard />
+            <UnitManagementCard />
             <DisplayUnitSettingsCard />
           </div>
 

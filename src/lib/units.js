@@ -107,36 +107,40 @@ export const BASE_UNITS = {
 /**
  * Gets units belonging to a specific category.
  */
-export function getUnitsByCategory(category) {
-  return Object.values(UNITS).filter((u) => u.category === category);
+export function getUnitsByCategory(category, unitRegistry) {
+  const source = unitRegistry || UNITS;
+  return Object.values(source).filter((u) => (u.unitCategoryCode || u.category) === category);
 }
 
 /**
  * Checks if a unit is product-specific (requires product-level conversion factor).
  */
-export function isProductSpecific(unitId) {
-  return UNITS[unitId]?.productSpecific === true;
+export function isProductSpecific(unitId, unitRegistry) {
+  const source = unitRegistry || UNITS;
+  return source[unitId]?.isCustom === true || source[unitId]?.productSpecific === true;
 }
 
 /**
  * Resolves the conversion factor for a unit given a product context.
  * Strict Rule: Hard fail on missing product-specific conversion.
  */
-export function getConversionFactor(unitId, product) {
-  const unit = UNITS[unitId];
+export function getConversionFactor(unitId, product, unitRegistry) {
+  const source = unitRegistry || UNITS;
+  const unit = source[unitId];
   if (!unit) throw new Error(`Unit ${unitId} not found in registry`);
 
-  // Global conversion (e.g. MAUND -> 40)
-  if (unit.factor !== undefined) return unit.factor;
-
-  // Product-specific conversion (e.g. BAG -> 50)
-  if (unit.productSpecific) {
+  // Product-specific / Custom conversion (e.g. BAG -> 50)
+  if (unit.isCustom || unit.productSpecific) {
     const factor = Number(product?.unitConversion);
     if (!factor || factor <= 0) {
       throw new Error(`MISSING_CONVERSION: Unit ${unitId} is product-specific but no conversion factor is defined for product "${product?.name || 'Unknown'}"`);
     }
     return factor;
   }
+
+  // Global conversion (e.g. MAUND -> 40)
+  const rate = unit.conversionRate !== undefined ? unit.conversionRate : unit.factor;
+  if (rate !== undefined && rate !== null) return Number(rate);
 
   // Fallback to 1 (should be rare if registry is complete)
   return 1;
@@ -146,9 +150,9 @@ export function getConversionFactor(unitId, product) {
  * Normalizes a quantity to base unit.
  * value: quantity in local unit
  */
-export function normalizeQuantity(value, unitId, product) {
+export function normalizeQuantity(value, unitId, product, unitRegistry) {
   if (value == null) return 0;
-  const factor = getConversionFactor(unitId, product);
+  const factor = getConversionFactor(unitId, product, unitRegistry);
   return Number(value) * factor;
 }
 
@@ -156,30 +160,23 @@ export function normalizeQuantity(value, unitId, product) {
  * Normalizes a rate (Rate per Unit -> Rate per Base Unit).
  * rate: price per local unit
  */
-export function normalizeRate(rate, unitId, product) {
+export function normalizeRate(rate, unitId, product, unitRegistry) {
   if (rate == null) return 0;
-  const factor = getConversionFactor(unitId, product);
+  const factor = getConversionFactor(unitId, product, unitRegistry);
   return Number(rate) / factor;
 }
 
 /**
  * Converts from base unit to local unit.
  */
-export function convertFromBase(baseValue, targetUnitId, product) {
+export function convertFromBase(baseValue, targetUnitId, product, unitRegistry) {
   if (baseValue == null) return 0;
-  const factor = getConversionFactor(targetUnitId, product);
+  const factor = getConversionFactor(targetUnitId, product, unitRegistry);
   return factor > 0 ? (Number(baseValue) / factor) : Number(baseValue);
 }
 
 /**
  * Calculates Net Weight, Bardana weight, and Khot weight from gross weight.
- * Orders of operations:
- * 1. Convert grossWeight to KG using centralized registry.
- * 2. Calculate Bardana: (bardanaGramPerBag * bagCount) / 1000 (in KG).
- * 3. Deduct Bardana from grossWeight to get weightAfterBardana.
- * 4. Convert weightAfterBardana to khotRateUnit and calculate Khot in KG using centralized registry.
- * 5. Deduct Khot from weightAfterBardana to get netWeight (in KG).
- * 6. Convert netWeight back to the original unit using centralized registry.
  */
 export function calculateIntakeNetWeight({
   grossWeight,
@@ -188,7 +185,8 @@ export function calculateIntakeNetWeight({
   bardanaGramPerBag = 0,
   khotRate = 0,
   khotRateUnit = "KG",
-  product = null
+  product = null,
+  unitRegistry = null
 }) {
   const gWeight = Number(grossWeight) || 0;
   const bCount = Number(bagCount) || 0;
@@ -196,7 +194,7 @@ export function calculateIntakeNetWeight({
   const kRate = Number(khotRate) || 0;
 
   // 1. Gross weight in KG
-  const grossWeightKg = normalizeQuantity(gWeight, unit, product);
+  const grossWeightKg = normalizeQuantity(gWeight, unit, product, unitRegistry);
 
   // 2. Bardana in KG
   const bardanaKg = bCount > 0 && bGram > 0 ? (bGram * bCount) / 1000 : 0;
@@ -206,14 +204,14 @@ export function calculateIntakeNetWeight({
 
   // 4. Khot in KG
   // Applied weight for refraction is converted to the unit of the rate
-  const khotAppliedWeight = convertFromBase(weightAfterBardanaKg, khotRateUnit, product);
+  const khotAppliedWeight = convertFromBase(weightAfterBardanaKg, khotRateUnit, product, unitRegistry);
   const khotKg = kRate > 0 ? (kRate * khotAppliedWeight) / 1000 : 0;
 
   // 5. Net weight in KG
   const netWeightKg = Math.max(0, weightAfterBardanaKg - khotKg);
 
   // 6. Net weight in original unit
-  const netWeight = convertFromBase(netWeightKg, unit, product);
+  const netWeight = convertFromBase(netWeightKg, unit, product, unitRegistry);
 
   return {
     grossWeightKg,
@@ -228,23 +226,24 @@ export function calculateIntakeNetWeight({
  * Converts a rate from a source unit to a target unit.
  * E.g. converts rate per KG to rate per Maund, or rate per Maund to rate per KG.
  */
-export function convertRate(rate, fromUnit, toUnit, product = null) {
+export function convertRate(rate, fromUnit, toUnit, product = null, unitRegistry) {
   if (rate == null) return 0;
   if (fromUnit === toUnit) return Number(rate);
   
   // 1. Normalize local unit rate to base unit rate (e.g. rate per Maund -> rate per KG)
-  const baseRate = normalizeRate(rate, fromUnit, product);
+  const baseRate = normalizeRate(rate, fromUnit, product, unitRegistry);
   
   // 2. Convert base rate to target unit rate
-  const targetFactor = getConversionFactor(toUnit, product);
+  const targetFactor = getConversionFactor(toUnit, product, unitRegistry);
   return baseRate * targetFactor;
 }
 
 /**
  * Checks if a unit ID belongs to a given unit category.
  */
-export function isUnitCompatible(unitId, unitCategory) {
+export function isUnitCompatible(unitId, unitCategory, unitRegistry) {
   if (!unitId || !unitCategory) return false;
-  const unit = UNITS[unitId];
-  return unit?.category === unitCategory;
+  const source = unitRegistry || UNITS;
+  const unit = source[unitId];
+  return (unit?.unitCategoryCode || unit?.category) === unitCategory;
 }

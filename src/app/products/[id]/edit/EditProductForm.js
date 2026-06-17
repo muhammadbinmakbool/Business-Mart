@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { updateProductAction } from "@/modules/products/controllers/productActions";
+import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 import { UNIT_CATEGORIES, getUnitsByCategory, isProductSpecific, BASE_UNITS } from "@/lib/units";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -21,10 +22,24 @@ export default function EditProductForm({ product, categories = [] }) {
   const [sellingRateUnit, setSellingRateUnit] = useState(product.sellingRateUnit || "KG");
   const [defaultSellingUnit, setDefaultSellingUnit] = useState(product.defaultSellingUnit || "KG");
   const [displayOrder, setDisplayOrder] = useState(product.displayOrder !== null && product.displayOrder !== undefined ? product.displayOrder : "0");
+  const [unitRegistry, setUnitRegistry] = useState(null);
+
+  // Load Unit Registry on mount
+  useEffect(() => {
+    async function loadRegistry() {
+      const res = await getUnitRegistryAction();
+      if (res.success) {
+        setUnitRegistry(res.data);
+      }
+    }
+    loadRegistry();
+  }, []);
 
   const handleUnitCategoryChange = (newCat) => {
     setUnitCategory(newCat);
-    const base = BASE_UNITS[newCat] || "KG";
+    const base = unitRegistry
+      ? unitRegistry.baseUnits[newCat]
+      : BASE_UNITS[newCat] || "KG";
     setPrimaryUnit(base);
     setBuyingRateUnit(base);
     setSellingRateUnit(base);
@@ -53,9 +68,19 @@ export default function EditProductForm({ product, categories = [] }) {
     }
   }
 
-  const compatibleUnits = getUnitsByCategory(unitCategory);
-  const showConversion = isProductSpecific(primaryUnit);
-  const baseUnit = BASE_UNITS[unitCategory];
+  const compatibleUnits = unitRegistry
+    ? Object.values(unitRegistry.units)
+        .filter(u => u.unitCategoryCode === unitCategory)
+        .map(u => ({ id: u.code, name: u.name }))
+    : getUnitsByCategory(unitCategory);
+
+  const showConversion = unitRegistry
+    ? unitRegistry.units[primaryUnit]?.isCustom === true
+    : isProductSpecific(primaryUnit);
+
+  const baseUnit = unitRegistry
+    ? unitRegistry.baseUnits[unitCategory]
+    : BASE_UNITS[unitCategory] || "KG";
 
   return (
     <form action={handleSubmit} className="space-y-6">
