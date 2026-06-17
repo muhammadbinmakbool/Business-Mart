@@ -18,11 +18,20 @@ import {
 } from "lucide-react";
 import { showToast } from "@/components/ui/Toast";
 import { sellIntakeAction } from "@/modules/intake/controllers/intakeActions";
+import SearchableSelect from "@/components/ui/SearchableSelect";
 
 export default function SalesWorkbenchClient({ buyers = [], products = [], flags = {} }) {
   const router = useRouter();
   const salesMode = flags.salesMode || "HYBRID";
   const isDirectMode = salesMode === "DIRECT";
+
+  const buyerOptions = React.useMemo(() => {
+    return buyers.map(b => ({
+      value: b.id.toString(),
+      label: b.name,
+      subLabel: b.phoneNumber
+    }));
+  }, [buyers]);
 
   // Data states
   const [loading, setLoading] = useState(true);
@@ -561,17 +570,12 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
             <form onSubmit={handleMappingSubmit} className="space-y-4">
               <div className="space-y-1">
                 <label className="text-[11px] font-bold text-muted-foreground uppercase">Select Buyer</label>
-                <select
-                  required
+                <SearchableSelect
                   value={mappingBuyerId}
-                  onChange={(e) => setMappingBuyerId(e.target.value)}
-                  className="w-full px-3 py-2 bg-background border border-input rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">-- Choose Buyer --</option>
-                  {buyers.map(b => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setMappingBuyerId(val)}
+                  options={buyerOptions}
+                  placeholder="Search and Select Buyer..."
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">

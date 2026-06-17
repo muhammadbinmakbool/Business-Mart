@@ -56,6 +56,44 @@ export default function PosBillingClient({
   const [isNewBuyer, setIsNewBuyer] = useState(false);
   const [newBuyerData, setNewBuyerData] = useState({ name: "", phoneNumber: "", address: "", notes: "" });
 
+  const [draftSuggestion, setDraftSuggestion] = useState(null);
+  const [loadingDraftSuggestion, setLoadingDraftSuggestion] = useState(false);
+
+  useEffect(() => {
+    if (buyerId && buyerId !== "new" && flags?.salesMode !== "DIRECT" && flags?.enablePrefilledInvoices !== false) {
+      setLoadingDraftSuggestion(true);
+      fetch("/api/sales-workbench/drafts")
+        .then(res => res.json())
+        .then(json => {
+          if (json.success && json.drafts) {
+            const match = json.drafts.find(d => d.buyerId.toString() === buyerId.toString());
+            setDraftSuggestion(match || null);
+          }
+        })
+        .catch(err => console.error("Error loading drafts:", err))
+        .finally(() => setLoadingDraftSuggestion(false));
+    } else {
+      setDraftSuggestion(null);
+    }
+  }, [buyerId, flags]);
+
+  const handleApplyPrefill = () => {
+    if (!draftSuggestion) return;
+    const newItems = draftSuggestion.items.map((item, idx) => ({
+      id: `row-${idx}`,
+      productId: item.productId.toString(),
+      weight: item.weight.toString(),
+      unit: item.unit || "KG",
+      rate: item.rate.toString(),
+      rateUnit: item.rateUnit || "KG",
+      amount: Number(item.weight) * Number(item.rate),
+      salesTrackId: item.salesTrackId || null,
+      intakeNumber: item.intakeNumber || null
+    }));
+    setItems(newItems);
+    toast.success("Draft items prefilled successfully!");
+  };
+
   const [items, setItems] = useState(() => {
     if (initialData?.items?.length > 0) {
       return initialData.items.map((item, idx) => ({
@@ -835,6 +873,25 @@ export default function PosBillingClient({
           </div>
         )}
       </div>
+      {/* Draft Suggestion Alert Banner */}
+      {draftSuggestion && draftSuggestion.items?.length > 0 && (
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex flex-col md:flex-row md:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-3 duration-200">
+          <div className="flex items-start gap-2.5">
+            <span className="text-base mt-0.5">💡</span>
+            <div>
+              <h4 className="text-xs font-bold text-foreground">Intelligent Draft Invoice Available</h4>
+              <p className="text-[10px] text-muted-foreground">We matched unbilled intakes or direct purchase history patterns for this buyer.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleApplyPrefill}
+            className="shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground text-[10.5px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer self-start md:self-center"
+          >
+            Apply Prefill ({draftSuggestion.items.length} Items)
+          </button>
+        </div>
+      )}
 
       {/* 3. Core POS Table Spreadsheet */}
       <div className="flex-1 min-h-0 flex flex-col">

@@ -187,6 +187,43 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
   const [loadingTracks, setLoadingTracks] = useState(false);
   const initialUnbilledTracksRef = React.useRef([]);
 
+  const [draftSuggestion, setDraftSuggestion] = useState(null);
+  const [loadingDraftSuggestion, setLoadingDraftSuggestion] = useState(false);
+
+  useEffect(() => {
+    if (partyId && partyId !== "new" && flags?.salesMode !== "DIRECT" && flags?.enablePrefilledInvoices !== false) {
+      setLoadingDraftSuggestion(true);
+      fetch("/api/sales-workbench/drafts")
+        .then(res => res.json())
+        .then(json => {
+          if (json.success && json.drafts) {
+            const match = json.drafts.find(d => d.buyerId.toString() === partyId.toString());
+            setDraftSuggestion(match || null);
+          }
+        })
+        .catch(err => console.error("Error loading drafts:", err))
+        .finally(() => setLoadingDraftSuggestion(false));
+    } else {
+      setDraftSuggestion(null);
+    }
+  }, [partyId, flags]);
+
+  const handleApplyPrefill = () => {
+    if (!draftSuggestion) return;
+    const newItems = draftSuggestion.items.map(item => ({
+      productId: item.productId.toString(),
+      weight: item.weight.toString(),
+      rate: item.rate.toString(),
+      unit: item.unit || "KG",
+      rateUnit: item.rateUnit || "KG",
+      salesTrackId: item.salesTrackId || null,
+      intakeNumber: item.intakeNumber || null,
+      amount: Number(item.weight) * Number(item.rate)
+    }));
+    setItems(newItems);
+    showToast.success("Draft items prefilled successfully!");
+  };
+
   const fetchUnbilledTracks = useCallback(async (buyerId) => {
     setLoadingTracks(true);
     try {
@@ -661,6 +698,41 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
               </div>
             </div>
           ) : null}
+        </div>
+      )}
+      {/* Intelligent Draft Suggestion alert banner */}
+      {draftSuggestion && draftSuggestion.items?.length > 0 && (
+        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-2.5">
+              <span className="text-lg mt-0.5">💡</span>
+              <div>
+                <h4 className="text-sm font-bold text-foreground">Intelligent Draft Suggestion Available</h4>
+                <p className="text-[11px] text-muted-foreground">We matched unbilled intakes or recurring purchase patterns for this buyer.</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleApplyPrefill}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer self-start sm:self-center"
+            >
+              Apply Prefill ({draftSuggestion.items.length} Items)
+            </button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+            {draftSuggestion.items.map((item, idx) => (
+              <div key={idx} className="bg-background/80 border rounded-xl p-2.5 flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-foreground">{item.productName}</div>
+                  <div className="text-[10px] text-muted-foreground italic">{item.rationale}</div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-foreground">{item.weight} {item.unit}</div>
+                  <div className="text-[10px] text-muted-foreground">Rs. {item.rate}/{item.rateUnit}</div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
