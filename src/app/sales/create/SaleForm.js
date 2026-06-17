@@ -19,7 +19,7 @@ import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 import { useFastEntryAssistant } from "@/modules/fast-entry-assistant/hooks/useFastEntryAssistant";
 import InlineSuggestionBox from "@/modules/fast-entry-assistant/components/InlineSuggestionBox";
 
-export default function SaleForm({ buyers, products, initialData = null, adjustmentDefinitions = [], backUrl = "" }) {
+export default function SaleForm({ buyers, products, initialData = null, adjustmentDefinitions = [], backUrl = "", flags = null }) {
 
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,8 +43,8 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
         productId: item.productId.toString(),
         unit: item.unit || "KG",
         rateUnit: item.rateUnit || "KG",
-        salesTrackId: track?.id || null,
-        intakeNumber: track?.intakeTransaction?.intakeNumber || null
+        salesTrackId: item.salesTrackId || track?.id || null,
+        intakeNumber: item.intakeNumber || track?.intakeTransaction?.intakeNumber || null
       };
     }) || [{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]
   );
@@ -401,6 +401,14 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
       return;
     }
 
+    const salesMode = flags?.salesMode || "HYBRID";
+    if (salesMode === "TRACKED" && items.some(i => !i.salesTrackId)) {
+      const proceed = window.confirm(
+        "TRACKED mode is enabled, but some items are not linked to any intake transaction. Do you wish to proceed and save this invoice anyway?"
+      );
+      if (!proceed) return;
+    }
+
     setIsSubmitting(true);
     try {
       const data = {
@@ -594,7 +602,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
       </div>
 
       {/* 1.5 Available Sold Intakes Suggestions */}
-      {partyId && partyId !== "new" && (
+      {partyId && partyId !== "new" && flags?.salesMode !== "DIRECT" && (
         <div className="animate-in fade-in slide-in-from-top-4 duration-300">
           {loadingTracks ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground p-4 bg-muted/20 border rounded-xl">
@@ -722,7 +730,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                         }
                         return null;
                       })()}
-                      {item.intakeNumber && (
+                      {item.intakeNumber && flags?.salesMode !== "DIRECT" && (
                         <div className="text-[10px] text-primary font-bold px-2 mt-1 flex items-center gap-1">
                           <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                           Intake: {item.intakeNumber}

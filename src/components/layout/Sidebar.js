@@ -16,7 +16,8 @@ import {
   History,
   Banknote,
   Route,
-  X
+  X,
+  Layers
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -29,6 +30,7 @@ const menuItems = [
   { name: "Supplier Advances", href: "/advances", icon: Coins },
   { name: "Supplier Settlements", href: "/supplier-invoices", icon: Banknote },
   { name: "Sales / Billing", href: "/sales", icon: ReceiptText },
+  { name: "Sales Workbench", href: "/sales-workbench", icon: Layers },
   { name: "Source Tracking", href: "/source-tracking", icon: Route },
   { name: "Ledger", href: "/ledger", icon: BookOpen },
   { name: "Market Insight", href: "/market-insight", icon: TrendingUp },

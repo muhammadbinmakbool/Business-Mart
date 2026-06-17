@@ -30,7 +30,14 @@ import PosProductTable from "./components/PosProductTable";
 import PosTotals from "./components/PosTotals";
 import PosCashCalculator from "./components/PosCashCalculator";
 
-export default function PosBillingClient({ buyers = [], products = [], adjustmentDefinitions = [], printConfig = null }) {
+export default function PosBillingClient({ 
+  buyers = [], 
+  products = [], 
+  adjustmentDefinitions = [], 
+  printConfig = null,
+  initialData = null,
+  flags = null
+}) {
   const router = useRouter();
 
   // 1. Initial State Resolution (Hydration safe)
@@ -39,26 +46,46 @@ export default function PosBillingClient({ buyers = [], products = [], adjustmen
   }, []);
 
   // 2. Component States
-  const [buyerId, setBuyerId] = useState(buyers[0]?.id?.toString() || "");
-  const [invoiceDate, setInvoiceDate] = useState(todayStr);
-  const [notes, setNotes] = useState("");
+  const [buyerId, setBuyerId] = useState(initialData?.partyId?.toString() || buyers[0]?.id?.toString() || "");
+  const [invoiceDate, setInvoiceDate] = useState(
+    initialData?.entryDate 
+      ? new Date(initialData.entryDate).toISOString().split("T")[0] 
+      : todayStr
+  );
+  const [notes, setNotes] = useState(initialData?.notes || "");
   const [isNewBuyer, setIsNewBuyer] = useState(false);
   const [newBuyerData, setNewBuyerData] = useState({ name: "", phoneNumber: "", address: "", notes: "" });
 
-  const [items, setItems] = useState([
-    {
-      id: "row-0",
-      productId: "",
-      weight: "",
-      unit: "KG",
-      rate: "",
-      rateUnit: "KG",
-      amount: 0
+  const [items, setItems] = useState(() => {
+    if (initialData?.items?.length > 0) {
+      return initialData.items.map((item, idx) => ({
+        id: `row-${idx}`,
+        productId: item.productId?.toString() || "",
+        weight: item.weight?.toString() || "",
+        unit: item.unit || "KG",
+        rate: item.rate?.toString() || "",
+        rateUnit: item.rateUnit || "KG",
+        amount: item.amount || 0,
+        salesTrackId: item.salesTrackId || null,
+        intakeNumber: item.intakeNumber || null
+      }));
     }
-  ]);
+    return [
+      {
+        id: "row-0",
+        productId: "",
+        weight: "",
+        unit: "KG",
+        rate: "",
+        rateUnit: "KG",
+        amount: 0
+      }
+    ];
+  });
 
   // Client-side initialization after hydration is complete
   useEffect(() => {
+    if (initialData) return; // Skip memory store recovery for prefilled data
     const last = fastEntryMemoryStore.getLastValue("lastBuyer", "sales");
     if (last && buyers.some(b => b.id.toString() === last.toString())) {
       setBuyerId(last.toString());
@@ -507,6 +534,14 @@ export default function PosBillingClient({ buyers = [], products = [], adjustmen
       return;
     }
 
+    const salesMode = flags?.salesMode || "HYBRID";
+    if (salesMode === "TRACKED" && filteredItems.some(i => !i.salesTrackId)) {
+      const proceed = window.confirm(
+        "TRACKED mode is enabled, but some items are not linked to any intake transaction. Do you wish to proceed and save this invoice anyway?"
+      );
+      if (!proceed) return;
+    }
+
     setIsSubmitting(true);
     const savePromise = toast.loading("Saving sale invoice...");
 
@@ -528,7 +563,7 @@ export default function PosBillingClient({ buyers = [], products = [], adjustmen
             rateUnit: item.rateUnit || "KG",
             normalizedWeight,
             amount,
-            salesTrackId: null
+            salesTrackId: item.salesTrackId || null
           };
         }),
         adjustments,

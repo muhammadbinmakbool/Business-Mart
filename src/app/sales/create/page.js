@@ -41,6 +41,76 @@ export default async function CreateSalePage({ searchParams: searchParamsPromise
     activeBuyerAdjustments = activeBuyerAdjustments.filter(adj => adj.code !== "DISCOUNT");
   }
 
+  // Parse workbench prefill params
+  const salesTrackIdsParam = searchParams.salesTrackIds || "";
+  const directPrefillsParam = searchParams.directPrefills || "";
+  const queryPartyId = searchParams.partyId || "";
+
+  let initialData = null;
+
+  if (salesTrackIdsParam || directPrefillsParam || queryPartyId) {
+    initialData = {
+      partyId: queryPartyId || "",
+      items: [],
+      notes: "Prefilled from Operational Workbench"
+    };
+
+    if (salesTrackIdsParam) {
+      const trackIds = salesTrackIdsParam.split(",").map(id => parseInt(id)).filter(Boolean);
+      if (trackIds.length > 0) {
+        const { prisma } = await import("@/lib/prisma");
+        const tracks = await prisma.salesTrack.findMany({
+          where: {
+            id: { in: trackIds },
+            isDeleted: false
+          },
+          include: {
+            intakeTransaction: true,
+            product: true
+          }
+        });
+
+        for (const track of tracks) {
+          const displayRate = track.sellingRate || track.buyingRate || 0;
+          const displayWeight = track.netWeight !== null && track.netWeight !== undefined
+            ? track.netWeight
+            : (track.quantity || 0);
+
+          initialData.items.push({
+            productId: track.productId,
+            weight: displayWeight,
+            rate: displayRate,
+            unit: track.intakeTransaction?.unit || track.product?.primaryUnit || "KG",
+            rateUnit: track.rateUnit || track.intakeTransaction?.rateUnit || track.product?.primaryUnit || "KG",
+            salesTrackId: track.id,
+            intakeNumber: track.intakeTransaction?.intakeNumber || null
+          });
+        }
+      }
+    }
+
+    if (directPrefillsParam) {
+      try {
+        const directItems = JSON.parse(directPrefillsParam);
+        if (Array.isArray(directItems)) {
+          for (const item of directItems) {
+            initialData.items.push({
+              productId: parseInt(item.productId),
+              weight: parseFloat(item.weight) || 0,
+              rate: parseFloat(item.rate) || 0,
+              unit: item.unit || "KG",
+              rateUnit: item.rateUnit || "KG",
+              salesTrackId: null,
+              intakeNumber: null
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Failed to parse direct prefilled items:", e);
+      }
+    }
+  }
+
   // Render POS or Classic experience
   if (flags.salesWorkflow === "POS") {
     const [printSettingsRes, generalSettingsRes] = await Promise.all([
@@ -58,6 +128,8 @@ export default async function CreateSalePage({ searchParams: searchParamsPromise
         products={activeProducts} 
         adjustmentDefinitions={activeBuyerAdjustments}
         printConfig={printConfig}
+        initialData={initialData}
+        flags={flags}
       />
     );
   }
@@ -84,6 +156,8 @@ export default async function CreateSalePage({ searchParams: searchParamsPromise
           products={activeProducts} 
           adjustmentDefinitions={activeBuyerAdjustments} 
           backUrl={backUrl} 
+          initialData={initialData}
+          flags={flags}
         />
       </div>
     </div>

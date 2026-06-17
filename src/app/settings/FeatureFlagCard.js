@@ -11,6 +11,10 @@ export default function FeatureFlagCard() {
   const [mounted, setMounted] = useState(false);
   const [flags, setFlags] = useState({
     salesWorkflow: "CLASSIC",
+    salesMode: "HYBRID",
+    enableIntakeLinking: true,
+    enablePrefilledInvoices: true,
+    enableWorkbenchSuggestions: true,
     modules: {
       sourceTracking: true,
       batchTracking: true,
@@ -35,7 +39,13 @@ export default function FeatureFlagCard() {
     async function loadFlags() {
       const res = await getFeatureFlagsAction();
       if (res.success) {
-        setFlags(res.flags);
+        setFlags({
+          ...res.flags,
+          salesMode: res.flags.salesMode || "HYBRID",
+          enableIntakeLinking: res.flags.enableIntakeLinking !== undefined ? res.flags.enableIntakeLinking : true,
+          enablePrefilledInvoices: res.flags.enablePrefilledInvoices !== undefined ? res.flags.enablePrefilledInvoices : true,
+          enableWorkbenchSuggestions: res.flags.enableWorkbenchSuggestions !== undefined ? res.flags.enableWorkbenchSuggestions : true,
+        });
       } else {
         toast.error("Failed to load feature flags from database.");
       }
@@ -48,6 +58,20 @@ export default function FeatureFlagCard() {
     setFlags((prev) => ({
       ...prev,
       salesWorkflow: e.target.value
+    }));
+  };
+
+  const handleSalesModeChange = (e) => {
+    setFlags((prev) => ({
+      ...prev,
+      salesMode: e.target.value
+    }));
+  };
+
+  const handleToggle = (key) => {
+    setFlags((prev) => ({
+      ...prev,
+      [key]: !prev[key]
     }));
   };
 
@@ -128,6 +152,13 @@ export default function FeatureFlagCard() {
     );
   }
 
+  const activeSourceTracking = 
+    flags.salesMode === "TRACKED" 
+      ? true 
+      : flags.salesMode === "DIRECT" 
+        ? false 
+        : !!flags.modules?.sourceTracking;
+
   return (
     <div className="rounded-2xl border bg-card p-6 shadow-sm space-y-6">
       <div className="flex items-center justify-between border-b pb-3">
@@ -162,22 +193,115 @@ export default function FeatureFlagCard() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        {/* Sales Workflow Mode Select */}
-        <div className="space-y-2 max-w-sm">
-          <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider block">
-            Sales / Billing Workflow
-          </label>
-          <select
-            value={flags.salesWorkflow}
-            onChange={handleWorkflowChange}
-            className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-          >
-            <option value="CLASSIC">Classic Billing Form</option>
-            <option value="POS">Point of Sale (POS) Terminal</option>
-          </select>
-          <span className="text-[10px] text-muted-foreground block">
-            Controls the user interface and keyboard behavior when creating new buyer invoices.
-          </span>
+        {/* Sales Workflow Configurations */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider block">
+              Sales / Billing Workflow UI
+            </label>
+            <select
+              value={flags.salesWorkflow}
+              onChange={handleWorkflowChange}
+              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="CLASSIC">Classic Billing Form</option>
+              <option value="POS">Point of Sale (POS) Terminal</option>
+            </select>
+            <span className="text-[10px] text-muted-foreground block">
+              Controls the user interface and keyboard behavior when creating new buyer invoices.
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider block">
+              Sales Operational Mode (SALES_MODE)
+            </label>
+            <select
+              value={flags.salesMode}
+              onChange={handleSalesModeChange}
+              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="DIRECT">Direct Mode (No Tracking)</option>
+              <option value="TRACKED">Tracked Mode (Mandatory Tracking)</option>
+              <option value="HYBRID">Hybrid Mode (Optional Tracking)</option>
+            </select>
+            <span className="text-[10px] text-muted-foreground block">
+              Governs whether invoice items must be traced back to supplier intakes.
+            </span>
+          </div>
+        </div>
+
+        {/* Workflow Toggles */}
+        <div className="border-t pt-6 space-y-4">
+          <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-widest">
+            Sales Workflow Configuration Toggles
+          </h4>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Enable Intake Linking */}
+            <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/20">
+              <div className="space-y-0.5 pr-4">
+                <span className="text-sm font-semibold block">Intake Linking UI</span>
+                <span className="text-[10px] text-muted-foreground">Expose intake matching selections in billing forms.</span>
+              </div>
+              <button
+                type="button"
+                disabled={flags.salesMode === "DIRECT"}
+                onClick={() => handleToggle("enableIntakeLinking")}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                  flags.salesMode !== "DIRECT" && flags.enableIntakeLinking ? "bg-primary" : "bg-muted-foreground/30"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${
+                    flags.salesMode !== "DIRECT" && flags.enableIntakeLinking ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Enable Prefilled Invoices */}
+            <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/20">
+              <div className="space-y-0.5 pr-4">
+                <span className="text-sm font-semibold block">Prefilled Draft Invoices</span>
+                <span className="text-[10px] text-muted-foreground">Auto-generate suggested drafts for unbilled sales.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleToggle("enablePrefilledInvoices")}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  flags.enablePrefilledInvoices ? "bg-primary" : "bg-muted-foreground/30"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${
+                    flags.enablePrefilledInvoices ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Enable Workbench Suggestions */}
+            <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/20">
+              <div className="space-y-0.5 pr-4">
+                <span className="text-sm font-semibold block">Workbench Suggestions</span>
+                <span className="text-[10px] text-muted-foreground">Expose suggested cards inside the Sales Workbench.</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleToggle("enableWorkbenchSuggestions")}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  flags.enableWorkbenchSuggestions ? "bg-primary" : "bg-muted-foreground/30"
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${
+                    flags.enableWorkbenchSuggestions ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* System Module Switches */}
@@ -191,18 +315,25 @@ export default function FeatureFlagCard() {
             <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/20">
               <div className="space-y-0.5 pr-4">
                 <span className="text-sm font-semibold block">Source Tracking Register</span>
-                <span className="text-xs text-muted-foreground">Allows tracing sale transactions back to source supplier intakes.</span>
+                <span className="text-xs text-muted-foreground">
+                  {flags.salesMode === "TRACKED" 
+                    ? "Forced ON in TRACKED mode." 
+                    : flags.salesMode === "DIRECT" 
+                      ? "Forced OFF in DIRECT mode." 
+                      : "Allows tracing sale transactions back to source supplier intakes."}
+                </span>
               </div>
               <button
                 type="button"
+                disabled={flags.salesMode !== "HYBRID"}
                 onClick={() => handleModuleToggle("sourceTracking")}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  flags.modules?.sourceTracking ? "bg-primary" : "bg-muted-foreground/30"
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed ${
+                  activeSourceTracking ? "bg-primary" : "bg-muted-foreground/30"
                 }`}
               >
                 <span
                   className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${
-                    flags.modules?.sourceTracking ? "translate-x-5" : "translate-x-0"
+                    activeSourceTracking ? "translate-x-5" : "translate-x-0"
                   }`}
                 />
               </button>
