@@ -56,10 +56,19 @@ model Party {
 model Product {
   id                 Int                 @id @default(autoincrement())
   name               String
-  category           String              @default("WEIGHT") // WEIGHT, LIQUID, QUANTITY
+  category           String?             @default("WEIGHT") // Deprecated: preserved for rollback fallback
+  unitCategory       String              @default("WEIGHT") // WEIGHT, LIQUID, QUANTITY
+  productCategoryId  Int?
+  productCategory    ProductCategory?    @relation(fields: [productCategoryId], references: [id], onDelete: SetNull)
   primaryUnit        String              @default("KG")
   unitConversion     Decimal?            @db.Decimal(18, 4) // e.g. 1 BAG = 100 KG
   quantity           Decimal             @default(0) @db.Decimal(18, 2)
+  defaultBuyingRate  Decimal?            @db.Decimal(18, 2)
+  defaultSellingRate Decimal?            @db.Decimal(18, 2)
+  buyingRateUnit     String?             @db.NVarChar(50)
+  sellingRateUnit    String?             @db.NVarChar(50)
+  defaultSellingUnit String?             @db.NVarChar(50)
+  displayOrder       Int?                @default(0)
   isActive           Boolean             @default(true)
   isDeleted          Boolean             @default(false)
   deletedAt          DateTime?
@@ -76,6 +85,23 @@ model Product {
   salesTracks        SalesTrack[]
   rates              ProductRate[]
   initialStock       InitialStock?
+
+  @@index([isDeleted])
+  @@index([isActive])
+}
+
+model ProductCategory {
+  id           Int       @id @default(autoincrement())
+  name         String    @unique @db.NVarChar(255)
+  description  String?   @db.NVarChar(1000)
+  isActive     Boolean   @default(true)
+  isDeleted    Boolean   @default(false)
+  deletedAt    DateTime?
+  deletedBy    Int?
+  deleteReason String?   @db.NVarChar(1000)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  products     Product[]
 
   @@index([isDeleted])
   @@index([isActive])
@@ -199,7 +225,7 @@ model SalesTrack {
   saleItemId          Int?
   intakeTransactionId Int?
   initialStockId      Int?
-  type                String    @default("INTAKE_SALE") @db.NVarChar(50)
+  type                String    @default("INTAKE_SALE") @db.NVarChar(100)
 
   supplierPartyId     Int?
   buyerPartyId        Int?

@@ -56,10 +56,19 @@ model Party {
 model Product {
   id                 Int                 @id @default(autoincrement())
   name               String
-  category           String              @default("WEIGHT") // WEIGHT, LIQUID, QUANTITY
+  category           String?             @default("WEIGHT") // Deprecated: preserved for rollback fallback
+  unitCategory       String              @default("WEIGHT") // WEIGHT, LIQUID, QUANTITY
+  productCategoryId  Int?
+  productCategory    ProductCategory?    @relation(fields: [productCategoryId], references: [id], onDelete: SetNull)
   primaryUnit        String              @default("KG")
   unitConversion     Decimal? // e.g. 1 BAG = 100 KG
   quantity           Decimal             @default(0)
+  defaultBuyingRate  Decimal?
+  defaultSellingRate Decimal?
+  buyingRateUnit     String?
+  sellingRateUnit    String?
+  defaultSellingUnit String?
+  displayOrder       Int?                @default(0)
   isActive           Boolean             @default(true)
   isDeleted          Boolean             @default(false)
   deletedAt          DateTime?
@@ -76,6 +85,23 @@ model Product {
   salesTracks        SalesTrack[]
   rates              ProductRate[]
   initialStock       InitialStock?
+
+  @@index([isDeleted])
+  @@index([isActive])
+}
+
+model ProductCategory {
+  id           Int       @id @default(autoincrement())
+  name         String    @unique
+  description  String?
+  isActive     Boolean   @default(true)
+  isDeleted    Boolean   @default(false)
+  deletedAt    DateTime?
+  deletedBy    Int?
+  deleteReason String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  products     Product[]
 
   @@index([isDeleted])
   @@index([isActive])
@@ -190,9 +216,6 @@ model SaleItem {
   sale                SaleTransaction    @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   product             Product            @relation(fields: [productId], references: [id], onUpdate: NoAction)
   salesTracks         SalesTrack[]
-
-  @@index([saleId])
-  @@index([productId])
 }
 
 model SalesTrack {
@@ -247,7 +270,6 @@ model SalesTrack {
   @@index([supplierPartyId])
   @@index([buyerPartyId])
   @@index([productId])
-  @@index([saleItemId])
 }
 
 

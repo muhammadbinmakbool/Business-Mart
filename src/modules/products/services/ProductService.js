@@ -45,6 +45,7 @@ export class ProductService {
 
   static async createProduct(data) {
     const validatedData = productSchema.parse(data);
+    validatedData.category = validatedData.unitCategory;
     const ownedData = await withOwnership(validatedData);
     const product = await ProductRepository.create(ownedData);
     await emitActivity({
@@ -59,6 +60,7 @@ export class ProductService {
 
   static async updateProduct(id, data) {
     const validatedData = productSchema.parse(data);
+    validatedData.category = validatedData.unitCategory;
     const ownedData = await withOwnership(validatedData);
     const productId = parseInt(id);
 

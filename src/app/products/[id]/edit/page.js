@@ -1,5 +1,6 @@
 import React from "react";
 import { ProductService } from "@/modules/products/services/ProductService";
+import { ProductCategoryService } from "@/modules/products/services/ProductCategoryService";
 import EditProductForm from "./EditProductForm";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -7,10 +8,14 @@ import { ChevronLeft } from "lucide-react";
 export default async function EditProductPage({ params: paramsPromise }) {
   const params = await paramsPromise;
   const product = await ProductService.getProduct(params.id);
+  const categories = await ProductCategoryService.listCategories();
 
   if (!product) {
     return <div className="p-8 text-center">Product not found.</div>;
   }
+
+  const serializedProduct = JSON.parse(JSON.stringify(product));
+  const serializedCategories = JSON.parse(JSON.stringify(categories));
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -28,7 +33,7 @@ export default async function EditProductPage({ params: paramsPromise }) {
       </div>
 
       <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <EditProductForm product={product} />
+        <EditProductForm product={serializedProduct} categories={serializedCategories} />
       </div>
     </div>
   );

@@ -7,7 +7,9 @@ export class ProductRepository {
     const serialized = {
       ...p,
       quantity: p.quantity ? Number(p.quantity) : 0,
-      unitConversion: p.unitConversion ? Number(p.unitConversion) : null
+      unitConversion: p.unitConversion ? Number(p.unitConversion) : null,
+      defaultBuyingRate: p.defaultBuyingRate ? Number(p.defaultBuyingRate) : null,
+      defaultSellingRate: p.defaultSellingRate ? Number(p.defaultSellingRate) : null
     };
     if (p.initialStock) {
       serialized.initialStock = {
@@ -22,6 +24,7 @@ export class ProductRepository {
     const products = await prisma.product.findMany({
       where: { isDeleted: false },
       orderBy: { name: "asc" },
+      include: { productCategory: true }
     });
     return products.map(p => this.serializeProduct(p));
   }
@@ -32,7 +35,8 @@ export class ProductRepository {
       orderBy: [
         { name: "asc" },
         { id: "desc" }
-      ]
+      ],
+      include: { productCategory: true }
     });
 
     return products.map(p => {
@@ -84,7 +88,8 @@ export class ProductRepository {
         where,
         skip,
         take: limit,
-        orderBy: orderByClause
+        orderBy: orderByClause,
+        include: { productCategory: true }
       }),
       prisma.product.count({ where })
     ]);
@@ -104,7 +109,7 @@ export class ProductRepository {
   static async getById(id) {
     const product = await prisma.product.findUnique({
       where: { id: parseInt(id), isDeleted: false },
-      include: { initialStock: true }
+      include: { initialStock: true, productCategory: true }
     });
     return this.serializeProduct(product);
   }

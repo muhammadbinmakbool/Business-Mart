@@ -12,6 +12,7 @@ import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getLocalDateString } from "@/lib/utils";
+import { getProductForIntake } from "@/modules/products/services/ProductInteractionService";
 
 export default function EditIntakeForm({ intake, suppliers, products, buyers = [], allowedActions = {} }) {
   const router = useRouter();
@@ -84,17 +85,15 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
         : getUnitsByCategory(selectedProduct.category))
     : [];
 
-  const handleProductChange = (productId) => {
+  const handleProductChange = async (productId) => {
     setSelectedProductId(productId);
     const prod = products.find(p => p.id === parseInt(productId));
     if (prod) {
-      const isProdBag = prod.primaryUnit === "BAG" || prod.category === "BAG";
-      const units = getUnitsByCategory(prod.category);
-      const prefUnit = getPreferredWeightUnit();
-      const isPrefCompatible = units.some(u => u.id === prefUnit);
-      const defaultUnit = isProdBag ? "BAG" : (isPrefCompatible ? prefUnit : (prod.primaryUnit || DEFAULT_WEIGHT_UNIT));
+      const result = await getProductForIntake(productId, {});
+      const defaultUnit = result.success ? result.defaults.unit : "KG";
       setUnit(defaultUnit);
 
+      const isProdBag = prod.primaryUnit === "BAG" || (prod.unitCategory || prod.category) === "BAG";
       if (defaultUnit === UNIT_IDS.BAG) {
         setGrossWeight(bagCount);
       } else if (isProdBag && grossWeight) {

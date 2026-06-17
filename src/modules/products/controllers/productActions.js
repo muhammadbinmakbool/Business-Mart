@@ -8,9 +8,16 @@ import { invalidateCacheBucket } from "@/modules/aggregations/cache";
 export async function createProductAction(formData) {
   const data = {
     name: formData.get("name"),
-    category: formData.get("category"),
+    unitCategory: formData.get("unitCategory") || "WEIGHT",
+    productCategoryId: formData.get("productCategoryId") ? Number(formData.get("productCategoryId")) : null,
     primaryUnit: formData.get("primaryUnit"),
-    unitConversion: formData.get("unitConversion") ? formData.get("unitConversion") : null,
+    unitConversion: formData.get("unitConversion") ? Number(formData.get("unitConversion")) : null,
+    defaultBuyingRate: formData.get("defaultBuyingRate") ? Number(formData.get("defaultBuyingRate")) : null,
+    defaultSellingRate: formData.get("defaultSellingRate") ? Number(formData.get("defaultSellingRate")) : null,
+    buyingRateUnit: formData.get("buyingRateUnit") || null,
+    sellingRateUnit: formData.get("sellingRateUnit") || null,
+    defaultSellingUnit: formData.get("defaultSellingUnit") || null,
+    displayOrder: formData.get("displayOrder") ? Number(formData.get("displayOrder")) : 0,
     isActive: true,
   };
 
@@ -27,12 +34,18 @@ export async function createProductAction(formData) {
 export async function updateProductAction(id, formData) {
   const data = {
     name: formData.get("name"),
-    category: formData.get("category"),
+    unitCategory: formData.get("unitCategory") || "WEIGHT",
+    productCategoryId: formData.get("productCategoryId") ? Number(formData.get("productCategoryId")) : null,
     primaryUnit: formData.get("primaryUnit"),
-    unitConversion: formData.get("unitConversion") ? formData.get("unitConversion") : null,
+    unitConversion: formData.get("unitConversion") ? Number(formData.get("unitConversion")) : null,
+    defaultBuyingRate: formData.get("defaultBuyingRate") ? Number(formData.get("defaultBuyingRate")) : null,
+    defaultSellingRate: formData.get("defaultSellingRate") ? Number(formData.get("defaultSellingRate")) : null,
+    buyingRateUnit: formData.get("buyingRateUnit") || null,
+    sellingRateUnit: formData.get("sellingRateUnit") || null,
+    defaultSellingUnit: formData.get("defaultSellingUnit") || null,
+    displayOrder: formData.get("displayOrder") ? Number(formData.get("displayOrder")) : 0,
     isActive: formData.get("isActive") === "true",
   };
-
 
   try {
     await ProductService.updateProduct(id, data);

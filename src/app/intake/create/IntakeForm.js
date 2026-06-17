@@ -16,6 +16,7 @@ import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 import { useFastEntryAssistant } from "@/modules/fast-entry-assistant/hooks/useFastEntryAssistant";
 import InlineSuggestionBox from "@/modules/fast-entry-assistant/components/InlineSuggestionBox";
+import { getProductForIntake } from "@/modules/products/services/ProductInteractionService";
 
 /** Merge multiple refs (ref objects + ref callbacks) onto one element. */
 const mergeRefs = (...refs) => (el) => {
@@ -129,17 +130,18 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
     ? compatibleUnits.find(u => u.id === assistantSuggestions.unit)
     : null;
 
-  const handleProductChange = (productId) => {
+  const handleProductChange = async (productId) => {
     setSelectedProductId(productId);
     const prod = products.find(p => p.id === parseInt(productId));
     if (prod) {
-      const isProdBag = prod.primaryUnit === "BAG" || prod.category === "BAG";
-      const units = getUnitsByCategory(prod.category);
-      const prefUnit = getPreferredWeightUnit();
-      const isPrefCompatible = units.some(u => u.id === prefUnit);
-      const defaultUnit = isProdBag ? "BAG" : (isPrefCompatible ? prefUnit : (prod.primaryUnit || DEFAULT_WEIGHT_UNIT));
+      const sessionMemory = {
+        lastUnit: fastEntryMemoryStore.getLastValue("lastUnit", "intake"),
+      };
+      const result = await getProductForIntake(productId, sessionMemory);
+      const defaultUnit = result.success ? result.defaults.unit : "KG";
       setSelectedUnit(defaultUnit);
 
+      const isProdBag = prod.primaryUnit === "BAG" || (prod.unitCategory || prod.category) === "BAG";
       if (defaultUnit === UNIT_IDS.BAG) {
         setGrossWeightVal(bagCountVal);
       } else if (isProdBag && grossWeightVal) {

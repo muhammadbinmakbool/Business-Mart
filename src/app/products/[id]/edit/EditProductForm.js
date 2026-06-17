@@ -2,18 +2,48 @@
 
 import React, { useState } from "react";
 import { updateProductAction } from "@/modules/products/controllers/productActions";
-import { UNIT_CATEGORIES, UNITS, getUnitsByCategory, isProductSpecific, BASE_UNITS } from "@/lib/units";
+import { UNIT_CATEGORIES, getUnitsByCategory, isProductSpecific, BASE_UNITS } from "@/lib/units";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Info } from "lucide-react";
 
-export default function EditProductForm({ product }) {
+export default function EditProductForm({ product, categories = [] }) {
   const router = useRouter();
-  const [category, setCategory] = useState(product.category || UNIT_CATEGORIES.WEIGHT);
+  
+  // Field States
+  const [unitCategory, setUnitCategory] = useState(product.unitCategory || product.category || UNIT_CATEGORIES.WEIGHT);
+  const [productCategoryId, setProductCategoryId] = useState(product.productCategoryId || "");
   const [primaryUnit, setPrimaryUnit] = useState(product.primaryUnit || "KG");
+  const [defaultBuyingRate, setDefaultBuyingRate] = useState(product.defaultBuyingRate !== null && product.defaultBuyingRate !== undefined ? product.defaultBuyingRate : "");
+  const [defaultSellingRate, setDefaultSellingRate] = useState(product.defaultSellingRate !== null && product.defaultSellingRate !== undefined ? product.defaultSellingRate : "");
+  const [buyingRateUnit, setBuyingRateUnit] = useState(product.buyingRateUnit || "KG");
+  const [sellingRateUnit, setSellingRateUnit] = useState(product.sellingRateUnit || "KG");
+  const [defaultSellingUnit, setDefaultSellingUnit] = useState(product.defaultSellingUnit || "KG");
+  const [displayOrder, setDisplayOrder] = useState(product.displayOrder !== null && product.displayOrder !== undefined ? product.displayOrder : "0");
+
+  const handleUnitCategoryChange = (newCat) => {
+    setUnitCategory(newCat);
+    const base = BASE_UNITS[newCat] || "KG";
+    setPrimaryUnit(base);
+    setBuyingRateUnit(base);
+    setSellingRateUnit(base);
+    setDefaultSellingUnit(base);
+  };
 
   async function handleSubmit(formData) {
+    // Inject the selected values into the formData object
+    formData.set("unitCategory", unitCategory);
+    formData.set("productCategoryId", productCategoryId);
+    formData.set("primaryUnit", primaryUnit);
+    formData.set("buyingRateUnit", buyingRateUnit);
+    formData.set("sellingRateUnit", sellingRateUnit);
+    formData.set("defaultSellingUnit", defaultSellingUnit);
+    formData.set("displayOrder", displayOrder);
+    
+    // Fallback deprecated category column for coexistence compatibility
+    formData.set("category", unitCategory);
+
     const result = await updateProductAction(product.id, formData);
     if (result?.error) {
       toast.error(result.error);
@@ -23,9 +53,9 @@ export default function EditProductForm({ product }) {
     }
   }
 
-  const compatibleUnits = getUnitsByCategory(category);
+  const compatibleUnits = getUnitsByCategory(unitCategory);
   const showConversion = isProductSpecific(primaryUnit);
-  const baseUnit = BASE_UNITS[category];
+  const baseUnit = BASE_UNITS[unitCategory];
 
   return (
     <form action={handleSubmit} className="space-y-6">
@@ -42,26 +72,40 @@ export default function EditProductForm({ product }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label htmlFor="category" className="text-sm font-medium">Category</label>
+          <label htmlFor="productCategoryId" className="text-sm font-medium">Category Group</label>
           <select
-            id="category"
-            name="category"
-            value={category}
-            onChange={(e) => {
-                const newCat = e.target.value;
-                setCategory(newCat);
-                setPrimaryUnit(BASE_UNITS[newCat]);
-            }}
+            id="productCategoryId"
+            name="productCategoryId"
+            value={productCategoryId}
+            onChange={(e) => setProductCategoryId(e.target.value)}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
-            {Object.values(UNIT_CATEGORIES).map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
+            <option value="">-- Select Category --</option>
+            {categories.map(cat => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </select>
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="primaryUnit" className="text-sm font-medium">Primary Unit</label>
+          <label htmlFor="unitCategory" className="text-sm font-medium">Unit Category</label>
+          <select
+            id="unitCategory"
+            name="unitCategory"
+            value={unitCategory}
+            onChange={(e) => handleUnitCategoryChange(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          >
+            {Object.values(UNIT_CATEGORIES).map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <label htmlFor="primaryUnit" className="text-sm font-medium">Primary Inventory Unit</label>
           <select
             id="primaryUnit"
             name="primaryUnit"
@@ -70,9 +114,21 @@ export default function EditProductForm({ product }) {
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             {compatibleUnits.map(u => (
-                <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
+              <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
             ))}
           </select>
+        </div>
+
+        <div className="space-y-2">
+          <label htmlFor="displayOrder" className="text-sm font-medium">Display Sort Order</label>
+          <input
+            id="displayOrder"
+            name="displayOrder"
+            type="number"
+            value={displayOrder}
+            onChange={(e) => setDisplayOrder(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
         </div>
       </div>
 
@@ -88,14 +144,14 @@ export default function EditProductForm({ product }) {
               <div className="flex items-center gap-3">
                 <span className="text-sm font-medium whitespace-nowrap">1 {primaryUnit} =</span>
                 <input
-                    id="unitConversion"
-                    name="unitConversion"
-                    type="number"
-                    step="0.0001"
-                    required
-                    defaultValue={product.unitConversion ? Number(product.unitConversion) : ""}
-                    placeholder="e.g. 50, 100"
-                    className="w-32 rounded-md border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
+                  id="unitConversion"
+                  name="unitConversion"
+                  type="number"
+                  step="0.0001"
+                  required
+                  defaultValue={product.unitConversion ? Number(product.unitConversion) : ""}
+                  placeholder="e.g. 50, 100"
+                  className="w-32 rounded-md border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
                 />
                 <span className="text-sm font-bold">{baseUnit}</span>
               </div>
@@ -103,6 +159,82 @@ export default function EditProductForm({ product }) {
           </div>
         </div>
       )}
+
+      {/* Business Defaults & Rates */}
+      <div className="border-t pt-4 space-y-4">
+        <h3 className="text-lg font-bold">Business Defaults & Rates</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label htmlFor="defaultBuyingRate" className="text-sm font-medium">Default Buying Rate</label>
+            <div className="flex gap-2">
+              <input
+                id="defaultBuyingRate"
+                name="defaultBuyingRate"
+                type="number"
+                step="0.01"
+                value={defaultBuyingRate}
+                onChange={(e) => setDefaultBuyingRate(e.target.value)}
+                placeholder="0.00"
+                className="flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <select
+                id="buyingRateUnit"
+                name="buyingRateUnit"
+                value={buyingRateUnit}
+                onChange={(e) => setBuyingRateUnit(e.target.value)}
+                className="w-32 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {compatibleUnits.map(u => (
+                  <option key={u.id} value={u.id}>{u.id}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="defaultSellingRate" className="text-sm font-medium">Default Selling Rate</label>
+            <div className="flex gap-2">
+              <input
+                id="defaultSellingRate"
+                name="defaultSellingRate"
+                type="number"
+                step="0.01"
+                value={defaultSellingRate}
+                onChange={(e) => setDefaultSellingRate(e.target.value)}
+                placeholder="0.00"
+                className="flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <select
+                id="sellingRateUnit"
+                name="sellingRateUnit"
+                value={sellingRateUnit}
+                onChange={(e) => setSellingRateUnit(e.target.value)}
+                className="w-32 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {compatibleUnits.map(u => (
+                  <option key={u.id} value={u.id}>{u.id}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2 md:col-span-2">
+            <label htmlFor="defaultSellingUnit" className="text-sm font-medium">Default Selling Unit</label>
+            <select
+              id="defaultSellingUnit"
+              name="defaultSellingUnit"
+              value={defaultSellingUnit}
+              onChange={(e) => setDefaultSellingUnit(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {compatibleUnits.map(u => (
+                <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
 
       <div className="space-y-4 pt-4 border-t">
         <div className="flex items-center gap-2">
@@ -135,4 +267,3 @@ export default function EditProductForm({ product }) {
     </form>
   );
 }
-

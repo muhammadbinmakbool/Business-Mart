@@ -113,9 +113,30 @@ export default function ProductListClient({
               ),
             },
             {
-              key: "category",
-              label: "Category",
-              className: "px-6 py-4 text-center text-[10px] uppercase font-bold text-muted-foreground",
+              key: "productCategory",
+              label: "Category Group",
+              className: "px-6 py-4 text-center text-sm font-semibold text-muted-foreground",
+              render: (row) => {
+                const groupName = row.productCategory?.name;
+                const unitCat = row.unitCategory || row.category || "WEIGHT";
+                return (
+                  <div className="flex flex-col items-center">
+                    {groupName ? (
+                      <span className="font-bold text-foreground">{groupName}</span>
+                    ) : (
+                      <span className="text-xs italic text-muted-foreground/75">No Category Group</span>
+                    )}
+                    <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground mt-0.5">
+                      ({unitCat})
+                    </span>
+                  </div>
+                );
+              }
+            },
+            {
+              key: "displayOrder",
+              label: "Sort Order",
+              className: "px-6 py-4 text-center font-mono text-xs text-muted-foreground",
             },
             {
               key: "availableStock",

@@ -19,6 +19,7 @@ import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 import { useFastEntryAssistant } from "@/modules/fast-entry-assistant/hooks/useFastEntryAssistant";
 import InlineSuggestionBox from "@/modules/fast-entry-assistant/components/InlineSuggestionBox";
+import { getProductForSale } from "@/modules/products/services/ProductInteractionService";
 
 export default function SaleForm({ buyers, products, initialData = null, adjustmentDefinitions = [], backUrl = "", flags = null }) {
 
@@ -308,27 +309,30 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     }
   };
 
-  const updateItem = (index, field, value) => {
+  const updateItem = async (index, field, value) => {
     const newItems = [...items];
     newItems[index][field] = value;
 
-    // Reset unit and rateUnit if product changes
+    // Reset unit, rateUnit, and rate if product changes
     if (field === "productId") {
-        const product = products.find(p => p.id === parseInt(value));
-        if (product) {
-            const isProdBag = product.primaryUnit === "BAG" || product.category === "BAG";
-            if (isProdBag) {
-                newItems[index].unit = "BAG";
-                newItems[index].rateUnit = "BAG";
-            } else {
-                const compatible = getUnitsByCategory(product.category);
-                const prefWeight = getPreferredWeightUnit();
-                const prefRate = getPreferredRateUnit();
-
-                newItems[index].unit = compatible.some(u => u.id === prefWeight) ? prefWeight : (product.primaryUnit || "KG");
-                newItems[index].rateUnit = compatible.some(u => u.id === prefRate) ? prefRate : (product.primaryUnit || "KG");
-            }
+      if (value) {
+        const sessionMemory = {
+          lastUnit: fastEntryMemoryStore.getLastValue("lastUnit", "sales"),
+          lastRateUnit: fastEntryMemoryStore.getLastValue("lastRateUnit", "sales"),
+          lastRate: fastEntryMemoryStore.getLastValue("lastRate", "sales")
+        };
+        const result = await getProductForSale(value, sessionMemory);
+        if (result.success) {
+          const { defaults } = result;
+          newItems[index].unit = defaults.unit;
+          newItems[index].rateUnit = defaults.rateUnit;
+          newItems[index].rate = defaults.rate > 0 ? defaults.rate.toString() : "";
         }
+      } else {
+        newItems[index].unit = "KG";
+        newItems[index].rateUnit = "KG";
+        newItems[index].rate = "";
+      }
     }
     
     setItems(newItems);

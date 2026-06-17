@@ -25,6 +25,7 @@ import { triggerPrint } from "@/print/utils/printUtils";
 import { calculateTransactionTotals, round } from "@/lib/financial";
 import { normalizeQuantity, normalizeRate, getUnitsByCategory } from "@/lib/units";
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
+import { getProductForPOS } from "@/modules/products/services/ProductInteractionService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 
 // Components
@@ -278,72 +279,84 @@ export default function PosBillingClient({
     });
   }, []);
 
-  const handleChangeItem = useCallback((index, field, value) => {
-    setItems(prev => {
-      const newItems = [...prev];
-      newItems[index] = { ...newItems[index], [field]: value };
+  const handleChangeItem = useCallback(async (index, field, value) => {
+    if (field === "productId" && value) {
+      const sessionMemory = {
+        lastUnit: fastEntryMemoryStore.getLastValue("lastUnit", "sales"),
+        lastRateUnit: fastEntryMemoryStore.getLastValue("lastRateUnit", "sales"),
+        lastRate: fastEntryMemoryStore.getLastValue("lastRate", "sales")
+      };
+      const result = await getProductForPOS(value, sessionMemory);
 
-      // Reset unit and rateUnit if product changes
-      if (field === "productId") {
-        const product = products.find(p => p.id === parseInt(value));
-        if (product) {
-          const isProdBag = product.primaryUnit === "BAG" || product.category === "BAG";
-          if (isProdBag) {
-            newItems[index].unit = "BAG";
-            newItems[index].rateUnit = "BAG";
-          } else {
-            const compatible = getUnitsByCategory(product.category);
-            newItems[index].unit = compatible[0]?.id || "KG";
-            newItems[index].rateUnit = compatible[0]?.id || "KG";
-          }
-          
-          // Prefill rate from memory if available, or copy rate of same product if already present
-          const existingItemWithSameProd = prev.find(item => item.productId === value && item.rate);
-          if (existingItemWithSameProd) {
-            newItems[index].rate = existingItemWithSameProd.rate;
-            newItems[index].rateUnit = existingItemWithSameProd.rateUnit || newItems[index].unit;
-          } else {
-            const lastRate = fastEntryMemoryStore.getLastValue("lastRate", "sales");
-            const lastRateUnit = fastEntryMemoryStore.getLastValue("lastRateUnit", "sales");
-            newItems[index].rate = lastRate || "";
-            if (lastRateUnit) {
-              newItems[index].rateUnit = lastRateUnit;
-            }
-          }
+      setItems(prev => {
+        const newItems = [...prev];
+        newItems[index] = { ...newItems[index], [field]: value };
 
-          // Auto-append empty row if this is the last row being populated
-          if (index === prev.length - 1) {
-            newItems.push({
-              id: "row-" + Date.now() + Math.random(),
-              productId: "",
-              weight: "",
-              unit: "KG",
-              rate: "",
-              rateUnit: "KG",
-              amount: 0
-            });
+        if (result.success) {
+          const { defaults } = result;
+          newItems[index].unit = defaults.unit;
+          newItems[index].rateUnit = defaults.rateUnit;
+          newItems[index].rate = defaults.rate > 0 ? defaults.rate.toString() : "";
+        }
+
+        const existingItemWithSameProd = prev.find(item => item.productId === value && item.rate);
+        if (existingItemWithSameProd) {
+          newItems[index].rate = existingItemWithSameProd.rate;
+          newItems[index].rateUnit = existingItemWithSameProd.rateUnit || newItems[index].unit;
+        }
+
+        if (index === prev.length - 1) {
+          newItems.push({
+            id: "row-" + Date.now() + Math.random(),
+            productId: "",
+            weight: "",
+            unit: "KG",
+            rate: "",
+            rateUnit: "KG",
+            amount: 0
+          });
+        }
+
+        const prod = products.find(p => p.id === parseInt(newItems[index].productId));
+        if (prod) {
+          try {
+            const nQty = normalizeQuantity(newItems[index].weight || 0, newItems[index].unit || "KG", prod);
+            const nRate = normalizeRate(newItems[index].rate || 0, newItems[index].rateUnit || "KG", prod);
+            newItems[index].amount = round(nQty * nRate);
+          } catch (e) {
+            newItems[index].amount = 0;
           }
         } else {
-          newItems[index].rate = "";
-        }
-      }
-
-      // Inline Row amount recalculation
-      const prod = products.find(p => p.id === parseInt(newItems[index].productId));
-      if (prod) {
-        try {
-          const nQty = normalizeQuantity(newItems[index].weight || 0, newItems[index].unit || "KG", prod);
-          const nRate = normalizeRate(newItems[index].rate || 0, newItems[index].rateUnit || "KG", prod);
-          newItems[index].amount = round(nQty * nRate);
-        } catch (e) {
           newItems[index].amount = 0;
         }
-      } else {
-        newItems[index].amount = 0;
-      }
 
-      return newItems;
-    });
+        return newItems;
+      });
+    } else {
+      setItems(prev => {
+        const newItems = [...prev];
+        newItems[index] = { ...newItems[index], [field]: value };
+
+        if (field === "productId" && !value) {
+          newItems[index].rate = "";
+        }
+
+        const prod = products.find(p => p.id === parseInt(newItems[index].productId));
+        if (prod) {
+          try {
+            const nQty = normalizeQuantity(newItems[index].weight || 0, newItems[index].unit || "KG", prod);
+            const nRate = normalizeRate(newItems[index].rate || 0, newItems[index].rateUnit || "KG", prod);
+            newItems[index].amount = round(nQty * nRate);
+          } catch (e) {
+            newItems[index].amount = 0;
+          }
+        } else {
+          newItems[index].amount = 0;
+        }
+
+        return newItems;
+      });
+    }
   }, [products]);
 
   // 5. Adjustments Handlers

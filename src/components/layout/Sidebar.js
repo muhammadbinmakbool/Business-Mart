@@ -17,7 +17,8 @@ import {
   Banknote,
   Route,
   X,
-  Layers
+  Layers,
+  Tags
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./SidebarContext";
@@ -26,6 +27,7 @@ const menuItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Parties", href: "/parties", icon: Users },
   { name: "Products", href: "/products", icon: Package },
+  { name: "Product Categories", href: "/product-categories", icon: Tags },
   { name: "Goods Intake", href: "/intake", icon: ShoppingCart },
   { name: "Supplier Advances", href: "/advances", icon: Coins },
   { name: "Supplier Settlements", href: "/supplier-invoices", icon: Banknote },

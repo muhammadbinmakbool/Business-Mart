@@ -239,3 +239,12 @@ export function convertRate(rate, fromUnit, toUnit, product = null) {
   const targetFactor = getConversionFactor(toUnit, product);
   return baseRate * targetFactor;
 }
+
+/**
+ * Checks if a unit ID belongs to a given unit category.
+ */
+export function isUnitCompatible(unitId, unitCategory) {
+  if (!unitId || !unitCategory) return false;
+  const unit = UNITS[unitId];
+  return unit?.category === unitCategory;
+}
