@@ -112,7 +112,11 @@ export default function ActivityClient() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
+        <h1 className="text-xl font-bold tracking-tight text-foreground">System Activity Log</h1>
+      </div>
+
       {/* Search and Filters panel */}
       <div className="bg-card text-card-foreground border rounded-xl p-5 shadow-sm space-y-4">
         <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -11,6 +11,7 @@ import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import DataTable from "@/components/ui/DataTable";
 import PaginationControls from "@/components/ui/PaginationControls";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import ModuleTabNav from "@/components/layout/ModuleTabNav";
 
 export default function SupplierInvoiceListClient({
   invoices = [],
@@ -100,13 +101,15 @@ export default function SupplierInvoiceListClient({
     { key: "SUPERSEDED", label: "Superseded", count: tabCounts.superseded },
   ];
 
+  const tabItems = [
+    { name: "Settlement Invoices", href: "/supplier-invoices", active: true },
+    { name: "Supplier Advances", href: "/advances", active: false }
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Supplier Settlements</h1>
-          <p className="text-muted-foreground">Manage and track settlement invoices for suppliers.</p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
+        <ModuleTabNav tabs={tabItems} className="border-b-0 mb-0" />
         <Link
           href="/supplier-invoices/create"
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"

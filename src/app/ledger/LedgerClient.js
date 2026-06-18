@@ -302,15 +302,10 @@ export default function LedgerClient({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Ledger & Reconciliation</h1>
-          <p className="text-muted-foreground">
-            Verify buyer-side billing totals match supplier-side settlements after adjustments.
-          </p>
-        </div>
+      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Ledger & Reconciliation</h1>
         
         {activeTab === "LIVE" && !showSaveForm && !viewingSessionDetails && (
           <div className="flex items-center gap-3 shrink-0">
@@ -318,25 +313,25 @@ export default function LedgerClient({
               <button
                 onClick={() => handlePrintLive("print")}
                 disabled={isPrinting}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:bg-accent transition-colors font-medium text-sm text-foreground bg-background cursor-pointer shrink-0 disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border hover:bg-accent transition-colors font-medium text-xs text-foreground bg-background cursor-pointer shrink-0 disabled:opacity-50"
                 title="Print Document"
               >
-                <Printer className="h-4 w-4 text-slate-500" />
+                <Printer className="h-3.5 w-3.5 text-slate-500" />
                 <span>{isPrinting ? "Fetching..." : "Print"}</span>
               </button>
               <button
                 onClick={() => handlePrintLive("pdf")}
                 disabled={isPrinting}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg border hover:bg-accent transition-colors font-medium text-sm text-foreground bg-background cursor-pointer shrink-0 disabled:opacity-50"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border hover:bg-accent transition-colors font-medium text-xs text-foreground bg-background cursor-pointer shrink-0 disabled:opacity-50"
                 title="Download PDF"
               >
-                <Download className="h-4 w-4 text-slate-500" />
+                <Download className="h-3.5 w-3.5 text-slate-500" />
                 <span>{isPrinting ? "Fetching..." : "Download PDF"}</span>
               </button>
             </div>
             <button
               onClick={() => setShowSaveForm(true)}
-              className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shrink-0"
+              className="flex items-center justify-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shrink-0 cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               Save Session Snapshot

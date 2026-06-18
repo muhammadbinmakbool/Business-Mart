@@ -20,6 +20,7 @@ import { showToast } from "@/components/ui/Toast";
 import { sellIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import DraftSuggestionCard from "@/components/sales/DraftSuggestionCard";
+import ModuleTabNav from "@/components/layout/ModuleTabNav";
 
 export default function SalesWorkbenchClient({ buyers = [], products = [], flags = {} }) {
   const router = useRouter();
@@ -244,31 +245,29 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
     return matchesIntake;
   });
 
-  return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-card/60 backdrop-blur-md p-6 rounded-2xl border border-border/50 shadow-sm">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-foreground">Sales Operational Workbench</h1>
-            <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
-              salesMode === "TRACKED" 
-                ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                : salesMode === "DIRECT"
-                  ? "bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
-                  : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-            }`}>
-              {salesMode} MODE
-            </span>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Operational dashboard for arrival tracking, prefilled invoice suggestions, and live trace monitoring.
-          </p>
-        </div>
+  const tabItems = [
+    { name: "Sales Invoices", href: "/sales", active: false },
+    { name: "Sales Workbench", href: "/sales-workbench", active: true }
+  ];
 
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
+        <div className="flex items-center gap-3">
+          <ModuleTabNav tabs={tabItems} className="border-b-0 mb-0" />
+          <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
+            salesMode === "TRACKED" 
+              ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+              : salesMode === "DIRECT"
+                ? "bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+                : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+          }`}>
+            {salesMode} MODE
+          </span>
+        </div>
         <button
           onClick={() => router.push(flags.salesWorkflow === "POS" ? "/sales/create" : "/sales/create")}
-          className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-primary/90 transition-all shadow-sm cursor-pointer self-start sm:self-center"
+          className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all shadow-sm cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           Create Direct Invoice

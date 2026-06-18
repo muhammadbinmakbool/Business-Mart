@@ -107,12 +107,9 @@ export default function SourceTrackingListClient({
   }, [tracks]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Source Tracking</h1>
-          <p className="text-muted-foreground">Automated register for business mapping and informational tracking.</p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Source Tracking</h1>
         {isSupplierMappingEnabled && (
           <Link
             href="/source-tracking/create"

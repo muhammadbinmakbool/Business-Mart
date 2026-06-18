@@ -11,6 +11,7 @@ import {
   deleteCategoryAction
 } from "@/modules/products/controllers/productCategoryActions";
 import DataTable from "@/components/ui/DataTable";
+import ModuleTabNav from "@/components/layout/ModuleTabNav";
 
 export default function CategoryListClient({ initialCategories = [] }) {
   const router = useRouter();
@@ -124,19 +125,19 @@ export default function CategoryListClient({ initialCategories = [] }) {
     }
   };
 
+  const tabItems = [
+    { name: "All Products", href: "/products", active: false },
+    { name: "Product Categories", href: "/product-categories", active: true }
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Product Categories</h1>
-          <p className="text-muted-foreground">
-            Manage relational grouping and classification for products.
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
+        <ModuleTabNav tabs={tabItems} className="border-b-0 mb-0" />
         {!isFormOpen && (
           <button
             onClick={openCreateMode}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-sm"
+            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             Add Category

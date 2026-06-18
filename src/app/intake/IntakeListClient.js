@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { Eye, Filter } from "lucide-react";
+import { Eye, Filter, Plus } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
@@ -139,7 +139,18 @@ export default function IntakeListClient({
   const showSoldColumns = currentTab === "SOLD" || currentTab === "CLEARED";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Goods Intake Ledger</h1>
+        <Link
+          href="/intake/create"
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-sm"
+        >
+          <Plus className="h-4 w-4" />
+          Record Intake
+        </Link>
+      </div>
+
       {/* Search and Filter Row */}
       <div>
         <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">

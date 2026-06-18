@@ -27,12 +27,9 @@ const menuItems = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Parties", href: "/parties", icon: Users },
   { name: "Products", href: "/products", icon: Package },
-  { name: "Product Categories", href: "/product-categories", icon: Tags },
   { name: "Goods Intake", href: "/intake", icon: ShoppingCart },
-  { name: "Supplier Advances", href: "/advances", icon: Coins },
   { name: "Supplier Settlements", href: "/supplier-invoices", icon: Banknote },
   { name: "Sales / Billing", href: "/sales", icon: ReceiptText },
-  { name: "Sales Workbench", href: "/sales-workbench", icon: Layers },
   { name: "Source Tracking", href: "/source-tracking", icon: Route },
   { name: "Ledger", href: "/ledger", icon: BookOpen },
   { name: "Market Insight", href: "/market-insight", icon: TrendingUp },
@@ -115,7 +112,17 @@ export function Sidebar({ forceExpanded = false, forceCollapsed = false, onClose
       <nav className="flex-1 overflow-y-auto p-4 space-y-1">
         {filteredMenuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+          let isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+          
+          if (item.href === "/products" && (pathname === "/product-categories" || pathname.startsWith("/product-categories/"))) {
+            isActive = true;
+          }
+          if (item.href === "/sales" && (pathname === "/sales-workbench" || pathname.startsWith("/sales-workbench/"))) {
+            isActive = true;
+          }
+          if (item.href === "/supplier-invoices" && (pathname === "/advances" || pathname.startsWith("/advances/"))) {
+            isActive = true;
+          }
           
           return (
             <Link

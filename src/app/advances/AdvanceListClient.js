@@ -8,6 +8,7 @@ import { useTableSorting } from "@/hooks/useTableSorting";
 import DataTable from "@/components/ui/DataTable";
 import DateRangeFilter, { filterByDateRange, getDefaultFilterState } from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
+import ModuleTabNav from "@/components/layout/ModuleTabNav";
 
 export default function AdvanceListClient({ advances = [], defaultPreset = "all" }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -44,13 +45,15 @@ export default function AdvanceListClient({ advances = [], defaultPreset = "all"
     requestSort,
   } = useTableSorting(mappedAdvances, "createdAt", "desc");
 
+  const tabItems = [
+    { name: "Settlement Invoices", href: "/supplier-invoices", active: false },
+    { name: "Supplier Advances", href: "/advances", active: true }
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Supplier Advances</h1>
-          <p className="text-muted-foreground">Track all payments and advances made to suppliers.</p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
+        <ModuleTabNav tabs={tabItems} className="border-b-0 mb-0" />
         <Link
           href="/advances/create"
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"

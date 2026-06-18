@@ -181,12 +181,9 @@ export default function PartyListClient({
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Parties</h1>
-          <p className="text-muted-foreground">Manage your suppliers and buyers.</p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Parties Registry</h1>
         <Link
           href="/parties/create"
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"

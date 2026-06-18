@@ -278,7 +278,19 @@ export default function MarketInsightDashboardClient({
   ], []);
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="space-y-4 pb-12">
+      {/* Header Panel */}
+      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
+        <h1 className="text-xl font-bold tracking-tight text-foreground">Market Insight</h1>
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm shrink-0 cursor-pointer"
+        >
+          <Plus className="h-4 w-4" />
+          Record Daily Rate
+        </button>
+      </div>
+
       {/* Disclaimer Banner */}
       <div className="rounded-xl border bg-sky-50/50 dark:bg-slate-900/60 p-4 border-sky-100 dark:border-sky-950 flex items-start gap-3.5 shadow-md">
         <Info className="h-5 w-5 text-sky-500 dark:text-sky-400 shrink-0 mt-0.5" />
@@ -293,21 +305,6 @@ export default function MarketInsightDashboardClient({
             These rates are independent records and **never** auto-fill invoice transactions, modify inventory stock, or affect ledger balances.
           </p>
         </div>
-      </div>
-
-      {/* Header Panel */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Market Insight</h1>
-          <p className="text-sm text-slate-550 dark:text-slate-400">Track raw pricing fluctuations, event volumes, and product flow metrics.</p>
-        </div>
-        <button
-          onClick={() => setIsModalOpen(true)}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-sm shrink-0"
-        >
-          <Plus className="h-4 w-4" />
-          Record Daily Rate
-        </button>
       </div>
 
       {/* Tabs and Filters Panel */}

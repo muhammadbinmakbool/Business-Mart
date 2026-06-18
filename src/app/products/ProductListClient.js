@@ -11,6 +11,7 @@ import { UnitService } from "@/modules/products/services/UnitService";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import DataTable from "@/components/ui/DataTable";
 import PaginationControls from "@/components/ui/PaginationControls";
+import ModuleTabNav from "@/components/layout/ModuleTabNav";
 
 export default function ProductListClient({
   products = [],
@@ -65,13 +66,15 @@ export default function ProductListClient({
     updateFilters({ sortField: field, sortDirection: direction });
   };
 
+  const tabItems = [
+    { name: "All Products", href: "/products", active: true },
+    { name: "Product Categories", href: "/product-categories", active: false }
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Inventory / Products</h1>
-          <p className="text-muted-foreground">Derived real-time stock based on Intakes and Sales.</p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
+        <ModuleTabNav tabs={tabItems} className="border-b-0 mb-0" />
         <Link
           href="/products/create"
           className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
