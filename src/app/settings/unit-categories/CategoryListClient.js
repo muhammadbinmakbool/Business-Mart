@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { Plus, Edit2, Trash2, Layers, X, Check } from "lucide-react";
+import { Plus, Edit2, Trash2, Layers, X, Check, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   createUnitCategoryAction,
   updateUnitCategoryAction,
@@ -121,8 +122,16 @@ export default function CategoryListClient({ initialCategories = [] }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Unit Categories</h1>
-          <p className="text-muted-foreground text-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <Link 
+              href="/settings"
+              className="p-1 hover:bg-accent rounded-lg text-muted-foreground hover:text-foreground transition-colors mr-1 cursor-pointer"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
+            <h1 className="text-2xl font-bold tracking-tight">Unit Categories</h1>
+          </div>
+          <p className="text-muted-foreground text-sm ml-8">
             Configure baseline groups for unit measurement categories (e.g. Weight, Liquid, Quantity).
           </p>
         </div>

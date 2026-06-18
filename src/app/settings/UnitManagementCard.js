@@ -18,7 +18,7 @@ export default function UnitManagementCard() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
         <Link 
-          href="/unit-categories"
+          href="/settings/unit-categories"
           className="flex items-center justify-between p-4 rounded-xl border bg-accent/15 hover:bg-accent/30 transition-all group cursor-pointer"
         >
           <div className="flex items-center gap-3">
@@ -34,7 +34,7 @@ export default function UnitManagementCard() {
         </Link>
 
         <Link 
-          href="/units"
+          href="/settings/units"
           className="flex items-center justify-between p-4 rounded-xl border bg-accent/15 hover:bg-accent/30 transition-all group cursor-pointer"
         >
           <div className="flex items-center gap-3">

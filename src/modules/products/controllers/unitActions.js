@@ -7,8 +7,8 @@ import { revalidatePath } from "next/cache";
 export async function createUnitCategoryAction(data) {
   try {
     const category = await UnitService.createCategory(data);
-    revalidatePath("/unit-categories");
-    revalidatePath("/units");
+    revalidatePath("/settings/unit-categories");
+    revalidatePath("/settings/units");
     revalidatePath("/settings");
     return { success: true, data: JSON.parse(JSON.stringify(category)) };
   } catch (error) {
@@ -19,8 +19,8 @@ export async function createUnitCategoryAction(data) {
 export async function updateUnitCategoryAction(id, data) {
   try {
     const category = await UnitService.updateCategory(id, data);
-    revalidatePath("/unit-categories");
-    revalidatePath("/units");
+    revalidatePath("/settings/unit-categories");
+    revalidatePath("/settings/units");
     revalidatePath("/settings");
     return { success: true, data: JSON.parse(JSON.stringify(category)) };
   } catch (error) {
@@ -31,8 +31,8 @@ export async function updateUnitCategoryAction(id, data) {
 export async function deleteUnitCategoryAction(id) {
   try {
     const category = await UnitService.deleteCategory(id);
-    revalidatePath("/unit-categories");
-    revalidatePath("/units");
+    revalidatePath("/settings/unit-categories");
+    revalidatePath("/settings/units");
     revalidatePath("/settings");
     return { success: true, data: JSON.parse(JSON.stringify(category)) };
   } catch (error) {
@@ -53,7 +53,7 @@ export async function getUnitCategoriesAction() {
 export async function createUnitAction(data) {
   try {
     const unit = await UnitService.createUnit(data);
-    revalidatePath("/units");
+    revalidatePath("/settings/units");
     revalidatePath("/settings");
     return { success: true, data: JSON.parse(JSON.stringify(unit)) };
   } catch (error) {
@@ -64,7 +64,7 @@ export async function createUnitAction(data) {
 export async function updateUnitAction(id, data) {
   try {
     const unit = await UnitService.updateUnit(id, data);
-    revalidatePath("/units");
+    revalidatePath("/settings/units");
     revalidatePath("/settings");
     return { success: true, data: JSON.parse(JSON.stringify(unit)) };
   } catch (error) {
@@ -75,7 +75,7 @@ export async function updateUnitAction(id, data) {
 export async function deleteUnitAction(id) {
   try {
     const unit = await UnitService.deleteUnit(id);
-    revalidatePath("/units");
+    revalidatePath("/settings/units");
     revalidatePath("/settings");
     return { success: true, data: JSON.parse(JSON.stringify(unit)) };
   } catch (error) {
