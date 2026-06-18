@@ -119,7 +119,7 @@ export default function CategoryListClient({ initialCategories = [] }) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl mx-auto space-y-8 pb-16">
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">

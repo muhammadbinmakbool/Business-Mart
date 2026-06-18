@@ -73,6 +73,58 @@ export class ProductService {
         data: ownedData,
       });
 
+      /*
+      const oldConversion = oldProduct.unitConversion ? Number(oldProduct.unitConversion) : 0;
+      const newConversion = updatedProduct.unitConversion ? Number(updatedProduct.unitConversion) : 0;
+
+      // 2. Recalculate unsold stock of BAG-entered intakes if unit conversion changed
+      if (oldConversion !== newConversion && newConversion > 0) {
+        // Fetch active intakes (PENDING or PARTIAL status) for this product
+        const intakes = await tx.intakeTransaction.findMany({
+          where: {
+            productId,
+            status: { in: [INTAKE_STATUS.PENDING, INTAKE_STATUS.PARTIAL] }
+          }
+        });
+
+        for (const intake of intakes) {
+          const isProdBag = intake.unit === "BAG";
+          if (isProdBag) {
+            const grossWeight = Number(intake.grossWeight || 0);
+            const remainingWeight = Number(intake.remainingWeight || 0);
+
+            let newNormalizedWeight = 0;
+
+            if (intake.status === INTAKE_STATUS.PENDING) {
+              // Completely unsold: Recalculate full weight
+              newNormalizedWeight = grossWeight * newConversion;
+            } else if (intake.status === INTAKE_STATUS.PARTIAL) {
+              // Partially sold:
+              // Sold portion quantity in BAG:
+              const soldBags = Math.max(0, grossWeight - remainingWeight);
+              // Sold weight in KG is frozen at old conversion:
+              const soldWeightKg = soldBags * oldConversion;
+              // Unsold weight in KG is recalculated using new conversion:
+              const unsoldWeightKg = remainingWeight * newConversion;
+              
+              newNormalizedWeight = soldWeightKg + unsoldWeightKg;
+            }
+
+            await tx.intakeTransaction.update({
+              where: { id: intake.id },
+              data: {
+                normalizedWeight: newNormalizedWeight
+              }
+            });
+          }
+        }
+
+        // Recalculate stock
+        const { InventoryService } = require("./InventoryService");
+        await InventoryService.recalculateProductStock(productId, tx);
+      }
+      */
+
       // Option 1 Policy: Changing product unit conversion does not retroactively mutate existing intake transaction weights.
       // Already-stored normalizedWeight values remain untouched. Future transactions will resolve the new conversion factor.
 
