@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
@@ -8,6 +8,37 @@ import { Topbar } from "./Topbar";
 import { useSidebar } from "./SidebarContext";
 import { useAuth } from "./AuthContext";
 import { DestructiveModeBanner } from "./DestructiveModeModal";
+import ModuleTabNav from "./ModuleTabNav";
+import { HeaderActionProvider, useHeaderAction } from "./HeaderActionContext";
+
+/**
+ * Module groups define which routes share a persistent tab bar.
+ * Each group lists its tabs; ModuleTabNav auto-detects the active tab
+ * from the current URL.
+ */
+const MODULE_GROUPS = [
+  {
+    routes: ["/products", "/product-categories"],
+    tabs: [
+      { name: "All Products", href: "/products" },
+      { name: "Product Categories", href: "/product-categories" },
+    ],
+  },
+  {
+    routes: ["/sales", "/sales-workbench"],
+    tabs: [
+      { name: "Sales Invoices", href: "/sales" },
+      { name: "Sales Workbench", href: "/sales-workbench" },
+    ],
+  },
+  {
+    routes: ["/supplier-invoices", "/advances"],
+    tabs: [
+      { name: "Settlement Invoices", href: "/supplier-invoices" },
+      { name: "Supplier Advances", href: "/advances" },
+    ],
+  },
+];
 
 export function AppLayout({ children, salesWorkflow, isSourceTrackingEnabled }) {
   const pathname = usePathname();
@@ -30,6 +61,16 @@ export function AppLayout({ children, salesWorkflow, isSourceTrackingEnabled }) 
   }
 
   const isPosPage = pathname === "/sales/pos" || (pathname === "/sales/create" && salesWorkflow === "POS");
+
+  // Find the module group matching the current route (exact prefix match)
+  const activeModuleGroup = MODULE_GROUPS.find((group) =>
+    group.routes.some((route) => pathname === route || pathname.startsWith(route + "/"))
+  );
+
+  // Only show tabs on the list pages themselves (not on /create, /[id], /[id]/edit sub-routes)
+  const showTabs = activeModuleGroup
+    ? activeModuleGroup.routes.some((route) => pathname === route)
+    : false;
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-background">
@@ -86,10 +127,21 @@ export function AppLayout({ children, salesWorkflow, isSourceTrackingEnabled }) 
         <div className="flex flex-1 flex-col overflow-hidden min-w-0 transition-all duration-300 ease-in-out">
           <Topbar />
           <main className={`flex-1 p-6 bg-background ${isPosPage ? "overflow-hidden flex flex-col h-full" : "overflow-y-auto"}`}>
-            {children}
+            <HeaderActionProvider>
+              {/* Persistent Module Tab Bar — stays mounted so the sliding indicator can animate */}
+              {showTabs && activeModuleGroup && (
+                <PersistentTabRow tabs={activeModuleGroup.tabs} />
+              )}
+              {children}
+            </HeaderActionProvider>
           </main>
         </div>
       </div>
     </div>
   );
+}
+
+function PersistentTabRow({ tabs }) {
+  const { headerAction } = useHeaderAction();
+  return <ModuleTabNav tabs={tabs} headerAction={headerAction} />;
 }

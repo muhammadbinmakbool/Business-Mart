@@ -11,7 +11,8 @@ import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import DataTable from "@/components/ui/DataTable";
 import PaginationControls from "@/components/ui/PaginationControls";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import ModuleTabNav from "@/components/layout/ModuleTabNav";
+import { useHeaderAction } from "@/components/layout/HeaderActionContext";
+
 
 export default function SupplierInvoiceListClient({
   invoices = [],
@@ -31,6 +32,21 @@ export default function SupplierInvoiceListClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { setHeaderAction } = useHeaderAction();
+
+  // Register the action button in the persistent tab row
+  useEffect(() => {
+    setHeaderAction(
+      <Link
+        href="/supplier-invoices/create"
+        className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+      >
+        <Plus className="h-4 w-4" />
+        Generate Settlement
+      </Link>
+    );
+    return () => setHeaderAction(null);
+  }, [setHeaderAction]);
 
   const [searchQuery, setSearchQuery] = useState(currentSearch);
   const [showFilters, setShowFilters] = useState(true);
@@ -101,23 +117,8 @@ export default function SupplierInvoiceListClient({
     { key: "SUPERSEDED", label: "Superseded", count: tabCounts.superseded },
   ];
 
-  const tabItems = [
-    { name: "Settlement Invoices", href: "/supplier-invoices", active: true },
-    { name: "Supplier Advances", href: "/advances", active: false }
-  ];
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
-        <ModuleTabNav tabs={tabItems} className="border-b-0 mb-0" />
-        <Link
-          href="/supplier-invoices/create"
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Generate Settlement
-        </Link>
-      </div>
 
       {/* Search and Filter Row */}
       <div>

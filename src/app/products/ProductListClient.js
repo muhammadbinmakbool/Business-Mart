@@ -11,7 +11,7 @@ import { UnitService } from "@/modules/products/services/UnitService";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import DataTable from "@/components/ui/DataTable";
 import PaginationControls from "@/components/ui/PaginationControls";
-import ModuleTabNav from "@/components/layout/ModuleTabNav";
+import { useHeaderAction } from "@/components/layout/HeaderActionContext";
 
 export default function ProductListClient({
   products = [],
@@ -25,8 +25,23 @@ export default function ProductListClient({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { setHeaderAction } = useHeaderAction();
 
   const [searchQuery, setSearchQuery] = useState(currentSearch);
+
+  // Register the action button in the persistent tab row
+  useEffect(() => {
+    setHeaderAction(
+      <Link
+        href="/products/create"
+        className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+      >
+        <Plus className="h-4 w-4" />
+        Add Product
+      </Link>
+    );
+    return () => setHeaderAction(null);
+  }, [setHeaderAction]);
 
   // Sync internal search query state with URL changes
   useEffect(() => {
@@ -66,23 +81,8 @@ export default function ProductListClient({
     updateFilters({ sortField: field, sortDirection: direction });
   };
 
-  const tabItems = [
-    { name: "All Products", href: "/products", active: true },
-    { name: "Product Categories", href: "/product-categories", active: false }
-  ];
-
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
-        <ModuleTabNav tabs={tabItems} className="border-b-0 mb-0" />
-        <Link
-          href="/products/create"
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Add Product
-        </Link>
-      </div>
 
       <div className="flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
         <DebouncedSearchInput

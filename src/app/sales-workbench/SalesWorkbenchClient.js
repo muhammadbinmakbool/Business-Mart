@@ -20,7 +20,7 @@ import { showToast } from "@/components/ui/Toast";
 import { sellIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import DraftSuggestionCard from "@/components/sales/DraftSuggestionCard";
-import ModuleTabNav from "@/components/layout/ModuleTabNav";
+import { useHeaderAction } from "@/components/layout/HeaderActionContext";
 
 export default function SalesWorkbenchClient({ buyers = [], products = [], flags = {} }) {
   const router = useRouter();
@@ -245,34 +245,35 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
     return matchesIntake;
   });
 
-  const tabItems = [
-    { name: "Sales Invoices", href: "/sales", active: false },
-    { name: "Sales Workbench", href: "/sales-workbench", active: true }
-  ];
+  const { setHeaderAction } = useHeaderAction();
 
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <ModuleTabNav tabs={tabItems} className="border-b-0 mb-0" />
-          <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
-            salesMode === "TRACKED" 
-              ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-              : salesMode === "DIRECT"
-                ? "bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
-                : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-          }`}>
-            {salesMode} MODE
-          </span>
-        </div>
+  // Register mode badge + action button in the persistent tab row
+  useEffect(() => {
+    setHeaderAction(
+      <div className="flex items-center gap-3">
+        <span className={`text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full ${
+          salesMode === "TRACKED" 
+            ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+            : salesMode === "DIRECT"
+              ? "bg-zinc-100 text-zinc-800 dark:bg-zinc-900 dark:text-zinc-400"
+              : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+        }`}>
+          {salesMode} MODE
+        </span>
         <button
-          onClick={() => router.push(flags.salesWorkflow === "POS" ? "/sales/create" : "/sales/create")}
+          onClick={() => router.push("/sales/create")}
           className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-semibold hover:bg-primary/90 transition-all shadow-sm cursor-pointer"
         >
           <Plus className="h-4 w-4" />
           Create Direct Invoice
         </button>
       </div>
+    );
+    return () => setHeaderAction(null);
+  }, [setHeaderAction, salesMode, router]);
+
+  return (
+    <div className="space-y-4">
 
       {/* Disabled suggestions banner */}
       {!data.enabled && (

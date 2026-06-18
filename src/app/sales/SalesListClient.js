@@ -12,7 +12,7 @@ import { getUnitLabel } from "@/lib/units";
 import DataTable from "@/components/ui/DataTable";
 import PaginationControls from "@/components/ui/PaginationControls";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import ModuleTabNav from "@/components/layout/ModuleTabNav";
+import { useHeaderAction } from "@/components/layout/HeaderActionContext";
 
 export default function SalesListClient({
   sales = [],
@@ -105,23 +105,24 @@ export default function SalesListClient({
     { key: "CANCELLED", label: "Cancelled", count: tabCounts.cancelled },
   ];
 
-  const tabItems = [
-    { name: "Sales Invoices", href: "/sales", active: true },
-    { name: "Sales Workbench", href: "/sales-workbench", active: false }
-  ];
+  const { setHeaderAction } = useHeaderAction();
+
+  // Register the action button in the persistent tab row
+  useEffect(() => {
+    setHeaderAction(
+      <Link
+        href="/sales/create"
+        className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors cursor-pointer"
+      >
+        <Plus className="h-4 w-4" />
+        New Sale
+      </Link>
+    );
+    return () => setHeaderAction(null);
+  }, [setHeaderAction]);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
-        <ModuleTabNav tabs={tabItems} className="border-b-0 mb-0" />
-        <Link
-          href="/sales/create"
-          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          New Sale
-        </Link>
-      </div>
 
       {/* Search and Filter Row */}
       <div>

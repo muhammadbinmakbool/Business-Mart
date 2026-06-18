@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Plus, Edit2, Trash2, Tags, X, Check, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -11,7 +11,7 @@ import {
   deleteCategoryAction
 } from "@/modules/products/controllers/productCategoryActions";
 import DataTable from "@/components/ui/DataTable";
-import ModuleTabNav from "@/components/layout/ModuleTabNav";
+import { useHeaderAction } from "@/components/layout/HeaderActionContext";
 
 export default function CategoryListClient({ initialCategories = [] }) {
   const router = useRouter();
@@ -125,25 +125,28 @@ export default function CategoryListClient({ initialCategories = [] }) {
     }
   };
 
-  const tabItems = [
-    { name: "All Products", href: "/products", active: false },
-    { name: "Product Categories", href: "/product-categories", active: true }
-  ];
+  const { setHeaderAction } = useHeaderAction();
+
+  // Register the action button in the persistent tab row
+  useEffect(() => {
+    if (!isFormOpen) {
+      setHeaderAction(
+        <button
+          onClick={openCreateMode}
+          className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
+        >
+          <Plus className="h-4 w-4" />
+          Add Category
+        </button>
+      );
+    } else {
+      setHeaderAction(null);
+    }
+    return () => setHeaderAction(null);
+  }, [isFormOpen, setHeaderAction]);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between border-b border-border/60 pb-3 mb-4 shrink-0">
-        <ModuleTabNav tabs={tabItems} className="border-b-0 mb-0" />
-        {!isFormOpen && (
-          <button
-            onClick={openCreateMode}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg font-medium hover:bg-primary/90 transition-colors shadow-sm cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Add Category
-          </button>
-        )}
-      </div>
 
       {/* Slide down creation / edit form */}
       {isFormOpen && (
