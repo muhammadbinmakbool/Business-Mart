@@ -60,7 +60,11 @@ async function main() {
         data: {
           name: `Stress Product ${existingProducts.length + i}`,
           category: "WEIGHT",
+          unitCategory: "WEIGHT",
           primaryUnit: "KG",
+          defaultSellingUnit: "KG",
+          buyingRateUnit: "KG",
+          sellingRateUnit: "KG",
           isActive: true
         }
       });

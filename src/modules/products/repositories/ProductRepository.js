@@ -53,7 +53,8 @@ export class ProductRepository {
     limit = 50,
     searchQuery = "",
     sortField = "name",
-    sortDirection = "asc"
+    sortDirection = "asc",
+    status = "ALL"
   } = {}) {
     let showDeleted = false;
     try {
@@ -72,18 +73,28 @@ export class ProductRepository {
       ];
     }
 
+    if (status === "ACTIVE") {
+      where.isActive = true;
+    } else if (status === "INACTIVE") {
+      where.isActive = false;
+    }
+
     const skip = (page - 1) * limit;
 
     const orderByClause = [];
     if (sortField) {
+      const dbField = sortField === "availableStock" ? "quantity" : sortField;
       const direction = sortDirection === "asc" ? "asc" : "desc";
-      orderByClause.push({ [sortField]: direction });
+      orderByClause.push({ [dbField]: direction });
     } else {
       orderByClause.push({ name: "asc" });
     }
     orderByClause.push({ id: "desc" });
 
-    const [items, totalCount] = await Promise.all([
+    const countWhere = { ...where };
+    delete countWhere.isActive;
+
+    const [items, totalCount, activeCount, inactiveCount, allCount] = await Promise.all([
       prisma.product.findMany({
         where,
         skip,
@@ -91,7 +102,10 @@ export class ProductRepository {
         orderBy: orderByClause,
         include: { productCategory: true }
       }),
-      prisma.product.count({ where })
+      prisma.product.count({ where }),
+      prisma.product.count({ where: { ...countWhere, isActive: true } }),
+      prisma.product.count({ where: { ...countWhere, isActive: false } }),
+      prisma.product.count({ where: countWhere })
     ]);
 
     const mappedItems = items.map(p => {
@@ -102,7 +116,15 @@ export class ProductRepository {
       };
     });
 
-    return { items: mappedItems, totalCount };
+    return {
+      items: mappedItems,
+      totalCount,
+      tabCounts: {
+        all: allCount,
+        active: activeCount,
+        inactive: inactiveCount
+      }
+    };
   }
 
 

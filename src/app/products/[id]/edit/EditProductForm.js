@@ -134,6 +134,7 @@ export default function EditProductForm({ product, categories = [] }) {
           <select
             id="primaryUnit"
             name="primaryUnit"
+            required
             value={primaryUnit}
             onChange={(e) => setPrimaryUnit(e.target.value)}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -206,6 +207,7 @@ export default function EditProductForm({ product, categories = [] }) {
               <select
                 id="buyingRateUnit"
                 name="buyingRateUnit"
+                required
                 value={buyingRateUnit}
                 onChange={(e) => setBuyingRateUnit(e.target.value)}
                 className="w-32 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -233,6 +235,7 @@ export default function EditProductForm({ product, categories = [] }) {
               <select
                 id="sellingRateUnit"
                 name="sellingRateUnit"
+                required
                 value={sellingRateUnit}
                 onChange={(e) => setSellingRateUnit(e.target.value)}
                 className="w-32 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -249,6 +252,7 @@ export default function EditProductForm({ product, categories = [] }) {
             <select
               id="defaultSellingUnit"
               name="defaultSellingUnit"
+              required
               value={defaultSellingUnit}
               onChange={(e) => setDefaultSellingUnit(e.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"

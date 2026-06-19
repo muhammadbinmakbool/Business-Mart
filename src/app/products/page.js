@@ -12,22 +12,26 @@ export default async function ProductsPage({ searchParams }) {
   const search = resolvedSearchParams.search || "";
   const sortField = resolvedSearchParams.sortField || "name";
   const sortDirection = resolvedSearchParams.sortDirection || "asc";
+  const tab = resolvedSearchParams.tab || "ALL";
 
-  const { items: products, totalCount } = await ProductService.listProductsPaginated({
+  const { items: products, totalCount, tabCounts } = await ProductService.listProductsPaginated({
     page,
     limit,
     searchQuery: search,
     sortField,
-    sortDirection
+    sortDirection,
+    status: tab
   });
 
   return (
     <ProductListClient
       products={products}
       totalCount={totalCount}
+      tabCounts={tabCounts}
       currentPage={page}
       currentLimit={limit}
       currentSearch={search}
+      currentTab={tab}
       currentSortField={sortField}
       currentSortDirection={sortDirection}
     />

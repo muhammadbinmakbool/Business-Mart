@@ -6,7 +6,6 @@ import { showToast } from "@/components/ui/Toast";
 import { Clock, BadgeCheck, ShoppingBag, XCircle, X, Scale, User, DollarSign, Box } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { calculateIntakeNetWeight, UNIT_IDS, getUnitLabel } from "@/lib/units";
-import { getPreferredRateUnit, getPreferredWeightUnit } from "@/lib/display-units";
 import Modal from "@/components/ui/Modal";
 
 export default function StatusUpdateButtons({ intakeId, currentStatus, intake, buyers = [], allowedActions = {} }) {
@@ -36,8 +35,8 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
   React.useEffect(() => {
     if (!intake || intake.status === "PENDING" || intake.status === "PARTIAL") {
-      setRateUnit(isBagProduct ? "BAG" : getPreferredRateUnit());
-      setKhotRateUnit(getPreferredWeightUnit());
+      setRateUnit(isBagProduct ? "BAG" : (intake?.product?.buyingRateUnit || "KG"));
+      setKhotRateUnit(intake?.product?.primaryUnit || "KG");
     } else {
       setRateUnit(intake.rateUnit || (isBagProduct ? "BAG" : "KG"));
       setKhotRateUnit(intake.khotRateUnit || "KG");

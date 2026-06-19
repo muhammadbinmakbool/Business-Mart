@@ -3,6 +3,7 @@ import { productSchema } from "../validations/productSchema";
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 import { prisma } from "@/lib/prisma";
 import { withOwnership } from "@/lib/session";
+import { UnitService } from "./UnitService";
 
 export class ProductService {
   static async listProducts() {
@@ -18,22 +19,39 @@ export class ProductService {
     limit = 50,
     searchQuery = "",
     sortField = "name",
-    sortDirection = "asc"
+    sortDirection = "asc",
+    status = "ALL"
   } = {}) {
     const { clampLimit } = await import("@/lib/pagination");
     const clampedLimit = clampLimit(limit);
 
-    const { items, totalCount } = await ProductRepository.getAllPaginated({
+    const { items, totalCount, tabCounts } = await ProductRepository.getAllPaginated({
       page,
       limit: clampedLimit,
       searchQuery,
       sortField,
-      sortDirection
+      sortDirection,
+      status
     });
 
+    const enrichedItems = await Promise.all(
+      items.map(async (item) => {
+        const displayStock = await UnitService.getDisplayQuantity(
+          item.availableStock,
+          item.primaryUnit,
+          item
+        );
+        return {
+          ...item,
+          displayStock
+        };
+      })
+    );
+
     return {
-      items: JSON.parse(JSON.stringify(items)),
-      totalCount
+      items: JSON.parse(JSON.stringify(enrichedItems)),
+      totalCount,
+      tabCounts
     };
   }
 

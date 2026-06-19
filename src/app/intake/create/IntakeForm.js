@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getUnitsByCategory, normalizeQuantity, convertFromBase, UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
-import { getPreferredWeightUnit } from "@/lib/display-units";
+import { getProductValidationState } from "@/modules/products/utils/productValidation";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
@@ -44,7 +44,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
   const supplierRef = useRef(null);
   const [isNewSupplier, setIsNewSupplier] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState("");
-  const [selectedUnit, setSelectedUnit] = useState("");
+  const [selectedUnit, setSelectedUnit] = useState(null);
   const [grossWeightVal, setGrossWeightVal] = useState("");
   const [bagCountVal, setBagCountVal] = useState("");
   const [saveAndContinue, setSaveAndContinue] = useState(false);
@@ -148,14 +148,23 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
     : null;
 
   const handleProductChange = async (productId) => {
-    setSelectedProductId(productId);
     const prod = products.find(p => p.id === parseInt(productId));
     if (prod) {
+      const validation = getProductValidationState(prod);
+      if (!validation.isValid) {
+        showToast.error(`Cannot select product: "${prod.name}" configuration is invalid. Missing: ${validation.errors.join(", ")}`);
+        setSelectedProductId("");
+        setSelectedUnit(null);
+        setGrossWeightVal("");
+        setBagCountVal("");
+        return;
+      }
+      setSelectedProductId(productId);
       const sessionMemory = {
         lastUnit: fastEntryMemoryStore.getLastValue("lastUnit", "intake"),
       };
       const result = await getProductForIntake(productId, sessionMemory);
-      const defaultUnit = result.success ? result.defaults.unit : "KG";
+      const defaultUnit = result.success ? result.defaults.unit : null;
       setSelectedUnit(defaultUnit);
 
       const customUnitCode = unitRegistry
@@ -171,7 +180,8 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
         setBagCountVal(calculatedBags ? calculatedBags.toString() : "");
       }
     } else {
-      setSelectedUnit("");
+      setSelectedProductId("");
+      setSelectedUnit(null);
       setGrossWeightVal("");
       setBagCountVal("");
     }
@@ -398,13 +408,17 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
             name="unit"
             required
             disabled={!selectedProductId}
-            value={selectedUnit}
-            onChange={(e) => handleUnitChange(e.target.value)}
+            value={selectedUnit || ""}
+            onChange={(e) => handleUnitChange(e.target.value || null)}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 font-medium"
           >
-            {compatibleUnits.map(u => (
-              <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
-            ))}
+            {compatibleUnits.length === 0 ? (
+              <option value="">--</option>
+            ) : (
+              compatibleUnits.map(u => (
+                <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
+              ))
+            )}
             {!selectedProductId && <option value="">Select a product first...</option>}
           </select>
           <InlineSuggestionBox 

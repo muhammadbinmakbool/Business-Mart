@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getUnitsByCategory, calculateIntakeNetWeight, normalizeQuantity, convertFromBase, UNIT_IDS, getUnitLabel, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { Scale, User, DollarSign, Box, X, XCircle } from "lucide-react";
-import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
+import { getProductValidationState } from "@/modules/products/utils/productValidation";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
@@ -89,7 +89,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
   React.useEffect(() => {
     if (!intake.unit) {
-      setUnit(getPreferredWeightUnit());
+      setUnit(selectedProduct?.primaryUnit || null);
     }
     if (!intake.rateUnit || intake.status === "PENDING") {
       const customUnitCode = selectedProduct && (
@@ -97,7 +97,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
           ? (unitRegistry.units[selectedProduct.primaryUnit]?.isCustom ? selectedProduct.primaryUnit : null)
           : (selectedProduct.primaryUnit === "BAG" ? "BAG" : null)
       );
-      setRateUnit(customUnitCode || getPreferredRateUnit());
+      setRateUnit(customUnitCode || selectedProduct?.buyingRateUnit || null);
     }
   }, [intake, selectedProduct, unitRegistry]);
 
@@ -112,11 +112,16 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     : [];
 
   const handleProductChange = async (productId) => {
-    setSelectedProductId(productId);
     const prod = products.find(p => p.id === parseInt(productId));
     if (prod) {
+      const validation = getProductValidationState(prod);
+      if (!validation.isValid) {
+        showToast.error(`Cannot select product: "${prod.name}" configuration is invalid. Missing: ${validation.errors.join(", ")}`);
+        return;
+      }
+      setSelectedProductId(productId);
       const result = await getProductForIntake(productId, {});
-      const defaultUnit = result.success ? result.defaults.unit : "KG";
+      const defaultUnit = result.success ? result.defaults.unit : null;
       setUnit(defaultUnit);
 
       const customUnitCode = unitRegistry
@@ -132,7 +137,8 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
         setBagCount(calculatedBags ? calculatedBags.toString() : "");
       }
     } else {
-      setUnit("");
+      setSelectedProductId("");
+      setUnit(null);
       setGrossWeight("");
       setBagCount("");
     }
@@ -337,13 +343,17 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
           <select
             id="unit"
             required
-            value={unit}
-            onChange={e => handleUnitChange(e.target.value)}
+            value={unit || ""}
+            onChange={e => handleUnitChange(e.target.value || null)}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
           >
-            {compatibleUnits.map(u => (
-              <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
-            ))}
+            {compatibleUnits.length === 0 ? (
+              <option value="">--</option>
+            ) : (
+              compatibleUnits.map(u => (
+                <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
+              ))
+            )}
           </select>
         </div>
 
@@ -472,17 +482,16 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>
                 <select
-                  value={rateUnit}
-                  onChange={e => setRateUnit(e.target.value)}
+                  value={rateUnit || ""}
+                  onChange={e => setRateUnit(e.target.value || null)}
                   className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
                 >
-                  {isBagProduct ? (
-                    <option value="BAG">/ Bag</option>
+                  {compatibleUnits.length === 0 ? (
+                    <option value="">--</option>
                   ) : (
-                    <>
-                      <option value={UNIT_IDS.KG}>/ KG</option>
-                      <option value={UNIT_IDS.MAUND}>/ Maund</option>
-                    </>
+                    compatibleUnits.map(u => (
+                      <option key={u.id} value={u.id}>/ {u.id}</option>
+                    ))
                   )}
                 </select>
               </div>

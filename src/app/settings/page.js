@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense, useEffect } from "react";
-import DisplayUnitSettingsCard from "./DisplayUnitSettingsCard";
+
 import UsersManagement from "./UsersManagement";
 import DefaultsCard from "./DefaultsCard";
 import UnitManagementCard from "./UnitManagementCard";
@@ -257,7 +257,6 @@ function SettingsContent() {
           <div className={activeTab === "defaults" ? "space-y-6 animate-in fade-in duration-200" : "hidden"}>
             <DefaultsCard />
             <UnitManagementCard />
-            <DisplayUnitSettingsCard />
           </div>
 
           <div className={activeTab === "print" ? "space-y-6 animate-in fade-in duration-200" : "hidden"}>

@@ -31,9 +31,9 @@ export function resolveProductDefaults(product, sessionMemory = {}, context = "s
     resolvedUnit = product.primaryUnit;
   }
 
-  // Priority 4: System Fallback
+  // Priority 4: System Fallback (No silent fallback to KG)
   if (!resolvedUnit) {
-    resolvedUnit = BASE_UNITS[unitCategory] || "KG";
+    resolvedUnit = null;
   }
 
   // 2. Resolve Rate Unit

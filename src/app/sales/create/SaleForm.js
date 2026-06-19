@@ -11,7 +11,7 @@ import { cn, getLocalDateString } from "@/lib/utils";
 import { round, calculateAdjustment, calculateTransactionTotals } from "@/lib/financial";
 import { getUnitsByCategory, UNITS, normalizeQuantity, normalizeRate, convertRate, convertFromBase, UNIT_IDS } from "@/lib/units";
 import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
-import { getPreferredWeightUnit, getPreferredRateUnit } from "@/lib/display-units";
+import { getProductValidationState } from "@/modules/products/utils/productValidation";
 import Alert from "@/components/ui/Alert";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
@@ -45,12 +45,12 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
       return {
         ...item,
         productId: item.productId.toString(),
-        unit: item.unit || "KG",
-        rateUnit: item.rateUnit || "KG",
+        unit: item.unit || null,
+        rateUnit: item.rateUnit || null,
         salesTrackId: item.salesTrackId || track?.id || null,
         intakeNumber: item.intakeNumber || track?.intakeTransaction?.intakeNumber || null
       };
-    }) || [{ productId: "", weight: "", rate: "", unit: "KG", rateUnit: "KG", amount: 0 }]
+    }) || [{ productId: "", weight: "", rate: "", unit: null, rateUnit: null, amount: 0 }]
   );
 
   const buyerOptions = useMemo(() => [
@@ -103,7 +103,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     if (initialData?.adjustments) {
       return initialData.adjustments.map(adj => ({
         ...adj,
-        unit: adj.unit || "KG",
+        unit: adj.unit || null,
         isUserEditable: typeof adj.isUserEditable !== "undefined" && adj.isUserEditable !== null ? adj.isUserEditable : true
       }));
     }
@@ -115,7 +115,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
         method: d.method,
         value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
         direction: d.direction,
-        unit: "KG",
+        unit: null,
         isUserEditable: d.isUserEditable
       }));
   });
@@ -183,7 +183,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     method: "FIXED", 
     value: "", 
     direction: "ADD",
-    unit: "KG"
+    unit: null
   });
   // Centralized Suggestions Engine State
   const [draftSuggestion, setDraftSuggestion] = useState(null);
@@ -220,8 +220,8 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
       productId: item.productId.toString(),
       weight: item.weight.toString(),
       rate: item.rate.toString(),
-      unit: item.unit || "KG",
-      rateUnit: item.rateUnit || "KG",
+      unit: item.unit || null,
+      rateUnit: item.rateUnit || null,
       salesTrackId: item.salesTrackId || null,
       intakeNumber: item.intakeNumber || null,
       amount: Number(item.weight) * Number(item.rate)
@@ -273,14 +273,14 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
         productId: "", 
         weight: "", 
         rate: "", 
-        unit: getPreferredWeightUnit() || "KG", 
-        rateUnit: getPreferredRateUnit() || "KG", 
+        unit: null, 
+        rateUnit: null, 
         amount: 0 
       }]);
     }
     setCurrentAdjustment(prev => ({
       ...prev,
-      unit: getPreferredWeightUnit() || "KG"
+      unit: null
     }));
   }, []);
 
@@ -291,8 +291,8 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     productId: "", 
     weight: "", 
     rate: "", 
-    unit: getPreferredWeightUnit() || "KG", 
-    rateUnit: getPreferredRateUnit() || "KG", 
+    unit: null, 
+    rateUnit: null, 
     amount: 0 
   }]);
 
@@ -312,8 +312,8 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
         productId: "", 
         weight: "", 
         rate: "", 
-        unit: getPreferredWeightUnit() || "KG", 
-        rateUnit: getPreferredRateUnit() || "KG", 
+        unit: null, 
+        rateUnit: null, 
         amount: 0 
       }]);
     }
@@ -333,14 +333,23 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
         };
         const result = await getProductForSale(value, sessionMemory);
         if (result.success) {
-          const { defaults } = result;
-          newItems[index].unit = defaults.unit;
-          newItems[index].rateUnit = defaults.rateUnit;
-          newItems[index].rate = defaults.rate > 0 ? defaults.rate.toString() : "";
+          const validation = getProductValidationState(result.product);
+          if (!validation.isValid) {
+            showToast.error(`Cannot select product: "${result.product.name}" configuration is invalid. Missing: ${validation.errors.join(", ")}`);
+            newItems[index].productId = "";
+            newItems[index].unit = null;
+            newItems[index].rateUnit = null;
+            newItems[index].rate = "";
+          } else {
+            const { defaults } = result;
+            newItems[index].unit = defaults.unit;
+            newItems[index].rateUnit = defaults.rateUnit;
+            newItems[index].rate = defaults.rate > 0 ? defaults.rate.toString() : "";
+          }
         }
       } else {
-        newItems[index].unit = "KG";
-        newItems[index].rateUnit = "KG";
+        newItems[index].unit = null;
+        newItems[index].rateUnit = null;
         newItems[index].rate = "";
       }
     }
@@ -367,7 +376,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
       }
     ]);
     setIsAdjustmentModalOpen(false);
-    setCurrentAdjustment({ code: null, adjustmentType: "Custom", method: "FIXED", value: "", direction: "ADD", unit: getPreferredWeightUnit() || "KG" });
+    setCurrentAdjustment({ code: null, adjustmentType: "Custom", method: "FIXED", value: "", direction: "ADD", unit: null });
   };
 
   const removeAdjustment = (index) => {
@@ -707,14 +716,18 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                           required
                         />
                         <select
-                          value={item.unit}
-                          onChange={(e) => updateItem(index, "unit", e.target.value)}
+                          value={item.unit || ""}
+                          onChange={(e) => updateItem(index, "unit", e.target.value || null)}
                           className="bg-muted text-foreground text-[10px] font-bold uppercase rounded px-1.5 py-1 border-none outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-20"
                           disabled={!item.productId}
                         >
-                          {compatibleUnits.map(u => (
-                            <option key={u.id} value={u.id} className="bg-background text-foreground">{u.id}</option>
-                          ))}
+                          {compatibleUnits.length === 0 ? (
+                            <option value="">--</option>
+                          ) : (
+                            compatibleUnits.map(u => (
+                              <option key={u.id} value={u.id} className="bg-background text-foreground">{u.id}</option>
+                            ))
+                          )}
                         </select>
                       </div>
                       {(() => {
@@ -746,14 +759,18 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                           required
                         />
                         <select
-                          value={item.rateUnit}
-                          onChange={(e) => updateItem(index, "rateUnit", e.target.value)}
+                          value={item.rateUnit || ""}
+                          onChange={(e) => updateItem(index, "rateUnit", e.target.value || null)}
                           className="bg-muted text-foreground text-[10px] font-bold uppercase rounded px-1.5 py-1 border-none outline-none focus:ring-1 focus:ring-primary/50 disabled:opacity-20"
                           disabled={!item.productId}
                         >
-                          {compatibleUnits.map(u => (
-                            <option key={u.id} value={u.id} className="bg-background text-foreground">/{u.id}</option>
-                          ))}
+                          {compatibleUnits.length === 0 ? (
+                            <option value="">--</option>
+                          ) : (
+                            compatibleUnits.map(u => (
+                              <option key={u.id} value={u.id} className="bg-background text-foreground">/{u.id}</option>
+                            ))
+                          )}
                         </select>
                       </div>
                       {(() => {

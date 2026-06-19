@@ -22,16 +22,16 @@ async function main() {
   ];
 
   const products = [
-    { name: "Basmati Rice", category: "WEIGHT", primaryUnit: "KG", unitConversion: 50 },
-    { name: "Wheat (Gandum)", category: "WEIGHT", primaryUnit: "KG", unitConversion: 40 },
-    { name: "Sugar", category: "WEIGHT", primaryUnit: "KG", unitConversion: 50 },
-    { name: "Cooking Oil", category: "QUANTITY", primaryUnit: "PIECE" },
-    { name: "Corn (Makkai)", category: "WEIGHT", primaryUnit: "KG", unitConversion: 40 },
-    { name: "Fertilizer Urea", category: "WEIGHT", primaryUnit: "KG", unitConversion: 50 },
-    { name: "Cotton Seeds", category: "WEIGHT", primaryUnit: "KG", unitConversion: 40 },
-    { name: "Red Chili", category: "WEIGHT", primaryUnit: "KG" },
-    { name: "Salt", category: "WEIGHT", primaryUnit: "KG" },
-    { name: "Daal Chana", category: "WEIGHT", primaryUnit: "KG" }
+    { name: "Basmati Rice", category: "WEIGHT", unitCategory: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG", unitConversion: 50 },
+    { name: "Wheat (Gandum)", category: "WEIGHT", unitCategory: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG", unitConversion: 40 },
+    { name: "Sugar", category: "WEIGHT", unitCategory: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG", unitConversion: 50 },
+    { name: "Cooking Oil", category: "QUANTITY", unitCategory: "QUANTITY", primaryUnit: "PIECE", defaultSellingUnit: "PIECE", buyingRateUnit: "PIECE", sellingRateUnit: "PIECE" },
+    { name: "Corn (Makkai)", category: "WEIGHT", unitCategory: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG", unitConversion: 40 },
+    { name: "Fertilizer Urea", category: "WEIGHT", unitCategory: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG", unitConversion: 50 },
+    { name: "Cotton Seeds", category: "WEIGHT", unitCategory: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG", unitConversion: 40 },
+    { name: "Red Chili", category: "WEIGHT", unitCategory: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG" },
+    { name: "Salt", category: "WEIGHT", unitCategory: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG" },
+    { name: "Daal Chana", category: "WEIGHT", unitCategory: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG" }
   ];
 
   console.log("Cleaning existing data...");

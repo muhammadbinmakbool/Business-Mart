@@ -105,4 +105,26 @@
   ::-webkit-scrollbar-thumb:hover {
     background: var(--muted-foreground);
   }
+
+}
+
+/* Fix vertical text alignment in select elements globally */
+select {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+select.py-2, select[class*="py-2"] {
+  height: 2.375rem; /* ~38px */
+}
+select.py-1\.5, select[class*="py-1.5"] {
+  height: 2.125rem; /* ~34px */
+}
+select.py-1, select[class*="py-1"] {
+  height: 1.875rem; /* ~30px */
+}
+select.py-2\.5, select[class*="py-2.5"] {
+  height: 2.625rem; /* ~42px */
+}
+select.py-3, select[class*="py-3"] {
+  height: 2.875rem; /* ~46px */
 }

@@ -4,6 +4,7 @@ import { ProductService } from "../services/ProductService";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { invalidateCacheBucket } from "@/modules/aggregations/cache";
+import { getProductValidationState } from "../utils/productValidation";
 
 export async function createProductAction(formData) {
   const data = {
@@ -20,6 +21,11 @@ export async function createProductAction(formData) {
     displayOrder: formData.get("displayOrder") ? Number(formData.get("displayOrder")) : 0,
     isActive: true,
   };
+
+  const validation = getProductValidationState(data);
+  if (!validation.isValid) {
+    return { error: `Product configuration is invalid. Missing required fields: ${validation.errors.join(", ")}` };
+  }
 
   try {
     await ProductService.createProduct(data);
@@ -46,6 +52,11 @@ export async function updateProductAction(id, formData) {
     displayOrder: formData.get("displayOrder") ? Number(formData.get("displayOrder")) : 0,
     isActive: formData.get("isActive") === "true",
   };
+
+  const validation = getProductValidationState(data);
+  if (!validation.isValid) {
+    return { error: `Product configuration is invalid. Missing required fields: ${validation.errors.join(", ")}` };
+  }
 
   try {
     await ProductService.updateProduct(id, data);
