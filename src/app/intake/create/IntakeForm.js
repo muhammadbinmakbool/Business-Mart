@@ -63,10 +63,14 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
     }))
   ], [suppliers]);
 
-  const productOptions = React.useMemo(() => products.map(p => ({
-    value: p.id.toString(),
-    label: p.name
-  })), [products]);
+  const productOptions = React.useMemo(() => products.map(p => {
+    const validation = getProductValidationState(p);
+    return {
+      value: p.id.toString(),
+      label: validation.isValid ? p.name : `${p.name} (⚠️ Misconfigured)`,
+      subLabel: validation.isValid ? undefined : "Invalid configuration"
+    };
+  }), [products]);
 
   // ── Keyboard Flow Integration ──
   const handleKeyboardSubmit = useCallback(() => {

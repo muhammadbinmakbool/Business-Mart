@@ -62,10 +62,14 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     }))
   ], [buyers]);
 
-  const productOptions = useMemo(() => products.map(p => ({
-    value: p.id.toString(),
-    label: p.name
-  })), [products]);
+  const productOptions = useMemo(() => products.map(p => {
+    const validation = getProductValidationState(p);
+    return {
+      value: p.id.toString(),
+      label: validation.isValid ? p.name : `${p.name} (⚠️ Misconfigured)`,
+      subLabel: validation.isValid ? undefined : "Invalid configuration"
+    };
+  }), [products]);
 
   const assistantSuggestions = useFastEntryAssistant({
     context: "sales",

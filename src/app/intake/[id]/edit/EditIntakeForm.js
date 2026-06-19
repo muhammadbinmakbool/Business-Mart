@@ -33,10 +33,14 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     subLabel: s.phoneNumber
   })), [suppliers]);
 
-  const productOptions = React.useMemo(() => products.map(p => ({
-    value: p.id.toString(),
-    label: p.name
-  })), [products]);
+  const productOptions = React.useMemo(() => products.map(p => {
+    const validation = getProductValidationState(p);
+    return {
+      value: p.id.toString(),
+      label: validation.isValid ? p.name : `${p.name} (⚠️ Misconfigured)`,
+      subLabel: validation.isValid ? undefined : "Invalid configuration"
+    };
+  }), [products]);
 
   const buyerOptions = React.useMemo(() => buyers.map(b => ({
     value: b.id.toString(),
