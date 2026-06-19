@@ -8,6 +8,7 @@ import { ProductService } from "../../products/services/ProductService";
 import { InventoryService } from "../../products/services/InventoryService";
 import { prisma } from "@/lib/prisma";
 import { convertRate, DEFAULT_WEIGHT_UNIT, normalizeQuantity } from "@/lib/units";
+import { getProductValidationState } from "@/modules/products/utils/productValidation";
 import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity, logIntakeEvent, logPaymentEvent } from "@/modules/activity-log/activityLogger";
 import { calculateIntakeState } from "@/lib/financial";
@@ -166,6 +167,12 @@ export class IntakeService {
     // Normalize weight
     const product = await ProductService.getProduct(validated.productId);
     if (!product) throw new Error("Product not found");
+
+    const validation = getProductValidationState(product);
+    if (!validation.isValid) {
+      throw new Error(`Product "${product.name}" unit configuration is incomplete. Missing: ${validation.errors.join(", ")}`);
+    }
+    
     if (!product.isActive) {
       throw new Error(`Product "${product.name}" is disabled/inactive. New goods intakes cannot be created for disabled products.`);
     }
@@ -277,6 +284,11 @@ export class IntakeService {
 
       const product = await tx.product.findUnique({ where: { id: newProductId } });
       if (!product) throw new Error("Product not found");
+
+      const validation = getProductValidationState(product);
+      if (!validation.isValid) {
+        throw new Error(`Product "${product.name}" unit configuration is incomplete. Missing: ${validation.errors.join(", ")}`);
+      }
 
       if (!product.isActive) {
         const isTransitionToSelling = (newStatus === "SOLD" || newStatus === "PARTIAL");
@@ -591,6 +603,13 @@ export class IntakeService {
         include: { product: true }
       });
       if (!intake) throw new Error("Intake transaction not found");
+
+      if (intake.product) {
+        const validation = getProductValidationState(intake.product);
+        if (!validation.isValid) {
+          throw new Error(`Product "${intake.product.name}" unit configuration is incomplete. Missing: ${validation.errors.join(", ")}`);
+        }
+      }
 
       const isBagProduct = intake.unit === "BAG" || (intake.product && (intake.product.primaryUnit === "BAG" || intake.product.category === "BAG"));
       const rateUnit = isBagProduct ? "BAG" : (data.rateUnit || DEFAULT_WEIGHT_UNIT);

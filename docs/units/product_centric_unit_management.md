@@ -67,7 +67,23 @@ When a user attempts to select a product in `SaleForm`, `IntakeForm`, or `EditIn
 
 ---
 
-## 4. Preservation & historical Integrity
+## 4. Preservation & Historical Integrity
 
-- **Transaction Unit Snapshots**: The measurement unit and rate unit are persisted on the transaction items at the moment of creation. 
+- **Transaction Unit Snapshots**: The measurement unit and rate unit are persisted on the transaction items at the moment of creation.
 - **Configuration Updates**: Changing a product's unit configuration tomorrow will **never** alter historical invoices or intake receipts. All past records remain completely decoupled from subsequent product changes.
+- **Service-Level Enforcement**: Validation is enforced at the database-service layer inside `SaleService` (in `recordSale` and `updateSale`) and `IntakeService` (in `createIntake`, `updateIntake`, and `sellIntake`). If any call bypasses the UI and attempts to save a transaction with an invalidly configured product, the transaction is rejected and throws a validation error.
+
+---
+
+## 5. Conversion Factor Preservation (Mathematical Invariant)
+
+To guarantee that past transactions are completely immune to subsequent changes in custom unit sizes (e.g. if the weight of a `BAG` changes from `100 KG` to `80 KG`), the system relies on a mathematical invariant:
+
+Both the entered weight (`weight` or `grossWeight` in the selected unit) and the absolute base weight (`normalizedWeight` in `KG`) are snapshotted and saved directly in the transaction record at creation time.
+
+### The Derivation Formula
+The conversion factor used at transaction time can always be mathematically derived from the saved row values:
+
+$$\text{conversionFactor} = \frac{\text{normalizedWeight}}{\text{weight}}$$
+
+Any historical report, script, or utility requiring unit conversions of past transactions must derive the conversion rate using this formula rather than querying the product's live `unitConversion` attribute. This mathematical lock ensures 100% preservation of transaction-time conversion rates without database drift.

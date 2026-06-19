@@ -8,6 +8,7 @@ import { InventoryService } from "../../products/services/InventoryService";
 import { createAppError } from "@/lib/errors/AppError";
 import { emitActivity, logSaleEvent, logPaymentEvent } from "@/modules/activity-log/activityLogger";
 import { DEFAULT_WEIGHT_UNIT, normalizeQuantity, normalizeRate, isUnitCompatible } from "@/lib/units";
+import { getProductValidationState } from "@/modules/products/utils/productValidation";
 import { withOwnership } from "@/lib/session";
 import { SalesWorkflowEngine } from "../workflow/SalesWorkflowEngine";
 export class SaleService {
@@ -75,6 +76,11 @@ export class SaleService {
     for (const item of items) {
       const product = await ProductService.getProduct(item.productId);
       if (!product) throw new Error(`Product ${item.productId} not found`);
+
+      const validation = getProductValidationState(product);
+      if (!validation.isValid) {
+        throw new Error(`Product "${product.name}" unit configuration is incomplete. Missing: ${validation.errors.join(", ")}`);
+      }
       
       if (!product.isActive && !item.salesTrackId) {
         throw new Error(`Product "${product.name}" is disabled/inactive and cannot be sold. Please reactivate the product first.`);
@@ -291,6 +297,11 @@ export class SaleService {
     for (const item of items) {
       const product = await ProductService.getProduct(item.productId);
       if (!product) throw new Error(`Product ${item.productId} not found`);
+
+      const validation = getProductValidationState(product);
+      if (!validation.isValid) {
+        throw new Error(`Product "${product.name}" unit configuration is incomplete. Missing: ${validation.errors.join(", ")}`);
+      }
       
       if (!product.isActive && !item.salesTrackId) {
         throw new Error(`Product "${product.name}" is disabled/inactive and cannot be sold. Please reactivate the product first.`);
