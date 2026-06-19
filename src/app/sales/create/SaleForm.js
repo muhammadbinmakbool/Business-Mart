@@ -336,20 +336,17 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
           lastRate: fastEntryMemoryStore.getLastValue("lastRate", "sales")
         };
         const result = await getProductForSale(value, sessionMemory);
-        if (result.success) {
-          const validation = getProductValidationState(result.product);
-          if (!validation.isValid) {
-            showToast.error(`Cannot select product: "${result.product.name}" configuration is invalid. Missing: ${validation.errors.join(", ")}`);
-            newItems[index].productId = "";
-            newItems[index].unit = null;
-            newItems[index].rateUnit = null;
-            newItems[index].rate = "";
-          } else {
-            const { defaults } = result;
-            newItems[index].unit = defaults.unit;
-            newItems[index].rateUnit = defaults.rateUnit;
-            newItems[index].rate = defaults.rate > 0 ? defaults.rate.toString() : "";
-          }
+        if (!result.success) {
+          showToast.error(result.error);
+          newItems[index].productId = "";
+          newItems[index].unit = null;
+          newItems[index].rateUnit = null;
+          newItems[index].rate = "";
+        } else {
+          const { defaults } = result;
+          newItems[index].unit = defaults.unit;
+          newItems[index].rateUnit = defaults.rateUnit;
+          newItems[index].rate = defaults.rate > 0 ? defaults.rate.toString() : "";
         }
       } else {
         newItems[index].unit = null;

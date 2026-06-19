@@ -116,16 +116,15 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     : [];
 
   const handleProductChange = async (productId) => {
-    const prod = products.find(p => p.id === parseInt(productId));
-    if (prod) {
-      const validation = getProductValidationState(prod);
-      if (!validation.isValid) {
-        showToast.error(`Cannot select product: "${prod.name}" configuration is invalid. Missing: ${validation.errors.join(", ")}`);
+    if (productId) {
+      const result = await getProductForIntake(productId, {});
+      if (!result.success) {
+        showToast.error(result.error);
         return;
       }
+      const prod = result.product;
       setSelectedProductId(productId);
-      const result = await getProductForIntake(productId, {});
-      const defaultUnit = result.success ? result.defaults.unit : null;
+      const defaultUnit = result.defaults.unit;
       setUnit(defaultUnit);
 
       const customUnitCode = unitRegistry

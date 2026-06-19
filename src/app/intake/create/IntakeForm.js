@@ -152,23 +152,22 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
     : null;
 
   const handleProductChange = async (productId) => {
-    const prod = products.find(p => p.id === parseInt(productId));
-    if (prod) {
-      const validation = getProductValidationState(prod);
-      if (!validation.isValid) {
-        showToast.error(`Cannot select product: "${prod.name}" configuration is invalid. Missing: ${validation.errors.join(", ")}`);
+    if (productId) {
+      const sessionMemory = {
+        lastUnit: fastEntryMemoryStore.getLastValue("lastUnit", "intake"),
+      };
+      const result = await getProductForIntake(productId, sessionMemory);
+      if (!result.success) {
+        showToast.error(result.error);
         setSelectedProductId("");
         setSelectedUnit(null);
         setGrossWeightVal("");
         setBagCountVal("");
         return;
       }
+      const prod = result.product;
       setSelectedProductId(productId);
-      const sessionMemory = {
-        lastUnit: fastEntryMemoryStore.getLastValue("lastUnit", "intake"),
-      };
-      const result = await getProductForIntake(productId, sessionMemory);
-      const defaultUnit = result.success ? result.defaults.unit : null;
+      const defaultUnit = result.defaults.unit;
       setSelectedUnit(defaultUnit);
 
       const customUnitCode = unitRegistry
