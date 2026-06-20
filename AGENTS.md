@@ -26,7 +26,12 @@ All core arithmetic and conversions must remain pure, floating-point accurate, a
 
 ## 🚫 Currency & Financial Precision Formatting (IMMUTABLE RULE)
 
-* **NEVER** use hardcoded formatting symbols (like `"Rs."` or `"PKR"`) or raw `.toLocaleString()` calls directly in component markup or print mappers for currency values.
-* **MUST ALWAYS** format financial amounts using the centralized `formatCurrency` utility from `@/lib/formatters/financialFormatter` and propagate user preferences via `useSettings()` (or `printConfig` in the print subsystem).
-* **UI/Display Layers ONLY**: Formatting must happen exclusively at the terminal rendering stage. Do NOT write formatted strings into database/service records or let calculations depend on formatted outputs.
+* **EXCLUSIVITY OF ARITHMETIC ROUNDING (GUARANTEE)**: ❗ **ALL mathematical and financial rounding must happen ONLY inside `@/lib/financial.js`**. No React UI component, frontend helper, page, hook, or print subsystem mapper is ever allowed to perform rounding or decimal truncating calculations.
+* **FORMATTING & VALUE PRESERVATION**:
+  * **NEVER** use hardcoded formatting symbols (like `"Rs."` or `"PKR"`) or raw `.toLocaleString()` calls directly in component markup or print mappers for currency values.
+  * **MUST ALWAYS** format financial amounts using the centralized `formatCurrency` utility from `@/lib/formatters/financialFormatter` and propagate user preferences via `useSettings()` (or `printConfig` in the print subsystem).
+  * **UI/Display Layers ONLY**: Formatting must happen exclusively at the terminal rendering stage. Do NOT write formatted strings into database/service records or let calculations depend on formatted outputs.
+* **PRINT SUBSYSTEM INTEGRATION**: `printConfig` parameters passed through the print template resolution pipeline are configuration-only transport objects. They **MUST NOT** implement or override custom formatting logic. All print template and mapper formatting must consume the central `formatCurrency` utility.
+* **REACT CONTEXT PROPAGATION**: To avoid performance degradation and excessive re-renders (over-hooking), do not call `useSettings()` inside low-level children/widgets. Retrieve the values at the top-level container or client-page component and pass the configuration parameters down via properties.
+
 
