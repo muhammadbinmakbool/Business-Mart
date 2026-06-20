@@ -17,7 +17,7 @@ import RevertStatusButton from "./RevertStatusButton";
 import SalePaymentCard from "./SalePaymentCard";
 import { deleteSaleAction, updateSaleStatusAction, hardDeleteSaleAction } from "@/modules/sales/controllers/saleActions";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
-import { formatMaundWeight } from "@/lib/display-units";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 import { UNIT_IDS, getUnitLabel } from "@/lib/units";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
 import { SalesWorkflowEngine } from "@/modules/sales/workflow/SalesWorkflowEngine";
@@ -125,7 +125,7 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
                     <tr key={item.id} className="hover:bg-muted/5 transition-colors">
                       <td className="px-4 py-3 font-semibold text-foreground">{item.product.name}</td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
-                        {item.unit === UNIT_IDS.MAUND ? formatMaundWeight(item.weight, "MND", "KG") : `${item.weight.toLocaleString()} ${item.unit}`}
+                        {formatUnitDisplay(item.weight, item.unit || "KG", item.product, "en")}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
                         {formatCurrency(item.rate, "en", currencySymbol, decimalPlaces)} <span className="text-[9px] text-muted-foreground uppercase">/ {getUnitLabel((item.unit === "BAG" || item.product?.category === "BAG" || item.product?.primaryUnit === "BAG") ? "BAG" : (item.rateUnit || "KG"))}</span>

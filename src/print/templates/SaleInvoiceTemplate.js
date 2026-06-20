@@ -3,7 +3,8 @@ import BasePrintLayout from "./BasePrintLayout";
 import { PRINT_TYPOGRAPHY } from "../theme/typography";
 import { PRINT_LAYOUT } from "../theme/layout";
 import { t } from "../localization/locale";
-import { formatCurrency as formatCurrencyRaw, formatWeight } from "@/lib/formatters/financialFormatter";
+import { formatCurrency as formatCurrencyRaw } from "@/lib/formatters/financialFormatter";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 import { UNIT_IDS } from "@/lib/units";
 
 export default function SaleInvoiceTemplate({ data, locale = "en", printConfig }) {
@@ -63,7 +64,7 @@ export default function SaleInvoiceTemplate({ data, locale = "en", printConfig }
                     <div className="font-bold text-slate-800">{item.productName}</div>
                   </td>
                   <td className={PRINT_TYPOGRAPHY.tableBodyCellRight}>
-                    {formatWeight(item.weight, item.unit, locale)}
+                    {formatUnitDisplay(item.weight, item.unit, item.product, locale)}
                   </td>
                   <td className={PRINT_TYPOGRAPHY.tableBodyCellRight}>
                     {formatCurrency(item.rate, locale, cur)} / {item.rateUnit === UNIT_IDS.MAUND || item.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : item.rateUnit}
@@ -133,7 +134,7 @@ export default function SaleInvoiceTemplate({ data, locale = "en", printConfig }
               )}
               <div className="flex justify-between items-center text-slate-400 text-[10px] rtl:flex-row-reverse">
                 <span>{t("totalNetWeight", locale)}:</span>
-                <span>{formatWeight(data.totals.totalWeight, UNIT_IDS.KG, locale)}</span>
+                <span>{formatUnitDisplay(data.totals.totalWeight, UNIT_IDS.KG, null, locale)}</span>
               </div>
               <div className="flex justify-between items-center pt-2.5 border-t border-slate-200 rtl:flex-row-reverse">
                 <span className="font-bold text-slate-800">{t("finalInvTotal", locale)}:</span>

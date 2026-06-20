@@ -175,6 +175,7 @@ async function main() {
     // WEIGHT
     { code: "KG", name: "Kilogram", unitCategoryCode: "WEIGHT", isBase: true, isCustom: false, conversionRate: 1.0 },
     { code: "MAUND", name: "Maund", unitCategoryCode: "WEIGHT", isBase: false, isCustom: false, conversionRate: 40.0 },
+    { code: "G", name: "Gram", unitCategoryCode: "WEIGHT", isBase: false, isCustom: false, conversionRate: 0.001 },
     { code: "BAG", name: "Bag", unitCategoryCode: "WEIGHT", isBase: false, isCustom: true, conversionRate: null },
     
     // LIQUID

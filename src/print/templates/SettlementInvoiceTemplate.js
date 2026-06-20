@@ -3,7 +3,8 @@ import BasePrintLayout from "./BasePrintLayout";
 import { PRINT_TYPOGRAPHY } from "../theme/typography";
 import { PRINT_LAYOUT } from "../theme/layout";
 import { t } from "../localization/locale";
-import { formatCurrency as formatCurrencyRaw, formatWeight } from "@/lib/formatters/financialFormatter";
+import { formatCurrency as formatCurrencyRaw } from "@/lib/formatters/financialFormatter";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 import { UNIT_IDS } from "@/lib/units";
 
 export default function SettlementInvoiceTemplate({ data, locale = "en", printConfig }) {
@@ -77,7 +78,7 @@ export default function SettlementInvoiceTemplate({ data, locale = "en", printCo
                       <div className="text-[9px] text-slate-400 font-mono mt-0.5">{item.intakeNumber}</div>
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
-                      {formatWeight(item.weight, item.unit, locale)}
+                      {formatUnitDisplay(item.weight, item.unit, item.product, locale)}
                     </td>
                     <td className="px-4 py-3 text-right font-mono">
                       {formatCurrency(item.rate, locale, cur)} / {item.rateUnit === UNIT_IDS.MAUND || item.rateUnit === "MND" ? (locale === "ur" ? "من" : "MND") : item.rateUnit}

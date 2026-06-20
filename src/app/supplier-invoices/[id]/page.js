@@ -10,7 +10,7 @@ import SupplierPaymentCard from "./SupplierPaymentCard";
 import { calculateSupplierDeductions } from "@/lib/financial";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
 import Alert from "@/components/ui/Alert";
-import { formatMaundWeight } from "@/lib/display-units";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 import { UNIT_IDS, getUnitLabel } from "@/lib/units";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
 import { SupplierWorkflowEngine } from "@/modules/supplier-invoices/workflow/SupplierWorkflowEngine";
@@ -182,7 +182,7 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
                         <div className="text-[9px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
-                        {item.intake.unit === UNIT_IDS.MAUND ? formatMaundWeight(item.weight, "MND", "KG") : `${Number(item.weight)} ${item.intake.unit || "KG"}`}
+                        {formatUnitDisplay(item.weight, item.intake.unit || "KG", item.intake.product, "en")}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
                         {formatCurrency(item.rate, "en", currencySymbol, decimalPlaces)} <span className="text-[9px] text-muted-foreground uppercase">/ {getUnitLabel((item.intake.unit === "BAG" || item.intake.product?.category === "BAG" || item.intake.product?.primaryUnit === "BAG") ? "BAG" : (item.rateUnit || "KG"))}</span>

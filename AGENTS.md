@@ -34,4 +34,14 @@ All core arithmetic and conversions must remain pure, floating-point accurate, a
 * **PRINT SUBSYSTEM INTEGRATION**: `printConfig` parameters passed through the print template resolution pipeline are configuration-only transport objects. They **MUST NOT** implement or override custom formatting logic. All print template and mapper formatting must consume the central `formatCurrency` utility.
 * **REACT CONTEXT PROPAGATION**: To avoid performance degradation and excessive re-renders (over-hooking), do not call `useSettings()` inside low-level children/widgets. Retrieve the values at the top-level container or client-page component and pass the configuration parameters down via properties.
 
+## 🚫 Unit Precision Display & Decomposition (IMMUTABLE RULE)
+
+* **STRICT DECOUPLING OF MATH & PRESENTATION**:
+  * **Math Layer (`@/lib/units.js`)**: All quantity decomposition (e.g., `decomposeQuantity`) must be purely mathematical and free of locales, text translations, or formatting.
+  * **Presentation Layer (`@/lib/formatters/unitFormatter.js`)**: Translating unit abbreviations, handling RTL/LTR rules, and formatting numbers for display must happen exclusively in the unit formatting helper.
+* **NO REVERSE DEPENDENCY**: The core financial formatting utility (`financialFormatter.js`) is strictly prohibited from importing or referencing unit formatting helpers.
+* **DATABASE-DRIVEN HIERARCHIES**: Unit display hierarchies must be resolved dynamically by sorting active units by their conversion rates descending. Never hardcode unit relationships or hierarchies inside presentation logic.
+* **ZERO DATA MUTATION**: Under no circumstances should quantity formatting mutate raw transaction numbers or database values. Decompositions are presentation-only.
+
+
 

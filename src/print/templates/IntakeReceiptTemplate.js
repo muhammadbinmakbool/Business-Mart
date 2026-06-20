@@ -3,7 +3,8 @@ import BasePrintLayout from "./BasePrintLayout";
 import { PRINT_TYPOGRAPHY } from "../theme/typography";
 import { PRINT_LAYOUT } from "../theme/layout";
 import { t } from "../localization/locale";
-import { formatCurrency as formatCurrencyRaw, formatWeight, formatBags } from "@/lib/formatters/financialFormatter";
+import { formatCurrency as formatCurrencyRaw, formatBags } from "@/lib/formatters/financialFormatter";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 import { UNIT_IDS } from "@/lib/units";
 
 export default function IntakeReceiptTemplate({ data, locale = "en", printConfig }) {
@@ -63,7 +64,7 @@ export default function IntakeReceiptTemplate({ data, locale = "en", printConfig
                   <div className="text-[9px] text-slate-400 uppercase mt-0.5">Cat: {data.product.category}</div>
                 </td>
                 <td className={PRINT_TYPOGRAPHY.tableBodyCellRight}>
-                  {formatWeight(data.grossWeight, data.unit, locale)}
+                  {formatUnitDisplay(data.grossWeight, data.unit, data.product, locale)}
                 </td>
                 <td className={PRINT_TYPOGRAPHY.tableBodyCellRight}>
                   {formatBags(data.bagCount, locale)}
@@ -99,7 +100,7 @@ export default function IntakeReceiptTemplate({ data, locale = "en", printConfig
                 <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-xs font-mono">
                   <div className="text-slate-500">{t("netWeightBilled", locale)}:</div>
                   <div className="font-bold text-right text-slate-800">
-                    {formatWeight(data.soldDetails.netWeight, data.soldDetails.rateUnit, locale)}
+                    {formatUnitDisplay(data.soldDetails.netWeight, data.soldDetails.rateUnit, data.product, locale)}
                   </div>
                   <div className="text-slate-500">{t("sellingRate", locale)}:</div>
                   <div className="font-bold text-right text-slate-800">
@@ -117,11 +118,11 @@ export default function IntakeReceiptTemplate({ data, locale = "en", printConfig
             <div className="border-t border-emerald-100 p-4 bg-emerald-50/5 grid grid-cols-2 gap-4 text-xs font-mono rtl:flex-row-reverse">
               <div className="flex justify-between items-center border-r border-slate-200 pr-4 rtl:border-r-0 rtl:border-l rtl:pr-0 rtl:pl-4">
                 <span className="text-slate-500">{t("bardanaLabel", locale)}:</span>
-                <span className="font-bold text-slate-700">{formatWeight(data.soldDetails.bardanaWeight, "KG", locale)}</span>
+                <span className="font-bold text-slate-700">{formatUnitDisplay(data.soldDetails.bardanaWeight, "KG", null, locale)}</span>
               </div>
               <div className="flex justify-between items-center pl-2 rtl:pl-0 rtl:pr-2">
                 <span className="text-slate-500">{t("khotLabel", locale)}:</span>
-                <span className="font-bold text-slate-700">{formatWeight(data.soldDetails.khotWeight, "KG", locale)}</span>
+                <span className="font-bold text-slate-700">{formatUnitDisplay(data.soldDetails.khotWeight, "KG", null, locale)}</span>
               </div>
             </div>
           </div>

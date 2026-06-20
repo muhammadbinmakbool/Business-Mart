@@ -25,9 +25,13 @@ export function mapIntakeToPrintModel(intake, printConfig) {
       type: "SUPPLIER"
     },
     
-    product: {
-      name: intake.product?.name || "N/A",
-      category: intake.product?.category || "N/A"
+    product: intake.product ? {
+      ...intake.product,
+      name: intake.product.name,
+      category: intake.product.category || "N/A"
+    } : {
+      name: "N/A",
+      category: "N/A"
     },
     
     grossWeight: Number(intake.grossWeight || 0).toLocaleString(),
@@ -41,6 +45,7 @@ export function mapIntakeToPrintModel(intake, printConfig) {
     } : null,
     
     soldDetails: isSold && track ? {
+      product: intake.product,
       netWeight: Number(track.quantity).toLocaleString(),
       rate: formatCurrency(track.sellingRate, "en", currencySymbol, decimalPlaces),
       rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
@@ -73,6 +78,7 @@ export function mapSaleToPrintModel(sale, printConfig) {
     items: (sale.items || []).map(item => ({
       id: item.id,
       productName: item.product?.name || "N/A",
+      product: item.product,
       weight: Number(item.weight).toLocaleString(),
       unit: item.unit === UNIT_IDS.MAUND ? "MND" : item.unit || DEFAULT_WEIGHT_UNIT,
       rate: formatCurrency(item.rate, "en", currencySymbol, decimalPlaces),
@@ -129,6 +135,7 @@ export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summar
       return {
         id: item.id,
         productName: item.intake?.product?.name || "N/A",
+        product: item.intake?.product,
         intakeNumber: item.intake?.intakeNumber || `INT-${item.intakeTransactionId}`,
         weight: Number(item.weight).toLocaleString(),
         unit: item.intake?.unit || DEFAULT_WEIGHT_UNIT,

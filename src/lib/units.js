@@ -52,6 +52,12 @@ export const UNITS = {
     category: UNIT_CATEGORIES.WEIGHT, 
     factor: 1000 
   },
+  G: { 
+    id: "G", 
+    name: "Gram", 
+    category: UNIT_CATEGORIES.WEIGHT, 
+    factor: 0.001 
+  },
   BAG: { 
     id: "BAG", 
     name: "Bag", 
@@ -247,3 +253,119 @@ export function isUnitCompatible(unitId, unitCategory, unitRegistry) {
   const unit = source[unitId];
   return (unit?.unitCategoryCode || unit?.category) === unitCategory;
 }
+
+/**
+ * Resolves the ordered hierarchy list of unit codes dynamically from the database/registry.
+ */
+export function getDynamicHierarchy(category, product = null, unitRegistry = null) {
+  if (product && product.unitHierarchy) {
+    if (Array.isArray(product.unitHierarchy)) return product.unitHierarchy;
+    if (typeof product.unitHierarchy === "string") {
+      return product.unitHierarchy.split(",").map((u) => u.trim());
+    }
+  }
+
+  const source = unitRegistry || UNITS;
+  
+  // 1. Get all units in the category
+  const categoryUnits = Object.values(source).filter(
+    (u) => (u.unitCategoryCode || u.category) === category
+  );
+  
+  // 2. Map to their resolved conversion factors
+  const resolvedUnits = categoryUnits.map((u) => {
+    let factor = 0;
+    const unitCode = u.code || u.id;
+    try {
+      factor = getConversionFactor(unitCode, product, source);
+    } catch (err) {
+      factor = u.conversionRate !== undefined && u.conversionRate !== null 
+        ? Number(u.conversionRate) 
+        : Number(u.factor || 0);
+    }
+    return { code: unitCode, factor };
+  });
+  
+  // 3. Filter units that resolved to a valid factor > 0
+  const validUnits = resolvedUnits.filter((u) => u.factor > 0);
+  
+  // 4. Sort descending by conversion factor
+  validUnits.sort((a, b) => b.factor - a.factor);
+  
+  return validUnits.map((u) => u.code);
+}
+
+/**
+ * Decomposes a quantity into a primary and immediately next lower unit dynamically (Pure Math).
+ * Returns { value, unit, secondaryValue?, secondaryUnit? }
+ */
+export function decomposeQuantity(quantity, unitId, product = null, unitRegistry = null) {
+  if (quantity == null || isNaN(quantity)) {
+    return { value: 0, unit: unitId };
+  }
+
+  const source = unitRegistry || UNITS;
+  const unitObj = source[unitId];
+  if (!unitObj) {
+    return { value: Number(quantity), unit: unitId };
+  }
+
+  const category = unitObj.unitCategoryCode || unitObj.category;
+  if (!category) {
+    return { value: Number(quantity), unit: unitId };
+  }
+
+  // Get dynamic hierarchy
+  const hierarchy = getDynamicHierarchy(category, product, source);
+
+  // Find index of the unit in the hierarchy
+  const index = hierarchy.indexOf(unitId);
+  if (index === -1 || index === hierarchy.length - 1) {
+    return { value: Number(quantity), unit: unitId };
+  }
+
+  const nextUnitId = hierarchy[index + 1];
+
+  // Resolve factors
+  let factorCurrent = 0;
+  let factorNext = 0;
+  try {
+    factorCurrent = getConversionFactor(unitId, product, source);
+    factorNext = getConversionFactor(nextUnitId, product, source);
+  } catch (err) {
+    return { value: Number(quantity), unit: unitId };
+  }
+
+  if (!factorCurrent || !factorNext || factorCurrent <= 0 || factorNext <= 0) {
+    return { value: Number(quantity), unit: unitId };
+  }
+
+  const rawVal = Number(quantity);
+  const wholeVal = Math.floor(rawVal);
+  const fraction = rawVal - wholeVal;
+
+  if (fraction < 1e-9) {
+    return { value: wholeVal, unit: unitId };
+  }
+
+  // Convert decimal part to the next lower unit
+  const nextRawVal = fraction * (factorCurrent / factorNext);
+  const nextWholeVal = Math.round(nextRawVal * 1000) / 1000;
+
+  if (nextWholeVal === 0) {
+    return { value: wholeVal, unit: unitId };
+  }
+
+  const ratio = factorCurrent / factorNext;
+  if (nextWholeVal >= ratio - 1e-9) {
+    return { value: wholeVal + 1, unit: unitId };
+  }
+
+  return {
+    value: wholeVal,
+    unit: unitId,
+    secondaryValue: nextWholeVal,
+    secondaryUnit: nextUnitId
+  };
+}
+
