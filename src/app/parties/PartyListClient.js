@@ -11,6 +11,8 @@ import StatusFilterTabs from "@/components/StatusFilterTabs";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import DataTable from "@/components/ui/DataTable";
 import PaginationControls from "@/components/ui/PaginationControls";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 export default function PartyListClient({
   parties = [],
@@ -23,6 +25,7 @@ export default function PartyListClient({
   currentSortField = "name",
   currentSortDirection = "asc"
 }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -32,6 +35,7 @@ export default function PartyListClient({
 
   // Sync internal search query state with URL changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSearchQuery(currentSearch);
   }, [currentSearch]);
 
@@ -130,11 +134,11 @@ export default function PartyListClient({
       className: "text-right font-mono font-semibold",
       render: (party) => {
         const bal = party.netBalance || 0;
-        const formatted = Number(Math.abs(bal)).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
         if (bal === 0) return <span className="text-muted-foreground">—</span>;
+        const formatted = formatCurrency(Math.abs(bal), "en", currencySymbol, decimalPlaces);
         return (
           <span className={bal > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}>
-            Rs. {formatted} {bal > 0 ? "DR" : "CR"}
+            {formatted} {bal > 0 ? "DR" : "CR"}
           </span>
         );
       }
@@ -170,7 +174,7 @@ export default function PartyListClient({
         </div>
       )
     }
-  ], []);
+  ], [decimalPlaces, currencySymbol]);
 
   const tabs = [
     { key: "ALL", label: "All", count: tabCounts.all },

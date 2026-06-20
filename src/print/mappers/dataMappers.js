@@ -1,11 +1,14 @@
 // Print Subsystem Data Mappers
 import { format } from "date-fns";
 import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 /**
  * Maps a Prisma Intake record to a print-ready model.
  */
-export function mapIntakeToPrintModel(intake) {
+export function mapIntakeToPrintModel(intake, printConfig) {
+  const decimalPlaces = printConfig?.decimalPlaces !== undefined ? Number(printConfig.decimalPlaces) : 2;
+  const currencySymbol = printConfig?.defaultCurrency || "Rs.";
   const isSold = intake.status === "SOLD" || intake.status === "CLEARED";
   const track = intake.salesTracks?.[0] || null;
 
@@ -39,11 +42,11 @@ export function mapIntakeToPrintModel(intake) {
     
     soldDetails: isSold && track ? {
       netWeight: Number(track.quantity).toLocaleString(),
-      rate: Number(track.sellingRate).toLocaleString(),
+      rate: formatCurrency(track.sellingRate, "en", currencySymbol, decimalPlaces),
       rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
       bardanaWeight: Number(intake.Bardana || 0).toLocaleString(),
       khotWeight: Number(intake.Khot || 0).toLocaleString(),
-      baseAmount: Number(track.quantity * track.sellingRate).toLocaleString()
+      baseAmount: formatCurrency(track.quantity * track.sellingRate, "en", currencySymbol, decimalPlaces)
     } : null
   };
 }
@@ -51,7 +54,9 @@ export function mapIntakeToPrintModel(intake) {
 /**
  * Maps a Prisma Sale (Invoice) record to a print-ready model.
  */
-export function mapSaleToPrintModel(sale) {
+export function mapSaleToPrintModel(sale, printConfig) {
+  const decimalPlaces = printConfig?.decimalPlaces !== undefined ? Number(printConfig.decimalPlaces) : 2;
+  const currencySymbol = printConfig?.defaultCurrency || "Rs.";
   return {
     documentId: sale.saleNumber || `SAL-${sale.id}`,
     entryDate: format(new Date(sale.entryDate), "PPPP"),
@@ -70,26 +75,26 @@ export function mapSaleToPrintModel(sale) {
       productName: item.product?.name || "N/A",
       weight: Number(item.weight).toLocaleString(),
       unit: item.unit === UNIT_IDS.MAUND ? "MND" : item.unit || DEFAULT_WEIGHT_UNIT,
-      rate: Number(item.rate).toLocaleString(),
+      rate: formatCurrency(item.rate, "en", currencySymbol, decimalPlaces),
       rateUnit: item.rateUnit === UNIT_IDS.MAUND ? "MND" : item.rateUnit || DEFAULT_WEIGHT_UNIT,
-      amount: Number(item.amount).toLocaleString()
+      amount: formatCurrency(item.amount, "en", currencySymbol, decimalPlaces)
     })),
     
     adjustments: (sale.adjustments || []).map(adj => ({
       id: adj.id,
       type: adj.adjustmentType,
       method: adj.method === "PERCENTAGE" ? `${adj.value}% of Base` : 
-              adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per ${adj.unit || DEFAULT_WEIGHT_UNIT}` : 
-              `Fixed Rs. ${adj.value}`,
+              adj.method === "PER_WEIGHT" ? `${formatCurrency(adj.value, "en", currencySymbol, decimalPlaces)} per ${adj.unit || DEFAULT_WEIGHT_UNIT}` : 
+              `Fixed ${formatCurrency(adj.value, "en", currencySymbol, decimalPlaces)}`,
       direction: adj.direction,
-      amount: Number(adj.calculatedAmount).toLocaleString()
+      amount: formatCurrency(adj.calculatedAmount, "en", currencySymbol, decimalPlaces)
     })),
     
     totals: {
-      baseAmount: Number(sale.baseAmount).toLocaleString(),
+      baseAmount: formatCurrency(sale.baseAmount, "en", currencySymbol, decimalPlaces),
       totalWeight: Number(sale.totalWeight).toLocaleString(),
-      totalAdjustments: Number(sale.totalAdjustments).toLocaleString(),
-      finalAmount: Number(sale.finalAmount).toLocaleString(),
+      totalAdjustments: formatCurrency(sale.totalAdjustments, "en", currencySymbol, decimalPlaces),
+      finalAmount: formatCurrency(sale.finalAmount, "en", currencySymbol, decimalPlaces),
       adjustmentsDirection: sale.totalAdjustments >= 0 ? "+" : ""
     }
   };
@@ -98,7 +103,9 @@ export function mapSaleToPrintModel(sale) {
 /**
  * Maps a Prisma Supplier Settlement (Invoice) record to a print-ready model.
  */
-export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summaryAdjustments = []) {
+export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summaryAdjustments = [], printConfig) {
+  const decimalPlaces = printConfig?.decimalPlaces !== undefined ? Number(printConfig.decimalPlaces) : 2;
+  const currencySymbol = printConfig?.defaultCurrency || "Rs.";
   return {
     documentId: invoice.invoiceNumber || `SET-${invoice.id}`,
     entryDate: format(new Date(invoice.entryDate || invoice.createdAt), "dd MMM yyyy"),
@@ -125,17 +132,17 @@ export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summar
         intakeNumber: item.intake?.intakeNumber || `INT-${item.intakeTransactionId}`,
         weight: Number(item.weight).toLocaleString(),
         unit: item.intake?.unit || DEFAULT_WEIGHT_UNIT,
-        rate: Number(item.rate).toLocaleString(),
+        rate: formatCurrency(item.rate, "en", currencySymbol, decimalPlaces),
         rateUnit: item.intake?.rateUnit || DEFAULT_WEIGHT_UNIT,
-        grossAmount: Number(item.amount).toLocaleString(),
-        netAmount: Number(breakdown.net).toLocaleString(),
+        grossAmount: formatCurrency(item.amount, "en", currencySymbol, decimalPlaces),
+        netAmount: formatCurrency(breakdown.net, "en", currencySymbol, decimalPlaces),
         adjustments: (breakdown.adjustments || []).map(adj => ({
           type: adj.adjustmentType,
           description: adj.method === "PERCENTAGE" ? `${adj.value}%` : 
-                       adj.method === "PER_WEIGHT" ? `Rs. ${adj.value}/${adj.unit || DEFAULT_WEIGHT_UNIT}` : 
+                       adj.method === "PER_WEIGHT" ? `${formatCurrency(adj.value, "en", currencySymbol, decimalPlaces)}/${adj.unit || DEFAULT_WEIGHT_UNIT}` : 
                        `Fixed`,
           direction: adj.direction,
-          amount: Number(adj.calculatedAmount).toLocaleString()
+          amount: formatCurrency(adj.calculatedAmount, "en", currencySymbol, decimalPlaces)
         }))
       };
     }),
@@ -143,23 +150,23 @@ export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summar
     adjustmentsSummary: summaryAdjustments.map(adj => ({
       type: adj.adjustmentType,
       rule: adj.method === "PERCENTAGE" ? `${adj.value}%` : 
-            adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per ${adj.unit || DEFAULT_WEIGHT_UNIT}` : 
-            `Fixed Rs. ${adj.value}`,
+            adj.method === "PER_WEIGHT" ? `${formatCurrency(adj.value, "en", currencySymbol, decimalPlaces)} per ${adj.unit || DEFAULT_WEIGHT_UNIT}` : 
+            `Fixed ${formatCurrency(adj.value, "en", currencySymbol, decimalPlaces)}`,
       direction: adj.direction,
-      amount: Number(adj.calculatedAmount).toLocaleString()
+      amount: formatCurrency(adj.calculatedAmount, "en", currencySymbol, decimalPlaces)
     })),
     
     advances: (invoice.advances || []).map(adv => ({
       id: adv.id,
       notes: adv.notes || "Advance Settlement",
-      amount: Number(adv.amount).toLocaleString()
+      amount: formatCurrency(adv.amount, "en", currencySymbol, decimalPlaces)
     })),
     
     totals: {
-      grossValue: Number(invoice.totalGrossValue).toLocaleString(),
-      deductions: Number(invoice.totalDeductions).toLocaleString(),
-      advances: Number(invoice.totalAdvances).toLocaleString(),
-      finalPayable: Number(invoice.finalPayableAmount).toLocaleString()
+      grossValue: formatCurrency(invoice.totalGrossValue, "en", currencySymbol, decimalPlaces),
+      deductions: formatCurrency(invoice.totalDeductions, "en", currencySymbol, decimalPlaces),
+      advances: formatCurrency(invoice.totalAdvances, "en", currencySymbol, decimalPlaces),
+      finalPayable: formatCurrency(invoice.finalPayableAmount, "en", currencySymbol, decimalPlaces)
     }
   };
 }
@@ -167,18 +174,21 @@ export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summar
 /**
  * Maps Ledger dashboard state or historical session data to a print-ready model.
  */
-export function mapLedgerToPrintModel({
-  title,
-  startDate,
-  endDate,
-  supplierName = "All Suppliers",
-  buyerName = "All Buyers",
-  invoices = [],
-  sales = [],
-  summary = null,
-  isSavedSession = false,
-  drift = null
-}) {
+export function mapLedgerToPrintModel(rawData, printConfig) {
+  const {
+    title,
+    startDate,
+    endDate,
+    supplierName = "All Suppliers",
+    buyerName = "All Buyers",
+    invoices = [],
+    sales = [],
+    summary = null,
+    isSavedSession = false,
+    drift = null
+  } = rawData;
+  const decimalPlaces = printConfig?.decimalPlaces !== undefined ? Number(printConfig.decimalPlaces) : 2;
+  const currencySymbol = printConfig?.defaultCurrency || "Rs.";
   const dateStr = startDate && endDate 
     ? `${format(new Date(startDate), "dd MMM yyyy")} to ${format(new Date(endDate), "dd MMM yyyy")}`
     : "Live Reconciliation Period";
@@ -196,27 +206,27 @@ export function mapLedgerToPrintModel({
       hasDrift: drift.hasDrift,
       fields: Object.entries(drift.fields || {}).map(([key, f]) => ({
         field: key,
-        saved: Number(f.saved || 0).toLocaleString(),
-        live: Number(f.live || 0).toLocaleString(),
-        diff: Number(f.difference || 0).toLocaleString()
+        saved: formatCurrency(f.saved || 0, "en", currencySymbol, decimalPlaces),
+        live: formatCurrency(f.live || 0, "en", currencySymbol, decimalPlaces),
+        diff: formatCurrency(f.difference || 0, "en", currencySymbol, decimalPlaces)
       }))
     } : null,
     
     summary: summary ? {
       supplier: {
-        gross: Number(summary.supplier?.gross || 0).toLocaleString(),
-        deductions: Number(summary.supplier?.deductions || 0).toLocaleString(),
-        advances: Number(summary.supplier?.advances || 0).toLocaleString(),
-        net: Number(summary.supplier?.baseTotal || 0).toLocaleString(),
+        gross: formatCurrency(summary.supplier?.gross || 0, "en", currencySymbol, decimalPlaces),
+        deductions: formatCurrency(summary.supplier?.deductions || 0, "en", currencySymbol, decimalPlaces),
+        advances: formatCurrency(summary.supplier?.advances || 0, "en", currencySymbol, decimalPlaces),
+        net: formatCurrency(summary.supplier?.baseTotal || 0, "en", currencySymbol, decimalPlaces),
         count: summary.supplier?.activeCount || 0
       },
       buyer: {
-        base: Number(summary.buyer?.base || 0).toLocaleString(),
-        adjustments: Number(summary.buyer?.adjustments || 0).toLocaleString(),
-        net: Number(summary.buyer?.baseTotal || 0).toLocaleString(),
+        base: formatCurrency(summary.buyer?.base || 0, "en", currencySymbol, decimalPlaces),
+        adjustments: formatCurrency(summary.buyer?.adjustments || 0, "en", currencySymbol, decimalPlaces),
+        net: formatCurrency(summary.buyer?.baseTotal || 0, "en", currencySymbol, decimalPlaces),
         count: summary.buyer?.activeCount || 0
       },
-      difference: Number(summary.difference || 0).toLocaleString(),
+      difference: formatCurrency(summary.difference || 0, "en", currencySymbol, decimalPlaces),
       isMatched: summary.matched
     } : null,
     
@@ -224,19 +234,19 @@ export function mapLedgerToPrintModel({
       date: format(new Date(inv.entryDate || inv.createdAt), "dd MMM yyyy"),
       number: inv.invoiceNumber,
       party: inv.party?.name || "N/A",
-      gross: Number(inv.totalGrossValue).toLocaleString(),
-      deductions: Number(inv.totalDeductions).toLocaleString(),
-      advances: Number(inv.totalAdvances).toLocaleString(),
-      net: Number(inv.finalPayableAmount).toLocaleString()
+      gross: formatCurrency(inv.totalGrossValue, "en", currencySymbol, decimalPlaces),
+      deductions: formatCurrency(inv.totalDeductions, "en", currencySymbol, decimalPlaces),
+      advances: formatCurrency(inv.totalAdvances, "en", currencySymbol, decimalPlaces),
+      net: formatCurrency(inv.finalPayableAmount, "en", currencySymbol, decimalPlaces)
     })),
     
     sales: sales.map(sale => ({
       date: format(new Date(sale.entryDate), "dd MMM yyyy"),
       number: sale.saleNumber,
       party: sale.party?.name || "N/A",
-      base: Number(sale.baseAmount).toLocaleString(),
-      adjustments: Number(sale.totalAdjustments).toLocaleString(),
-      net: Number(sale.finalAmount).toLocaleString()
+      base: formatCurrency(sale.baseAmount, "en", currencySymbol, decimalPlaces),
+      adjustments: formatCurrency(sale.totalAdjustments, "en", currencySymbol, decimalPlaces),
+      net: formatCurrency(sale.finalAmount, "en", currencySymbol, decimalPlaces)
     }))
   };
 }

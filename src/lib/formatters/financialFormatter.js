@@ -14,7 +14,9 @@ export function formatCurrency(amount, locale = "en", currencySymbol = "Rs.", de
   const num = typeof amount === "string" ? parseFloat(amount.replace(/,/g, "")) : amount;
   if (num === null || num === undefined || isNaN(num)) return amount;
   
-  const precision = typeof decimalPlaces === "number" ? decimalPlaces : 2;
+  const precision = decimalPlaces !== null && decimalPlaces !== undefined && !isNaN(Number(decimalPlaces)) 
+    ? Number(decimalPlaces) 
+    : 2;
   
   // Enforce the core rounding logic from financial.js
   const roundedAmount = round(num, precision);
@@ -26,6 +28,30 @@ export function formatCurrency(amount, locale = "en", currencySymbol = "Rs.", de
   
   const symbol = currencySymbol || "Rs.";
   return `${symbol} ${formattedNum}`;
+}
+
+/**
+ * Formats a number using the core financial `round` logic and locale-specific grouping.
+ * 
+ * @param {number|string} amount - The numeric value to format
+ * @param {string} locale - 'en' or 'ur'
+ * @param {number} decimalPlaces - Precision
+ * @returns {string} Formatted number string
+ */
+export function formatNumber(amount, locale = "en", decimalPlaces = 2) {
+  const num = typeof amount === "string" ? parseFloat(amount.replace(/,/g, "")) : amount;
+  if (num === null || num === undefined || isNaN(num)) return amount;
+  
+  const precision = decimalPlaces !== null && decimalPlaces !== undefined && !isNaN(Number(decimalPlaces)) 
+    ? Number(decimalPlaces) 
+    : 2;
+  
+  const roundedAmount = round(num, precision);
+  
+  return Number(roundedAmount).toLocaleString(locale === "ur" ? "ur-PK" : "en-US", {
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision
+  });
 }
 
 /**

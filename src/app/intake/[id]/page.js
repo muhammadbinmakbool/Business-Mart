@@ -12,6 +12,7 @@ import ResponsiveHeader from "@/components/ResponsiveHeader";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
 import { IntakeWorkflowEngine } from "@/modules/intake/workflow/IntakeWorkflowEngine";
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 export default async function IntakeDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
@@ -31,6 +32,11 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
     getGeneralSettingsAction()
   ]);
   const buyers = parties.filter(p => p.isActive && (p.partyType === "BUYER" || p.partyType === "BOTH"));
+  
+  const generalSettings = generalSettingsResult?.success ? generalSettingsResult.settings : {};
+  const decimalPlaces = generalSettings.decimalPlaces !== undefined ? Number(generalSettings.decimalPlaces) : 2;
+  const currencySymbol = generalSettings.currencySymbol || "Rs.";
+
   const printConfig = getMergedDocumentConfig(
     settingsResult?.success ? settingsResult.settings : {},
     generalSettingsResult?.success ? generalSettingsResult.settings : {}
@@ -198,10 +204,10 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                           {Number(track.quantity).toLocaleString()} <span className="text-xs font-normal uppercase italic">{getUnitLabel(intake.unit)}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Rs. {Number(track.sellingRate).toLocaleString()} / {getUnitLabel((intake.unit === "BAG" || intake.product?.primaryUnit === "BAG") ? "BAG" : (track.rateUnit || "KG"))}
+                          {formatCurrency(track.sellingRate, "en", currencySymbol, decimalPlaces)} / {getUnitLabel((intake.unit === "BAG" || intake.product?.primaryUnit === "BAG") ? "BAG" : (track.rateUnit || "KG"))}
                         </div>
                         <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                          Rs. {Number(track.baseAmount).toLocaleString()}
+                          {formatCurrency(track.baseAmount, "en", currencySymbol, decimalPlaces)}
                         </div>
                       </div>
                     </div>
@@ -233,7 +239,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                 {intake.advances.map(advance => (
                   <div key={advance.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/10">
                     <div className="space-y-1">
-                      <div className="text-sm font-semibold">Rs. {Number(advance.amount).toLocaleString()}</div>
+                      <div className="text-sm font-semibold">{formatCurrency(advance.amount, "en", currencySymbol, decimalPlaces)}</div>
                       <div className="text-xs text-muted-foreground">{advance.notes}</div>
                     </div>
                     <div className="text-[10px] text-muted-foreground text-right">

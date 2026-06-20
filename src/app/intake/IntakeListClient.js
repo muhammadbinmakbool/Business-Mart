@@ -12,6 +12,8 @@ import { getUnitLabel, convertRate } from "@/lib/units";
 import DataTable from "@/components/ui/DataTable";
 import PaginationControls from "@/components/ui/PaginationControls";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 export default function IntakeListClient({
   intakes = [],
@@ -28,6 +30,7 @@ export default function IntakeListClient({
   currentSortField = "entryDate",
   currentSortDirection = "desc"
 }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -265,7 +268,7 @@ export default function IntakeListClient({
                       row.distinctRates && row.distinctRates.length > 1 ? (
                         <div className="flex flex-col items-end">
                           <span className="font-bold text-foreground">
-                            Rs. {row.distinctRates.map((r) => r.toLocaleString()).join(", ")}
+                            {row.distinctRates.map((r) => formatCurrency(r, "en", currencySymbol, decimalPlaces)).join(", ")}
                           </span>
                           <span className="text-[9px] text-muted-foreground font-semibold uppercase">
                             / {getUnitLabel(row.rateUnit || "KG")}
@@ -273,7 +276,7 @@ export default function IntakeListClient({
                         </div>
                       ) : (
                         <>
-                          Rs. {Number(row.rate || 0).toLocaleString()}{" "}
+                          {formatCurrency(row.rate || 0, "en", currencySymbol, decimalPlaces)}{" "}
                           <span className="text-[10px] text-muted-foreground">
                             /{getUnitLabel(row.rateUnit || "KG")}
                           </span>
@@ -342,13 +345,13 @@ export default function IntakeListClient({
                     render: (row, val) =>
                       row.trackTotals && row.trackTotals.length > 1 ? (
                         <div className="flex flex-col items-end">
-                          <span>Rs. {val.toLocaleString()}</span>
+                          <span>{formatCurrency(val, "en", currencySymbol, decimalPlaces)}</span>
                           <span className="text-[9px] text-muted-foreground font-normal">
-                            ({row.trackTotals.map((t) => `Rs. ${t.toLocaleString()}`).join(" + ")})
+                            ({row.trackTotals.map((t) => formatCurrency(t, "en", currencySymbol, decimalPlaces)).join(" + ")})
                           </span>
                         </div>
                       ) : (
-                        <>Rs. {val.toLocaleString()}</>
+                        <>{formatCurrency(val, "en", currencySymbol, decimalPlaces)}</>
                       ),
                   },
                 ]

@@ -3,6 +3,8 @@
 import React, { useRef, useEffect } from "react";
 import { Coins, CheckCircle, AlertTriangle } from "lucide-react";
 import { round } from "@/lib/financial";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatNumber } from "@/lib/formatters/financialFormatter";
 
 export default function PosCashCalculator({
   finalAmount = 0,
@@ -10,6 +12,7 @@ export default function PosCashCalculator({
   onChangeCashReceived,
   calculatorRef
 }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const parsedCash = parseFloat(cashReceived) || 0;
   const changeDue = parsedCash - finalAmount;
 
@@ -82,7 +85,7 @@ export default function PosCashCalculator({
             <div className="flex-1 min-w-0">
               <span className="text-[9px] font-bold uppercase tracking-wider text-green-600 block">Change Due</span>
               <span className="text-sm font-bold font-mono text-green-500 truncate block">
-                PKR {round(changeDue).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {currencySymbol} {formatNumber(changeDue, "en", decimalPlaces)}
               </span>
             </div>
           </div>
@@ -92,7 +95,7 @@ export default function PosCashCalculator({
             <div className="flex-1 min-w-0">
               <span className="text-[9px] font-bold uppercase tracking-wider text-amber-600 block">Short / Balance Due</span>
               <span className="text-sm font-bold font-mono text-amber-500 truncate block">
-                PKR {round(Math.abs(changeDue)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                {currencySymbol} {formatNumber(Math.abs(changeDue), "en", decimalPlaces)}
               </span>
             </div>
           </div>

@@ -21,8 +21,11 @@ import { calculateSupplierDeductions } from "@/lib/financial";
 import { cn, getLocalDateString } from "@/lib/utils";
 import { toast } from "sonner";
 import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency, formatNumber } from "@/lib/formatters/financialFormatter";
 
 export default function InvoiceGenerator({ suppliers, initialInvoice = null, adjustmentDefinitions = [], backUrl = "" }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
   const [step, setStep] = useState(initialInvoice ? 2 : 1);
 
@@ -503,7 +506,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
                       <div className="font-bold text-base font-mono">
                         {Number(i.netWeight || i.grossWeight).toLocaleString()} {i.unit || "KG"}
                       </div>
-                      <div className="text-xs text-muted-foreground">Rs. {Number(i.rate).toLocaleString()} / {i.rateUnit === UNIT_IDS.MAUND ? "Maund" : (i.rateUnit || "KG")}</div>
+                      <div className="text-xs text-muted-foreground">{formatCurrency(i.rate, "en", currencySymbol, decimalPlaces)} / {i.rateUnit === UNIT_IDS.MAUND ? "Maund" : (i.rateUnit || "KG")}</div>
                     </div>
                   </div>
                 );
@@ -544,7 +547,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
                     <div className="text-xs text-muted-foreground">{a.notes || "No notes"}</div>
                   </div>
                   <div className="text-right">
-                    <div className="font-bold text-lg text-emerald-600">Rs. {Number(a.amount).toLocaleString()}</div>
+                    <div className="font-bold text-lg text-emerald-600">{formatCurrency(a.amount, "en", currencySymbol, decimalPlaces)}</div>
                   </div>
                 </div>
               ))}
@@ -605,13 +608,13 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
                           </div>
                           <h4 className="font-bold text-sm mt-1">{intake.product.name}</h4>
                           <div className="text-[10px] text-muted-foreground mt-0.5">
-                            {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} {intake.unit || "KG"} @ Rs. {Number(getIntakeDisplayRate(intake).rate).toLocaleString()}/{getIntakeDisplayRate(intake).rateUnit === UNIT_IDS.MAUND ? "Maund" : (getIntakeDisplayRate(intake).rateUnit || "KG")}
-                          </div>
+                          {intake.bagCount ? `${intake.bagCount} Bags • ` : ""}{weight} {intake.unit || "KG"} @ {formatCurrency(getIntakeDisplayRate(intake).rate, "en", currencySymbol, decimalPlaces)}/{getIntakeDisplayRate(intake).rateUnit === UNIT_IDS.MAUND ? "Maund" : (getIntakeDisplayRate(intake).rateUnit || "KG")}
                         </div>
-                        <div className="text-right">
-                          <span className="text-xs text-muted-foreground block font-medium">Gross Amount</span>
-                          <span className="font-bold text-sm">Rs. {breakdown.gross.toLocaleString()}</span>
-                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs text-muted-foreground block font-medium">Gross Amount</span>
+                        <span className="font-bold text-sm">{formatCurrency(breakdown.gross, "en", currencySymbol, decimalPlaces)}</span>
+                      </div>
                       </div>
 
                       {/* Per-Intake Adjustments Manager */}
@@ -689,7 +692,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
                                       "font-mono font-bold min-w-[70px] text-right",
                                       adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
                                     )}>
-                                      {adj.direction === "ADD" ? "+" : "-"} Rs. {adj.calculatedAmount.toLocaleString()}
+                                      {adj.direction === "ADD" ? "+" : "-"} {formatCurrency(adj.calculatedAmount, "en", currencySymbol, decimalPlaces)}
                                     </span>
                                     <button
                                       type="button"
@@ -712,7 +715,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
 
                       <div className="border-t pt-3 flex justify-between items-center bg-primary/5 -mx-4 -mb-4 px-4 py-2.5 rounded-b-xl">
                         <span className="text-xs font-bold text-primary">Portion Net Value</span>
-                        <span className="font-black text-sm text-primary">Rs. {breakdown.net.toLocaleString()}</span>
+                        <span className="font-black text-sm text-primary">{formatCurrency(breakdown.net, "en", currencySymbol, decimalPlaces)}</span>
                       </div>
                     </div>
                   );
@@ -735,7 +738,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
                         <div className="text-sm font-bold">Advance Payment</div>
                         <div className="text-xs text-muted-foreground">{adv.notes || "No notes"}</div>
                       </div>
-                      <div className="font-mono font-bold text-sm text-rose-600">- Rs. {Number(adv.amount).toLocaleString()}</div>
+                      <div className="font-mono font-bold text-sm text-rose-600">- {formatCurrency(adv.amount, "en", currencySymbol, decimalPlaces)}</div>
                     </div>
                   ))}
                 </div>
@@ -773,24 +776,24 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="opacity-80">Base Amount</span>
-                  <span>Rs. {totalGrossValue.toLocaleString()}</span>
+                  <span>{formatCurrency(totalGrossValue, "en", currencySymbol, decimalPlaces)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="opacity-80">Total Adjustments</span>
-                  <span className="text-rose-200">- Rs. {totalDeductions.toLocaleString()}</span>
+                  <span className="text-rose-200">-{formatCurrency(totalDeductions, "en", currencySymbol, decimalPlaces)}</span>
                 </div>
                 <div className="flex justify-between items-center border-t border-white/10 pt-2 font-bold text-base">
                   <span>Net Amount</span>
-                  <span>Rs. {netValue.toLocaleString()}</span>
+                  <span>{formatCurrency(netValue, "en", currencySymbol, decimalPlaces)}</span>
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="opacity-80">Less: Total Advances</span>
-                  <span className="text-rose-200">- Rs. {totalAdvances.toLocaleString()}</span>
+                  <span className="text-rose-200">-{formatCurrency(totalAdvances, "en", currencySymbol, decimalPlaces)}</span>
                 </div>
                 <div className="flex justify-between items-end border-t border-white/20 pt-4">
                   <span className="font-bold text-xs uppercase opacity-75">Final Total</span>
                   <div className="text-right">
-                    <span className="text-2xl font-black">Rs. {finalPayable.toLocaleString()}</span>
+                    <span className="text-2xl font-black">{formatCurrency(finalPayable, "en", currencySymbol, decimalPlaces)}</span>
                   </div>
                 </div>
               </div>

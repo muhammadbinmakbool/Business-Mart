@@ -13,6 +13,8 @@ import DataTable from "@/components/ui/DataTable";
 import PaginationControls from "@/components/ui/PaginationControls";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useHeaderAction } from "@/components/layout/HeaderActionContext";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 export default function SalesListClient({
   sales = [],
@@ -29,6 +31,7 @@ export default function SalesListClient({
   currentSortField = "entryDate",
   currentSortDirection = "desc"
 }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -224,7 +227,7 @@ export default function SalesListClient({
                   <span className="italic">Multiple</span>
                 ) : (
                   <>
-                    Rs. {Number(row.items[0]?.rate || 0).toLocaleString()}
+                    {formatCurrency(row.items[0]?.rate || 0, "en", currencySymbol, decimalPlaces)}
                     <span className="text-[9px] opacity-60 ml-1 uppercase">
                       /{" "}
                       {getUnitLabel(
@@ -242,7 +245,7 @@ export default function SalesListClient({
               key: "finalAmount",
               label: "Final Amount",
               className: "px-4 py-3.5 text-right font-bold text-base",
-              render: (row, val) => `Rs. ${Number(val).toLocaleString()}`,
+              render: (row, val) => formatCurrency(val, "en", currencySymbol, decimalPlaces),
             },
             ...(currentTab === "PARTIAL"
               ? [
@@ -250,7 +253,7 @@ export default function SalesListClient({
                     key: "remaining",
                     label: "Remaining",
                     className: "px-4 py-3.5 text-right font-semibold text-rose-600 font-mono text-xs",
-                    render: (row, val) => `Rs. ${Number(val).toLocaleString()}`,
+                    render: (row, val) => formatCurrency(val, "en", currencySymbol, decimalPlaces),
                   },
                 ]
               : []),

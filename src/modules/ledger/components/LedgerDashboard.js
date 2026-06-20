@@ -1,13 +1,16 @@
 import React from "react";
 import { CheckCircle2, AlertTriangle, ArrowRightLeft, DollarSign, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 export default function LedgerDashboard({ summary, drift = null, isSavedSession = false }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const { supplier, buyer, difference, matched, tolerance } = summary;
 
   // Formatting helper
   const formatRs = (val) => {
-    return `Rs. ${Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatCurrency(val, "en", currencySymbol, decimalPlaces);
   };
 
   const hasDrift = drift && drift.hasDrift;

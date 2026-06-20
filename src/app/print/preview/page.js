@@ -25,7 +25,8 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
     generalSettingsResult?.success ? generalSettingsResult.settings : {}
   );
 
-  let content = null;
+  let resolvedComponent = null;
+  let resolvedData = null;
   let errorMsg = "";
   let docIdText = "Latest Record";
 
@@ -48,8 +49,9 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
         if (!intake) {
           errorMsg = "No Intake Transactions found in database.";
         } else {
-          const { Component, mappedData } = resolvePrintTemplate("intake", intake);
-          content = <Component data={mappedData} locale={locale} printConfig={printConfig} />;
+          const { Component, mappedData } = resolvePrintTemplate("intake", intake, null, [printConfig]);
+          resolvedComponent = Component;
+          resolvedData = mappedData;
           docIdText = intake.intakeNumber;
         }
         break;
@@ -79,8 +81,9 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
         if (!sale) {
           errorMsg = "No Sale Transactions found in database.";
         } else {
-          const { Component, mappedData } = resolvePrintTemplate("sale", sale);
-          content = <Component data={mappedData} locale={locale} printConfig={printConfig} />;
+          const { Component, mappedData } = resolvePrintTemplate("sale", sale, null, [printConfig]);
+          resolvedComponent = Component;
+          resolvedData = mappedData;
           docIdText = sale.saleNumber;
         }
         break;
@@ -164,9 +167,10 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
             "settlement",
             invoice,
             invoice.version || null,
-            [intakeBreakdowns, summaryAdjustments]
+            [intakeBreakdowns, summaryAdjustments, printConfig]
           );
-          content = <Component data={mappedData} locale={locale} printConfig={printConfig} />;
+          resolvedComponent = Component;
+          resolvedData = mappedData;
           docIdText = invoice.invoiceNumber;
         }
         break;
@@ -190,8 +194,9 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
           totals: ledgerResult.totals || {}
         };
 
-        const { Component, mappedData } = resolvePrintTemplate("ledger", data);
-        content = <Component data={mappedData} locale={locale} printConfig={printConfig} />;
+        const { Component, mappedData } = resolvePrintTemplate("ledger", data, null, [printConfig]);
+        resolvedComponent = Component;
+        resolvedData = mappedData;
         docIdText = `${start} to ${end}`;
         break;
       }
@@ -202,6 +207,12 @@ export default async function PrintPreviewPage({ searchParams: searchParamsPromi
   } catch (err) {
     console.error("Failed to render preview template:", err);
     errorMsg = `Error rendering template: ${err.message}`;
+  }
+
+  let content = null;
+  if (resolvedComponent) {
+    const Component = resolvedComponent;
+    content = <Component data={resolvedData} locale={locale} printConfig={printConfig} />;
   }
 
   const tabs = [

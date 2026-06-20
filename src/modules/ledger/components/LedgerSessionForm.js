@@ -6,6 +6,9 @@ import { Save, Loader2, X } from "lucide-react";
 import { format } from "date-fns";
 import { createLedgerSessionAction } from "../controllers/ledgerActions";
 
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
+
 function getDefaultTitle(dateFilter) {
   let defaultTitle = "";
   const now = new Date();
@@ -26,6 +29,7 @@ function getDefaultTitle(dateFilter) {
 }
 
 export default function LedgerSessionForm({ summary, dateFilter, onCancel, onSuccess }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const [prevDateFilter, setPrevDateFilter] = useState(dateFilter);
   const [title, setTitle] = useState(() => getDefaultTitle(dateFilter));
   const [notes, setNotes] = useState("");
@@ -41,7 +45,7 @@ export default function LedgerSessionForm({ summary, dateFilter, onCancel, onSuc
   const { supplier, buyer, difference } = summary;
 
   const formatRs = (val) => {
-    return `Rs. ${Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatCurrency(val, "en", currencySymbol, decimalPlaces);
   };
 
   const handleSubmit = async (e) => {

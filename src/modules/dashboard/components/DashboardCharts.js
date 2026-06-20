@@ -2,6 +2,8 @@
 
 import React, { useMemo } from "react";
 import { TrendingUp, ArrowUpRight, ArrowDownRight, Activity, Percent, Layers, ShieldCheck, ShieldAlert } from "lucide-react";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 // --- 1. DAILY ACTIVITY CHART (CSS BARS) ---
 export function DailyActivityChart({ data = [] }) {
@@ -116,6 +118,7 @@ export function ProductMovementChart({ data = [] }) {
 
 // --- 3. FINANCIAL FLOW CHART (DUAL COLUMN VALUE SUMMARY) ---
 export function FinancialFlowChart({ data = [] }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const maxVal = useMemo(() => {
     const vals = data.map(d => Math.max(d.settlementValue, d.saleValue));
     return Math.max(...vals, 1000);
@@ -151,8 +154,8 @@ export function FinancialFlowChart({ data = [] }) {
                 {/* Tooltip */}
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 bg-slate-950 border border-slate-800 rounded px-2 py-1 text-[9px] font-mono text-slate-200 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap shadow-lg">
                   <div className="font-bold border-b border-slate-800 pb-0.5 mb-0.5">{day.date}</div>
-                  <div className="text-amber-550 font-semibold">Settlements: Rs. {day.settlementValue.toLocaleString()}</div>
-                  <div className="text-teal-450 font-semibold">Sales: Rs. {day.saleValue.toLocaleString()}</div>
+                  <div className="text-amber-550 font-semibold">Settlements: {formatCurrency(day.settlementValue, "en", currencySymbol, decimalPlaces)}</div>
+                  <div className="text-teal-450 font-semibold">Sales: {formatCurrency(day.saleValue, "en", currencySymbol, decimalPlaces)}</div>
                 </div>
 
                 {/* Bars */}
@@ -184,6 +187,7 @@ export function FinancialFlowChart({ data = [] }) {
 
 // --- 4. RECONCILIATION TREND LOGS ---
 export function ReconciliationTrendChart({ data = [] }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   return (
     <div className="space-y-3.5">
       <h4 className="text-xs font-bold uppercase tracking-wider text-slate-505 dark:text-slate-400 flex items-center gap-1.5">
@@ -201,7 +205,7 @@ export function ReconciliationTrendChart({ data = [] }) {
                   ? "bg-emerald-50 border-emerald-100 hover:bg-emerald-100/50 dark:bg-emerald-950/20 dark:border-emerald-950/60 dark:hover:bg-emerald-950/30" 
                   : "bg-rose-50 border-rose-100 hover:bg-rose-100/50 dark:bg-rose-950/20 dark:border-rose-950/60 dark:hover:bg-rose-950/30"
               }`}
-              title={`${s.title} (Diff: Rs. ${s.difference})`}
+              title={`${s.title} (Diff: ${formatCurrency(s.difference, "en", currencySymbol, decimalPlaces)})`}
             >
               <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 truncate max-w-[60px] block font-mono">
                 {s.title.split(" ").slice(-1)[0]}

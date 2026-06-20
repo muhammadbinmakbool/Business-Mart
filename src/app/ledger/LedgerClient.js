@@ -2,6 +2,8 @@
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 import { 
   BookOpen, 
   History, 
@@ -59,8 +61,11 @@ export default function LedgerClient({
   initialLiveLimit = 50,
   initialSearchQuery = "",
   printConfig = null,
-  settlementSettings = null
+  settlementSettings = null,
+  currentSortField = "endDate",
+  currentSortDirection = "desc"
 }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const tolerance = settlementSettings?.reconciliationTolerance !== undefined ? Number(settlementSettings.reconciliationTolerance) : DEFAULT_TOLERANCE;
 
   const router = useRouter();
@@ -142,7 +147,7 @@ export default function LedgerClient({
   
   // Format currency helper
   const formatRs = (val) => {
-    return `Rs. ${Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return formatCurrency(val, "en", currencySymbol, decimalPlaces);
   };
 
   const selectedSupplierName = useMemo(() => {

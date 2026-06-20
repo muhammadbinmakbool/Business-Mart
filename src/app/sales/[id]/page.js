@@ -22,6 +22,7 @@ import { UNIT_IDS, getUnitLabel } from "@/lib/units";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
 import { SalesWorkflowEngine } from "@/modules/sales/workflow/SalesWorkflowEngine";
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
+import { formatCurrency, formatNumber } from "@/lib/formatters/financialFormatter";
 
 export default async function SaleDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
@@ -43,6 +44,10 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
       </div>
     );
   }
+
+  const generalSettings = generalSettingsResult?.success ? generalSettingsResult.settings : {};
+  const decimalPlaces = generalSettings.decimalPlaces !== undefined ? Number(generalSettings.decimalPlaces) : 2;
+  const currencySymbol = generalSettings.currencySymbol || "Rs.";
 
   const printConfig = getMergedDocumentConfig(
     settingsResult?.success ? settingsResult.settings : {},
@@ -123,9 +128,9 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
                         {item.unit === UNIT_IDS.MAUND ? formatMaundWeight(item.weight, "MND", "KG") : `${item.weight.toLocaleString()} ${item.unit}`}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
-                        Rs. {item.rate.toLocaleString()} <span className="text-[9px] text-muted-foreground uppercase">/ {getUnitLabel((item.unit === "BAG" || item.product?.category === "BAG" || item.product?.primaryUnit === "BAG") ? "BAG" : (item.rateUnit || "KG"))}</span>
+                        {formatCurrency(item.rate, "en", currencySymbol, decimalPlaces)} <span className="text-[9px] text-muted-foreground uppercase">/ {getUnitLabel((item.unit === "BAG" || item.product?.category === "BAG" || item.product?.primaryUnit === "BAG") ? "BAG" : (item.rateUnit || "KG"))}</span>
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-foreground">Rs. {item.amount.toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-bold text-foreground">{formatCurrency(item.amount, "en", currencySymbol, decimalPlaces)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -138,7 +143,7 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
               </div>
               <div className="text-right">
                 <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Base Amount</span>
-                <span className="font-bold text-sm text-foreground">Rs. {sale.baseAmount.toLocaleString()}</span>
+                <span className="font-bold text-sm text-foreground">{formatCurrency(sale.baseAmount, "en", currencySymbol, decimalPlaces)}</span>
               </div>
             </div>
           </div>
@@ -177,14 +182,14 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
                         </td>
                         <td className="px-6 py-4 text-xs text-muted-foreground font-medium">
                           {adj.method === "PERCENTAGE" ? `${adj.value}% of Base` : 
-                           adj.method === "PER_WEIGHT" ? `Rs. ${adj.value} per ${adj.unit || "KG"}` : 
-                           `Fixed Rs. ${adj.value}`}
+                           adj.method === "PER_WEIGHT" ? `${currencySymbol} ${formatNumber(adj.value, "en", decimalPlaces)} per ${adj.unit || "KG"}` : 
+                           `Fixed ${currencySymbol} ${formatNumber(adj.value, "en", decimalPlaces)}`}
                         </td>
                         <td className={cn(
                           "px-6 py-4 text-right font-bold",
                           adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
                         )}>
-                          {adj.direction === "ADD" ? "+" : "-"} Rs. {adj.calculatedAmount.toLocaleString()}
+                          {adj.direction === "ADD" ? "+" : "-"} {formatCurrency(adj.calculatedAmount, "en", currencySymbol, decimalPlaces)}
                         </td>
                       </tr>
                     ))}
@@ -196,7 +201,7 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
                         "px-6 py-4 text-right",
                         sale.totalAdjustments >= 0 ? "text-emerald-600" : "text-rose-600"
                       )}>
-                        {sale.totalAdjustments >= 0 ? "+" : ""} Rs. {sale.totalAdjustments.toLocaleString()}
+                        {sale.totalAdjustments >= 0 ? "+" : "-"} {formatCurrency(Math.abs(sale.totalAdjustments), "en", currencySymbol, decimalPlaces)}
                       </td>
                     </tr>
                   </tfoot>

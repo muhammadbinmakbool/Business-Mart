@@ -27,6 +27,8 @@ import {
   FinancialFlowChart, 
   ReconciliationTrendChart 
 } from "./DashboardCharts";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 // --- HYDRATION-SAFE LOCAL TIME COMPONENT ---
 function ClientTime({ dateStr }) {
@@ -94,6 +96,7 @@ export function QuickActionsWidget() {
 
 // --- 2. SUMMARY CARDS WIDGET ---
 export function SummaryCardsWidget({ data }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const { finance, inventory, ledger, activity } = data;
 
   const renderDiff = (today, yesterday) => {
@@ -106,11 +109,11 @@ export function SummaryCardsWidget({ data }) {
   const renderDelta = (val, isNegativeGood = false) => {
     if (val > 0) {
       const color = isNegativeGood ? "text-rose-600 dark:text-rose-455" : "text-emerald-600 dark:text-emerald-400";
-      return <span className={`text-[9.5px] font-extrabold ${color}`}>▲ +Rs. {val.toLocaleString()} today</span>;
+      return <span className={`text-[9.5px] font-extrabold ${color}`}>▲ +{formatCurrency(val, "en", currencySymbol, decimalPlaces)} today</span>;
     }
     if (val < 0) {
       const color = isNegativeGood ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-455";
-      return <span className={`text-[9.5px] font-extrabold ${color}`}>▼ -Rs. {Math.abs(val).toLocaleString()} today</span>;
+      return <span className={`text-[9.5px] font-extrabold ${color}`}>▼ -{formatCurrency(Math.abs(val), "en", currencySymbol, decimalPlaces)} today</span>;
     }
     return <span className="text-[9px] font-medium text-slate-400 dark:text-slate-500">±0 today</span>;
   };
@@ -166,7 +169,7 @@ export function SummaryCardsWidget({ data }) {
           <div className="bg-white dark:bg-slate-900/40 p-1.5 px-2 rounded-lg border border-slate-100 dark:border-slate-900/50 flex flex-col">
             <div className="flex justify-between items-center text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase">
               <span>Supplier Payables</span>
-              <span className="font-mono text-[11px] font-extrabold text-amber-655 dark:text-amber-455">Rs. {finance.supplierPayableTotal.toLocaleString()}</span>
+              <span className="font-mono text-[11px] font-extrabold text-amber-655 dark:text-amber-455">{formatCurrency(finance.supplierPayableTotal, "en", currencySymbol, decimalPlaces)}</span>
             </div>
             <div className="text-right mt-0.5 leading-none">
               {renderDelta(finance.supplierPayableTodayChange, true)}
@@ -175,7 +178,7 @@ export function SummaryCardsWidget({ data }) {
           <div className="bg-white dark:bg-slate-900/40 p-1.5 px-2 rounded-lg border border-slate-100 dark:border-slate-900/50 flex flex-col">
             <div className="flex justify-between items-center text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase">
               <span>Buyer Receivables</span>
-              <span className="font-mono text-[11px] font-extrabold text-teal-655 dark:text-teal-455">Rs. {finance.buyerReceivableTotal.toLocaleString()}</span>
+              <span className="font-mono text-[11px] font-extrabold text-teal-655 dark:text-teal-455">{formatCurrency(finance.buyerReceivableTotal, "en", currencySymbol, decimalPlaces)}</span>
             </div>
             <div className="text-right mt-0.5 leading-none">
               {renderDelta(finance.buyerReceivableTodayChange, false)}
@@ -183,7 +186,7 @@ export function SummaryCardsWidget({ data }) {
           </div>
           <div className="flex items-center justify-between text-[10px] px-1 pt-0.5">
             <span className="text-slate-550 dark:text-slate-400 font-semibold">Today's Commission:</span>
-            <span className="font-bold text-emerald-600 dark:text-emerald-455 font-mono">Rs. {finance.todayCommissionTotal.toLocaleString()}</span>
+            <span className="font-bold text-emerald-600 dark:text-emerald-455 font-mono">{formatCurrency(finance.todayCommissionTotal, "en", currencySymbol, decimalPlaces)}</span>
           </div>
         </div>
       )
@@ -241,9 +244,9 @@ export function SummaryCardsWidget({ data }) {
             </div>
           </div>
           <div className="bg-white dark:bg-slate-900/40 p-1.5 px-2 rounded-lg border border-slate-100 dark:border-slate-900/50 flex items-center justify-between text-[10px]">
-            <span className="text-slate-500 dark:text-slate-400 font-bold uppercase text-[8.5px]">Difference</span>
+            <span className="text-slate-550 dark:text-slate-400 font-bold uppercase text-[8.5px]">Difference</span>
             <span className={`font-bold font-mono text-[11px] ${ledger.difference === 0 ? "text-emerald-600 dark:text-emerald-400" : ledger.matched ? "text-amber-600 dark:text-amber-405" : "text-rose-600 dark:text-rose-455"}`}>
-              Rs. {ledger.difference.toLocaleString()}
+              {formatCurrency(ledger.difference, "en", currencySymbol, decimalPlaces)}
             </span>
           </div>
         </div>
@@ -335,6 +338,7 @@ export function RecentActivityWidget({ data }) {
 
 // --- 4. PENDING ATTENTION ALERTS WIDGET ---
 export function PendingAttentionWidget({ data }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const { 
     pendingIntakes, 
     pendingSettlements, 
@@ -396,7 +400,7 @@ export function PendingAttentionWidget({ data }) {
                   <div key={alert.id} className="bg-rose-50/50 dark:bg-rose-950/10 border border-rose-100 dark:border-rose-950/40 p-2.5 rounded-lg flex items-center justify-between text-xs">
                     <div className="space-y-0.5">
                       <div className="font-bold text-rose-700 dark:text-rose-350 truncate max-w-[150px]">{alert.title}</div>
-                      <div className="text-[10px] text-rose-600 dark:text-rose-400 font-mono">Live Drift: Rs. {alert.driftAmount.toLocaleString()}</div>
+                      <div className="text-[10px] text-rose-600 dark:text-rose-400 font-mono">Live Drift: {formatCurrency(alert.driftAmount, "en", currencySymbol, decimalPlaces)}</div>
                     </div>
                     <Link href="/ledger" className="text-[10px] font-bold text-rose-600 dark:text-rose-300 hover:underline shrink-0">
                       Audit

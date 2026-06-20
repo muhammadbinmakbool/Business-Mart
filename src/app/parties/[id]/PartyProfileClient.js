@@ -6,10 +6,13 @@ import { ArrowLeft, Phone, MapPin, TrendingUp, TrendingDown, Wallet, Receipt, Pa
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { applyPartyPaymentAction } from "@/modules/parties/controllers/partyActions";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 const fmt = (v) => Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 function SummaryCard({ label, value, icon: Icon, color = "primary", sub }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const colors = {
     primary: "bg-primary/5 border-primary/10 text-primary",
     emerald: "bg-emerald-500/5 border-emerald-500/10 text-emerald-700 dark:text-emerald-400",
@@ -24,7 +27,7 @@ function SummaryCard({ label, value, icon: Icon, color = "primary", sub }) {
         <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">{label}</span>
         {Icon && <Icon className="h-4 w-4 opacity-40" />}
       </div>
-      <div className="text-2xl font-black tracking-tight">Rs. {fmt(value)}</div>
+      <div className="text-2xl font-black tracking-tight">{formatCurrency(value, "en", currencySymbol, decimalPlaces)}</div>
       {sub && <div className="text-[10px] font-medium opacity-60">{sub}</div>}
     </div>
   );
@@ -60,6 +63,7 @@ function StatusBadge({ status }) {
 }
 
 function TimelineTable({ events, partyId }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const [expanded, setExpanded] = useState(false);
   const visible = expanded ? events : events.slice(0, 15);
 
@@ -131,19 +135,19 @@ function TimelineTable({ events, partyId }) {
                     )}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-xs">
-                    {evt.debit > 0 ? <span className="text-emerald-600 font-semibold">{fmt(evt.debit)}</span> : <span className="opacity-30">—</span>}
+                    {evt.debit > 0 ? <span className="text-emerald-600 font-semibold">{formatCurrency(evt.debit, "en", currencySymbol, decimalPlaces)}</span> : <span className="opacity-30">—</span>}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-xs">
-                    {evt.credit > 0 ? <span className="text-rose-600 font-semibold">{fmt(evt.credit)}</span> : <span className="opacity-30">—</span>}
+                    {evt.credit > 0 ? <span className="text-rose-600 font-semibold">{formatCurrency(evt.credit, "en", currencySymbol, decimalPlaces)}</span> : <span className="opacity-30">—</span>}
                   </td>
                   <td className={cn("px-4 py-3 text-right font-mono text-xs font-bold", evt.runningBalance >= 0 ? "text-emerald-700" : "text-rose-700")}>
-                    {fmt(Math.abs(evt.runningBalance))} {evt.runningBalance >= 0 ? "DR" : "CR"}
+                    {formatCurrency(Math.abs(evt.runningBalance), "en", currencySymbol, decimalPlaces)} {evt.runningBalance >= 0 ? "DR" : "CR"}
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-xs">
-                    {isObligation ? <span className="text-emerald-600">Rs. {fmt(evt.allocatedAmount)}</span> : <span className="opacity-30">—</span>}
+                    {isObligation ? <span className="text-emerald-600">{formatCurrency(evt.allocatedAmount, "en", currencySymbol, decimalPlaces)}</span> : <span className="opacity-30">—</span>}
                   </td>
                   <td className={cn("px-4 py-3 text-right font-mono text-xs font-semibold", evt.remainingAmount > 0 ? "text-rose-600" : "text-slate-400 opacity-40")}>
-                    {isObligation ? `Rs. ${fmt(evt.remainingAmount)}` : <span className="opacity-30">—</span>}
+                    {isObligation ? formatCurrency(evt.remainingAmount, "en", currencySymbol, decimalPlaces) : <span className="opacity-30">—</span>}
                   </td>
                   <td className="px-4 py-3 text-center">
                     {isObligation ? <StatusBadge status={evt.clearingStatus} /> : <span className="opacity-30">—</span>}
@@ -193,6 +197,7 @@ function DataTable({ columns, data, emptyMsg = "No records found." }) {
 
 
 function QuickPaymentForm({ party }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const [paymentType, setPaymentType] = useState(
     party.partyType === "SUPPLIER" ? "CASH_OUT" : "CASH_IN"
   );
@@ -218,10 +223,10 @@ function QuickPaymentForm({ party }) {
         setNotes("");
         const count = res.data.allocations.length;
         if (count > 0) {
-          const detail = res.data.allocations.map(a => `• Invoice #${a.invoiceNumber} cleared Rs. ${fmt(a.allocated)} (New status: ${a.paymentStatus})`).join("\n");
-          alert(`Success! Sequentially cleared ${count} invoice(s):\n\n${detail}\n\nUnallocated excess amount: Rs. ${fmt(res.data.unallocatedAmount)}`);
+          const detail = res.data.allocations.map(a => `• Invoice #${a.invoiceNumber} cleared ${formatCurrency(a.allocated, "en", currencySymbol, decimalPlaces)} (New status: ${a.paymentStatus})`).join("\n");
+          alert(`Success! Sequentially cleared ${count} invoice(s):\n\n${detail}\n\nUnallocated excess amount: ${formatCurrency(res.data.unallocatedAmount, "en", currencySymbol, decimalPlaces)}`);
         } else {
-          alert(`Success! Payment of Rs. ${fmt(amt)} applied. No active unpaid invoices found. Unallocated amount: Rs. ${fmt(res.data.unallocatedAmount)}`);
+          alert(`Success! Payment of ${formatCurrency(amt, "en", currencySymbol, decimalPlaces)} applied. No active unpaid invoices found. Unallocated amount: ${formatCurrency(res.data.unallocatedAmount, "en", currencySymbol, decimalPlaces)}`);
         }
         window.location.reload();
       } else {
@@ -305,7 +310,7 @@ function QuickPaymentForm({ party }) {
       </button>
 
       <div className="text-[9px] text-muted-foreground bg-slate-50 dark:bg-slate-900/50 border border-slate-200/50 dark:border-slate-800 p-2.5 rounded-lg text-center font-medium leading-relaxed">
-        ℹ️ **Sequential Clearing Enabled:** Applying a payment here automatically allocates funds to this party's outstanding invoices sequentially. Fully paid items transition to **CLEARED**, while partially cleared ones update to **PARTIAL**.
+        ℹ️ **Sequential Clearing Enabled:** Applying a payment here automatically allocates funds to this party&apos;s outstanding invoices sequentially. Fully paid items transition to **CLEARED**, while partially cleared ones update to **PARTIAL**.
       </div>
     </form>
   );
@@ -313,7 +318,7 @@ function QuickPaymentForm({ party }) {
 
 
 export default function PartyProfileClient({ profile }) {
-
+  const { decimalPlaces, currencySymbol } = useSettings();
   const { party, summary, timeline, detailedViews } = profile;
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -321,27 +326,27 @@ export default function PartyProfileClient({ profile }) {
     { key: "saleNumber", label: "Invoice #", render: r => <Link href={`/sales/${r.id}?backUrl=/parties/${party.id}`} className="text-blue-600 dark:text-blue-400 hover:underline font-mono">{r.saleNumber}</Link> },
     { key: "entryDate", label: "Date", render: r => format(new Date(r.entryDate), "dd MMM yyyy") },
     { key: "totalWeight", label: "Weight", align: "right", mono: true, render: r => `${fmt(r.totalWeight)} KG` },
-    { key: "finalAmount", label: "Amount", align: "right", mono: true, render: r => `Rs. ${fmt(r.finalAmount)}` },
-    { key: "allocatedAmount", label: "Paid Amount", align: "right", mono: true, render: r => `Rs. ${fmt(r.allocatedAmount)}` },
-    { key: "remainingAmount", label: "Remaining", align: "right", mono: true, render: r => `Rs. ${fmt(r.remainingAmount)}` },
+    { key: "finalAmount", label: "Amount", align: "right", mono: true, render: r => formatCurrency(r.finalAmount, "en", currencySymbol, decimalPlaces) },
+    { key: "allocatedAmount", label: "Paid Amount", align: "right", mono: true, render: r => formatCurrency(r.allocatedAmount, "en", currencySymbol, decimalPlaces) },
+    { key: "remainingAmount", label: "Remaining", align: "right", mono: true, render: r => formatCurrency(r.remainingAmount, "en", currencySymbol, decimalPlaces) },
     { key: "status", label: "Status", render: r => <StatusBadge status={r.status} /> },
   ];
 
   const settlementCols = [
     { key: "invoiceNumber", label: "Invoice #", render: r => <Link href={`/supplier-invoices/${r.id}?backUrl=/parties/${party.id}`} className="text-blue-600 dark:text-blue-400 hover:underline font-mono">{r.invoiceNumber}</Link> },
     { key: "entryDate", label: "Date", render: r => format(new Date(r.entryDate), "dd MMM yyyy") },
-    { key: "totalGrossValue", label: "Gross", align: "right", mono: true, render: r => `Rs. ${fmt(r.totalGrossValue)}` },
-    { key: "totalDeductions", label: "Deductions", align: "right", mono: true, render: r => `Rs. ${fmt(r.totalDeductions)}` },
-    { key: "finalPayableAmount", label: "Payable", align: "right", mono: true, render: r => `Rs. ${fmt(r.finalPayableAmount)}` },
-    { key: "allocatedAmount", label: "Paid Amount", align: "right", mono: true, render: r => `Rs. ${fmt(r.allocatedAmount)}` },
-    { key: "remainingAmount", label: "Remaining", align: "right", mono: true, render: r => `Rs. ${fmt(r.remainingAmount)}` },
+    { key: "totalGrossValue", label: "Gross", align: "right", mono: true, render: r => formatCurrency(r.totalGrossValue, "en", currencySymbol, decimalPlaces) },
+    { key: "totalDeductions", label: "Deductions", align: "right", mono: true, render: r => formatCurrency(r.totalDeductions, "en", currencySymbol, decimalPlaces) },
+    { key: "finalPayableAmount", label: "Payable", align: "right", mono: true, render: r => formatCurrency(r.finalPayableAmount, "en", currencySymbol, decimalPlaces) },
+    { key: "allocatedAmount", label: "Paid Amount", align: "right", mono: true, render: r => formatCurrency(r.allocatedAmount, "en", currencySymbol, decimalPlaces) },
+    { key: "remainingAmount", label: "Remaining", align: "right", mono: true, render: r => formatCurrency(r.remainingAmount, "en", currencySymbol, decimalPlaces) },
     { key: "status", label: "Status", render: r => <StatusBadge status={r.status} /> },
   ];
 
   const advanceCols = [
     { key: "id", label: "ID", render: r => `ADV-${r.id}` },
     { key: "createdAt", label: "Date", render: r => format(new Date(r.createdAt), "dd MMM yyyy, hh:mm a") },
-    { key: "amount", label: "Amount", align: "right", mono: true, render: r => `Rs. ${fmt(r.amount)}` },
+    { key: "amount", label: "Amount", align: "right", mono: true, render: r => formatCurrency(r.amount, "en", currencySymbol, decimalPlaces) },
     {
       key: "supplierInvoiceId",
       label: "Status",
@@ -414,7 +419,7 @@ export default function PartyProfileClient({ profile }) {
           summary.officialBalance >= 0 ? "bg-emerald-600 text-white shadow-emerald-600/20" : "bg-rose-600 text-white shadow-rose-600/20"
         )}>
           <div className="text-[10px] uppercase font-bold opacity-70 tracking-widest">Net Outstanding Balance</div>
-          <div className="text-2xl font-black mt-1">Rs. {fmt(Math.abs(summary.officialBalance))}</div>
+          <div className="text-2xl font-black mt-1">{formatCurrency(Math.abs(summary.officialBalance), "en", currencySymbol, decimalPlaces)}</div>
           <div className="text-xs font-bold mt-0.5 opacity-80">
             {summary.officialBalance >= 0 ? "DEBIT (Party owes us)" : "CREDIT (We owe Supplier)"}
           </div>
@@ -434,12 +439,12 @@ export default function PartyProfileClient({ profile }) {
         <div className="rounded-xl border bg-card p-6 space-y-4 shadow-sm">
           <h3 className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest font-black">Buyer Account Standing</h3>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Total Sales Billing</span><span className="font-bold text-slate-800 dark:text-slate-200">Rs. {fmt(summary.totalSales)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Paid by Buyer</span><span className="font-bold text-emerald-600 dark:text-emerald-400">Rs. {fmt(summary.totalSalesPaid)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Cash Advances Issued</span><span className="font-bold text-amber-600 dark:text-amber-400">Rs. {fmt(summary.totalAdvances)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Sales Billing</span><span className="font-bold text-slate-800 dark:text-slate-200">{formatCurrency(summary.totalSales, "en", currencySymbol, decimalPlaces)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Paid by Buyer</span><span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.totalSalesPaid, "en", currencySymbol, decimalPlaces)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Cash Advances Issued</span><span className="font-bold text-amber-600 dark:text-amber-400">{formatCurrency(summary.totalAdvances, "en", currencySymbol, decimalPlaces)}</span></div>
             <div className="border-t pt-2 flex justify-between font-bold">
               <span>Outstanding Debt</span>
-              <span className="text-amber-600 dark:text-amber-400 font-mono">Rs. {fmt(summary.totalSalesRemaining + summary.totalAdvances)}</span>
+              <span className="text-amber-600 dark:text-amber-400 font-mono">{formatCurrency(summary.totalSalesRemaining + summary.totalAdvances, "en", currencySymbol, decimalPlaces)}</span>
             </div>
           </div>
         </div>
@@ -447,11 +452,11 @@ export default function PartyProfileClient({ profile }) {
         <div className="rounded-xl border bg-card p-6 space-y-4 shadow-sm border-dashed">
           <h3 className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest font-black">Supplier Account Standing</h3>
           <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Total Supplier Invoices</span><span className="font-bold text-slate-800 dark:text-slate-200">Rs. {fmt(summary.totalSupplierPayable)}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Paid to Supplier</span><span className="font-bold text-emerald-600 dark:text-emerald-400">Rs. {fmt(summary.totalSupplierPaid)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Supplier Invoices</span><span className="font-bold text-slate-800 dark:text-slate-200">{formatCurrency(summary.totalSupplierPayable, "en", currencySymbol, decimalPlaces)}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Paid to Supplier</span><span className="font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(summary.totalSupplierPaid, "en", currencySymbol, decimalPlaces)}</span></div>
             <div className="border-t pt-2 flex justify-between font-bold">
               <span>Outstanding Payable</span>
-              <span className="text-rose-600 dark:text-rose-400 font-mono">Rs. {fmt(summary.totalSupplierRemaining)}</span>
+              <span className="text-rose-600 dark:text-rose-400 font-mono">{formatCurrency(summary.totalSupplierRemaining, "en", currencySymbol, decimalPlaces)}</span>
             </div>
           </div>
         </div>
@@ -491,11 +496,11 @@ export default function PartyProfileClient({ profile }) {
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div className="bg-white dark:bg-slate-900 border rounded-xl p-4 text-center">
                     <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground block">Active Sales Pending</span>
-                    <span className="text-lg font-black text-amber-600 mt-1 block">Rs. {fmt(summary.totalSalesRemaining)}</span>
+                    <span className="text-lg font-black text-amber-600 mt-1 block">{formatCurrency(summary.totalSalesRemaining, "en", currencySymbol, decimalPlaces)}</span>
                   </div>
                   <div className="bg-white dark:bg-slate-900 border rounded-xl p-4 text-center">
                     <span className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground block">Active Settlements Pending</span>
-                    <span className="text-lg font-black text-rose-600 mt-1 block">Rs. {fmt(summary.totalSupplierRemaining)}</span>
+                    <span className="text-lg font-black text-rose-600 mt-1 block">{formatCurrency(summary.totalSupplierRemaining, "en", currencySymbol, decimalPlaces)}</span>
                   </div>
                 </div>
               </div>

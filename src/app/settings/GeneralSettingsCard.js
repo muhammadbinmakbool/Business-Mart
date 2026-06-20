@@ -3,9 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { Building2, Phone, Mail, MapPin, Image as ImageIcon, Landmark, Globe, Clock, Calendar, Check, AlertTriangle, Pencil, X, Keyboard } from "lucide-react";
 import { toast } from "sonner";
+import { useSettings } from "@/components/layout/SettingsContext";
 import { getGeneralSettingsAction, saveGeneralSettingsAction, uploadLogoAction } from "@/modules/settings/controllers/settingsActions";
 
 export default function GeneralSettingsCard() {
+  const { updateSettings } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -116,6 +118,7 @@ export default function GeneralSettingsCard() {
       setLogoFile(null);
       setSettings(finalSettings);
       setInitialSettings(finalSettings);
+      updateSettings(finalSettings);
       setIsEditing(false);
     } else {
       toast.error(res.error || "Failed to save general settings.");

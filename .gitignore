@@ -49,3 +49,4 @@ next-env.d.ts
 /prisma/client/
 
 /network-call-log/
+/prisma/prisma/*

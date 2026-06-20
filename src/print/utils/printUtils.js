@@ -20,7 +20,7 @@ function renderTemplateToHTML(templateType, data, locale = "en", printConfig = n
     templateType,
     rawData,
     rawData.version || null, // Auto-pick version if defined in database record
-    mapperArgs
+    [...mapperArgs, printConfig]
   );
 
   const htmlString = renderToString(<Component data={mappedData} locale={locale} printConfig={printConfig} />);

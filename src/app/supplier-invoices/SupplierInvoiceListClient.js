@@ -12,6 +12,8 @@ import DataTable from "@/components/ui/DataTable";
 import PaginationControls from "@/components/ui/PaginationControls";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useHeaderAction } from "@/components/layout/HeaderActionContext";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 
 export default function SupplierInvoiceListClient({
@@ -29,6 +31,7 @@ export default function SupplierInvoiceListClient({
   currentSortField = "entryDate",
   currentSortDirection = "desc"
 }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -209,7 +212,7 @@ export default function SupplierInvoiceListClient({
               key: "finalPayableAmount",
               label: "Final Total",
               className: "px-4 py-3 text-right font-bold text-lg",
-              render: (row, val) => `Rs. ${Number(val).toLocaleString()}`,
+              render: (row, val) => formatCurrency(val, "en", currencySymbol, decimalPlaces),
             },
             ...(currentTab === "PARTIAL"
               ? [
@@ -217,7 +220,7 @@ export default function SupplierInvoiceListClient({
                     key: "remaining",
                     label: "Remaining",
                     className: "px-4 py-3 text-right font-semibold text-rose-600 font-mono",
-                    render: (row, val) => `Rs. ${Number(val).toLocaleString()}`,
+                    render: (row, val) => formatCurrency(val, "en", currencySymbol, decimalPlaces),
                   },
                 ]
               : []),

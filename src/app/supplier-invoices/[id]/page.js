@@ -15,6 +15,7 @@ import { UNIT_IDS, getUnitLabel } from "@/lib/units";
 import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/settings/controllers/settingsActions";
 import { SupplierWorkflowEngine } from "@/modules/supplier-invoices/workflow/SupplierWorkflowEngine";
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
+import { formatCurrency, formatNumber } from "@/lib/formatters/financialFormatter";
 
 export default async function SupplierInvoiceDetailPage({ params, searchParams: searchParamsPromise }) {
   const { id } = await params;
@@ -39,6 +40,10 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
   }
 
   const invoice = result.data;
+  const generalSettings = generalSettingsResult?.success ? generalSettingsResult.settings : {};
+  const decimalPlaces = generalSettings.decimalPlaces !== undefined ? Number(generalSettings.decimalPlaces) : 2;
+  const currencySymbol = generalSettings.currencySymbol || "Rs.";
+
   const printConfig = getMergedDocumentConfig(
     settingsResult?.success ? settingsResult.settings : {},
     generalSettingsResult?.success ? generalSettingsResult.settings : {}
@@ -180,9 +185,9 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
                         {item.intake.unit === UNIT_IDS.MAUND ? formatMaundWeight(item.weight, "MND", "KG") : `${Number(item.weight)} ${item.intake.unit || "KG"}`}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
-                        Rs. {Number(item.rate).toLocaleString()} <span className="text-[9px] text-muted-foreground uppercase">/ {getUnitLabel((item.intake.unit === "BAG" || item.intake.product?.category === "BAG" || item.intake.product?.primaryUnit === "BAG") ? "BAG" : (item.rateUnit || "KG"))}</span>
+                        {formatCurrency(item.rate, "en", currencySymbol, decimalPlaces)} <span className="text-[9px] text-muted-foreground uppercase">/ {getUnitLabel((item.intake.unit === "BAG" || item.intake.product?.category === "BAG" || item.intake.product?.primaryUnit === "BAG") ? "BAG" : (item.rateUnit || "KG"))}</span>
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-foreground">Rs. {Number(item.amount).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-right font-bold text-foreground">{formatCurrency(item.amount, "en", currencySymbol, decimalPlaces)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -195,7 +200,7 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
               </div>
               <div className="text-right">
                 <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Gross Total</span>
-                <span className="font-bold text-sm text-foreground">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
+                <span className="font-bold text-sm text-foreground">{formatCurrency(invoice.totalGrossValue, "en", currencySymbol, decimalPlaces)}</span>
               </div>
             </div>
           </div>
@@ -234,14 +239,14 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
                         </td>
                         <td className="px-4 py-3 text-xs text-muted-foreground font-medium">
                           {adj.method === "PERCENTAGE" ? `${Number(adj.value)}%` : 
-                           adj.method === "PER_WEIGHT" ? `Rs. ${Number(adj.value)} per ${adj.unit || "KG"}` : 
-                           `Fixed Rs. ${Number(adj.value)}`}
+                           adj.method === "PER_WEIGHT" ? `${currencySymbol} ${formatNumber(adj.value, "en", decimalPlaces)} per ${adj.unit || "KG"}` : 
+                           `Fixed ${currencySymbol} ${formatNumber(adj.value, "en", decimalPlaces)}`}
                         </td>
                         <td className={cn(
                           "px-4 py-3 text-right font-bold",
                           adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
                         )}>
-                          {adj.direction === "ADD" ? "+" : "-"} Rs. {Number(adj.calculatedAmount).toLocaleString()}
+                          {adj.direction === "ADD" ? "+" : "-"} {formatCurrency(adj.calculatedAmount, "en", currencySymbol, decimalPlaces)}
                         </td>
                       </tr>
                     ))}
@@ -267,7 +272,7 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
                         <div className="font-medium text-xs">Advance Payment</div>
                         <div className="text-[10px] text-muted-foreground">{adv.notes}</div>
                       </div>
-                      <div className="font-bold text-rose-600 text-xs">- Rs. {Number(adv.amount).toLocaleString()}</div>
+                      <div className="font-bold text-rose-600 text-xs">- {formatCurrency(adv.amount, "en", currencySymbol, decimalPlaces)}</div>
                     </div>
                   ))}
                 </div>

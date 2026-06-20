@@ -3,6 +3,8 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatNumber } from "@/lib/formatters/financialFormatter";
 
 export default function ReconciliationTable({ 
   invoices = [], 
@@ -15,9 +17,11 @@ export default function ReconciliationTable({
   onInvPageChange,
   onSalePageChange
 }) {
+  const { decimalPlaces } = useSettings();
+
   // Format currency helper
   const formatRs = (val) => {
-    return Number(val || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return formatNumber(val, "en", decimalPlaces);
   };
 
   const totalInvPages = Math.ceil(invoicesCount / pageSize);

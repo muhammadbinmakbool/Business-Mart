@@ -23,3 +23,10 @@ Settings (General Setup, Print settings, Inventory settings, and any future sett
   * Front-end validation hints (warnings, alerts, non-blocking boundaries).
 
 All core arithmetic and conversions must remain pure, floating-point accurate, and database-independent inside `@/lib/financial.js` and `@/lib/units.js`.
+
+## 🚫 Currency & Financial Precision Formatting (IMMUTABLE RULE)
+
+* **NEVER** use hardcoded formatting symbols (like `"Rs."` or `"PKR"`) or raw `.toLocaleString()` calls directly in component markup or print mappers for currency values.
+* **MUST ALWAYS** format financial amounts using the centralized `formatCurrency` utility from `@/lib/formatters/financialFormatter` and propagate user preferences via `useSettings()` (or `printConfig` in the print subsystem).
+* **UI/Display Layers ONLY**: Formatting must happen exclusively at the terminal rendering stage. Do NOT write formatted strings into database/service records or let calculations depend on formatted outputs.
+

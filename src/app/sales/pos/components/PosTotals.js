@@ -4,6 +4,8 @@ import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { Plus, Trash2, Tag, Percent, DollarSign, Scale, Archive, X } from "lucide-react";
 import { round } from "@/lib/financial";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatNumber } from "@/lib/formatters/financialFormatter";
 
 export default function PosTotals({
   totals = { baseAmount: 0, totalWeight: 0, totalAdjustments: 0, finalAmount: 0, totalBagCount: 0 },
@@ -15,6 +17,7 @@ export default function PosTotals({
   notes = "",
   onChangeNotes
 }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const [showAdd, setShowAdd] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -305,7 +308,7 @@ export default function PosTotals({
             <span>Base Subtotal</span>
           </div>
           <div className="text-right font-mono font-semibold text-foreground">
-            PKR {round(totals.baseAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {currencySymbol} {formatNumber(totals.baseAmount, "en", decimalPlaces)}
           </div>
 
           <div className="flex items-center gap-1 text-muted-foreground">
@@ -329,7 +332,7 @@ export default function PosTotals({
             <span>Adjustments Sum</span>
           </div>
           <div className="text-right font-mono font-semibold text-foreground">
-            {totals.totalAdjustments < 0 ? "-" : ""} PKR {Math.abs(round(totals.totalAdjustments)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {totals.totalAdjustments < 0 ? "-" : ""} {currencySymbol} {formatNumber(Math.abs(totals.totalAdjustments), "en", decimalPlaces)}
           </div>
         </div>
 
@@ -337,7 +340,7 @@ export default function PosTotals({
         <div className="bg-primary/5 border border-primary/20 rounded-xl p-2.5 flex items-center justify-between mt-1.5">
           <span className="text-xs font-bold text-primary uppercase tracking-wide">Final Amount</span>
           <span className="text-lg font-black font-mono text-primary tracking-tight">
-            PKR {round(totals.finalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {currencySymbol} {formatNumber(totals.finalAmount, "en", decimalPlaces)}
           </span>
         </div>
       </div>

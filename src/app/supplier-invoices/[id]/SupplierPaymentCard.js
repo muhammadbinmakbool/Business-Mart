@@ -6,8 +6,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { recordSupplierPaymentAction } from "@/modules/supplier-invoices/controllers/supplierInvoiceActions";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency, formatNumber } from "@/lib/formatters/financialFormatter";
 
 export default function SupplierPaymentCard({ invoice }) {
+  const { decimalPlaces, currencySymbol } = useSettings();
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [showInput, setShowInput] = useState(false);
@@ -30,7 +33,7 @@ export default function SupplierPaymentCard({ invoice }) {
     }
 
     if (amt > remaining) {
-      toast.error(`Amount cannot exceed the remaining outstanding balance of Rs. ${remaining.toLocaleString()}`);
+      toast.error(`Amount cannot exceed the remaining outstanding balance of ${formatCurrency(remaining, "en", currencySymbol, decimalPlaces)}`);
       return;
     }
 
@@ -38,7 +41,7 @@ export default function SupplierPaymentCard({ invoice }) {
     try {
       const result = await recordSupplierPaymentAction(invoice.id, amt);
       if (result.success) {
-        toast.success(`Successfully recorded payout of Rs. ${amt.toLocaleString()}`);
+        toast.success(`Successfully recorded payout of ${formatCurrency(amt, "en", currencySymbol, decimalPlaces)}`);
         setAmount("");
         setShowInput(false);
       } else {
@@ -59,22 +62,22 @@ export default function SupplierPaymentCard({ invoice }) {
         <div className="relative z-10">
           <span className="text-[9px] uppercase font-bold opacity-60 tracking-widest block">Final Payable Total</span>
           <div className="mt-1 flex items-baseline gap-1.5">
-            <span className="text-xs opacity-80">Rs.</span>
-            <h2 className="text-3xl font-black tracking-tighter">{total.toLocaleString()}</h2>
+            <span className="text-xs opacity-80">{currencySymbol}</span>
+            <h2 className="text-3xl font-black tracking-tighter">{formatNumber(total, "en", decimalPlaces)}</h2>
           </div>
         </div>
         <div className="relative z-10 pt-3 border-t border-white/20 mt-3 text-[11px] space-y-1">
           <div className="flex justify-between items-center opacity-85">
             <span>Gross Value</span>
-            <span className="font-semibold">Rs. {Number(invoice.totalGrossValue).toLocaleString()}</span>
+            <span className="font-semibold">{formatCurrency(invoice.totalGrossValue, "en", currencySymbol, decimalPlaces)}</span>
           </div>
           <div className="flex justify-between items-center opacity-85">
             <span>Deductions</span>
-            <span className="font-semibold text-rose-300">- Rs. {Number(invoice.totalDeductions).toLocaleString()}</span>
+            <span className="font-semibold text-rose-300">-{formatCurrency(invoice.totalDeductions, "en", currencySymbol, decimalPlaces)}</span>
           </div>
           <div className="flex justify-between items-center opacity-85">
             <span>Advances Adjusted</span>
-            <span className="font-semibold text-rose-300">- Rs. {Number(invoice.totalAdvances).toLocaleString()}</span>
+            <span className="font-semibold text-rose-300">-{formatCurrency(invoice.totalAdvances, "en", currencySymbol, decimalPlaces)}</span>
           </div>
         </div>
       </div>
@@ -119,7 +122,7 @@ export default function SupplierPaymentCard({ invoice }) {
           <div className="bg-muted/20 p-3 rounded-xl border border-muted/10">
             <div className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Paid to Supplier</div>
             <div className="text-sm font-black text-foreground mt-1">
-              Rs. {paid.toLocaleString()}
+              {formatCurrency(paid, "en", currencySymbol, decimalPlaces)}
             </div>
           </div>
           <div className="bg-primary/5 p-3 rounded-xl border border-primary/10">
@@ -128,7 +131,7 @@ export default function SupplierPaymentCard({ invoice }) {
               "text-sm font-black mt-1",
               remaining > 0 ? "text-primary" : "text-emerald-600"
             )}>
-              Rs. {remaining.toLocaleString()}
+              {formatCurrency(remaining, "en", currencySymbol, decimalPlaces)}
             </div>
           </div>
         </div>
