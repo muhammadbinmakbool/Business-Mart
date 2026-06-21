@@ -234,7 +234,7 @@ export default function SourceTrackingListClient({
                       let displayUnit = row.intakeTransaction?.unit || "KG";
                       if (displayUnit === "BAG") {
                         const gross = Number(row.intakeTransaction?.grossWeight) || 0;
-                        const norm = Number(row.intakeTransaction?.normalizedWeight) || 0;
+                        const norm = Number(row.intakeTransaction?.baseQuantity) || 0;
                         const factor =
                           gross > 0
                             ? norm / gross

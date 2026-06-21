@@ -242,14 +242,14 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     // Prepare items for the calculation engine by normalizing them
     const processedItems = items.map(item => {
       const product = products.find(p => p.id === parseInt(item.productId));
-      if (!product) return { normalizedWeight: 0, normalizedRate: 0 };
+      if (!product) return { baseQuantity: 0, normalizedRate: 0 };
 
       try {
         const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product, unitRegistry);
-        const normalizedWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product, unitRegistry);
-        return { normalizedWeight, normalizedRate, product };
+        const baseQuantity = normalizeQuantity(item.weight || 0, item.unit || "KG", product, unitRegistry);
+        return { baseQuantity, normalizedRate, product };
       } catch (e) {
-        return { normalizedWeight: 0, normalizedRate: 0 };
+        return { baseQuantity: 0, normalizedRate: 0 };
       }
     });
 
@@ -421,15 +421,15 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
         items: items.map(item => {
           const product = products.find(p => p.id === parseInt(item.productId));
           const normalizedRate = product ? normalizeRate(item.rate || 0, item.rateUnit || "KG", product) : 0;
-          const normalizedWeight = product ? normalizeQuantity(item.weight || 0, item.unit || "KG", product) : 0;
-          const amount = round(normalizedWeight * normalizedRate);
+          const baseQuantity = product ? normalizeQuantity(item.weight || 0, item.unit || "KG", product) : 0;
+          const amount = round(baseQuantity * normalizedRate);
           return {
             productId: parseInt(item.productId),
             weight: parseFloat(item.weight),
             unit: item.unit || "KG",
             rate: parseFloat(item.rate),
             rateUnit: item.rateUnit || "KG",
-            normalizedWeight,
+            baseQuantity,
             amount,
             salesTrackId: item.salesTrackId ? parseInt(item.salesTrackId) : null
           };
@@ -794,8 +794,8 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                         if (!product) return "0";
                         try {
                            const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product);
-                           const normalizedWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
-                           return round(normalizedWeight * normalizedRate).toLocaleString();
+                           const baseQuantity = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
+                           return round(baseQuantity * normalizedRate).toLocaleString();
                         } catch (e) {
                            return "0";
                         }

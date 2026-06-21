@@ -140,7 +140,7 @@ model IntakeTransaction {
   rateUnit         String                @default("KG")
   grossWeight      Decimal
   unit             String                @default("KG")
-  normalizedWeight Decimal               @default(0)
+  baseQuantity     Decimal               @default(0)
   Bardana          Decimal?
   Khot             Decimal?
   netWeight        Decimal?
@@ -227,7 +227,7 @@ model SaleItem {
   productId           Int
   weight              Decimal
   unit                String             @default("KG")
-  normalizedWeight    Decimal            @default(0)
+  baseQuantity        Decimal            @default(0)
   rate                Decimal
   rateUnit            String             @default("KG") // DEPRECATED: use unit
   amount              Decimal

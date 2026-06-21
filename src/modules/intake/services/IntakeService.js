@@ -26,7 +26,7 @@ export class IntakeService {
       netWeight: intake.netWeight ? Number(intake.netWeight) : null,
       Bardana: intake.Bardana ? Number(intake.Bardana) : null,
       Khot: intake.Khot ? Number(intake.Khot) : null,
-      normalizedWeight: Number(intake.normalizedWeight),
+      baseQuantity: Number(intake.baseQuantity),
       rate: intake.rate ? Number(intake.rate) : null,
       rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
       product: intake.product ? {
@@ -76,7 +76,7 @@ export class IntakeService {
       netWeight: intake.netWeight ? Number(intake.netWeight) : null,
       Bardana: intake.Bardana ? Number(intake.Bardana) : null,
       Khot: intake.Khot ? Number(intake.Khot) : null,
-      normalizedWeight: Number(intake.normalizedWeight),
+      baseQuantity: Number(intake.baseQuantity),
       rate: intake.rate ? Number(intake.rate) : null,
       rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
       product: intake.product ? {
@@ -113,7 +113,7 @@ export class IntakeService {
       netWeight: intake.netWeight ? Number(intake.netWeight) : null,
       Bardana: intake.Bardana ? Number(intake.Bardana) : null,
       Khot: intake.Khot ? Number(intake.Khot) : null,
-      normalizedWeight: Number(intake.normalizedWeight),
+      baseQuantity: Number(intake.baseQuantity),
       rate: intake.rate ? Number(intake.rate) : null,
       rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
       product: intake.product ? {
@@ -178,7 +178,7 @@ export class IntakeService {
     }
     
     const unitRegistry = await UnitService.getUnitRegistry();
-    const normalizedWeight = normalizeQuantity(validated.grossWeight, validated.unit || DEFAULT_WEIGHT_UNIT, product, unitRegistry);
+    const baseQuantity = normalizeQuantity(validated.grossWeight, validated.unit || DEFAULT_WEIGHT_UNIT, product, unitRegistry);
     
     const isBagProduct = product && (product.primaryUnit === "BAG" || product.category === "BAG");
 
@@ -202,7 +202,7 @@ export class IntakeService {
           Bardana: validated.Bardana ?? null,
           Khot: validated.Khot ?? null,
           unit: validated.unit || DEFAULT_WEIGHT_UNIT,
-          normalizedWeight,
+           baseQuantity,
           rate: validated.rate ?? null,
           rateUnit: validated.rateUnit || (isBagProduct ? "BAG" : DEFAULT_WEIGHT_UNIT),
           notes: validated.notes,
@@ -244,7 +244,7 @@ export class IntakeService {
       partyName,
       action: "CREATED",
       description: `${performedByName} created Intake ${intake.intakeNumber} for supplier ${partyName}.`,
-      weight: Number(intake.normalizedWeight),
+      weight: Number(intake.baseQuantity),
       bagCount: intake.bagCount,
       rate: intake.rate,
       performedByUserId,
@@ -274,7 +274,7 @@ export class IntakeService {
       if (!current) throw new Error("Intake transaction not found");
 
       const oldProductId = current.productId;
-      const oldWeight = Number(current.normalizedWeight);
+      const oldWeight = Number(current.baseQuantity);
       oldStatus = current.status;
 
       // 2. Determine new values
@@ -351,6 +351,8 @@ export class IntakeService {
         const product = await tx.product.findUnique({ where: { id: newProductId } });
         if (!product) throw new Error("Product not found");
         const unitRegistry = await UnitService.getUnitRegistry();
+        const rawWeight = validated.grossWeight !== undefined ? validated.grossWeight : Number(current.grossWeight);
+        const unit = validated.unit !== undefined ? validated.unit : current.unit;
         newWeight = normalizeQuantity(rawWeight, unit, product, unitRegistry);
       }
 
@@ -401,7 +403,7 @@ export class IntakeService {
           grossWeight: validated.grossWeight,
           remainingWeight: newRemainingWeight,
           unit: validated.unit !== undefined ? validated.unit : current.unit,
-          normalizedWeight: newWeight,
+          baseQuantity: newWeight,
           notes: validated.notes,
           status: newStatus,
           rate: finalSupplierRate,
@@ -490,7 +492,7 @@ export class IntakeService {
       partyName,
       action: "UPDATED",
       description,
-      weight: Number(updated.normalizedWeight),
+      weight: Number(updated.baseQuantity),
       bagCount: updated.bagCount,
       rate: updated.rate,
       performedByUserId,
@@ -565,7 +567,7 @@ export class IntakeService {
       netWeight: intake.netWeight ? Number(intake.netWeight) : null,
       Bardana: intake.Bardana ? Number(intake.Bardana) : null,
       Khot: intake.Khot ? Number(intake.Khot) : null,
-      normalizedWeight: Number(intake.normalizedWeight),
+      baseQuantity: Number(intake.baseQuantity),
       rate: intake.rate ? Number(intake.rate) : null,
       rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
       product: intake.product ? {
@@ -778,7 +780,7 @@ export class IntakeService {
       partyName,
       action: "DELETED",
       description,
-      weight: Number(intake.normalizedWeight),
+      weight: Number(intake.baseQuantity),
       bagCount: intake.bagCount,
       rate: Number(intake.rate),
       performedByUserId,
@@ -842,7 +844,7 @@ export class IntakeService {
       partyName,
       action: "HARD_DELETED",
       description,
-      weight: Number(deleted.normalizedWeight),
+      weight: Number(deleted.baseQuantity),
       bagCount: deleted.bagCount,
       rate: Number(deleted.rate),
       performedByUserId,

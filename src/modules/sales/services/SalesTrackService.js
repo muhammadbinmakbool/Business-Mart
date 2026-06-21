@@ -259,7 +259,7 @@ export class SalesTrackService {
         rateUnit: track.intakeTransaction.rateUnit || DEFAULT_WEIGHT_UNIT,
         grossWeight: Number(track.intakeTransaction.grossWeight),
         unit: track.intakeTransaction.unit,
-        normalizedWeight: Number(track.intakeTransaction.normalizedWeight),
+        baseQuantity: Number(track.intakeTransaction.baseQuantity),
         Bardana: track.intakeTransaction.Bardana ? Number(track.intakeTransaction.Bardana) : null,
         Khot: track.intakeTransaction.Khot ? Number(track.intakeTransaction.Khot) : null,
         netWeight: track.intakeTransaction.netWeight ? Number(track.intakeTransaction.netWeight) : null,

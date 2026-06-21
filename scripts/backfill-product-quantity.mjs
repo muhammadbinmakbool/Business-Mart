@@ -8,10 +8,10 @@ import { PrismaClient } from "../prisma/client/index.js";
  * This script recalculates Product.quantity for all products based on the
  * Inventory Philosophy:
  *
- *   Product.quantity = SUM(normalizedWeight) of IntakeTransactions
+ *   Product.quantity = SUM(baseQuantity) of IntakeTransactions
  *                      WHERE status = "PENDING"
  *
- * normalizedWeight is derived from grossWeight (the raw arriving weight).
+ * baseQuantity is derived from grossWeight (the raw arriving weight).
  * Net weight values are billing/settlement concerns and do NOT affect inventory.
  * Sales invoices do NOT modify inventory — only Intake lifecycle does.
  * ══════════════════════════════════════════════════════════════════════════════
@@ -31,17 +31,17 @@ async function main() {
     const products = await prisma.product.findMany();
     console.log(`Found ${products.length} products to synchronize.\n`);
 
-    // 2. Fetch sum of normalizedWeight for PENDING intakes per product
+    // 2. Fetch sum of baseQuantity for PENDING intakes per product
     const intakes = await prisma.intakeTransaction.groupBy({
       by: ["productId"],
       where: {
         status: "PENDING"
       },
       _sum: {
-        normalizedWeight: true
+        baseQuantity: true
       }
     });
-    const intakeMap = new Map(intakes.map(i => [i.productId, Number(i._sum.normalizedWeight || 0)]));
+    const intakeMap = new Map(intakes.map(i => [i.productId, Number(i._sum.baseQuantity || 0)]));
 
     // 3. Update Product.quantity inside a single transaction
     console.log("Running alignment transaction batch...");

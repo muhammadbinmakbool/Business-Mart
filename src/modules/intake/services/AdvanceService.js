@@ -16,7 +16,7 @@ export class AdvanceService {
         remainingWeight: a.intakeTransaction.remainingWeight ? Number(a.intakeTransaction.remainingWeight) : null,
         Bardana: a.intakeTransaction.Bardana ? Number(a.intakeTransaction.Bardana) : null,
         Khot: a.intakeTransaction.Khot ? Number(a.intakeTransaction.Khot) : null,
-        normalizedWeight: Number(a.intakeTransaction.normalizedWeight),
+        baseQuantity: Number(a.intakeTransaction.baseQuantity),
         rate: a.intakeTransaction.rate ? Number(a.intakeTransaction.rate) : null,
         rateUnit: a.intakeTransaction.rateUnit || DEFAULT_WEIGHT_UNIT
       } : null,

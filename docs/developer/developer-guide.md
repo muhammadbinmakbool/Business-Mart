@@ -17,8 +17,8 @@ Inventory is transaction-derived.
 
 **Current Inventory** = 
   Opening Stock (InitialStock)
-  + SUM(Intake.normalizedWeight)
-  - SUM(SaleItem.normalizedWeight)
+  + SUM(Intake.baseQuantity)
+  - SUM(SaleItem.baseQuantity)
 
 **Critical Constraints**:
 - **Read Cache**: The computed balance is cached in `Product.quantity` for high-performance $O(1)$ reads in listings and UI views.

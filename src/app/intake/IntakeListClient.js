@@ -246,7 +246,7 @@ export default function IntakeListClient({
               render: (row, val) =>
                 row.unit === "BAG" ? (
                   <>
-                    {Number(row.normalizedWeight).toLocaleString()}{" "}
+                    {Number(row.baseQuantity).toLocaleString()}{" "}
                     <span className="text-[10px] text-muted-foreground uppercase">KG</span>
                   </>
                 ) : (
@@ -308,10 +308,10 @@ export default function IntakeListClient({
                             <>
                               {(() => {
                                 const grossWeight = Number(row.grossWeight) || 0;
-                                const normalizedWeight = Number(row.normalizedWeight) || 0;
+                                const baseQuantity = Number(row.baseQuantity) || 0;
                                 const factor =
                                   grossWeight > 0
-                                    ? normalizedWeight / grossWeight
+                                    ? baseQuantity / grossWeight
                                     : row.product.unitConversion
                                     ? Number(row.product.unitConversion)
                                     : 1;

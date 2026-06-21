@@ -99,7 +99,7 @@ export { calculateIntakeState };
 /**
  * ARCHITECTURAL LOCK: Single Source of Truth for Transaction Calculations.
  * Both UI and Backend must use this logic.
- * @param {Array} items - Array of { normalizedWeight, normalizedRate, product }
+ * @param {Array} items - Array of { baseQuantity, normalizedRate, product }
  * @param {Array} adjustments - Array of adjustments
  */
 export function calculateTransactionTotals(items = [], adjustments = []) {
@@ -109,7 +109,7 @@ export function calculateTransactionTotals(items = [], adjustments = []) {
   let totalBagCount = 0;
 
   items.forEach(item => {
-    const itemWeight = Number(item.normalizedWeight || 0);
+    const itemWeight = Number(item.baseQuantity || 0);
     const itemRate = Number(item.normalizedRate || 0);
     
     baseAmount += (itemWeight * itemRate);

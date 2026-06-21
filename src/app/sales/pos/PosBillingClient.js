@@ -208,13 +208,13 @@ export default function PosBillingClient({
   const totals = useMemo(() => {
     const processedItems = items.map(item => {
       const product = products.find(p => p.id === parseInt(item.productId));
-      if (!product) return { normalizedWeight: 0, normalizedRate: 0 };
+      if (!product) return { baseQuantity: 0, normalizedRate: 0 };
       try {
         const nWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product, unitRegistry);
         const nRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product, unitRegistry);
-        return { normalizedWeight: nWeight, normalizedRate: nRate, product };
+        return { baseQuantity: nWeight, normalizedRate: nRate, product };
       } catch (e) {
-        return { normalizedWeight: 0, normalizedRate: 0 };
+        return { baseQuantity: 0, normalizedRate: 0 };
       }
     });
 
@@ -630,15 +630,15 @@ export default function PosBillingClient({
         items: filteredItems.map(item => {
           const product = products.find(p => p.id === parseInt(item.productId));
           const normalizedRate = product ? normalizeRate(item.rate || 0, item.rateUnit || "KG", product) : 0;
-          const normalizedWeight = product ? normalizeQuantity(item.weight || 0, item.unit || "KG", product) : 0;
-          const amount = round(normalizedWeight * normalizedRate);
+          const baseQuantity = product ? normalizeQuantity(item.weight || 0, item.unit || "KG", product) : 0;
+          const amount = round(baseQuantity * normalizedRate);
           return {
             productId: parseInt(item.productId),
             weight: parseFloat(item.weight),
             unit: item.unit || "KG",
             rate: parseFloat(item.rate),
             rateUnit: item.rateUnit || "KG",
-            normalizedWeight,
+            baseQuantity,
             amount,
             salesTrackId: item.salesTrackId || null
           };

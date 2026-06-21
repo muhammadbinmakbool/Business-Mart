@@ -105,7 +105,7 @@ async function main() {
             rateUnit: "KG",
             grossWeight: weight.toString(),
             unit: "KG",
-            normalizedWeight: weight.toString(),
+            baseQuantity: weight.toString(),
             netWeight: weight.toString(),
             remainingWeight: "0.00",
             status: "SOLD"
@@ -135,7 +135,7 @@ async function main() {
             productId: product.id,
             weight: weight.toString(),
             unit: "KG",
-            normalizedWeight: weight.toString(),
+            baseQuantity: weight.toString(),
             rate: saleRate.toString(),
             amount: saleAmount.toString()
           }

@@ -26,7 +26,7 @@ graph TD
     subgraph Flow A: Inventory Impact
         I[IntakeTransaction: grossWeight] -->|Stock In| INV[InventoryService]
         IS[InitialStock] -->|Stock In| INV
-        SI[SaleItem: normalizedWeight] -->|Stock Out| INV
+        SI[SaleItem: baseQuantity] -->|Stock Out| INV
         INV -->|recalculateProductStock| DB[(Product.quantity)]
     end
 
@@ -36,7 +36,7 @@ graph TD
     end
 ```
 
-- **Flow A (Inventory Impact)**: Authorized purely by `InitialStock`, `IntakeTransaction` gross weights, and `SaleItem` normalized weights. The `InventoryService` manages this logic.
+- **Flow A (Inventory Impact)**: Authorized purely by `InitialStock`, `IntakeTransaction` gross weights, and `SaleItem` base quantities. The `InventoryService` manages this logic.
 - **Flow B (Traceability & UI Only)**: Used for reporting, historical tracing, and preventing over-allocation in the Create Sale UI. Creating a `SalesTrack` or updating an intake's `remainingWeight` has **zero** effect on physical inventory math.
 
 ---
@@ -44,10 +44,10 @@ graph TD
 ## Stock Formula
 
 ```
-Product.quantity = InitialStock + SUM(normalized gross weight of Intakes) - SUM(normalized weight of Sales)
+Product.quantity = InitialStock + SUM(baseQuantity of Intakes) - SUM(baseQuantity of Sales)
 ```
 
-- `normalized gross weight` is derived from `grossWeight` (the raw arriving weight).
+- `baseQuantity` is derived from `grossWeight` (the raw arriving weight).
 - `netWeight` is a billing/settlement value (after Bardana/Khot deductions) and does **NOT** affect inventory.
 - `remainingWeight` is an operational traceability value (Flow B) and does **NOT** affect inventory.
 - All stock calculations are based on gross weight.

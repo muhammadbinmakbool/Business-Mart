@@ -124,7 +124,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                 <div className="text-2xl font-bold text-primary">
                   {intake.unit === "BAG" ? (
                     <>
-                      {Number(intake.normalizedWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">KG</span>
+                      {Number(intake.baseQuantity).toLocaleString()} <span className="text-sm font-normal italic uppercase">KG</span>
                     </>
                   ) : (
                     <>

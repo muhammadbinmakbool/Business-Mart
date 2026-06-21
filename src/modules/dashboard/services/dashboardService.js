@@ -491,7 +491,7 @@ export class DashboardService {
     const [intakes, sales, invoices] = await Promise.all([
       prisma.intakeTransaction.findMany({
         where: { entryDate: { gte: start, lte: end } },
-        select: { entryDate: true, normalizedWeight: true }
+        select: { entryDate: true, baseQuantity: true }
       }),
       prisma.saleTransaction.findMany({
         where: { 
@@ -549,11 +549,11 @@ export class DashboardService {
     const productMovements = await prisma.saleItem.groupBy({
       by: ["productId"],
       _sum: {
-        normalizedWeight: true
+        baseQuantity: true
       },
       orderBy: {
         _sum: {
-          normalizedWeight: "desc"
+          baseQuantity: "desc"
         }
       },
       take: 5
@@ -568,7 +568,7 @@ export class DashboardService {
       return {
         productId: pm.productId,
         name: prod?.name || `Product ${pm.productId}`,
-        weight: pm._sum.normalizedWeight ? Number(pm._sum.normalizedWeight) : 0
+        weight: pm._sum.baseQuantity ? Number(pm._sum.baseQuantity) : 0
       };
     });
 

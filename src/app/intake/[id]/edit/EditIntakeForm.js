@@ -646,7 +646,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
             </li>
             <li className="flex items-start gap-2">
               <span className="text-amber-600 font-bold">•</span>
-              <span><strong>Restore Inventory</strong>: The quantity ({Number(intake.normalizedWeight || 0).toLocaleString()} KG) will be returned to inventory.</span>
+              <span><strong>Restore Inventory</strong>: The quantity ({Number(intake.baseQuantity || 0).toLocaleString()} KG) will be returned to inventory.</span>
             </li>
           </ul>
 

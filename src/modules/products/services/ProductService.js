@@ -111,11 +111,11 @@ export class ProductService {
             const grossWeight = Number(intake.grossWeight || 0);
             const remainingWeight = Number(intake.remainingWeight || 0);
 
-            let newNormalizedWeight = 0;
+            let newBaseQuantity = 0;
 
             if (intake.status === INTAKE_STATUS.PENDING) {
               // Completely unsold: Recalculate full weight
-              newNormalizedWeight = grossWeight * newConversion;
+              newBaseQuantity = grossWeight * newConversion;
             } else if (intake.status === INTAKE_STATUS.PARTIAL) {
               // Partially sold:
               // Sold portion quantity in BAG:
@@ -125,13 +125,13 @@ export class ProductService {
               // Unsold weight in KG is recalculated using new conversion:
               const unsoldWeightKg = remainingWeight * newConversion;
               
-              newNormalizedWeight = soldWeightKg + unsoldWeightKg;
+              newBaseQuantity = soldWeightKg + unsoldWeightKg;
             }
 
             await tx.intakeTransaction.update({
               where: { id: intake.id },
               data: {
-                normalizedWeight: newNormalizedWeight
+                baseQuantity: newBaseQuantity
               }
             });
           }
@@ -144,7 +144,7 @@ export class ProductService {
       */
 
       // Option 1 Policy: Changing product unit conversion does not retroactively mutate existing intake transaction weights.
-      // Already-stored normalizedWeight values remain untouched. Future transactions will resolve the new conversion factor.
+      // Already-stored baseQuantity values remain untouched. Future transactions will resolve the new conversion factor.
 
       return updatedProduct;
     });

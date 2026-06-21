@@ -12,8 +12,8 @@ import { normalizeQuantity } from "@/lib/units";
  *
  *   Current Inventory =
  *     Opening Stock (InitialStock)
- *     + All Active Intakes (IntakeTransaction.normalizedWeight)
- *     - All Active Sales (SaleItem.normalizedWeight)
+ *     + All Active Intakes (IntakeTransaction.baseQuantity)
+ *     - All Active Sales (SaleItem.baseQuantity)
  *
  *   Inventory never depends on:
  *   - Intake allocations / source tracking
@@ -24,7 +24,7 @@ import { normalizeQuantity } from "@/lib/units";
  *   inventory. Inventory movement is derived from the balance of transactions.
  *
  * STOCK CALCULATION:
- *   Product.quantity = Opening Stock + SUM(Intake.normalizedWeight) - SUM(Sale.normalizedWeight)
+ *   Product.quantity = Opening Stock + SUM(Intake.baseQuantity) - SUM(Sale.baseQuantity)
  *                      WHERE status is not CANCELLED and isDeleted is false.
  *
  * This is the ONLY service that should modify Product.quantity.
@@ -39,7 +39,7 @@ export class InventoryService {
 
   /**
    * Recalculates and sets the Product.quantity for a single product.
-   * Stock = Opening Stock + SUM(Intake.normalizedWeight) - SUM(Sale.normalizedWeight)
+   * Stock = Opening Stock + SUM(Intake.baseQuantity) - SUM(Sale.baseQuantity)
    *
    * @param {number} productId - The product ID to recalculate.
    * @param {object} [tx=prisma] - Prisma transaction client (or default prisma).
@@ -87,7 +87,7 @@ export class InventoryService {
     });
 
     for (const intake of activeIntakes) {
-      totalStockIn += Number(intake.normalizedWeight || 0);
+      totalStockIn += Number(intake.baseQuantity || 0);
     }
 
     // 3. Calculate weight from active Sale items
@@ -103,7 +103,7 @@ export class InventoryService {
 
     let totalStockOut = 0;
     for (const item of activeSaleItems) {
-      totalStockOut += Number(item.normalizedWeight || 0);
+      totalStockOut += Number(item.baseQuantity || 0);
     }
 
     const finalProductQuantity = totalStockIn - totalStockOut;

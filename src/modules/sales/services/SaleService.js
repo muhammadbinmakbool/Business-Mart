@@ -96,7 +96,7 @@ export class SaleService {
 
       processedItems.push({
         ...item,
-        normalizedWeight: normalizedQty,
+        baseQuantity: normalizedQty,
         normalizedRate,
         product
       });
@@ -114,7 +114,7 @@ export class SaleService {
           try {
             const bagFactor = Number(pi.product.unitConversion);
             if (bagFactor > 0) {
-              totalBagCount += pi.normalizedWeight / bagFactor;
+              totalBagCount += pi.baseQuantity / bagFactor;
             }
           } catch (e) {}
         }
@@ -142,7 +142,7 @@ export class SaleService {
       // 3.1 Calculate general pool requirements (representing total weight sold for each product in this transaction)
       const generalPoolRequirements = new Map();
       for (const item of processedItems) {
-        const required = item.normalizedWeight;
+        const required = item.baseQuantity;
         const prodId = parseInt(item.productId);
         generalPoolRequirements.set(prodId, (generalPoolRequirements.get(prodId) || 0) + required);
       }
@@ -190,7 +190,7 @@ export class SaleService {
               product: { connect: { id: parseInt(item.productId) } },
               weight: item.weight,
               unit: item.unit || DEFAULT_WEIGHT_UNIT,
-              normalizedWeight: item.normalizedWeight,
+              baseQuantity: item.baseQuantity,
               rate: item.rate,
               rateUnit: item.rateUnit || DEFAULT_WEIGHT_UNIT,
               amount: item.amount,
@@ -317,7 +317,7 @@ export class SaleService {
 
       processedItems.push({
         ...item,
-        normalizedWeight: normalizedQty,
+        baseQuantity: normalizedQty,
         normalizedRate,
         product
       });
@@ -335,7 +335,7 @@ export class SaleService {
           try {
             const bagFactor = Number(pi.product.unitConversion);
             if (bagFactor > 0) {
-              totalBagCount += pi.normalizedWeight / bagFactor;
+              totalBagCount += pi.baseQuantity / bagFactor;
             }
           } catch (e) {}
         }
@@ -366,19 +366,19 @@ export class SaleService {
       // Add back old items (restoring stock)
       for (const oldItem of oldSale.items) {
         const currentDelta = deltas.get(oldItem.productId) || 0;
-        deltas.set(oldItem.productId, currentDelta + Number(oldItem.normalizedWeight));
+        deltas.set(oldItem.productId, currentDelta + Number(oldItem.baseQuantity));
       }
 
       // Subtract new items (selling stock)
       for (const newItem of processedItems) {
         const currentDelta = deltas.get(parseInt(newItem.productId)) || 0;
-        deltas.set(parseInt(newItem.productId), currentDelta - newItem.normalizedWeight);
+        deltas.set(parseInt(newItem.productId), currentDelta - newItem.baseQuantity);
       }
 
       // 3.2 Calculate general pool requirements for old items
       const oldGeneralPoolRequirements = new Map();
       for (const oldItem of oldSale.items) {
-        const required = Number(oldItem.normalizedWeight);
+        const required = Number(oldItem.baseQuantity);
         const prodId = oldItem.productId;
         oldGeneralPoolRequirements.set(prodId, (oldGeneralPoolRequirements.get(prodId) || 0) + required);
       }
@@ -386,7 +386,7 @@ export class SaleService {
       // Calculate general pool requirements for new items
       const newGeneralPoolRequirements = new Map();
       for (const item of processedItems) {
-        const required = item.normalizedWeight;
+        const required = item.baseQuantity;
         const prodId = parseInt(item.productId);
         newGeneralPoolRequirements.set(prodId, (newGeneralPoolRequirements.get(prodId) || 0) + required);
       }
@@ -457,7 +457,7 @@ export class SaleService {
               product: { connect: { id: parseInt(item.productId) } },
               weight: item.weight,
               unit: item.unit || DEFAULT_WEIGHT_UNIT,
-              normalizedWeight: item.normalizedWeight,
+              baseQuantity: item.baseQuantity,
               rate: item.rate,
               rateUnit: item.rateUnit || DEFAULT_WEIGHT_UNIT,
               amount: item.amount,
