@@ -408,7 +408,9 @@ export function decomposeQuantity(quantity, unitId, product = null, unitRegistry
   }
 
   // Filter out zero parts unless it's the only part
-  const filteredParts = parts.filter((p, index) => p.value !== 0 || index === 0);
+  // Suppress zero-leading units when there are other non-zero parts
+  const allZero = parts.every(p => p.value === 0);
+  const filteredParts = parts.filter((p, index) => p.value !== 0 || (index === 0 && allZero));
   return filteredParts;
 }
 
