@@ -317,7 +317,18 @@ export function decomposeQuantity(quantity, unitId, product = null, unitRegistry
   }
 
   // Get dynamic hierarchy
-  const hierarchy = getDynamicHierarchy(category, product, source);
+  let hierarchy = getDynamicHierarchy(category, product, source);
+
+  // Filter hierarchy if starting from a product-specific unit to skip standard intermediate units
+  if (unitObj.productSpecific) {
+    hierarchy = hierarchy.filter((code) => {
+      if (code === unitId) return true;
+      const u = source[code];
+      const rate = u.conversionRate !== undefined ? u.conversionRate : u.factor;
+      return u && (u.base || u.productSpecific || rate < 1);
+    });
+  }
+
   const startIndex = hierarchy.indexOf(unitId);
   if (startIndex === -1) {
     return [{ value: Number(quantity), unit: unitId }];
@@ -332,8 +343,8 @@ export function decomposeQuantity(quantity, unitId, product = null, unitRegistry
     const hasNext = currentIndex !== -1 && currentIndex < hierarchy.length - 1;
 
     if (!hasNext || level === precision) {
-      // Last level: round the remaining quantity
-      const finalVal = Math.round(remainingQuantity * 1000) / 1000;
+      // Last level: round the remaining quantity to nearest whole integer
+      const finalVal = Math.round(remainingQuantity);
       if (finalVal !== 0 || parts.length === 0) {
         parts.push({ value: finalVal, unit: currentUnitId });
       }
@@ -347,12 +358,12 @@ export function decomposeQuantity(quantity, unitId, product = null, unitRegistry
       factorCurrent = getConversionFactor(currentUnitId, product, source);
       factorNext = getConversionFactor(nextUnitId, product, source);
     } catch (err) {
-      parts.push({ value: Math.round(remainingQuantity * 1000) / 1000, unit: currentUnitId });
+      parts.push({ value: Math.round(remainingQuantity), unit: currentUnitId });
       break;
     }
 
     if (!factorCurrent || !factorNext || factorCurrent <= 0 || factorNext <= 0) {
-      parts.push({ value: Math.round(remainingQuantity * 1000) / 1000, unit: currentUnitId });
+      parts.push({ value: Math.round(remainingQuantity), unit: currentUnitId });
       break;
     }
 
