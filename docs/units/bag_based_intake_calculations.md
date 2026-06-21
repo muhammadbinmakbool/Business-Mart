@@ -100,10 +100,10 @@ When `"BAG"` is selected as the unit, the **Gross Weight** input is locked to re
 To maintain visual excellence and avoid confusing the operator with mixed bag/weight numbers in historical summaries, we display normalized physical weights directly in views:
 
 ### Intake Listing Table (`IntakeListClient.js`)
-- **Gross Weight Column**: Displays the clean physical weight in `KG` (derived from the database computed `normalizedWeight` field) instead of displaying the raw bag count:
+- **Gross Weight Column**: Displays the clean physical weight in `KG` (derived from the database computed `baseQuantity` field) instead of displaying the raw bag count:
   ```javascript
   {intake.unit === "BAG" ? (
-    <>{Number(intake.normalizedWeight).toLocaleString()} KG</>
+    <>{Number(intake.baseQuantity).toLocaleString()} KG</>
   ) : (
     <>{Number(intake.grossWeight).toLocaleString()} {intake.unit}</>
   )}

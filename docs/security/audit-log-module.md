@@ -94,7 +94,7 @@ await emitActivity({
   meta: {
     supplierId: intake.partyId,
     productId: intake.productId,
-    weight: Number(intake.normalizedWeight),
+    weight: Number(intake.baseQuantity),
     bagCount: intake.bagCount
   }
 });

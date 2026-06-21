@@ -51,8 +51,8 @@ To prevent math and roundoff drift between the Classic and POS sales interfaces,
   * Row-level totals are computed using:
     ```javascript
     const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product);
-    const normalizedWeight = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
-    const amount = round(normalizedWeight * normalizedRate);
+    const baseQuantity = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
+    const amount = round(baseQuantity * normalizedRate);
     ```
 * **Instant Recalculation Trigger**: When any table input (quantity, unit, rate) is edited, the items array state updates, triggering a reactive recalculation of row-level amounts and global totals.
 

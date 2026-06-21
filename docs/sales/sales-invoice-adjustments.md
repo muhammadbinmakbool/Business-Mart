@@ -153,7 +153,7 @@ export function calculateTransactionTotals(items = [], adjustments = []) {
   let totalBagCount = 0;
 
   items.forEach(item => {
-    const itemWeight = Number(item.normalizedWeight || 0);
+    const itemWeight = Number(item.baseQuantity || 0);
     const itemRate = Number(item.normalizedRate || 0);
     
     baseAmount += round(itemWeight * itemRate);

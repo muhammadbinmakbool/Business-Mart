@@ -125,10 +125,10 @@ When a product's `unitConversion` (bag size) changes in product settings, the sy
 ### C. Recalculation Formula (Option 1 Safe Model)
 For active `BAG`-entered intakes of a product when `unitConversion` is updated:
 
-$$\text{newNormalizedWeight} = \left[(\text{grossWeight} - \text{remainingWeight}) \times \text{oldConversion}\right] + (\text{remainingWeight} \times \text{newConversion})$$
+$$\text{newBaseQuantity} = \left[(\text{grossWeight} - \text{remainingWeight}) \times \text{oldConversion}\right] + (\text{remainingWeight} \times \text{newConversion})$$
 
 * **For `PENDING` Intakes (completely unsold):**
-  $$\text{newNormalizedWeight} = \text{grossWeight} \times \text{newConversion}$$
+  $$\text{newBaseQuantity} = \text{grossWeight} \times \text{newConversion}$$
 * **For `PARTIAL` Intakes (partially sold):**
   The sold portion remains frozen at the old conversion rate, and only the unsold remaining portion is recalculated under the new conversion rate.
 * **For `SOLD`, `CLEARED`, or `CANCELLED` Intakes:**

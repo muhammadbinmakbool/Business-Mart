@@ -16,14 +16,14 @@ Business Mart preserves the **exact unit** entered by the operator while storing
 
 ### 1. Dual-Unit Archival Architecture
 *   **Operational Suffix (`grossWeight` & `unit`)**: Preserves the actual entry format used by the supplier (e.g., `10 MAUND`, `50 BAG`, `200 KG`). This is used for printing receipts, bills, and invoicing.
-*   **Normalized Value (`normalizedWeight`)**: Calculates the weight in the base unit dynamically at the service layer during entry/update using the product's `unitConversion` multiplier.
+*   **Base Quantity (`baseQuantity`)**: Calculates the quantity/weight in the base unit dynamically at the service layer during entry/update using the product's `unitConversion` multiplier.
 
 ### 2. Live Conversion Example (Maund to KG)
-$$\text{Normalized Weight (KG)} = \text{Gross Weight (Maund)} \times 40$$
+$$\text{Base Quantity (KG)} = \text{Gross Weight (Maund)} \times 40$$
 
 If a supplier delivers **`10 MAUND`** of Wheat:
 *   The transaction stores `grossWeight: 10.00` and `unit: "MAUND"`.
-*   The normalized field stores `normalizedWeight: 400.00` (KG).
+*   The baseQuantity field stores `baseQuantity: 400.00` (KG).
 *   The operational inventory snapshot (`Product.quantity`) is incremented by **`400.00`**.
 
 ---
@@ -47,7 +47,7 @@ stateDiagram-v2
 
 | Status | Meaning | Affects Inventory? | Billing & Ledger Status |
 | :--- | :--- | :--- | :--- |
-| **`PENDING`** | Goods are physically present at the warehouse but waiting for final pricing, inspection, or quality check. | **YES (Active)**<br>Normalized weight is active in `Product.quantity` stock. | Active. Eligible for supplier invoices and payment advances. Represents unchecked/unverified arrivals. |
+| **`PENDING`** | Goods are physically present at the warehouse but waiting for final pricing, inspection, or quality check. | **YES (Active)**<br>Base quantity is active in `Product.quantity` stock. | Active. Eligible for supplier invoices and payment advances. Represents unchecked/unverified arrivals. |
 | **`SOLD`** | The physical weight, count, and quality of the delivery have been operationally verified and the product has been sold. | **YES (Active)**<br>No change to stock during `PENDING` $\rightarrow$ `SOLD`. | Active. Eligible for supplier invoices. Represents a verified delivery green-lit for billing. |
 | **`CLEARED`** | Indicates that the intake transaction has been fully paid, billed, and completely closed. | **YES (Active)**<br>No change to stock during transition. | Fully paid and ledger balanced. Represents a completely closed account cycle. |
 | **`CANCELLED`** | The intake was declared invalid, rejected, returned, or logged in error. | **NO (Voided)**<br>Stock is automatically decremented from `Product.quantity`. | Completely excluded from invoices, statements, and reports. |
@@ -94,7 +94,7 @@ To prevent accounting discrepancy and negative physical stock states, the system
 ### 1. Cancellation Guard
 When an active intake (`PENDING` or `COMPLETED`) is changed to `CANCELLED`, or when an intake is **deleted**, the system must subtract its weight from the product's stock snapshot.
 *   **The Guard**: Before completing the subtraction, the system queries `Product.quantity`.
-*   **The Invariant**: If `Product.quantity < normalizedWeight`, the transaction is **aborted and rolled back**.
+*   **The Invariant**: If `Product.quantity < baseQuantity`, the transaction is **aborted and rolled back**.
 *   **Error Thrown**: `INSUFFICIENT_STOCK: Reverting intake stock would result in negative inventory.`
 
 ### 2. Product Update Guard

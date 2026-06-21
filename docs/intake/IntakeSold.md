@@ -10,7 +10,7 @@ In grain market workflows, products arrive at the warehouse in raw, unverified s
 
 * **Gross Weight** represents the raw weight recorded at arrival.
 * **Net Weight** represents the clean, sellable billing weight after deducting bag tare and impurities.
-* **Stock Alignment**: The physical stock snapshot (`Product.quantity`) reflects the raw arriving gross weight (`normalizedWeight`). The Net Weight is strictly used for **billing, supplier settlements, and sales tracking**.
+* **Stock Alignment**: The physical stock snapshot (`Product.quantity`) reflects the raw arriving gross weight (`baseQuantity`). The Net Weight is strictly used for **billing, supplier settlements, and sales tracking**.
 
 ---
 
