@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { updateProductAction } from "@/modules/products/controllers/productActions";
 import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
+import { createCategoryAction } from "@/modules/products/controllers/productCategoryActions";
 import { UNIT_CATEGORIES, getUnitsByCategory, isProductSpecific, BASE_UNITS } from "@/lib/units";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,14 @@ export default function EditProductForm({ product, categories = [] }) {
   const [displayOrder, setDisplayOrder] = useState(product.displayOrder !== null && product.displayOrder !== undefined ? product.displayOrder : "0");
   const [unitRegistry, setUnitRegistry] = useState(null);
 
+  // Category List state for updates
+  const [categoryList, setCategoryList] = useState(categories);
+
+  // Inline Category Creation
+  const [isNewCategory, setIsNewCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false);
+
   // Load Unit Registry on mount
   useEffect(() => {
     async function loadRegistry() {
@@ -34,6 +43,27 @@ export default function EditProductForm({ product, categories = [] }) {
     }
     loadRegistry();
   }, []);
+
+  async function handleCreateCategoryInline() {
+    if (!newCategoryName.trim()) return;
+    setIsCreatingCategory(true);
+    try {
+      const result = await createCategoryAction({ name: newCategoryName.trim() });
+      if (result.success) {
+        toast.success(`Category "${newCategoryName}" created`);
+        setCategoryList(prev => [...prev, result.data]);
+        setProductCategoryId(result.data.id.toString());
+        setIsNewCategory(false);
+        setNewCategoryName("");
+      } else {
+        toast.error(result.error || "Failed to create category");
+      }
+    } catch (err) {
+      toast.error(err.message || "An error occurred");
+    } finally {
+      setIsCreatingCategory(false);
+    }
+  }
 
   const handleUnitCategoryChange = (newCat) => {
     setUnitCategory(newCat);
@@ -102,14 +132,54 @@ export default function EditProductForm({ product, categories = [] }) {
             id="productCategoryId"
             name="productCategoryId"
             value={productCategoryId}
-            onChange={(e) => setProductCategoryId(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value === "new") {
+                setIsNewCategory(true);
+                setProductCategoryId("");
+              } else {
+                setProductCategoryId(e.target.value);
+                setIsNewCategory(false);
+              }
+            }}
             className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="">-- Select Category --</option>
-            {categories.map(cat => (
+            {categoryList.map(cat => (
               <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
+            <option value="new">➕ Add New Category...</option>
           </select>
+
+          {isNewCategory && (
+            <div className="flex gap-2 items-center mt-2 animate-in fade-in slide-in-from-top-1 duration-200">
+              <input
+                type="text"
+                placeholder="New category name..."
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                className="flex-1 rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <button
+                type="button"
+                onClick={handleCreateCategoryInline}
+                disabled={!newCategoryName.trim() || isCreatingCategory}
+                className="bg-primary text-primary-foreground px-3 py-1.5 rounded-md text-xs font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {isCreatingCategory ? "Adding..." : "Add"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNewCategory(false);
+                  setProductCategoryId("");
+                  setNewCategoryName("");
+                }}
+                className="border hover:bg-accent px-3 py-1.5 rounded-md text-xs font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
