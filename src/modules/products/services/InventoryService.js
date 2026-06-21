@@ -39,7 +39,7 @@ export class InventoryService {
 
   /**
    * Recalculates and sets the Product.quantity for a single product.
-   * Stock = SUM(normalized remaining weight) of active intakes for this product.
+   * Stock = Opening Stock + SUM(Intake.normalizedWeight) - SUM(Sale.normalizedWeight)
    *
    * @param {number} productId - The product ID to recalculate.
    * @param {object} [tx=prisma] - Prisma transaction client (or default prisma).

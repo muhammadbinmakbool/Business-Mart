@@ -12,10 +12,22 @@ While inventory quantity is derived, **Financial Totals** (e.g., `baseAmount`, `
 - **Why?**: For audit history, historical consistency, printing accuracy, and performance reconciliation.
 - **Rule**: Storing calculated totals is VALID; storing computed balances (like stock quantity) is NOT.
 
-### 3. Inventory Derivation Rule
-Inventory balances are NEVER stored. They are derived in real-time or via optimized aggregations:
-- **Available Stock** = `SUM(Intake Gross Weight) - SUM(Sale Item Weight)`
-- Only non-cancelled/non-deleted transactions are counted.
+### 3. Inventory Philosophy
+Inventory is transaction-derived. 
+
+**Current Inventory** = 
+  Opening Stock (InitialStock)
+  + SUM(Intake.normalizedWeight)
+  - SUM(SaleItem.normalizedWeight)
+
+**Critical Constraints**:
+- **Read Cache**: The computed balance is cached in `Product.quantity` for high-performance $O(1)$ reads in listings and UI views.
+- **Independence**: Inventory never depends on:
+  - Intake allocations
+  - Source tracking (SalesTrack mappings)
+  - `remainingWeight` or `remainingBagCount` calculations
+  - Supplier mappings
+- **Operational Tracking ONLY**: `remainingWeight` and `remainingBagCount` are strictly for operational tracking (such as preventing overselling of specific lots in the Sales Workbench) and are **never** used as the inventory source of truth.
 
 ### 4. Optional Traceability (The Soft Link)
 The system supports optional batch-level traceability for specialized markets (e.g., Grain Markets).
