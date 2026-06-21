@@ -8,19 +8,24 @@ import { normalizeQuantity } from "@/lib/units";
  * ══════════════════════════════════════════════════════════════════════════════
  *
  * INVENTORY PHILOSOPHY:
- *   Physical inventory is controlled exclusively through the Intake lifecycle.
- *   - PENDING intake  = stock physically available in the warehouse.
- *   - PARTIAL intake  = stock partially consumed, remaining is physically available.
- *   - SOLD intake     = stock allocated/sold — removed from available inventory.
- *   - CANCELLED intake= excluded from inventory entirely.
+ *   Inventory is transaction-derived.
+ *
+ *   Current Inventory =
+ *     Opening Stock (InitialStock)
+ *     + All Active Intakes (IntakeTransaction.normalizedWeight)
+ *     - All Active Sales (SaleItem.normalizedWeight)
+ *
+ *   Inventory never depends on:
+ *   - Intake allocations / source tracking
+ *   - Intake remainingWeight or remainingBagCount calculations
+ *   - Supplier mappings
  *
  *   Sales invoices are billing/accounting records and do NOT directly mutate
- *   inventory. Inventory movement happens at Intake status transition, NOT
- *   at billing/sales stage.
+ *   inventory. Inventory movement is derived from the balance of transactions.
  *
  * STOCK CALCULATION:
- *   Product.quantity = SUM(normalized remaining weight) of all IntakeTransactions
- *                      WHERE productId matches AND status in ["PENDING", "PARTIAL"]
+ *   Product.quantity = Opening Stock + SUM(Intake.normalizedWeight) - SUM(Sale.normalizedWeight)
+ *                      WHERE status is not CANCELLED and isDeleted is false.
  *
  * This is the ONLY service that should modify Product.quantity.
  * IntakeService and SaleService delegate all stock mutations here.
