@@ -24,7 +24,8 @@ export const UNIT_ABBREVIATIONS = {
   [UNIT_IDS.LITER]: "LTR",
   [UNIT_IDS.PIECE]: "PCS",
   [UNIT_IDS.PACK]: "PCK",
-  [UNIT_IDS.BOX]: "BOX"
+  [UNIT_IDS.BOX]: "BOX",
+  G: "G"
 };
 
 export function getUnitLabel(unitId) {
@@ -296,76 +297,107 @@ export function getDynamicHierarchy(category, product = null, unitRegistry = nul
 }
 
 /**
- * Decomposes a quantity into a primary and immediately next lower unit dynamically (Pure Math).
- * Returns { value, unit, secondaryValue?, secondaryUnit? }
+ * Decomposes a quantity into a hierarchy of units dynamically up to a specified precision level (depth).
+ * Returns an array of parts: [{ value: number, unit: string }, ...]
  */
-export function decomposeQuantity(quantity, unitId, product = null, unitRegistry = null) {
+export function decomposeQuantity(quantity, unitId, product = null, unitRegistry = null, precision = 2) {
   if (quantity == null || isNaN(quantity)) {
-    return { value: 0, unit: unitId };
+    return [];
   }
 
   const source = unitRegistry || UNITS;
   const unitObj = source[unitId];
   if (!unitObj) {
-    return { value: Number(quantity), unit: unitId };
+    return [{ value: Number(quantity), unit: unitId }];
   }
 
   const category = unitObj.unitCategoryCode || unitObj.category;
-  if (!category) {
-    return { value: Number(quantity), unit: unitId };
+  if (!category || precision <= 0) {
+    return [{ value: Number(quantity), unit: unitId }];
   }
 
   // Get dynamic hierarchy
   const hierarchy = getDynamicHierarchy(category, product, source);
-
-  // Find index of the unit in the hierarchy
-  const index = hierarchy.indexOf(unitId);
-  if (index === -1 || index === hierarchy.length - 1) {
-    return { value: Number(quantity), unit: unitId };
+  const startIndex = hierarchy.indexOf(unitId);
+  if (startIndex === -1) {
+    return [{ value: Number(quantity), unit: unitId }];
   }
 
-  const nextUnitId = hierarchy[index + 1];
+  const parts = [];
+  let currentUnitId = unitId;
+  let remainingQuantity = Number(quantity);
 
-  // Resolve factors
-  let factorCurrent = 0;
-  let factorNext = 0;
-  try {
-    factorCurrent = getConversionFactor(unitId, product, source);
-    factorNext = getConversionFactor(nextUnitId, product, source);
-  } catch (err) {
-    return { value: Number(quantity), unit: unitId };
+  for (let level = 1; level <= precision; level++) {
+    const currentIndex = hierarchy.indexOf(currentUnitId);
+    const hasNext = currentIndex !== -1 && currentIndex < hierarchy.length - 1;
+
+    if (!hasNext || level === precision) {
+      // Last level: round the remaining quantity
+      const finalVal = Math.round(remainingQuantity * 1000) / 1000;
+      if (finalVal !== 0 || parts.length === 0) {
+        parts.push({ value: finalVal, unit: currentUnitId });
+      }
+      break;
+    }
+
+    const nextUnitId = hierarchy[currentIndex + 1];
+    let factorCurrent = 0;
+    let factorNext = 0;
+    try {
+      factorCurrent = getConversionFactor(currentUnitId, product, source);
+      factorNext = getConversionFactor(nextUnitId, product, source);
+    } catch (err) {
+      parts.push({ value: Math.round(remainingQuantity * 1000) / 1000, unit: currentUnitId });
+      break;
+    }
+
+    if (!factorCurrent || !factorNext || factorCurrent <= 0 || factorNext <= 0) {
+      parts.push({ value: Math.round(remainingQuantity * 1000) / 1000, unit: currentUnitId });
+      break;
+    }
+
+    const whole = Math.floor(remainingQuantity);
+    const fraction = remainingQuantity - whole;
+
+    if (whole !== 0 || parts.length === 0) {
+      parts.push({ value: whole, unit: currentUnitId });
+    }
+
+    if (fraction < 1e-9) {
+      break;
+    }
+
+    remainingQuantity = fraction * (factorCurrent / factorNext);
+    currentUnitId = nextUnitId;
   }
 
-  if (!factorCurrent || !factorNext || factorCurrent <= 0 || factorNext <= 0) {
-    return { value: Number(quantity), unit: unitId };
+  // Handle rounding carry-over (e.g. [{value: 39, unit: "MAUND"}, {value: 40, unit: "KG"}] -> [{value: 40, unit: "MAUND"}])
+  // Loop backwards and carry over if value >= ratio
+  for (let i = parts.length - 1; i > 0; i--) {
+    const currentPart = parts[i];
+    const parentPart = parts[i - 1];
+
+    let factorCurrent = 0;
+    let factorParent = 0;
+    try {
+      factorCurrent = getConversionFactor(currentPart.unit, product, source);
+      factorParent = getConversionFactor(parentPart.unit, product, source);
+    } catch (e) {
+      continue;
+    }
+
+    if (factorCurrent > 0 && factorParent > 0) {
+      const ratio = factorParent / factorCurrent;
+      if (currentPart.value >= ratio - 1e-9) {
+        const carry = Math.floor((currentPart.value + 1e-9) / ratio);
+        parentPart.value += carry;
+        currentPart.value = Math.round((currentPart.value - carry * ratio) * 1000) / 1000;
+      }
+    }
   }
 
-  const rawVal = Number(quantity);
-  const wholeVal = Math.floor(rawVal);
-  const fraction = rawVal - wholeVal;
-
-  if (fraction < 1e-9) {
-    return { value: wholeVal, unit: unitId };
-  }
-
-  // Convert decimal part to the next lower unit
-  const nextRawVal = fraction * (factorCurrent / factorNext);
-  const nextWholeVal = Math.round(nextRawVal * 1000) / 1000;
-
-  if (nextWholeVal === 0) {
-    return { value: wholeVal, unit: unitId };
-  }
-
-  const ratio = factorCurrent / factorNext;
-  if (nextWholeVal >= ratio - 1e-9) {
-    return { value: wholeVal + 1, unit: unitId };
-  }
-
-  return {
-    value: wholeVal,
-    unit: unitId,
-    secondaryValue: nextWholeVal,
-    secondaryUnit: nextUnitId
-  };
+  // Filter out zero parts unless it's the only part
+  const filteredParts = parts.filter((p, index) => p.value !== 0 || index === 0);
+  return filteredParts;
 }
 

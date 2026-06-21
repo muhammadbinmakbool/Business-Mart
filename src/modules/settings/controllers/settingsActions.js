@@ -245,7 +245,9 @@ const DEFAULT_GENERAL_SETTINGS = {
   timezone: "Asia/Karachi",
   dateFormat: "DD/MM/YYYY",
   decimalPlaces: 2,
-  showFastEntryHelper: true
+  showFastEntryHelper: true,
+  unitDisplayPrecision: 2,
+  unitLabelFormat: "short"
 };
 
 /**
@@ -308,7 +310,9 @@ export async function saveGeneralSettingsAction(settings) {
       ...settings,
       // Ensure specific types
       decimalPlaces: settings.decimalPlaces !== undefined ? parseInt(settings.decimalPlaces) : (parsed.decimalPlaces || 2),
-      showFastEntryHelper: settings.showFastEntryHelper !== undefined ? !!settings.showFastEntryHelper : (parsed.showFastEntryHelper !== undefined ? !!parsed.showFastEntryHelper : true)
+      showFastEntryHelper: settings.showFastEntryHelper !== undefined ? !!settings.showFastEntryHelper : (parsed.showFastEntryHelper !== undefined ? !!parsed.showFastEntryHelper : true),
+      unitDisplayPrecision: settings.unitDisplayPrecision !== undefined ? parseInt(settings.unitDisplayPrecision) : (parsed.unitDisplayPrecision !== undefined ? parseInt(parsed.unitDisplayPrecision) : 2),
+      unitLabelFormat: settings.unitLabelFormat !== undefined ? String(settings.unitLabelFormat) : (parsed.unitLabelFormat || "short")
     };
 
     const settingsValue = JSON.stringify(updated);

@@ -182,7 +182,7 @@ export default async function SupplierInvoiceDetailPage({ params, searchParams: 
                         <div className="text-[9px] font-mono text-muted-foreground">{item.intake.intakeNumber}</div>
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
-                        {formatUnitDisplay(item.weight, item.intake.unit || "KG", item.intake.product, "en")}
+                        {formatUnitDisplay(item.weight, item.intake.unit || "KG", item.intake.product, "en", null, printConfig)}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
                         {formatCurrency(item.rate, "en", currencySymbol, decimalPlaces)} <span className="text-[9px] text-muted-foreground uppercase">/ {getUnitLabel((item.intake.unit === "BAG" || item.intake.product?.category === "BAG" || item.intake.product?.primaryUnit === "BAG") ? "BAG" : (item.rateUnit || "KG"))}</span>

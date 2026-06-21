@@ -54,6 +54,8 @@ export function getMergedDocumentConfig(printSettings, generalSettings) {
     defaultCurrency: gs.currencySymbol || DOCUMENT_CONFIG.defaultCurrency,
     decimalPlaces: gs.decimalPlaces !== undefined ? parseInt(gs.decimalPlaces) : 2,
     dateFormat: gs.dateFormat || "DD/MM/YYYY",
+    unitDisplayPrecision: gs.unitDisplayPrecision !== undefined ? parseInt(gs.unitDisplayPrecision) : 2,
+    unitLabelFormat: gs.unitLabelFormat || "short",
 
     // 2. Presentation Layer (Layout overrides: Print Settings)
     defaultTemplate: ps.defaultTemplate || DOCUMENT_CONFIG.defaultTemplate,

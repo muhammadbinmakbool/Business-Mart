@@ -14,7 +14,9 @@ const DEFAULT_SETTINGS = {
   timezone: "Asia/Karachi",
   dateFormat: "DD/MM/YYYY",
   decimalPlaces: 2,
-  showFastEntryHelper: true
+  showFastEntryHelper: true,
+  unitDisplayPrecision: 2,
+  unitLabelFormat: "short"
 };
 
 export function SettingsProvider({ children, initialSettings = {} }) {
@@ -36,13 +38,21 @@ export function SettingsProvider({ children, initialSettings = {} }) {
 
   const currencySymbol = settings?.currencySymbol || "Rs.";
 
+  const unitDisplayPrecision = settings?.unitDisplayPrecision !== undefined && settings?.unitDisplayPrecision !== null
+    ? Number(settings.unitDisplayPrecision)
+    : 2;
+
+  const unitLabelFormat = settings?.unitLabelFormat || "short";
+
   return (
     <SettingsContext.Provider
       value={{
         settings,
         updateSettings,
         decimalPlaces,
-        currencySymbol
+        currencySymbol,
+        unitDisplayPrecision,
+        unitLabelFormat
       }}
     >
       {children}

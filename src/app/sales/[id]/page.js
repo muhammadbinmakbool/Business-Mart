@@ -125,7 +125,7 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
                     <tr key={item.id} className="hover:bg-muted/5 transition-colors">
                       <td className="px-4 py-3 font-semibold text-foreground">{item.product.name}</td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
-                        {formatUnitDisplay(item.weight, item.unit || "KG", item.product, "en")}
+                        {formatUnitDisplay(item.weight, item.unit || "KG", item.product, "en", null, printConfig)}
                       </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
                         {formatCurrency(item.rate, "en", currencySymbol, decimalPlaces)} <span className="text-[9px] text-muted-foreground uppercase">/ {getUnitLabel((item.unit === "BAG" || item.product?.category === "BAG" || item.product?.primaryUnit === "BAG") ? "BAG" : (item.rateUnit || "KG"))}</span>

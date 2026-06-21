@@ -1,79 +1,59 @@
-import { decomposeQuantity } from "../units";
+import { decomposeQuantity, UNIT_ABBREVIATIONS, UNITS } from "../units";
 
 /**
- * Maps a mathematically decomposed unit object to a localized display string.
- * E.g., { value: 40, unit: "MAUND", secondaryValue: 20, secondaryUnit: "KG" }
- * -> "40 MND 20 KG" (English) or "40 من 20 کلو" (Urdu).
+ * Returns the formatted label for a unit ID based on requested format (short vs long).
  */
-export function formatDecomposedQuantity(decomposed, locale = "en") {
-  if (!decomposed) return "";
-  
-  const isUrdu = locale === "ur";
-  
-  const translations = {
-    ur: {
-      MAUND: "من",
-      MND: "من",
-      KG: "کلو",
-      G: "گرام",
-      TON: "ٹن",
-      LITER: "لیٹر",
-      LTR: "لیٹر",
-      ML: "ملی لیٹر",
-      PIECE: "عدد",
-      PCS: "عدد",
-      BOX: "باکس",
-      PACK: "پیک",
-      PCK: "پیک",
-      BAG: "بوری"
-    },
-    en: {
-      MAUND: "MND",
-      MND: "MND",
-      KG: "KG",
-      G: "G",
-      TON: "TON",
-      LITER: "LTR",
-      LTR: "LTR",
-      ML: "ML",
-      PIECE: "PCS",
-      PCS: "PCS",
-      BOX: "BOX",
-      PACK: "PCK",
-      PCK: "PCK",
-      BAG: "BAG"
-    }
-  };
+export function getUnitLabelFormatted(unitId, format = "short", locale = "en", unitRegistry = null) {
+  const source = unitRegistry || UNITS;
+  const unitObj = source[unitId];
+  const fullName = unitObj ? unitObj.name : unitId;
+  const shortName = UNIT_ABBREVIATIONS[unitId] || unitId;
 
-  const getLabel = (unit) => {
-    if (!unit) return "";
-    const normalized = unit.toUpperCase();
-    const dictionary = translations[isUrdu ? "ur" : "en"];
-    return dictionary[normalized] || unit;
-  };
-
-  const val1 = decomposed.value;
-  const unit1 = decomposed.unit;
-  const val2 = decomposed.secondaryValue;
-  const unit2 = decomposed.secondaryUnit;
-
-  const formattedVal1 = val1.toLocaleString(isUrdu ? "ur-PK" : "en-US");
-  const label1 = getLabel(unit1);
-
-  if (val2 !== undefined && val2 !== null && val2 !== 0 && unit2) {
-    const formattedVal2 = val2.toLocaleString(isUrdu ? "ur-PK" : "en-US");
-    const label2 = getLabel(unit2);
-    
-    return `${formattedVal1} ${label1} ${formattedVal2} ${label2}`;
-  }
-
-  return `${formattedVal1} ${label1}`;
+  // Supports future expansion to Urdu if locale is "ur"
+  return format === "long" ? fullName : shortName;
 }
 
 /**
- * High-level wrapper that decomposes a raw quantity and returns the localized display string.
+ * Maps a mathematically decomposed parts array to a display string.
+ * E.g., [{ value: 40, unit: "MAUND" }, { value: 20, unit: "KG" }]
+ * -> "40 MND 20 KG" (short) or "40 Maund 20 Kilogram" (long).
  */
-export function formatUnitDisplay(quantity, unitId, product = null, locale = "en", unitRegistry = null) {
-  const decomposed = decomposeQuantity(quantity, unitId, product, unitRegistry);
-  return formatDecomposedQuantity(decomposed, locale);
+export function formatDecomposedQuantity(parts, locale = "en", labelFormat = "short", unitRegistry = null) {
+  if (!parts || parts.length === 0) return "";
+  
+  const isUrdu = locale === "ur";
+  
+  return parts.map(part => {
+    const formattedVal = part.value.toLocaleString(isUrdu ? "ur-PK" : "en-US");
+    const label = getUnitLabelFormatted(part.unit, labelFormat, locale, unitRegistry);
+    return `${formattedVal} ${label}`;
+  }).join(" ");
+}
+
+/**
+ * High-level wrapper that decomposes a raw quantity and returns the formatted display string
+ * based on system settings.
+ */
+export function formatUnitDisplay(quantity, unitId, product = null, locale = "en", unitRegistry = null, settings = {}) {
+  if (quantity == null || isNaN(quantity)) {
+    return "";
+  }
+
+  const precision = settings.unitDisplayPrecision !== undefined ? Number(settings.unitDisplayPrecision) : 2;
+  const labelFormat = settings.unitLabelFormat || "short";
+
+  if (precision <= 0) {
+    // Decimal Display (No Decomposition)
+    const isUrdu = locale === "ur";
+    const label = getUnitLabelFormatted(unitId, labelFormat, locale, unitRegistry);
+    const decimalPlaces = settings.decimalPlaces !== undefined ? Number(settings.decimalPlaces) : 2;
+    const formattedQty = Number(quantity).toLocaleString(isUrdu ? "ur-PK" : "en-US", {
+      minimumFractionDigits: decimalPlaces,
+      maximumFractionDigits: decimalPlaces
+    });
+    return `${formattedQty} ${label}`;
+  }
+
+  const parts = decomposeQuantity(quantity, unitId, product, unitRegistry, precision);
+  return formatDecomposedQuantity(parts, locale, labelFormat, unitRegistry);
 }
