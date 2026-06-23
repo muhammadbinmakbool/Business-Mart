@@ -104,7 +104,7 @@ export async function GET() {
     // ==========================================
     log("\n--- Scenario 1: Direct POS Sale & InitialStock ---");
     const productA = await prisma.product.create({
-      data: { name: "_TEST_ProductA", category: "WEIGHT", primaryUnit: "KG", quantity: 0 }
+      data: { name: "_TEST_ProductA", category: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG", quantity: 0 }
     });
     
     // Add Initial Stock
@@ -133,7 +133,7 @@ export async function GET() {
     // ==========================================
     log("\n--- Scenario 2: Intake-Linked Sale & Flow Separation ---");
     const productB = await prisma.product.create({
-      data: { name: "_TEST_ProductB", category: "WEIGHT", primaryUnit: "KG", quantity: 0 }
+      data: { name: "_TEST_ProductB", category: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG", quantity: 0 }
     });
 
     // Create Intake (adds stock)
@@ -242,7 +242,7 @@ export async function GET() {
     // ==========================================
     log("\n--- Scenario 4: Partial Intake Selling ---");
     const productC = await prisma.product.create({
-      data: { name: "_TEST_ProductC", category: "WEIGHT", primaryUnit: "KG", quantity: 0 }
+      data: { name: "_TEST_ProductC", category: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG", quantity: 0 }
     });
 
     // Create 200 KG intake
@@ -365,7 +365,7 @@ export async function GET() {
     // ==========================================
     log("\n--- Scenario 7: Unit Normalization (Maund to KG) ---");
     const productD = await prisma.product.create({
-      data: { name: "_TEST_ProductD", category: "WEIGHT", primaryUnit: "KG", quantity: 0 }
+      data: { name: "_TEST_ProductD", category: "WEIGHT", primaryUnit: "KG", defaultSellingUnit: "KG", buyingRateUnit: "KG", sellingRateUnit: "KG", quantity: 0 }
     });
 
     // Create Intake of 2 Maunds (1 Maund = 40 KG, so 2 Maunds = 80 KG)
@@ -393,7 +393,49 @@ export async function GET() {
     });
     await InventoryService.recalculateProductStock(productD.id);
     stockD = await getStock(productD.id);
-    assertEqual(stockD, 40, "Sale of 1 Maund decrements stock by 40 KG (remaining stock 40 KG)");
+    // ==========================================
+    // SCENARIO 8: Custom BAG Unit Normalization
+    // ==========================================
+    log("\n--- Scenario 8: Custom BAG Unit Normalization ---");
+    const productE = await prisma.product.create({
+      data: { 
+        name: "_TEST_ProductE", 
+        category: "WEIGHT", 
+        primaryUnit: "BAG", 
+        defaultSellingUnit: "BAG",
+        buyingRateUnit: "BAG",
+        sellingRateUnit: "BAG",
+        unitConversion: 50, 
+        quantity: 0 
+      }
+    });
+
+    // Create Intake of 10 BAGs (10 BAGs * 50 KG/BAG = 500 KG)
+    const intakeE = await IntakeService.createIntake({
+      partyId: supplier.id,
+      productId: productE.id,
+      bagCount: 10,
+      grossWeight: 10,
+      unit: "BAG",
+      entryDate: new Date(),
+      status: "PENDING"
+    });
+    await InventoryService.recalculateProductStock(productE.id);
+    let stockE = await getStock(productE.id);
+    assertEqual(stockE, 500, "Intake of 10 BAGs normalized to 500 KG stock");
+
+    // Record sale of 4 BAGs (4 BAGs * 50 KG/BAG = 200 KG)
+    const saleE = await SaleService.recordSale({
+      partyId: buyer.id,
+      entryDate: new Date(),
+      notes: "[Test Sale] Scenario 8 Custom BAG unit",
+      items: [
+        { productId: productE.id, weight: 4, unit: "BAG", rate: 2500, amount: 10000 }
+      ]
+    });
+    await InventoryService.recalculateProductStock(productE.id);
+    stockE = await getStock(productE.id);
+    assertEqual(stockE, 300, "Sale of 4 BAGs decrements stock by 200 KG (remaining stock 300 KG)");
 
     log("\nAll integration test scenarios completed.");
   } catch (error) {

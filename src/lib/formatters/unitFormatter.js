@@ -4,7 +4,7 @@ import { decomposeQuantity, UNIT_ABBREVIATIONS, UNITS } from "../units";
  * Returns the formatted label for a unit ID based on requested format (short vs long).
  */
 export function getUnitLabelFormatted(unitId, format = "short", locale = "en", unitRegistry = null) {
-  const source = unitRegistry || UNITS;
+  const source = (unitRegistry && unitRegistry.units) ? unitRegistry.units : (unitRegistry || UNITS);
   const unitObj = source[unitId];
   const fullName = unitObj ? unitObj.name : unitId;
   const shortName = UNIT_ABBREVIATIONS[unitId] || unitId;
