@@ -32,7 +32,9 @@ export class IntakeService {
       product: intake.product ? {
         ...intake.product,
         quantity: Number(intake.product.quantity),
-        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
+        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null,
+        defaultBuyingRate: intake.product.defaultBuyingRate ? Number(intake.product.defaultBuyingRate) : null,
+        defaultSellingRate: intake.product.defaultSellingRate ? Number(intake.product.defaultSellingRate) : null
       } : null,
       salesTracks: intake.salesTracks?.map(st => ({
         ...st,
@@ -82,7 +84,9 @@ export class IntakeService {
       product: intake.product ? {
         ...intake.product,
         quantity: Number(intake.product.quantity),
-        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
+        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null,
+        defaultBuyingRate: intake.product.defaultBuyingRate ? Number(intake.product.defaultBuyingRate) : null,
+        defaultSellingRate: intake.product.defaultSellingRate ? Number(intake.product.defaultSellingRate) : null
       } : null,
       salesTracks: intake.salesTracks?.map(st => ({
         ...st,
@@ -119,7 +123,9 @@ export class IntakeService {
       product: intake.product ? {
         ...intake.product,
         quantity: Number(intake.product.quantity),
-        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
+        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null,
+        defaultBuyingRate: intake.product.defaultBuyingRate ? Number(intake.product.defaultBuyingRate) : null,
+        defaultSellingRate: intake.product.defaultSellingRate ? Number(intake.product.defaultSellingRate) : null
       } : null,
       advances: intake.advances?.map(a => ({
         ...a,
@@ -573,7 +579,9 @@ export class IntakeService {
       product: intake.product ? {
         ...intake.product,
         quantity: Number(intake.product.quantity),
-        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null
+        unitConversion: intake.product.unitConversion ? Number(intake.product.unitConversion) : null,
+        defaultBuyingRate: intake.product.defaultBuyingRate ? Number(intake.product.defaultBuyingRate) : null,
+        defaultSellingRate: intake.product.defaultSellingRate ? Number(intake.product.defaultSellingRate) : null
       } : null,
       salesTracks: (intake.salesTracks || []).map(track => ({
         ...track,
