@@ -1016,7 +1016,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
           
           <div className="space-y-4 font-medium">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-muted-foreground">Total Gross Weight</span>
+              <span className="text-muted-foreground">Total Gross Quantity</span>
               <span className="font-mono">{totals.totalWeight.toLocaleString()} KG</span>
             </div>
             <div className="flex justify-between items-center">

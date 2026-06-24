@@ -331,7 +331,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
         <div className="space-y-2">
           <label htmlFor="grossWeight" className="text-sm font-medium">
-            Gross Weight
+            Gross Quantity
           </label>
           <input
             id="grossWeight"

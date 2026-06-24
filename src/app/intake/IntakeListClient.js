@@ -247,7 +247,7 @@ export default function IntakeListClient({
             },
             {
               key: "grossWeight",
-              label: "Gross Weight",
+              label: "Gross Quantity",
               className: "px-4 py-3 text-right font-semibold",
               render: (row, val) =>
                 row.unit === "BAG" ? (

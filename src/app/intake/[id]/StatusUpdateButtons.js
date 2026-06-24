@@ -290,7 +290,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
               {/* Gross weight read-only summary */}
               <div className="bg-primary/5 p-4 rounded-xl flex items-center justify-between border border-primary/10">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-bold uppercase text-primary tracking-widest">Gross Weight</span>
+                  <span className="text-[10px] font-bold uppercase text-primary tracking-widest">Gross Quantity</span>
                   <div className="text-xl font-black text-primary">
                     {intake?.unit === "BAG" ? (
                       <>

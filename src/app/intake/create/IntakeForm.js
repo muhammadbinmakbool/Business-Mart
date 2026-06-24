@@ -403,7 +403,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
         {/* 4. Weight */}
         <div className="space-y-2">
           <label htmlFor="grossWeight" className="text-sm font-medium">
-            Gross Weight
+            Gross Quantity
           </label>
           <input
             ref={registerField("grossWeight")}
