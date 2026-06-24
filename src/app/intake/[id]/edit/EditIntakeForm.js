@@ -436,7 +436,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
                   placeholder="e.g. Bag, Box, Crate"
                   value={helperUnitLabel}
                   onChange={(e) => setHelperUnitLabel(e.target.value)}
-                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium placeholder:text-muted-foreground"
                 />
               </div>
               <div className="space-y-1">
@@ -446,7 +446,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
                   placeholder="e.g. 10"
                   value={helperQuantity}
                   onChange={(e) => handleHelperChange(e.target.value, helperSizePerUnit)}
-                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono placeholder:text-muted-foreground"
                 />
               </div>
               <div className="space-y-1">
@@ -456,7 +456,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
                   placeholder="e.g. 50"
                   value={helperSizePerUnit}
                   onChange={(e) => handleHelperChange(helperQuantity, e.target.value)}
-                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono placeholder:text-muted-foreground"
                 />
               </div>
             </div>
