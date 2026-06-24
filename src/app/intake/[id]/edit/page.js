@@ -26,24 +26,7 @@ export default async function EditIntakePage({ params: paramsPromise }) {
   const allowedActions = await IntakeWorkflowEngine.getAllowedActions(intake);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <Link
-          href={`/intake/${intake.id}`}
-          className="rounded-full p-2 hover:bg-accent transition-colors"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Edit Intake {intake.intakeNumber}</h1>
-          <p className="text-sm text-muted-foreground">Adjust arrival details if recorded incorrectly.</p>
-        </div>
-      </div>
-
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <EditIntakeForm intake={intake} suppliers={suppliers} products={activeProducts} buyers={buyers} allowedActions={allowedActions} />
-      </div>
-    </div>
+    <EditIntakeForm intake={intake} suppliers={suppliers} products={activeProducts} buyers={buyers} allowedActions={allowedActions} />
   );
 }
 

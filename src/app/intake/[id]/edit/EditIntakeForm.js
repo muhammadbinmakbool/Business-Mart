@@ -7,7 +7,7 @@ import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getUnitsByCategory, calculateIntakeNetWeight, normalizeQuantity, convertFromBase, UNIT_IDS, getUnitLabel, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
-import { Scale, User, DollarSign, Box, X, XCircle } from "lucide-react";
+import { Scale, User, DollarSign, Box, X, XCircle, ChevronLeft } from "lucide-react";
 import { getProductValidationState } from "@/modules/products/utils/productValidation";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
@@ -281,8 +281,47 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
 
   return (
-    <form onSubmit={onSubmit} className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-2">
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link
+            href={`/intake/${intake.id}`}
+            className="rounded-full p-2 hover:bg-accent transition-colors"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Edit Intake {intake.intakeNumber}</h1>
+            <p className="text-sm text-muted-foreground">Adjust arrival details if recorded incorrectly.</p>
+          </div>
+        </div>
+
+        {/* Date Input at the top-right */}
+        <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-1.5 shadow-sm">
+          <label htmlFor="entryDate" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Entry Date
+          </label>
+          <input
+            id="entryDate"
+            name="entryDate"
+            type="date"
+            required
+            defaultValue={getLocalDateString(intake.entryDate)}
+            form="edit-intake-form"
+            className="bg-transparent border-0 text-sm focus:outline-none focus:ring-0 outline-none font-mono w-36 text-foreground"
+          />
+        </div>
+      </div>
+
+      {/* Form Container */}
+      <div className="rounded-xl border bg-card p-6 shadow-sm">
+        <form 
+          id="edit-intake-form"
+          onSubmit={onSubmit} 
+          className="space-y-6"
+        >
+          <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-2">
           <label htmlFor="partyId" className="text-sm font-medium">Supplier</label>
           <SearchableSelect
@@ -345,18 +384,6 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
         </div>
 
         <div className="space-y-2">
-          <label htmlFor="entryDate" className="text-sm font-medium">Entry Date</label>
-          <input
-            id="entryDate"
-            name="entryDate"
-            type="date"
-            required
-            defaultValue={getLocalDateString(intake.entryDate)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
-          />
-        </div>
-
-        <div className="space-y-2">
           <label htmlFor="status" className="text-sm font-medium">Status</label>
           <select
             id="status"
@@ -373,35 +400,35 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
         </div>
 
         {/* Packaging Helper Section */}
-        <div className="md:col-span-2 border border-border bg-card/40 rounded-lg p-4 space-y-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <input
-                id="useHelper"
-                type="checkbox"
-                checked={useHelper}
-                onChange={(e) => {
-                  setUseHelper(e.target.checked);
-                  if (!e.target.checked) {
-                    setHelperQuantity("");
-                    setHelperSizePerUnit("");
-                  }
-                }}
-                className="rounded border-primary text-primary focus:ring-primary h-4 w-4"
-              />
-              <label htmlFor="useHelper" className="text-xs font-bold uppercase tracking-wider text-muted-foreground select-none cursor-pointer">
-                Use Packaging Helper (UI Only)
-              </label>
-            </div>
+        <div className="md:col-span-2">
+          {/* Packaging Helper Toggle */}
+          <div className="flex items-center gap-2 py-1">
+            <input
+              id="useHelper"
+              type="checkbox"
+              checked={useHelper}
+              onChange={(e) => {
+                setUseHelper(e.target.checked);
+                if (!e.target.checked) {
+                  setHelperQuantity("");
+                  setHelperSizePerUnit("");
+                }
+              }}
+              className="rounded border-primary text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+            />
+            <label htmlFor="useHelper" className="text-xs font-bold uppercase tracking-wider text-muted-foreground select-none cursor-pointer hover:text-foreground transition-colors">
+              Use Packaging Helper
+            </label>
             {useHelper && (
-              <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+              <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ml-2">
                 Helper Active
               </span>
             )}
           </div>
 
+          {/* Expanded Packaging Helper Section */}
           {useHelper && (
-            <div className="grid gap-4 grid-cols-3 animate-in fade-in duration-200">
+            <div className="mt-2 border border-border bg-card/40 rounded-lg p-4 grid gap-4 grid-cols-3 animate-in fade-in duration-200 shadow-sm">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Package Type</label>
                 <input
@@ -740,5 +767,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
         </p>
       </Modal>
     </form>
+      </div>
+    </div>
   );
 }

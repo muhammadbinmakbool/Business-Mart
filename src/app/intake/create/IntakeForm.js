@@ -6,6 +6,7 @@ import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
 import { getUnitsByCategory, normalizeQuantity, convertFromBase, UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 import { getProductValidationState } from "@/modules/products/utils/productValidation";
@@ -269,12 +270,48 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
   }
 
   return (
-    <form 
-      ref={formRef}
-      action={(formData) => handleSubmit(formData, true)} 
-      className="space-y-6"
-    >
-      <div className="grid gap-6 md:grid-cols-2">
+    <div className="max-w-4xl mx-auto space-y-6">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <Link
+            href={backUrl || "/intake"}
+            className="rounded-full p-2 hover:bg-accent transition-colors"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Record Goods Intake</h1>
+            <p className="text-sm text-muted-foreground">Log new arrival of goods from a supplier.</p>
+          </div>
+        </div>
+
+        {/* Date Input at the top-right */}
+        <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-1.5 shadow-sm">
+          <label htmlFor="entryDate" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Entry Date
+          </label>
+          <input
+            ref={registerField("entryDate")}
+            id="entryDate"
+            name="entryDate"
+            type="date"
+            required
+            defaultValue={getLocalDateString()}
+            form="intake-form"
+            className="bg-transparent border-0 text-sm focus:outline-none focus:ring-0 outline-none font-mono w-36 text-foreground"
+          />
+        </div>
+      </div>
+
+      <div className="rounded-xl border bg-card p-6 shadow-sm">
+        <form 
+          id="intake-form"
+          ref={formRef}
+          action={(formData) => handleSubmit(formData, true)} 
+          className="space-y-6"
+        >
+          <div className="grid gap-6 md:grid-cols-2">
         {/* 1. Supplier */}
         <div className="space-y-2">
           <label htmlFor="partyId" className="text-sm font-medium">Supplier</label>
@@ -419,49 +456,36 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
           />
         </div>
 
-        <div className="space-y-2">
-          <label htmlFor="entryDate" className="text-sm font-medium">Entry Date</label>
-          <input
-            ref={registerField("entryDate")}
-            id="entryDate"
-            name="entryDate"
-            type="date"
-            required
-            defaultValue={getLocalDateString()}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
-          />
-        </div>
-
         {/* Packaging Helper Section */}
-        <div className="md:col-span-2 border border-border bg-card/40 rounded-lg p-4 space-y-4 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <input
-                id="useHelper"
-                type="checkbox"
-                checked={useHelper}
-                onChange={(e) => {
-                  setUseHelper(e.target.checked);
-                  if (!e.target.checked) {
-                    setHelperQuantity("");
-                    setHelperSizePerUnit("");
-                  }
-                }}
-                className="rounded border-primary text-primary focus:ring-primary h-4 w-4"
-              />
-              <label htmlFor="useHelper" className="text-xs font-bold uppercase tracking-wider text-muted-foreground select-none cursor-pointer">
-                Use Packaging Helper (UI Only)
-              </label>
-            </div>
+        <div className="md:col-span-2">
+          {/* Packaging Helper Toggle */}
+          <div className="flex items-center gap-2 py-1">
+            <input
+              id="useHelper"
+              type="checkbox"
+              checked={useHelper}
+              onChange={(e) => {
+                setUseHelper(e.target.checked);
+                if (!e.target.checked) {
+                  setHelperQuantity("");
+                  setHelperSizePerUnit("");
+                }
+              }}
+              className="rounded border-primary text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+            />
+            <label htmlFor="useHelper" className="text-xs font-bold uppercase tracking-wider text-muted-foreground select-none cursor-pointer hover:text-foreground transition-colors">
+              Use Packaging Helper
+            </label>
             {useHelper && (
-              <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+              <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ml-2">
                 Helper Active
               </span>
             )}
           </div>
 
+          {/* Expanded Packaging Helper Section */}
           {useHelper && (
-            <div className="grid gap-4 grid-cols-3 animate-in fade-in duration-200">
+            <div className="mt-2 border border-border bg-card/40 rounded-lg p-4 grid gap-4 grid-cols-3 animate-in fade-in duration-200 shadow-sm">
               <div className="space-y-1">
                 <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Package Type</label>
                 <input
@@ -592,6 +616,8 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
         </p>
       </Modal>
     </form>
+      </div>
+    </div>
   );
 }
 

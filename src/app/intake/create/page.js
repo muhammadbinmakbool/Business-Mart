@@ -27,24 +27,7 @@ export default async function CreateIntakePage({ searchParams: searchParamsPromi
   const settings = settingsRecord ? JSON.parse(settingsRecord.value) : {};
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <Link
-          href={backUrl}
-          className="rounded-full p-2 hover:bg-accent transition-colors"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Record Goods Intake</h1>
-          <p className="text-sm text-muted-foreground">Log new arrival of goods from a supplier.</p>
-        </div>
-      </div>
-
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <IntakeForm suppliers={activeSuppliers} products={activeProducts} settings={settings} backUrl={backUrl} />
-      </div>
-    </div>
+    <IntakeForm suppliers={activeSuppliers} products={activeProducts} settings={settings} backUrl={backUrl} />
   );
 }
 
