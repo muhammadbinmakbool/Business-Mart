@@ -85,11 +85,17 @@ export const BASE_UNITS = {
   [UNIT_CATEGORIES.QUANTITY]: "PIECE",
 };
 
+function getUnitsDict(unitRegistry) {
+  if (!unitRegistry) return UNITS;
+  if (unitRegistry.units) return unitRegistry.units;
+  return unitRegistry;
+}
+
 /**
  * Gets units belonging to a specific category.
  */
 export function getUnitsByCategory(category, unitRegistry) {
-  const source = unitRegistry || UNITS;
+  const source = getUnitsDict(unitRegistry);
   return Object.values(source).filter((u) => (u.unitCategoryCode || u.category) === category);
 }
 
@@ -97,7 +103,7 @@ export function getUnitsByCategory(category, unitRegistry) {
  * Checks if a unit is product-specific (requires product-level conversion factor).
  */
 export function isProductSpecific(unitId, unitRegistry) {
-  const source = unitRegistry || UNITS;
+  const source = getUnitsDict(unitRegistry);
   return source[unitId]?.isCustom === true || source[unitId]?.productSpecific === true;
 }
 
@@ -106,7 +112,7 @@ export function isProductSpecific(unitId, unitRegistry) {
  * Strict Rule: Hard fail on missing product-specific conversion.
  */
 export function getConversionFactor(unitId, product, unitRegistry) {
-  const source = unitRegistry || UNITS;
+  const source = getUnitsDict(unitRegistry);
   const unit = source[unitId];
   if (!unit) throw new Error(`Unit ${unitId} not found in registry`);
 
@@ -224,7 +230,7 @@ export function convertRate(rate, fromUnit, toUnit, product = null, unitRegistry
  */
 export function isUnitCompatible(unitId, unitCategory, unitRegistry) {
   if (!unitId || !unitCategory) return false;
-  const source = unitRegistry || UNITS;
+  const source = getUnitsDict(unitRegistry);
   const unit = source[unitId];
   return (unit?.unitCategoryCode || unit?.category) === unitCategory;
 }
@@ -240,7 +246,7 @@ export function getDynamicHierarchy(category, product = null, unitRegistry = nul
     }
   }
 
-  const source = unitRegistry || UNITS;
+  const source = getUnitsDict(unitRegistry);
   
   // 1. Get all units in the category
   const categoryUnits = Object.values(source).filter(
@@ -279,7 +285,7 @@ export function decomposeQuantity(quantity, unitId, product = null, unitRegistry
     return [];
   }
 
-  const source = unitRegistry || UNITS;
+  const source = getUnitsDict(unitRegistry);
   const unitObj = source[unitId];
   if (!unitObj) {
     return [{ value: Number(quantity), unit: unitId }];

@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import { updateIntakeStatusAction, sellIntakeAction } from "@/modules/intake/controllers/intakeActions";
+import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 import { showToast } from "@/components/ui/Toast";
 import { Clock, BadgeCheck, ShoppingBag, XCircle, X, Scale, User, DollarSign, Box } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
   const [cancelNotes, setCancelNotes] = useState("");
 
   // Form State
+  const [unitRegistry, setUnitRegistry] = useState(null);
   const [buyerPartyId, setBuyerPartyId] = useState("");
   const [rate, setRate] = useState(intake?.rate || "");
   const [rateUnit, setRateUnit] = useState(intake?.rateUnit || "KG");
@@ -50,18 +52,39 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     }
   }, [intake, isModalOpen]);
 
+  React.useEffect(() => {
+    async function loadRegistry() {
+      const res = await getUnitRegistryAction();
+      if (res.success) {
+        setUnitRegistry(res.data);
+      }
+    }
+    loadRegistry();
+  }, []);
+
   const activeGrossWeight = isPartialSale ? (Number(soldQuantity) || 0) : maxRemaining;
 
   // Real-time calculation using core registry helper
-  const { grossWeightKg, bardanaKg, khotKg, netWeightKg, netWeight } = calculateIntakeNetWeight({
-    grossWeight: activeGrossWeight,
-    unit: intake?.unit || "KG",
-    bagCount: Number(bagCount) || 0,
-    bardanaGramPerBag: Number(bardanaGramPerBag) || 0,
-    khotRate: Number(khotRate) || 0,
-    khotRateUnit: khotRateUnit,
-    product: intake?.product
-  });
+  let grossWeightKg = 0, bardanaKg = 0, khotKg = 0, netWeightKg = 0, netWeight = 0;
+  try {
+    const calculated = calculateIntakeNetWeight({
+      grossWeight: activeGrossWeight,
+      unit: intake?.unit || "KG",
+      bagCount: Number(bagCount) || 0,
+      bardanaGramPerBag: Number(bardanaGramPerBag) || 0,
+      khotRate: Number(khotRate) || 0,
+      khotRateUnit: khotRateUnit,
+      product: intake?.product,
+      unitRegistry
+    });
+    grossWeightKg = calculated.grossWeightKg;
+    bardanaKg = calculated.bardanaKg;
+    khotKg = calculated.khotKg;
+    netWeightKg = calculated.netWeightKg;
+    netWeight = calculated.netWeight;
+  } catch (err) {
+    // Fail-safe fallback during initial render or until registry loads
+  }
 
   // States for status reversion flow
   const [revertStatusTarget, setRevertStatusTarget] = useState(null);

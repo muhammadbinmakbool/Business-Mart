@@ -148,16 +148,26 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   };
 
   // Real-time calculation logic
-  const { grossWeightKg, bardanaKg, khotKg, netWeightKg, netWeight } = calculateIntakeNetWeight({
-    grossWeight: Number(grossWeight) || 0,
-    unit: unit,
-    bagCount: Number(bagCount) || 0,
-    bardanaGramPerBag: Number(bardanaGramPerBag) || 0,
-    khotRate: Number(khotRate) || 0,
-    khotRateUnit: khotRateUnit,
-    product: selectedProduct,
-    unitRegistry
-  });
+  let grossWeightKg = 0, bardanaKg = 0, khotKg = 0, netWeightKg = 0, netWeight = 0;
+  try {
+    const calculated = calculateIntakeNetWeight({
+      grossWeight: Number(grossWeight) || 0,
+      unit: unit,
+      bagCount: Number(bagCount) || 0,
+      bardanaGramPerBag: Number(bardanaGramPerBag) || 0,
+      khotRate: Number(khotRate) || 0,
+      khotRateUnit: khotRateUnit,
+      product: selectedProduct,
+      unitRegistry
+    });
+    grossWeightKg = calculated.grossWeightKg;
+    bardanaKg = calculated.bardanaKg;
+    khotKg = calculated.khotKg;
+    netWeightKg = calculated.netWeightKg;
+    netWeight = calculated.netWeight;
+  } catch (err) {
+    // Fail-safe fallback during initial render or until registry loads
+  }
 
   const executeSubmit = async (formData) => {
     setIsSubmitting(true);
