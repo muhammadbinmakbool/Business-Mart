@@ -27,6 +27,13 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   const [notes, setNotes] = useState(intake.notes || "");
   const [selectedSupplierState, setSelectedSupplierState] = useState(intake.partyId.toString());
 
+  // Packaging helper UI states
+  const initialMeta = intake.packagingMeta ? (typeof intake.packagingMeta === "string" ? JSON.parse(intake.packagingMeta) : intake.packagingMeta) : null;
+  const [useHelper, setUseHelper] = useState(!!initialMeta);
+  const [helperQuantity, setHelperQuantity] = useState(initialMeta?.count || "");
+  const [helperSizePerUnit, setHelperSizePerUnit] = useState(initialMeta?.sizePerUnit || "");
+  const [helperUnitLabel, setHelperUnitLabel] = useState(initialMeta?.type || "Bag");
+
   const supplierOptions = React.useMemo(() => suppliers.map(s => ({
     value: s.id.toString(),
     label: s.name,
@@ -85,34 +92,20 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   }, []);
 
   const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
-  const isBagProduct = selectedProduct && (
-    unitRegistry
-      ? unitRegistry.units[selectedProduct.primaryUnit]?.isCustom === true
-      : (selectedProduct.primaryUnit === "BAG" || selectedProduct.category === "BAG")
-  );
 
   React.useEffect(() => {
     if (!intake.unit) {
       setUnit(selectedProduct?.primaryUnit || null);
     }
     if (!intake.rateUnit || intake.status === "PENDING") {
-      const customUnitCode = selectedProduct && (
-        unitRegistry
-          ? (unitRegistry.units[selectedProduct.primaryUnit]?.isCustom ? selectedProduct.primaryUnit : null)
-          : (selectedProduct.primaryUnit === "BAG" ? "BAG" : null)
-      );
-      setRateUnit(customUnitCode || selectedProduct?.buyingRateUnit || null);
+      setRateUnit(selectedProduct?.buyingRateUnit || null);
     }
   }, [intake, selectedProduct, unitRegistry]);
 
   const compatibleUnits = selectedProduct
-    ? (isBagProduct
-        ? (unitRegistry
-            ? Object.values(unitRegistry.units).filter(u => u.code === selectedProduct.primaryUnit).map(u => ({ id: u.code, name: u.name }))
-            : getUnitsByCategory(selectedProduct.category).filter(u => u.id === selectedProduct.primaryUnit))
-        : (unitRegistry
-            ? Object.values(unitRegistry.units).filter(u => u.unitCategoryCode === (selectedProduct.unitCategory || selectedProduct.category)).map(u => ({ id: u.code, name: u.name }))
-            : getUnitsByCategory(selectedProduct.category)))
+    ? (unitRegistry
+        ? Object.values(unitRegistry.units).filter(u => u.unitCategoryCode === (selectedProduct.unitCategory || selectedProduct.category)).map(u => ({ id: u.code, name: u.name }))
+        : getUnitsByCategory(selectedProduct.category))
     : [];
 
   const handleProductChange = async (productId) => {
@@ -122,72 +115,35 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
         showToast.error(result.error);
         return;
       }
-      const prod = result.product;
       setSelectedProductId(productId);
-      const defaultUnit = result.defaults.unit;
-      setUnit(defaultUnit);
-
-      const customUnitCode = unitRegistry
-        ? (unitRegistry.units[prod.primaryUnit]?.isCustom ? prod.primaryUnit : null)
-        : (prod.primaryUnit === "BAG" ? "BAG" : null);
-
-      if (customUnitCode && defaultUnit === customUnitCode) {
-        setGrossWeight(bagCount);
-      } else if (customUnitCode && grossWeight) {
-        const weightInKg = normalizeQuantity(grossWeight, defaultUnit, prod, unitRegistry);
-        const bags = convertFromBase(weightInKg, customUnitCode, prod, unitRegistry);
-        const calculatedBags = Math.ceil(bags);
-        setBagCount(calculatedBags ? calculatedBags.toString() : "");
-      }
+      setUnit(result.defaults.unit);
     } else {
       setSelectedProductId("");
       setUnit(null);
       setGrossWeight("");
-      setBagCount("");
     }
   };
 
   const handleGrossWeightChange = (val) => {
     setGrossWeight(val);
-    const customUnitCode = selectedProduct && (
-      unitRegistry
-        ? (unitRegistry.units[selectedProduct.primaryUnit]?.isCustom ? selectedProduct.primaryUnit : null)
-        : (selectedProduct.primaryUnit === "BAG" ? "BAG" : null)
-    );
-    if (customUnitCode && (unit === UNIT_IDS.KG || unit === UNIT_IDS.MAUND)) {
-      const weightInKg = normalizeQuantity(val, unit, selectedProduct, unitRegistry);
-      const bags = convertFromBase(weightInKg, customUnitCode, selectedProduct, unitRegistry);
-      const calculatedBags = Math.ceil(bags);
-      setBagCount(calculatedBags ? calculatedBags.toString() : "");
-    }
   };
 
   const handleUnitChange = (newUnit) => {
     setUnit(newUnit);
-    const customUnitCode = selectedProduct && (
-      unitRegistry
-        ? (unitRegistry.units[selectedProduct.primaryUnit]?.isCustom ? selectedProduct.primaryUnit : null)
-        : (selectedProduct.primaryUnit === "BAG" ? "BAG" : null)
-    );
-    if (customUnitCode && newUnit === customUnitCode) {
-      setGrossWeight(bagCount);
-    } else if (customUnitCode) {
-      const weightInKg = normalizeQuantity(grossWeight, newUnit, selectedProduct, unitRegistry);
-      const bags = convertFromBase(weightInKg, customUnitCode, selectedProduct, unitRegistry);
-      const calculatedBags = Math.ceil(bags);
-      setBagCount(calculatedBags ? calculatedBags.toString() : "");
-    }
   };
 
-  const handleBagCountChange = (val) => {
-    setBagCount(val);
-    const customUnitCode = selectedProduct && (
-      unitRegistry
-        ? (unitRegistry.units[selectedProduct.primaryUnit]?.isCustom ? selectedProduct.primaryUnit : null)
-        : (selectedProduct.primaryUnit === "BAG" ? "BAG" : null)
-    );
-    if (customUnitCode && unit === customUnitCode) {
-      setGrossWeight(val);
+  const handleHelperChange = (qty, size) => {
+    setHelperQuantity(qty);
+    setHelperSizePerUnit(size);
+    if (qty && size) {
+      const calculated = parseFloat(qty) * parseFloat(size);
+      setGrossWeight(calculated.toString());
+      // For refraction/tare weight calculations when status is SOLD, sync bagCount with helperQuantity if type is bag
+      if (helperUnitLabel.toLowerCase() === "bag") {
+        setBagCount(Math.round(parseFloat(qty)).toString());
+      }
+    } else {
+      setGrossWeight("");
     }
   };
 
@@ -209,7 +165,20 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
     formData.set("productId", selectedProductId);
     formData.set("unit", unit);
     formData.set("grossWeight", grossWeight);
-    formData.set("bagCount", bagCount);
+    
+    const packagingMeta = useHelper && helperQuantity && helperSizePerUnit ? {
+      type: helperUnitLabel || "Bag",
+      count: parseFloat(helperQuantity),
+      sizePerUnit: parseFloat(helperSizePerUnit),
+      unitLabel: unit || "KG"
+    } : null;
+    formData.set("packagingMeta", packagingMeta ? JSON.stringify(packagingMeta) : "");
+    if (useHelper && helperUnitLabel.toLowerCase() === "bag") {
+      formData.set("bagCount", helperQuantity);
+    } else {
+      formData.set("bagCount", bagCount || "");
+    }
+    
     formData.set("status", status);
     formData.set("notes", notes);
 
@@ -362,49 +331,16 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
 
         <div className="space-y-2">
           <label htmlFor="grossWeight" className="text-sm font-medium">
-            Gross Weight {unit === UNIT_IDS.BAG ? "(Calculated in KG)" : ""}
-          </label>
-          {unit === UNIT_IDS.BAG ? (
-            <>
-              <input
-                id="grossWeight_display"
-                type="text"
-                readOnly
-                value={selectedProduct ? normalizeQuantity(bagCount || 0, UNIT_IDS.BAG, selectedProduct).toFixed(2) : ""}
-                className="w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-muted cursor-not-allowed text-muted-foreground font-semibold"
-              />
-              <input
-                type="hidden"
-                name="grossWeight"
-                value={grossWeight}
-              />
-            </>
-          ) : (
-            <input
-              id="grossWeight"
-              type="number"
-              step="0.01"
-              required
-              value={grossWeight}
-              onChange={e => handleGrossWeightChange(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
-            />
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <label htmlFor="bagCount" className="text-sm font-medium">
-            {unit === UNIT_IDS.BAG ? "Bag Count (Required)" : (isBagProduct ? "Bag Count (Calculated)" : "Bag Count (Optional)")}
+            Gross Weight
           </label>
           <input
-            id="bagCount"
+            id="grossWeight"
             type="number"
-            required={unit === UNIT_IDS.BAG}
-            readOnly={unit !== UNIT_IDS.BAG && isBagProduct}
-            placeholder={unit === UNIT_IDS.BAG ? "Enter number of bags..." : (isBagProduct ? "Automatically calculated" : "e.g. 50")}
-            value={bagCount}
-            onChange={e => handleBagCountChange(e.target.value)}
-            className={`w-full rounded-md border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary ${unit !== UNIT_IDS.BAG && isBagProduct ? "bg-muted cursor-not-allowed text-muted-foreground" : "bg-background"}`}
+            step="0.01"
+            required
+            value={grossWeight}
+            onChange={e => handleGrossWeightChange(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
           />
         </div>
 
@@ -416,7 +352,7 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
             type="date"
             required
             defaultValue={getLocalDateString(intake.entryDate)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
           />
         </div>
 
@@ -434,6 +370,70 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
             <option value="CLEARED">Cleared</option>
             <option value="CANCELLED">Cancelled</option>
           </select>
+        </div>
+
+        {/* Packaging Helper Section */}
+        <div className="md:col-span-2 border border-border bg-card/40 rounded-lg p-4 space-y-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <input
+                id="useHelper"
+                type="checkbox"
+                checked={useHelper}
+                onChange={(e) => {
+                  setUseHelper(e.target.checked);
+                  if (!e.target.checked) {
+                    setHelperQuantity("");
+                    setHelperSizePerUnit("");
+                  }
+                }}
+                className="rounded border-primary text-primary focus:ring-primary h-4 w-4"
+              />
+              <label htmlFor="useHelper" className="text-xs font-bold uppercase tracking-wider text-muted-foreground select-none cursor-pointer">
+                Use Packaging Helper (UI Only)
+              </label>
+            </div>
+            {useHelper && (
+              <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                Helper Active
+              </span>
+            )}
+          </div>
+
+          {useHelper && (
+            <div className="grid gap-4 grid-cols-3 animate-in fade-in duration-200">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Package Type</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Bag, Box, Crate"
+                  value={helperUnitLabel}
+                  onChange={(e) => setHelperUnitLabel(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Quantity</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 10"
+                  value={helperQuantity}
+                  onChange={(e) => handleHelperChange(e.target.value, helperSizePerUnit)}
+                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Size per Unit</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 50"
+                  value={helperSizePerUnit}
+                  onChange={(e) => handleHelperChange(helperQuantity, e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

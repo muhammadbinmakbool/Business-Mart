@@ -176,16 +176,13 @@ async function main() {
     { code: "KG", name: "Kilogram", unitCategoryCode: "WEIGHT", isBase: true, isCustom: false, conversionRate: 1.0 },
     { code: "MAUND", name: "Maund", unitCategoryCode: "WEIGHT", isBase: false, isCustom: false, conversionRate: 40.0 },
     { code: "G", name: "Gram", unitCategoryCode: "WEIGHT", isBase: false, isCustom: false, conversionRate: 0.001 },
-    { code: "BAG", name: "Bag", unitCategoryCode: "WEIGHT", isBase: false, isCustom: true, conversionRate: null },
     
     // LIQUID
     { code: "LITER", name: "Liter", unitCategoryCode: "LIQUID", isBase: true, isCustom: false, conversionRate: 1.0 },
     { code: "ML", name: "Milliliter", unitCategoryCode: "LIQUID", isBase: false, isCustom: false, conversionRate: 0.001 },
     
     // QUANTITY
-    { code: "PIECE", name: "Piece", unitCategoryCode: "QUANTITY", isBase: true, isCustom: false, conversionRate: 1.0 },
-    { code: "PACK", name: "Pack", unitCategoryCode: "QUANTITY", isBase: false, isCustom: true, conversionRate: null },
-    { code: "BOX", name: "Box", unitCategoryCode: "QUANTITY", isBase: false, isCustom: true, conversionRate: null }
+    { code: "PIECE", name: "Piece", unitCategoryCode: "QUANTITY", isBase: true, isCustom: false, conversionRate: 1.0 }
   ];
 
   for (const u of units) {
@@ -213,6 +210,17 @@ async function main() {
       }
     });
     console.log(`✅ Unit seeded/verified: ${u.code} under category ${u.unitCategoryCode}`);
+  }
+  
+  // Clean up deprecated units
+  const activeCodes = units.map(u => u.code);
+  const deletedUnits = await prisma.unit.deleteMany({
+    where: {
+      code: { notIn: activeCodes }
+    }
+  });
+  if (deletedUnits.count > 0) {
+    console.log(`🧹 Deleted ${deletedUnits.count} deprecated/unused units from the database.`);
   }
 
   console.log("🌱 Seeding complete.");

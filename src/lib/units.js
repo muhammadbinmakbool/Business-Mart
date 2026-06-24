@@ -5,12 +5,9 @@ export const UNIT_IDS = {
   KG: "KG",
   MAUND: "MAUND",
   TON: "TON",
-  BAG: "BAG",
   ML: "ML",
   LITER: "LITER",
-  PIECE: "PIECE",
-  PACK: "PACK",
-  BOX: "BOX"
+  PIECE: "PIECE"
 };
 
 export const DEFAULT_WEIGHT_UNIT = UNIT_IDS.KG;
@@ -19,12 +16,9 @@ export const UNIT_ABBREVIATIONS = {
   [UNIT_IDS.KG]: "KG",
   [UNIT_IDS.MAUND]: "MND",
   [UNIT_IDS.TON]: "TON",
-  [UNIT_IDS.BAG]: "BAG",
   [UNIT_IDS.ML]: "ML",
   [UNIT_IDS.LITER]: "LTR",
   [UNIT_IDS.PIECE]: "PCS",
-  [UNIT_IDS.PACK]: "PCK",
-  [UNIT_IDS.BOX]: "BOX",
   G: "G"
 };
 
@@ -59,12 +53,6 @@ export const UNITS = {
     category: UNIT_CATEGORIES.WEIGHT, 
     factor: 0.001 
   },
-  BAG: { 
-    id: "BAG", 
-    name: "Bag", 
-    category: UNIT_CATEGORIES.WEIGHT, 
-    productSpecific: true 
-  },
 
   // LIQUID CATEGORY
   ML: { 
@@ -88,20 +76,6 @@ export const UNITS = {
     category: UNIT_CATEGORIES.QUANTITY, 
     base: true, 
     factor: 1 
-  },
-  PACK: { 
-    id: "PACK", 
-    name: "Pack", 
-    category: UNIT_CATEGORIES.QUANTITY, 
-    base: false,
-    productSpecific: true 
-  },
-  BOX: { 
-    id: "BOX", 
-    name: "Box", 
-    category: UNIT_CATEGORIES.QUANTITY, 
-    base: false,
-    productSpecific: true 
   },
 };
 

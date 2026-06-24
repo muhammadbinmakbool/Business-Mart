@@ -114,34 +114,47 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
               </div>
             </div>
 
-            <div className="grid gap-6 sm:grid-cols-3 pt-4 border-t">
-              <div className="bg-muted/30 p-4 rounded-lg space-y-1">
-                <span className="text-[10px] font-bold uppercase text-muted-foreground">Quantity</span>
-                <div className="text-2xl font-bold">{intake.bagCount || 0} <span className="text-sm font-normal text-muted-foreground italic">Bags</span></div>
-              </div>
-              <div className="bg-primary/5 p-4 rounded-lg space-y-1">
-                <span className="text-[10px] font-bold uppercase text-primary">Gross Weight</span>
-                <div className="text-2xl font-bold text-primary">
-                  {intake.unit === "BAG" ? (
-                    <>
-                      {Number(intake.baseQuantity).toLocaleString()} <span className="text-sm font-normal italic uppercase">KG</span>
-                    </>
+            {(() => {
+              const packaging = intake.packagingMeta ? (typeof intake.packagingMeta === 'string' ? JSON.parse(intake.packagingMeta) : intake.packagingMeta) : null;
+              const packagingText = packaging ? `${packaging.count} ${packaging.type}${packaging.count !== 1 ? 's' : ''} × ${packaging.sizePerUnit} ${packaging.unitLabel || 'KG'}` : null;
+              return (
+                <div className="grid gap-6 sm:grid-cols-3 pt-4 border-t">
+                  {packagingText ? (
+                    <div className="bg-muted/30 p-4 rounded-lg space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Packaging</span>
+                      <div className="text-lg font-bold leading-8 text-foreground">{packagingText}</div>
+                    </div>
                   ) : (
-                    <>
-                      {Number(intake.grossWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{getUnitLabel(intake.unit)}</span>
-                    </>
+                    <div className="bg-muted/30 p-4 rounded-lg space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Quantity</span>
+                      <div className="text-2xl font-bold">{intake.bagCount || 0} <span className="text-sm font-normal text-muted-foreground italic">Bags</span></div>
+                    </div>
+                  )}
+                  <div className="bg-primary/5 p-4 rounded-lg space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-primary">Gross Weight</span>
+                    <div className="text-2xl font-bold text-primary">
+                      {intake.unit === "BAG" ? (
+                        <>
+                          {Number(intake.baseQuantity).toLocaleString()} <span className="text-sm font-normal italic uppercase">KG</span>
+                        </>
+                      ) : (
+                        <>
+                          {Number(intake.grossWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{getUnitLabel(intake.unit)}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  {intake.remainingWeight !== null && intake.remainingWeight !== undefined && (
+                    <div className="bg-purple-500/5 border border-purple-500/10 p-4 rounded-lg space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-purple-600">Remaining Weight</span>
+                      <div className="text-2xl font-bold text-purple-700">
+                        {Number(intake.remainingWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{getUnitLabel(intake.unit)}</span>
+                      </div>
+                    </div>
                   )}
                 </div>
-              </div>
-              {intake.remainingWeight !== null && intake.remainingWeight !== undefined && (
-                <div className="bg-purple-500/5 border border-purple-500/10 p-4 rounded-lg space-y-1">
-                  <span className="text-[10px] font-bold uppercase text-purple-600">Remaining Weight</span>
-                  <div className="text-2xl font-bold text-purple-700">
-                    {Number(intake.remainingWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{getUnitLabel(intake.unit)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
+              );
+            })()}
 
             {(Number(intake.Bardana || 0) > 0 || Number(intake.Khot || 0) > 0) && (
               <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t">

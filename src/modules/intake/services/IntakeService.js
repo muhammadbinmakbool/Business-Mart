@@ -186,8 +186,6 @@ export class IntakeService {
     const unitRegistry = await UnitService.getUnitRegistry();
     const baseQuantity = normalizeQuantity(validated.grossWeight, validated.unit || DEFAULT_WEIGHT_UNIT, product, unitRegistry);
     
-    const isBagProduct = product && (product.primaryUnit === "BAG" || product.category === "BAG");
-
     const ownership = await withOwnership();
     const finalStatus = validated.status || (await IntakeWorkflowEngine.getDefaultStatus());
 
@@ -208,13 +206,14 @@ export class IntakeService {
           Bardana: validated.Bardana ?? null,
           Khot: validated.Khot ?? null,
           unit: validated.unit || DEFAULT_WEIGHT_UNIT,
-           baseQuantity,
+          baseQuantity,
           rate: validated.rate ?? null,
-          rateUnit: validated.rateUnit || (isBagProduct ? "BAG" : DEFAULT_WEIGHT_UNIT),
+          rateUnit: validated.rateUnit || DEFAULT_WEIGHT_UNIT,
           notes: validated.notes,
           status: finalStatus,
           entryDate: validated.entryDate,
           bagCount: validated.bagCount,
+          packagingMeta: validated.packagingMeta ?? null,
           intakeNumber: nextNumber,
           userId: ownership.userId,
           businessId: ownership.businessId,
@@ -417,6 +416,7 @@ export class IntakeService {
           Bardana: validated.Bardana !== undefined ? validated.Bardana : current.Bardana,
           Khot: validated.Khot !== undefined ? validated.Khot : current.Khot,
           netWeight: validated.netWeight !== undefined ? validated.netWeight : current.netWeight,
+          packagingMeta: validated.packagingMeta !== undefined ? validated.packagingMeta : current.packagingMeta,
           userId: ownership.userId,
           businessId: ownership.businessId
         }

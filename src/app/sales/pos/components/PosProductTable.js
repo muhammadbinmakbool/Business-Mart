@@ -158,7 +158,44 @@ export default function PosProductTable({
                       onKeyDown={(e) => handleKeyDown(e, index, "weight")}
                       onChange={(e) => onChangeItem(index, "weight", e.target.value)}
                       className="w-full bg-transparent border-0 focus:ring-1 focus:ring-primary rounded-md px-1.5 py-1 text-xs text-foreground outline-none font-mono font-medium"
+                      readOnly={item.useHelper}
                     />
+                    <div className="mt-0.5 px-1.5 flex flex-col gap-1">
+                      <label className="inline-flex items-center gap-1 text-[9px] font-bold text-muted-foreground uppercase cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={item.useHelper || false}
+                          onChange={(e) => onChangeItem(index, "useHelper", e.target.checked)}
+                          className="rounded border-muted text-primary focus:ring-primary h-3 w-3"
+                        />
+                        Helper
+                      </label>
+                      {item.useHelper && (
+                        <div className="grid grid-cols-3 gap-0.5 mt-0.5 bg-muted/30 p-1 rounded border border-border">
+                          <input
+                            type="text"
+                            placeholder="Type"
+                            value={item.helperUnitLabel || ""}
+                            onChange={(e) => onChangeItem(index, "helperUnitLabel", e.target.value)}
+                            className="w-full bg-background border-none rounded px-1 py-0.5 text-[9px] font-medium outline-none"
+                          />
+                          <input
+                            type="number"
+                            placeholder="Qty"
+                            value={item.helperQuantity || ""}
+                            onChange={(e) => onChangeItem(index, "helperQuantity", e.target.value)}
+                            className="w-full bg-background border-none rounded px-1 py-0.5 text-[9px] font-mono outline-none"
+                          />
+                          <input
+                            type="number"
+                            placeholder="Size"
+                            value={item.helperSizePerUnit || ""}
+                            onChange={(e) => onChangeItem(index, "helperSizePerUnit", e.target.value)}
+                            className="w-full bg-background border-none rounded px-1 py-0.5 text-[9px] font-mono outline-none"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </td>
 
                   {/* Unit Column */}

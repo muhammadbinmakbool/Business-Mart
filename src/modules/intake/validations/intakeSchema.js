@@ -14,6 +14,7 @@ export const intakeSchema = z.object({
   rateUnit: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
   status: z.string().optional().nullable(),
+  packagingMeta: z.any().optional().nullable(),
 });
 
 export const advanceSchema = z.object({

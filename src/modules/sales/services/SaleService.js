@@ -194,6 +194,7 @@ export class SaleService {
               rate: item.rate,
               rateUnit: item.rateUnit || DEFAULT_WEIGHT_UNIT,
               amount: item.amount,
+              packagingMeta: item.packagingMeta ?? null,
               userId: ownership.userId,
               businessId: ownership.businessId
             }))
@@ -461,6 +462,7 @@ export class SaleService {
               rate: item.rate,
               rateUnit: item.rateUnit || DEFAULT_WEIGHT_UNIT,
               amount: item.amount,
+              packagingMeta: item.packagingMeta ?? null,
               userId: ownership.userId,
               businessId: ownership.businessId
             }))

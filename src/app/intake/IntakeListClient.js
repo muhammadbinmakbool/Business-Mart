@@ -235,9 +235,15 @@ export default function IntakeListClient({
             },
             {
               key: "bagCount",
-              label: "Bags",
-              className: "px-4 py-3 text-right",
-              render: (row, val) => val || "-",
+              label: "Packaging",
+              className: "px-4 py-3 text-right font-medium",
+              render: (row, val) => {
+                const packaging = row.packagingMeta ? (typeof row.packagingMeta === "string" ? JSON.parse(row.packagingMeta) : row.packagingMeta) : null;
+                if (packaging) {
+                  return `${packaging.count} ${packaging.type}`;
+                }
+                return val ? `${val} Bags` : "-";
+              },
             },
             {
               key: "grossWeight",

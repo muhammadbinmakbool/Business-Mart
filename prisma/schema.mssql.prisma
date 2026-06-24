@@ -146,6 +146,7 @@ model IntakeTransaction {
   netWeight        Decimal?              @db.Decimal(18, 2)
   remainingWeight  Decimal?              @db.Decimal(18, 2)
   notes            String?
+  packagingMeta    Json?
   status           String                @default("PENDING")
   isDeleted        Boolean               @default(false)
   deletedAt        DateTime?
@@ -233,6 +234,7 @@ model SaleItem {
   amount              Decimal            @db.Decimal(18, 2)
   userId              Int                @default(0)
   businessId          Int                @default(0)
+  packagingMeta       Json?
 
   sale                SaleTransaction    @relation(fields: [saleId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   product             Product            @relation(fields: [productId], references: [id], onUpdate: NoAction)

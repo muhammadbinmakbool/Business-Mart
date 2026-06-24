@@ -108,17 +108,24 @@ export default function PosBillingClient({
 
   const [items, setItems] = useState(() => {
     if (initialData?.items?.length > 0) {
-      return initialData.items.map((item, idx) => ({
-        id: `row-${idx}`,
-        productId: item.productId?.toString() || "",
-        weight: item.weight?.toString() || "",
-        unit: item.unit || "KG",
-        rate: item.rate?.toString() || "",
-        rateUnit: item.rateUnit || "KG",
-        amount: item.amount || 0,
-        salesTrackId: item.salesTrackId || null,
-        intakeNumber: item.intakeNumber || null
-      }));
+      return initialData.items.map((item, idx) => {
+        const initialMeta = item.packagingMeta ? (typeof item.packagingMeta === 'string' ? JSON.parse(item.packagingMeta) : item.packagingMeta) : null;
+        return {
+          id: `row-${idx}`,
+          productId: item.productId?.toString() || "",
+          weight: item.weight?.toString() || "",
+          unit: item.unit || "KG",
+          rate: item.rate?.toString() || "",
+          rateUnit: item.rateUnit || "KG",
+          amount: item.amount || 0,
+          salesTrackId: item.salesTrackId || null,
+          intakeNumber: item.intakeNumber || null,
+          useHelper: !!initialMeta,
+          helperQuantity: initialMeta?.count || "",
+          helperSizePerUnit: initialMeta?.sizePerUnit || "",
+          helperUnitLabel: initialMeta?.type || "Bag"
+        };
+      });
     }
     return [
       {
@@ -128,7 +135,11 @@ export default function PosBillingClient({
         unit: "KG",
         rate: "",
         rateUnit: "KG",
-        amount: 0
+        amount: 0,
+        useHelper: false,
+        helperQuantity: "",
+        helperSizePerUnit: "",
+        helperUnitLabel: "Bag"
       }
     ];
   });
@@ -231,7 +242,11 @@ export default function PosBillingClient({
         unit: "KG",
         rate: "",
         rateUnit: "KG",
-        amount: 0
+        amount: 0,
+        useHelper: false,
+        helperQuantity: "",
+        helperSizePerUnit: "",
+        helperUnitLabel: "Bag"
       }
     ]);
     setAdjustments(() => {
@@ -267,7 +282,11 @@ export default function PosBillingClient({
         unit: "KG",
         rate: "",
         rateUnit: "KG",
-        amount: 0
+        amount: 0,
+        useHelper: false,
+        helperQuantity: "",
+        helperSizePerUnit: "",
+        helperUnitLabel: "Bag"
       }
     ]);
   }, []);
@@ -282,7 +301,11 @@ export default function PosBillingClient({
           unit: "KG",
           rate: "",
           rateUnit: "KG",
-          amount: 0
+          amount: 0,
+          useHelper: false,
+          helperQuantity: "",
+          helperSizePerUnit: "",
+          helperUnitLabel: "Bag"
         }];
       }
       return prev.filter((_, i) => i !== index);
@@ -323,8 +346,22 @@ export default function PosBillingClient({
             unit: "KG",
             rate: "",
             rateUnit: "KG",
-            amount: 0
+            amount: 0,
+            useHelper: false,
+            helperQuantity: "",
+            helperSizePerUnit: "",
+            helperUnitLabel: "Bag"
           });
+        }
+
+        if (newItems[index].useHelper) {
+          const qty = parseFloat(newItems[index].helperQuantity) || 0;
+          const size = parseFloat(newItems[index].helperSizePerUnit) || 0;
+          if (qty && size) {
+            newItems[index].weight = (qty * size).toString();
+          } else {
+            newItems[index].weight = "";
+          }
         }
 
         const prod = products.find(p => p.id === parseInt(newItems[index].productId));
@@ -346,6 +383,21 @@ export default function PosBillingClient({
       setItems(prev => {
         const newItems = [...prev];
         newItems[index] = { ...newItems[index], [field]: value };
+
+        if (field === "useHelper" && !value) {
+          newItems[index].helperQuantity = "";
+          newItems[index].helperSizePerUnit = "";
+        }
+
+        if (newItems[index].useHelper) {
+          const qty = parseFloat(newItems[index].helperQuantity) || 0;
+          const size = parseFloat(newItems[index].helperSizePerUnit) || 0;
+          if (qty && size) {
+            newItems[index].weight = (qty * size).toString();
+          } else {
+            newItems[index].weight = "";
+          }
+        }
 
         if (field === "productId" && !value) {
           newItems[index].rate = "";
@@ -467,7 +519,11 @@ export default function PosBillingClient({
           unit,
           rate: lastRate.toString(),
           rateUnit,
-          amount
+          amount,
+          useHelper: false,
+          helperQuantity: "",
+          helperSizePerUnit: "",
+          helperUnitLabel: "Bag"
         };
 
         const blankRow = {
@@ -477,7 +533,11 @@ export default function PosBillingClient({
           unit: "KG",
           rate: "",
           rateUnit: "KG",
-          amount: 0
+          amount: 0,
+          useHelper: false,
+          helperQuantity: "",
+          helperSizePerUnit: "",
+          helperUnitLabel: "Bag"
         };
 
         // If the only row is empty and unselected, replace it
@@ -632,6 +692,12 @@ export default function PosBillingClient({
           const normalizedRate = product ? normalizeRate(item.rate || 0, item.rateUnit || "KG", product) : 0;
           const baseQuantity = product ? normalizeQuantity(item.weight || 0, item.unit || "KG", product) : 0;
           const amount = round(baseQuantity * normalizedRate);
+          const packagingMeta = item.useHelper && item.helperQuantity && item.helperSizePerUnit ? {
+            type: item.helperUnitLabel || "Bag",
+            count: parseFloat(item.helperQuantity),
+            sizePerUnit: parseFloat(item.helperSizePerUnit),
+            unitLabel: item.unit || "KG"
+          } : null;
           return {
             productId: parseInt(item.productId),
             weight: parseFloat(item.weight),
@@ -640,7 +706,8 @@ export default function PosBillingClient({
             rateUnit: item.rateUnit || "KG",
             baseQuantity,
             amount,
-            salesTrackId: item.salesTrackId || null
+            salesTrackId: item.salesTrackId || null,
+            packagingMeta
           };
         }),
         adjustments,
@@ -689,7 +756,11 @@ export default function PosBillingClient({
               unit: "KG",
               rate: "",
               rateUnit: "KG",
-              amount: 0
+              amount: 0,
+              useHelper: false,
+              helperQuantity: "",
+              helperSizePerUnit: "",
+              helperUnitLabel: "Bag"
             }
           ]);
           setAdjustments([]);

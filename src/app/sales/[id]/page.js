@@ -123,7 +123,20 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
                 <tbody className="divide-y">
                   {sale.items.map((item) => (
                     <tr key={item.id} className="hover:bg-muted/5 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-foreground">{item.product.name}</td>
+                      <td className="px-4 py-3 font-semibold text-foreground">
+                        <div>{item.product.name}</div>
+                        {(() => {
+                          const packaging = item.packagingMeta ? (typeof item.packagingMeta === 'string' ? JSON.parse(item.packagingMeta) : item.packagingMeta) : null;
+                          if (packaging) {
+                            return (
+                              <div className="text-[10px] text-muted-foreground font-normal">
+                                {packaging.count} {packaging.type}{packaging.count !== 1 ? 's' : ''} × {packaging.sizePerUnit} {packaging.unitLabel || 'KG'}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </td>
                       <td className="px-4 py-3 text-right font-mono text-[10px]">
                         {formatUnitDisplay(item.weight, item.unit || "KG", item.product, "en", null, printConfig)}
                       </td>

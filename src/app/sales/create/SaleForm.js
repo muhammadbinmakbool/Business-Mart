@@ -42,15 +42,20 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
   const [items, setItems] = useState(
     initialData?.items?.map(item => {
       const track = item.salesTracks?.[0];
+      const initialMeta = item.packagingMeta ? (typeof item.packagingMeta === 'string' ? JSON.parse(item.packagingMeta) : item.packagingMeta) : null;
       return {
         ...item,
         productId: item.productId.toString(),
         unit: item.unit || null,
         rateUnit: item.rateUnit || null,
         salesTrackId: item.salesTrackId || track?.id || null,
-        intakeNumber: item.intakeNumber || track?.intakeTransaction?.intakeNumber || null
+        intakeNumber: item.intakeNumber || track?.intakeTransaction?.intakeNumber || null,
+        useHelper: !!initialMeta,
+        helperQuantity: initialMeta?.count || "",
+        helperSizePerUnit: initialMeta?.sizePerUnit || "",
+        helperUnitLabel: initialMeta?.type || "Bag"
       };
-    }) || [{ productId: "", weight: "", rate: "", unit: null, rateUnit: null, amount: 0 }]
+    }) || [{ productId: "", weight: "", rate: "", unit: null, rateUnit: null, amount: 0, useHelper: false, helperQuantity: "", helperSizePerUnit: "", helperUnitLabel: "Bag" }]
   );
 
   const buyerOptions = useMemo(() => [
@@ -297,7 +302,11 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
     rate: "", 
     unit: null, 
     rateUnit: null, 
-    amount: 0 
+    amount: 0,
+    useHelper: false,
+    helperQuantity: "",
+    helperSizePerUnit: "",
+    helperUnitLabel: "Bag"
   }]);
 
   const removeItem = (index) => {
@@ -318,9 +327,28 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
         rate: "", 
         unit: null, 
         rateUnit: null, 
-        amount: 0 
+        amount: 0,
+        useHelper: false,
+        helperQuantity: "",
+        helperSizePerUnit: "",
+        helperUnitLabel: "Bag"
       }]);
     }
+  };
+
+  const handleItemHelperChange = (index, qty, size, type = null) => {
+    const newItems = [...items];
+    const item = newItems[index];
+    if (qty !== null) item.helperQuantity = qty;
+    if (size !== null) item.helperSizePerUnit = size;
+    if (type !== null) item.helperUnitLabel = type;
+    
+    if (item.helperQuantity && item.helperSizePerUnit) {
+      item.weight = (parseFloat(item.helperQuantity) * parseFloat(item.helperSizePerUnit)).toString();
+    } else {
+      item.weight = "";
+    }
+    setItems(newItems);
   };
 
   const updateItem = async (index, field, value) => {
@@ -423,6 +451,12 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
           const normalizedRate = product ? normalizeRate(item.rate || 0, item.rateUnit || "KG", product) : 0;
           const baseQuantity = product ? normalizeQuantity(item.weight || 0, item.unit || "KG", product) : 0;
           const amount = round(baseQuantity * normalizedRate);
+          const packagingMeta = item.useHelper && item.helperQuantity && item.helperSizePerUnit ? {
+            type: item.helperUnitLabel || "Bag",
+            count: parseFloat(item.helperQuantity),
+            sizePerUnit: parseFloat(item.helperSizePerUnit),
+            unitLabel: item.unit || "KG"
+          } : null;
           return {
             productId: parseInt(item.productId),
             weight: parseFloat(item.weight),
@@ -431,7 +465,8 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
             rateUnit: item.rateUnit || "KG",
             baseQuantity,
             amount,
-            salesTrackId: item.salesTrackId ? parseInt(item.salesTrackId) : null
+            salesTrackId: item.salesTrackId ? parseInt(item.salesTrackId) : null,
+            packagingMeta
           };
         }),
         adjustments,
@@ -703,7 +738,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                         </div>
                       )}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="px-2 py-2 min-w-[200px]">
                       <div className="flex items-center gap-1">
                         <input
                           ref={!initialData ? registerField(`item-${index}-weight`) : undefined}
@@ -715,6 +750,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                           onChange={(e) => updateItem(index, "weight", e.target.value)}
                           className="w-full bg-transparent border-none text-right font-mono px-2 py-2 focus:ring-1 focus:ring-primary/50 outline-none"
                           required
+                          readOnly={item.useHelper}
                         />
                         <select
                           value={item.unit || ""}
@@ -730,6 +766,50 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                             ))
                           )}
                         </select>
+                      </div>
+                      <div className="mt-1 px-1">
+                        <label className="inline-flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={item.useHelper || false}
+                            onChange={(e) => {
+                              const newItems = [...items];
+                              newItems[index].useHelper = e.target.checked;
+                              if (!e.target.checked) {
+                                newItems[index].helperQuantity = "";
+                                newItems[index].helperSizePerUnit = "";
+                              }
+                              setItems(newItems);
+                            }}
+                            className="rounded border-muted text-primary focus:ring-primary h-3 w-3"
+                          />
+                          Helper
+                        </label>
+                        {item.useHelper && (
+                          <div className="grid grid-cols-3 gap-1 mt-1 bg-muted/20 p-1.5 rounded border border-border">
+                            <input
+                              type="text"
+                              placeholder="Type"
+                              value={item.helperUnitLabel || ""}
+                              onChange={(e) => handleItemHelperChange(index, null, null, e.target.value)}
+                              className="w-full bg-background border rounded px-1 py-0.5 text-[10px] font-medium outline-none"
+                            />
+                            <input
+                              type="number"
+                              placeholder="Qty"
+                              value={item.helperQuantity || ""}
+                              onChange={(e) => handleItemHelperChange(index, e.target.value, null)}
+                              className="w-full bg-background border rounded px-1 py-0.5 text-[10px] font-mono outline-none"
+                            />
+                            <input
+                              type="number"
+                              placeholder="Size"
+                              value={item.helperSizePerUnit || ""}
+                              onChange={(e) => handleItemHelperChange(index, null, e.target.value)}
+                              className="w-full bg-background border rounded px-1 py-0.5 text-[10px] font-mono outline-none"
+                            />
+                          </div>
+                        )}
                       </div>
                       {(() => {
                         const rowSuggestion = assistantSuggestions.rowSuggestions?.[index];

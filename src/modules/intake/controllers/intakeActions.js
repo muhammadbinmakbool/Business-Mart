@@ -19,6 +19,7 @@ export async function createIntakeAction(formData) {
     grossWeight: formData.get("grossWeight"),
     unit: formData.get("unit") || DEFAULT_WEIGHT_UNIT,
     notes: formData.get("notes") || "",
+    packagingMeta: formData.get("packagingMeta") ? JSON.parse(formData.get("packagingMeta")) : null,
     newPartyData: formData.get("partyId") === "new" ? {
       name: formData.get("newName"),
       phoneNumber: formData.get("newPhone"),
@@ -90,6 +91,7 @@ export async function updateIntakeAction(id, formData) {
     Bardana: formData.get("Bardana") ? Number(formData.get("Bardana")) : null,
     Khot: formData.get("Khot") ? Number(formData.get("Khot")) : null,
     netWeight: formData.get("netWeight") ? Number(formData.get("netWeight")) : null,
+    packagingMeta: formData.get("packagingMeta") ? JSON.parse(formData.get("packagingMeta")) : null,
   };
 
 
