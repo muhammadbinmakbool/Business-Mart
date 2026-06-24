@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { UNIT_CATEGORIES } from "@/lib/constants";
 import { DEFAULT_WEIGHT_UNIT, isUnitCompatible } from "@/lib/units";
+import { UnitService } from "../services/UnitService";
 
 export const productSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -16,11 +17,22 @@ export const productSchema = z.object({
   defaultSellingUnit: z.string().optional().nullable(),
   displayOrder: z.coerce.number().default(0),
   isActive: z.boolean().default(true),
-}).superRefine((data, ctx) => {
+}).superRefine(async (data, ctx) => {
   const cat = data.unitCategory;
 
+  let registry = null;
+  try {
+    registry = await UnitService.getUnitRegistry();
+  } catch (error) {
+    // Fallback to static UNITS
+  }
+
+  // Combine static UNITS and DB registry units
+  const { UNITS } = require("@/lib/units");
+  const unitsSource = registry?.units ? { ...UNITS, ...registry.units } : UNITS;
+
   // Verify primary unit is compatible
-  if (data.primaryUnit && !isUnitCompatible(data.primaryUnit, cat)) {
+  if (data.primaryUnit && !isUnitCompatible(data.primaryUnit, cat, unitsSource)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: `Primary unit is incompatible with unit category ${cat}`,
@@ -29,7 +41,7 @@ export const productSchema = z.object({
   }
 
   // Verify buying rate unit is compatible
-  if (data.buyingRateUnit && !isUnitCompatible(data.buyingRateUnit, cat)) {
+  if (data.buyingRateUnit && !isUnitCompatible(data.buyingRateUnit, cat, unitsSource)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: `Buying rate unit is incompatible with unit category ${cat}`,
@@ -38,7 +50,7 @@ export const productSchema = z.object({
   }
 
   // Verify selling rate unit is compatible
-  if (data.sellingRateUnit && !isUnitCompatible(data.sellingRateUnit, cat)) {
+  if (data.sellingRateUnit && !isUnitCompatible(data.sellingRateUnit, cat, unitsSource)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: `Selling rate unit is incompatible with unit category ${cat}`,
@@ -47,7 +59,7 @@ export const productSchema = z.object({
   }
 
   // Verify default selling unit is compatible
-  if (data.defaultSellingUnit && !isUnitCompatible(data.defaultSellingUnit, cat)) {
+  if (data.defaultSellingUnit && !isUnitCompatible(data.defaultSellingUnit, cat, unitsSource)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       message: `Default selling unit is incompatible with unit category ${cat}`,

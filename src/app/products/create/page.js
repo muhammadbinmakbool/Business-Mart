@@ -189,11 +189,11 @@ function CreateProductContent() {
                 }}
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">-- Select Category --</option>
+                <option value="" disabled hidden>-- Select Category --</option>
+                <option value="new">➕ Add New Category...</option>
                 {categories.map(cat => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
-                <option value="new">➕ Add New Category...</option>
               </select>
 
               {isNewCategory && (

@@ -226,7 +226,10 @@ export default function UnitListClient({ initialUnits = [], categories = [] }) {
                 <input
                   id="unit-code"
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  onChange={(e) => {
+                    const sanitized = e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "");
+                    setCode(sanitized);
+                  }}
                   placeholder="e.g. KG, MAUND, LTR"
                   required
                   disabled={!!editingUnit}
@@ -245,7 +248,7 @@ export default function UnitListClient({ initialUnits = [], categories = [] }) {
                   required
                   className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
-                  <option value="" disabled>Select Category</option>
+                  <option value="" disabled hidden>Select Category</option>
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.name} ({cat.code})

@@ -61,7 +61,7 @@ export class ProductService {
   }
 
   static async createProduct(data) {
-    const validatedData = productSchema.parse(data);
+    const validatedData = await productSchema.parseAsync(data);
     validatedData.category = validatedData.unitCategory;
     const ownedData = await withOwnership(validatedData);
     const product = await ProductRepository.create(ownedData);
@@ -76,7 +76,7 @@ export class ProductService {
   }
 
   static async updateProduct(id, data) {
-    const validatedData = productSchema.parse(data);
+    const validatedData = await productSchema.parseAsync(data);
     validatedData.category = validatedData.unitCategory;
     const ownedData = await withOwnership(validatedData);
     const productId = parseInt(id);

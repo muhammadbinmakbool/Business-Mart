@@ -185,7 +185,10 @@ export default function CategoryListClient({ initialCategories = [] }) {
                 <input
                   id="cat-code"
                   value={code}
-                  onChange={(e) => setCode(e.target.value)}
+                  onChange={(e) => {
+                    const sanitized = e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, "");
+                    setCode(sanitized);
+                  }}
                   placeholder="e.g. WEIGHT, LIQUID, QUANTITY"
                   required
                   disabled={!!editingCategory}
