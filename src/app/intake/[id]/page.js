@@ -149,11 +149,13 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                 <div className="grid gap-6 sm:grid-cols-3 pt-4 border-t">
                   <div className="bg-muted/30 p-4 rounded-lg space-y-1">
                     <span className="text-[10px] font-bold uppercase text-muted-foreground">Quantity</span>
-                    <div className="text-2xl font-bold">
-                      {quantityValueText}{" "}
-                      <span className="text-sm font-normal text-muted-foreground italic text-xs">
-                        {quantitySubText}
-                      </span>
+                    <div className="text-2xl font-bold flex flex-col items-start">
+                      <span>{quantityValueText}</span>
+                      {quantitySubText && (
+                        <span className="text-xs font-normal text-muted-foreground italic leading-none mt-1">
+                          {quantitySubText}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="bg-primary/5 p-4 rounded-lg space-y-1">
