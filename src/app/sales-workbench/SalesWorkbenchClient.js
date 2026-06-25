@@ -114,7 +114,7 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
       : Number(selectedIntake.grossWeight);
 
     if (qtyVal > availableWeight) {
-      showToast.error(`Sold weight cannot exceed remaining weight (${availableWeight} KG).`);
+      showToast.error(`Sold quantity cannot exceed remaining quantity (${availableWeight} ${selectedIntake.unit || 'KG'}).`);
       return;
     }
 

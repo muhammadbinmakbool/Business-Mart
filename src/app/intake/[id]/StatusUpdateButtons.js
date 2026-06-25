@@ -197,7 +197,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
         return;
       }
       if (soldVal > maxRemaining) {
-        showToast.error(`Sold quantity cannot exceed remaining weight (${maxRemaining})`);
+        showToast.error(`Sold quantity cannot exceed remaining quantity (${maxRemaining})`);
         return;
       }
     }

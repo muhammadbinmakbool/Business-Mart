@@ -172,7 +172,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                   </div>
                   {intake.remainingWeight !== null && intake.remainingWeight !== undefined && (
                     <div className="bg-purple-500/5 border border-purple-500/10 p-4 rounded-lg space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-purple-600">Remaining Weight</span>
+                      <span className="text-[10px] font-bold uppercase text-purple-600">Remaining Quantity</span>
                       <div className="text-2xl font-bold text-purple-700">
                         {Number(intake.remainingWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{getUnitLabel(intake.unit)}</span>
                       </div>
