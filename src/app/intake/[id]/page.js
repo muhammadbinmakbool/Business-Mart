@@ -116,20 +116,46 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
 
             {(() => {
               const packaging = intake.packagingMeta ? (typeof intake.packagingMeta === 'string' ? JSON.parse(intake.packagingMeta) : intake.packagingMeta) : null;
-              const packagingText = packaging ? `${packaging.count} ${packaging.type}${packaging.count !== 1 ? 's' : ''} × ${packaging.sizePerUnit} ${packaging.unitLabel || 'KG'}` : null;
+              
+              let quantityValueText = "";
+              let quantitySubText = "";
+              
+              if (packaging) {
+                // If packaging metadata is saved (e.g. from the helper)
+                quantityValueText = `${packaging.count} ${packaging.type}${packaging.count !== 1 ? 's' : ''}`;
+                quantitySubText = `× ${packaging.sizePerUnit} ${getUnitLabel(packaging.unitLabel || 'KG')}`;
+              } else if (intake.unit === "BAG" || (intake.bagCount !== null && Number(intake.bagCount) > 0)) {
+                // Default bag count
+                const count = intake.bagCount || 0;
+                quantityValueText = `${count} Bag${count !== 1 ? 's' : ''}`;
+                const conversionFactor = intake.product?.unitConversion ? Number(intake.product.unitConversion) : 50;
+                quantitySubText = `× ${conversionFactor} KG`;
+              } else {
+                // Non-bag unit, and no helper was used (like Fanta with 100 PACK)
+                const isCustom = intake.unit === "PACK" || intake.unit === "BOX";
+                if (isCustom) {
+                  const conversionFactor = intake.product?.unitConversion ? Number(intake.product.unitConversion) : 1;
+                  const label = intake.unit === "PACK" ? "Pack" : "Box";
+                  quantityValueText = `${Number(intake.grossWeight)} ${label}${Number(intake.grossWeight) !== 1 ? (intake.unit === "PACK" ? 's' : 'es') : ''}`;
+                  quantitySubText = `× ${conversionFactor} PIECE`;
+                } else {
+                  // Fallback for KG or other units
+                  quantityValueText = `${Number(intake.grossWeight).toLocaleString()}`;
+                  quantitySubText = getUnitLabel(intake.unit);
+                }
+              }
+
               return (
                 <div className="grid gap-6 sm:grid-cols-3 pt-4 border-t">
-                  {packagingText ? (
-                    <div className="bg-muted/30 p-4 rounded-lg space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Packaging</span>
-                      <div className="text-lg font-bold leading-8 text-foreground">{packagingText}</div>
+                  <div className="bg-muted/30 p-4 rounded-lg space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground">Quantity</span>
+                    <div className="text-2xl font-bold">
+                      {quantityValueText}{" "}
+                      <span className="text-sm font-normal text-muted-foreground italic text-xs">
+                        {quantitySubText}
+                      </span>
                     </div>
-                  ) : (
-                    <div className="bg-muted/30 p-4 rounded-lg space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-muted-foreground">Quantity</span>
-                      <div className="text-2xl font-bold">{intake.bagCount || 0} <span className="text-sm font-normal text-muted-foreground italic">Bags</span></div>
-                    </div>
-                  )}
+                  </div>
                   <div className="bg-primary/5 p-4 rounded-lg space-y-1">
                     <span className="text-[10px] font-bold uppercase text-primary">Gross Quantity</span>
                     <div className="text-2xl font-bold text-primary">
