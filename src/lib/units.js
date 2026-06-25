@@ -114,7 +114,13 @@ export function isProductSpecific(unitId, unitRegistry) {
 export function getConversionFactor(unitId, product, unitRegistry) {
   const source = getUnitsDict(unitRegistry);
   const unit = source[unitId];
-  if (!unit) throw new Error(`Unit ${unitId} not found in registry`);
+  if (!unit) {
+    if (product && product.unitConversion && Number(product.unitConversion) > 0) {
+      return Number(product.unitConversion);
+    }
+    console.warn(`Unit ${unitId} not found in registry, falling back to factor 1`);
+    return 1;
+  }
 
   // Product-specific / Custom conversion (e.g. BAG -> 50)
   if (unit.isCustom || unit.productSpecific) {

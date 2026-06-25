@@ -14,6 +14,7 @@ import PaginationControls from "@/components/ui/PaginationControls";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useSettings } from "@/components/layout/SettingsContext";
 import { formatCurrency } from "@/lib/formatters/financialFormatter";
+import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 
 export default function IntakeListClient({
   intakes = [],
@@ -37,6 +38,17 @@ export default function IntakeListClient({
 
   const [searchQuery, setSearchQuery] = useState(currentSearch);
   const [showFilters, setShowFilters] = useState(true);
+  const [unitRegistry, setUnitRegistry] = useState(null);
+
+  useEffect(() => {
+    async function loadRegistry() {
+      const res = await getUnitRegistryAction();
+      if (res.success) {
+        setUnitRegistry(res.data);
+      }
+    }
+    loadRegistry();
+  }, []);
 
   // Sync internal search query state with URL changes
   useEffect(() => {
@@ -115,7 +127,7 @@ export default function IntakeListClient({
         rate = totalQuantity > 0 ? (totalBaseAmount / totalQuantity) : rate;
         initialTotal = totalBaseAmount;
       } else {
-        const rateInIntakeUnit = convertRate(rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product);
+        const rateInIntakeUnit = convertRate(rate, intake.rateUnit || "KG", intake.unit || "KG", intake.product, unitRegistry);
         initialTotal = Number(netWeight || intake.grossWeight || 0) * rateInIntakeUnit;
       }
 
