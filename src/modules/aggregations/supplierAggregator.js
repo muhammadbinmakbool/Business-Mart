@@ -12,13 +12,55 @@ export async function getSupplierSettlementSetup() {
     return cached;
   }
 
-  // Query active suppliers (SUPPLIER or BOTH)
+  // Query active suppliers (SUPPLIER or BOTH) with pending settlements (sold/partial uninvoiced intakes or unlinked advances)
   const suppliers = await prisma.party.findMany({
     where: {
       isActive: true,
-      OR: [
-        { partyType: "SUPPLIER" },
-        { partyType: "BOTH" }
+      isDeleted: false,
+      AND: [
+        {
+          OR: [
+            { partyType: "SUPPLIER" },
+            { partyType: "BOTH" }
+          ]
+        },
+        {
+          OR: [
+            {
+              intakeTransactions: {
+                some: {
+                  isDeleted: false,
+                  status: { in: ["SOLD", "PARTIAL"] },
+                  OR: [
+                    {
+                      invoiceItems: {
+                        none: {
+                          invoice: {
+                            status: { not: "SUPERSEDED" }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      salesTracks: {
+                        some: {
+                          isSettled: false
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              intakeAdvances: {
+                some: {
+                  supplierInvoiceId: null
+                }
+              }
+            }
+          ]
+        }
       ]
     },
     orderBy: { name: "asc" }
