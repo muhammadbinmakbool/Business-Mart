@@ -2,8 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { assertDestructiveMode } from "@/lib/destructiveSession";
 
 export class SupplierInvoiceRepository {
-  static async getNextInvoiceNumber() {
-    const lastInvoice = await prisma.supplierInvoice.findFirst({
+  static async getNextInvoiceNumber(tx = prisma) {
+    const lastInvoice = await tx.supplierInvoice.findFirst({
       orderBy: { id: "desc" },
       select: { id: true }
     });
@@ -161,9 +161,9 @@ export class SupplierInvoiceRepository {
     });
   }
 
-  static async createWithItems(invoiceData, itemsData, advanceIds, selectedTrackIds = []) {
-    return prisma.$transaction(async (tx) => {
-      const invoice = await tx.supplierInvoice.create({
+  static async createWithItems(invoiceData, itemsData, advanceIds, selectedTrackIds = [], tx = prisma) {
+    const runOperations = async (dbClient) => {
+      const invoice = await dbClient.supplierInvoice.create({
         data: {
           ...invoiceData,
           items: {
@@ -208,7 +208,7 @@ export class SupplierInvoiceRepository {
       });
 
       if (selectedTrackIds && selectedTrackIds.length > 0) {
-        await tx.salesTrack.updateMany({
+        await dbClient.salesTrack.updateMany({
           where: {
             id: { in: selectedTrackIds }
           },
@@ -218,7 +218,7 @@ export class SupplierInvoiceRepository {
         });
       } else {
         const intakeIds = itemsData.map(item => parseInt(item.intakeTransactionId));
-        await tx.salesTrack.updateMany({
+        await dbClient.salesTrack.updateMany({
           where: {
             intakeTransactionId: { in: intakeIds },
             isSettled: false
@@ -230,7 +230,15 @@ export class SupplierInvoiceRepository {
       }
 
       return invoice;
-    });
+    };
+
+    if (tx === prisma) {
+      return prisma.$transaction(async (nestedTx) => {
+        return runOperations(nestedTx);
+      });
+    } else {
+      return runOperations(tx);
+    }
   }
 
   static async updateStatus(id, status, isOutdated = false) {

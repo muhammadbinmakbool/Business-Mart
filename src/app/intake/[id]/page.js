@@ -13,6 +13,7 @@ import { getPrintSettingsAction, getGeneralSettingsAction } from "@/modules/sett
 import { IntakeWorkflowEngine } from "@/modules/intake/workflow/IntakeWorkflowEngine";
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 import { formatCurrency } from "@/lib/formatters/financialFormatter";
+import { formatIntakeStatus, getIntakeStatusBadgeClass } from "@/lib/formatters/statusFormatter";
 
 export default async function IntakeDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
@@ -42,6 +43,9 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
     generalSettingsResult?.success ? generalSettingsResult.settings : {}
   );
   const allowedActions = await IntakeWorkflowEngine.getAllowedActions(intake);
+  const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
+  const flags = await getFeatureFlags();
+  const isPurchase = flags.intakeMode === "PURCHASE";
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -66,13 +70,9 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
         statusBadge={
           <div className={cn(
             "px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase border",
-            intake.status === "PENDING" ? "bg-amber-100 text-amber-700 border-amber-200" :
-            intake.status === "PARTIAL" ? "bg-purple-100 text-purple-700 border-purple-200" :
-            intake.status === "SOLD" ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-            intake.status === "CLEARED" ? "bg-blue-100 text-blue-700 border-blue-200" :
-            "bg-rose-100 text-rose-700 border-rose-200"
+            getIntakeStatusBadgeClass(intake.status)
           )}>
-            {intake.status}
+            {formatIntakeStatus(intake.status, flags.intakeMode)}
           </div>
         }
       />
@@ -172,7 +172,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                       )}
                     </div>
                   </div>
-                  {intake.remainingWeight !== null && intake.remainingWeight !== undefined && (
+                  {!isPurchase && intake.remainingWeight !== null && intake.remainingWeight !== undefined && (
                     <div className="bg-purple-500/5 border border-purple-500/10 p-4 rounded-lg space-y-1">
                       <span className="text-[10px] font-bold uppercase text-purple-600">Remaining Quantity</span>
                       <div className="text-2xl font-bold text-purple-700">
@@ -184,7 +184,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
               );
             })()}
 
-            {(Number(intake.Bardana || 0) > 0 || Number(intake.Khot || 0) > 0) && (
+            {!isPurchase && (Number(intake.Bardana || 0) > 0 || Number(intake.Khot || 0) > 0) && (
               <div className="grid gap-4 sm:grid-cols-2 pt-4 border-t">
                 {Number(intake.Bardana || 0) > 0 && (
                   <div className="bg-muted/40 p-4 rounded-xl flex justify-between items-center text-sm border border-muted-foreground/10">
@@ -201,7 +201,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
               </div>
             )}
 
-            {intake.remainingWeight !== null && intake.remainingWeight !== undefined && Number(intake.remainingWeight) < Number(intake.grossWeight) && (
+            {!isPurchase && intake.remainingWeight !== null && intake.remainingWeight !== undefined && Number(intake.remainingWeight) < Number(intake.grossWeight) && (
               <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl flex items-center justify-between text-xs pt-3 mt-4">
                 <div className="space-y-0.5">
                   <div className="font-bold text-amber-800 uppercase tracking-widest text-[9px]">Sold Consumption Breakdown</div>
@@ -217,7 +217,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
             )}
 
             {/* Sales Breakdown Section */}
-            {intake.salesTracks && intake.salesTracks.length > 0 && (
+            {!isPurchase && intake.salesTracks && intake.salesTracks.length > 0 && (
               <div className="pt-6 border-t space-y-4">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
                   <FileText className="h-4.5 w-4.5 text-primary" />
@@ -297,7 +297,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
         <div className="space-y-6">
           <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Status Lifecycle</h2>
-            <StatusUpdateButtons intakeId={intake.id} currentStatus={intake.status} intake={intake} buyers={buyers} allowedActions={allowedActions} />
+            <StatusUpdateButtons intakeId={intake.id} currentStatus={intake.status} intake={intake} buyers={buyers} allowedActions={allowedActions} featureFlags={flags} />
           </div>
         </div>
       </div>

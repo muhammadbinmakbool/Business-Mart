@@ -15,7 +15,9 @@ import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getLocalDateString } from "@/lib/utils";
 import { getProductForIntake } from "@/modules/products/services/ProductInteractionService";
 
-export default function EditIntakeForm({ intake, suppliers, products, buyers = [], allowedActions = {} }) {
+export default function EditIntakeForm({ intake, suppliers, products, buyers = [], allowedActions = {}, featureFlags }) {
+  const intakeMode = featureFlags?.intakeMode || "RECEIPT";
+  const isPurchase = intakeMode === "PURCHASE";
   const router = useRouter();
 
   // Controlled States
@@ -203,7 +205,15 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
       return;
     }
 
-    if (status === "SOLD") {
+    if (isPurchase) {
+      if (!rate || Number(rate) <= 0) {
+        showToast.error("Please specify a valid Rate");
+        setIsSubmitting(false);
+        return;
+      }
+      formData.set("rate", rate.toString());
+      formData.set("rateUnit", rateUnit);
+    } else if (status === "SOLD") {
       const requireBuyer = allowedActions.rules?.requiresBuyer;
       if (requireBuyer && !buyerPartyId) {
         showToast.error("Please select a buyer Party");
@@ -302,8 +312,8 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Edit Intake {intake.intakeNumber}</h1>
-            <p className="text-sm text-muted-foreground">Adjust arrival details if recorded incorrectly.</p>
+            <h1 className="text-2xl font-bold tracking-tight">{isPurchase ? `Edit Purchase Intake ${intake.intakeNumber}` : `Edit Intake ${intake.intakeNumber}`}</h1>
+            <p className="text-sm text-muted-foreground">{isPurchase ? "Adjust purchase details if recorded incorrectly." : "Adjust arrival details if recorded incorrectly."}</p>
           </div>
         </div>
 
@@ -474,8 +484,58 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
         </div>
       </div>
 
+      {/* Conditional PURCHASE mode section */}
+      {isPurchase && (
+        <div className="rounded-xl border bg-muted/20 p-6 space-y-6 mt-6 animate-in slide-in-from-top-4 duration-300">
+          <div className="flex items-center gap-3 border-b pb-3">
+            <div className="bg-primary/10 p-2 rounded-lg text-primary">
+              <DollarSign className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm">Purchase Rate Parameters</h3>
+              <p className="text-xs text-muted-foreground">Adjust purchase rate and rate unit</p>
+            </div>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Rate & Unit */}
+            <div className="grid grid-cols-3 gap-3 col-span-2">
+              <div className="col-span-2 space-y-2">
+                <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
+                  <DollarSign className="h-3.5 w-3.5" /> Rate
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Rate..."
+                  value={rate}
+                  onChange={e => setRate(e.target.value)}
+                  className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>
+                <select
+                  value={rateUnit || ""}
+                  onChange={e => setRateUnit(e.target.value || null)}
+                  className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                >
+                  {compatibleUnits.length === 0 ? (
+                    <option value="">--</option>
+                  ) : (
+                    compatibleUnits.map(u => (
+                      <option key={u.id} value={u.id}>/ {u.id}</option>
+                    ))
+                  )}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Conditional SOLD status section */}
-      {status === "SOLD" && (
+      {!isPurchase && status === "SOLD" && (
         <div className="rounded-xl border bg-muted/20 p-6 space-y-6 mt-6 animate-in slide-in-from-top-4 duration-300">
           <div className="flex items-center gap-3 border-b pb-3">
             <div className="bg-emerald-100 p-2 rounded-lg text-emerald-700">

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 export const DEFAULT_FEATURE_FLAGS = {
   version: 1,
+  intakeMode: "RECEIPT", // "RECEIPT" | "PURCHASE"
   salesWorkflow: "POS",
   salesMode: "HYBRID", // "DIRECT" | "TRACKED" | "HYBRID"
   enableIntakeLinking: true,
@@ -43,6 +44,7 @@ export async function getFeatureFlags() {
     
     return {
       version: parsed.version || 1,
+      intakeMode: parsed.intakeMode || DEFAULT_FEATURE_FLAGS.intakeMode,
       salesWorkflow: parsed.salesWorkflow || DEFAULT_FEATURE_FLAGS.salesWorkflow,
       salesMode,
       enableIntakeLinking: parsed.enableIntakeLinking !== undefined ? !!parsed.enableIntakeLinking : DEFAULT_FEATURE_FLAGS.enableIntakeLinking,

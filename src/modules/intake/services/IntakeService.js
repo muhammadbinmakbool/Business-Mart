@@ -160,7 +160,7 @@ export class IntakeService {
   }
 
 
-  static async createIntake(data) {
+  static async _createIntakeInternal(data, advanceAmount = null, advanceNotes = null) {
     let { partyId, newPartyData, ...intakeData } = data;
 
     if (partyId === "new" && newPartyData) {
@@ -169,6 +169,13 @@ export class IntakeService {
     }
 
     const validated = intakeSchema.parse({ ...intakeData, partyId });
+
+    const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
+    const flags = await getFeatureFlags();
+    const isPurchase = flags.intakeMode === "PURCHASE";
+    if (isPurchase && (validated.rate === null || validated.rate === undefined)) {
+      throw new Error("Rate is required for purchase mode intakes.");
+    }
     
     // Normalize weight
     const product = await ProductService.getProduct(validated.productId);
@@ -188,6 +195,9 @@ export class IntakeService {
     
     const ownership = await withOwnership();
     const finalStatus = validated.status || (await IntakeWorkflowEngine.getDefaultStatus());
+
+    let advanceRecord = null;
+    let invoiceRecord = null;
 
     const intake = await prisma.$transaction(async (tx) => {
       // 1. Get next number
@@ -222,12 +232,35 @@ export class IntakeService {
         }
       });
 
-      // 3. Delegate inventory update to InventoryService
+      // 3. Create Advance if present inside transaction!
+      if (advanceAmount && parseFloat(advanceAmount) > 0) {
+        const parsedAmount = parseFloat(advanceAmount);
+        advanceRecord = await tx.intakeAdvance.create({
+          data: {
+            partyId: record.partyId,
+            intakeTransactionId: record.id,
+            amount: parsedAmount,
+            notes: advanceNotes || `Advance for Intake ${record.intakeNumber}`,
+            userId: ownership.userId,
+            businessId: ownership.businessId
+          }
+        });
+      }
+
+      // 4. Create Supplier Invoice if PURCHASE mode inside transaction!
+      if (isPurchase) {
+        const { SupplierInvoiceService } = await import("../../supplier-invoices/services/SupplierInvoiceService");
+        const advanceIds = advanceRecord ? [advanceRecord.id] : [];
+        invoiceRecord = await SupplierInvoiceService.generateInvoiceForPurchaseIntake(record, advanceIds, tx);
+      }
+
+      // 5. Delegate inventory update to InventoryService
       await InventoryService.handleIntakeCreated(parseInt(validated.productId), tx);
 
       return record;
     });
 
+    // Logging & cache events happen outside the transaction after it successfully commits.
     let performedByUserId = 0;
     let performedByName = "system";
     try {
@@ -259,14 +292,41 @@ export class IntakeService {
       }
     });
 
-    return intake;
+    if (advanceRecord) {
+      const paymentDescription = `${performedByName} recorded supplier cash advance of Rs. ${Number(advanceRecord.amount).toLocaleString()} for ${partyName} linked to Intake ${intake.intakeNumber}.`;
+      await logPaymentEvent({
+        partyId: intake.partyId,
+        partyName,
+        paymentType: "CASH_OUT",
+        eventType: "SETTLEMENT_ADVANCE",
+        amount: Number(advanceRecord.amount),
+        description: paymentDescription,
+        performedByUserId,
+        performedByName,
+        referenceType: "INTAKE",
+        referenceId: intake.id,
+        referenceNumber: intake.intakeNumber,
+        meta: {
+          advanceId: advanceRecord.id
+        }
+      });
+    }
+
+    return { intake, advance: advanceRecord, invoice: invoiceRecord };
+  }
+
+  static async createIntake(data) {
+    const result = await this._createIntakeInternal(data);
+    return result.intake;
   }
 
   static async updateIntake(id, data) {
     const { buyerPartyId, ...rest } = data;
     const validated = intakeSchema.partial().parse(rest);
     const ownership = await withOwnership();
-    const workflowSettings = await getIntakeWorkflowSettings();
+    const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
+    const flags = await getFeatureFlags();
+    const isPurchase = flags.intakeMode === "PURCHASE";
     
     let oldStatus;
     const unitRegistry = await UnitService.getUnitRegistry();
@@ -277,6 +337,16 @@ export class IntakeService {
         where: { id: parseInt(id) }
       });
       if (!current) throw new Error("Intake transaction not found");
+
+      // Validation Rule: Block changing supplier if advances exist
+      if (validated.partyId && parseInt(validated.partyId) !== current.partyId) {
+        const hasAdvances = await tx.intakeAdvance.findFirst({
+          where: { intakeTransactionId: current.id }
+        });
+        if (hasAdvances) {
+          throw new Error("Cannot change supplier because this intake is linked to cash advances. Please delete the advances first.");
+        }
+      }
 
       const oldProductId = current.productId;
       const oldWeight = Number(current.baseQuantity);
@@ -304,6 +374,21 @@ export class IntakeService {
         }
       }
 
+      // If in PURCHASE mode, verify linked invoice is not paid/cleared (block all updates)
+      if (isPurchase) {
+        const supplierInvoiceItem = await tx.supplierInvoiceItem.findFirst({
+          where: { intakeTransactionId: current.id }
+        });
+        if (supplierInvoiceItem) {
+          const invoice = await tx.supplierInvoice.findUnique({
+            where: { id: supplierInvoiceItem.invoiceId }
+          });
+          if (invoice && invoice.status !== "PENDING") {
+            throw new Error("Cannot modify this intake because its associated supplier invoice is paid/cleared. Please void/remove payment first.");
+          }
+        }
+      }
+
       // Validation Rule: If transitioning away from SOLD, CLEARED, or PARTIAL to PENDING or CANCELLED, verify/delete unbilled SalesTrack and block if included in Supplier Settlement
       if (newStatus === "CANCELLED" && oldStatus !== "CANCELLED") {
         const allowedActions = await IntakeWorkflowEngine.getAllowedActions(current);
@@ -313,7 +398,7 @@ export class IntakeService {
         await IntakeWorkflowEngine.validateCancellation(rest.notes || validated.notes);
       }
 
-      if ((oldStatus === "SOLD" || oldStatus === "CLEARED" || oldStatus === "PARTIAL") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
+      if (!isPurchase && (oldStatus === "SOLD" || oldStatus === "CLEARED" || oldStatus === "PARTIAL") && (newStatus === "PENDING" || newStatus === "CANCELLED")) {
         // Check for Supplier Settlement linkage
         const supplierInvoiceItem = await tx.supplierInvoiceItem.findFirst({
           where: { intakeTransactionId: current.id }
@@ -366,23 +451,27 @@ export class IntakeService {
         newRemainingWeight = current.remainingWeight !== null ? Number(current.remainingWeight) : Number(current.grossWeight);
       }
       if (hasWeightChange) {
-        const oldGross = Number(current.grossWeight);
-        const newGross = Number(validated.grossWeight);
-        const soldWeight = oldGross - (current.remainingWeight !== null ? Number(current.remainingWeight) : oldGross);
-
-        if (newGross < soldWeight) {
-          throw new Error(`Gross weight cannot be less than the already sold weight of ${soldWeight} ${current.unit || DEFAULT_WEIGHT_UNIT}.`);
-        }
-
-        if (current.status === "PENDING") {
-          newRemainingWeight = newGross;
+        if (isPurchase) {
+          newRemainingWeight = Number(validated.grossWeight);
         } else {
-          const delta = newGross - oldGross;
-          newRemainingWeight = Math.max(0, newRemainingWeight + delta);
-        }
+          const oldGross = Number(current.grossWeight);
+          const newGross = Number(validated.grossWeight);
+          const soldWeight = oldGross - (current.remainingWeight !== null ? Number(current.remainingWeight) : oldGross);
 
-        // Recalculate status dynamically if the weight shift changes the intake state
-        newStatus = calculateIntakeState({ grossWeight: newGross, remainingWeight: newRemainingWeight }).status;
+          if (newGross < soldWeight) {
+            throw new Error(`Gross weight cannot be less than the already sold weight of ${soldWeight} ${current.unit || DEFAULT_WEIGHT_UNIT}.`);
+          }
+
+          if (current.status === "PENDING") {
+            newRemainingWeight = newGross;
+          } else {
+            const delta = newGross - oldGross;
+            newRemainingWeight = Math.max(0, newRemainingWeight + delta);
+          }
+
+          // Recalculate status dynamically if the weight shift changes the intake state
+          newStatus = calculateIntakeState({ grossWeight: newGross, remainingWeight: newRemainingWeight, intakeMode: flags.intakeMode }).status;
+        }
       }
 
       // Calculate converted rates based on the units used!
@@ -423,11 +512,16 @@ export class IntakeService {
       });
 
       // 4. Delegate inventory recalculation to InventoryService AFTER the record update
-      //    (the SUM query now sees the new status, weight, and product)
       await InventoryService.handleIntakeUpdated(oldProductId, newProductId, tx);
 
+      // If in PURCHASE mode, sync details to linked invoice item
+      if (isPurchase) {
+        const { SupplierInvoiceService } = await import("../../supplier-invoices/services/SupplierInvoiceService");
+        await SupplierInvoiceService.updateLinkedAutoInvoice(updated, tx);
+      }
+
       // 5. If status is SOLD and buyer is specified, upsert SalesTrack!
-      if (newStatus === "SOLD" && buyerPartyId) {
+      if (!isPurchase && newStatus === "SOLD" && buyerPartyId) {
         const existingTrack = await tx.salesTrack.findFirst({
           where: { intakeTransactionId: updated.id }
         });
@@ -514,54 +608,8 @@ export class IntakeService {
   }
 
   static async createIntakeWithAdvance(intakeData, advanceAmount, advanceNotes) {
-    const intake = await this.createIntake(intakeData);
-    
-    if (advanceAmount && parseFloat(advanceAmount) > 0) {
-      const parsedAmount = parseFloat(advanceAmount);
-      const ownedAdvance = await withOwnership({
-        partyId: intake.partyId,
-        intakeTransactionId: intake.id,
-        amount: parsedAmount,
-        notes: advanceNotes || `Advance for Intake ${intake.intakeNumber}`
-      });
-      const advance = await AdvanceRepository.create(ownedAdvance);
-
-      let performedByUserId = 0;
-      let performedByName = "system";
-      try {
-        const { getSession } = await import("@/lib/session");
-        const session = await getSession();
-        if (session) {
-          performedByUserId = session.userId || 0;
-          performedByName = session.userName || "system";
-        }
-      } catch (e) {}
-
-      const party = await PartyRepository.getById(intake.partyId);
-      const partyName = party ? party.name : "";
-
-      const description = `${performedByName} recorded supplier cash advance of Rs. ${parsedAmount.toLocaleString()} for ${partyName} linked to Intake ${intake.intakeNumber}.`;
-
-      await logPaymentEvent({
-        partyId: intake.partyId,
-        partyName,
-        paymentType: "CASH_OUT",
-        eventType: "CASH_ADVANCE",
-        amount: parsedAmount,
-        description,
-        performedByUserId,
-        performedByName,
-        referenceType: "INTAKE",
-        referenceId: intake.id,
-        referenceNumber: intake.intakeNumber,
-        meta: {
-          notes: ownedAdvance.notes,
-          intakeId: intake.id
-        }
-      });
-    }
-    
-    return intake;
+    const result = await this._createIntakeInternal(intakeData, advanceAmount, advanceNotes);
+    return { intake: result.intake, advance: result.advance };
   }
 
   static async listUninvoicedIntakes(partyId) {
@@ -595,6 +643,12 @@ export class IntakeService {
   }
 
   static async sellIntake(id, data) {
+    const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
+    const flags = await getFeatureFlags();
+    if (flags.intakeMode === "PURCHASE") {
+      throw new Error("Selling intakes is not permitted in PURCHASE mode.");
+    }
+
     const intakeId = parseInt(id);
     const buyerPartyId = parseInt(data.buyerPartyId);
     const rate = Number(data.rate);
@@ -767,14 +821,44 @@ export class IntakeService {
     });
     if (!intake) throw new Error("Intake transaction not found");
 
-    // Soft delete — preserve record in database
-    await IntakeRepository.softDelete(id, {
-      deletedBy: performedByUserId,
-      deleteReason
-    });
+    const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
+    const flags = await getFeatureFlags();
+    const isPurchase = flags.intakeMode === "PURCHASE";
 
-    // Still trigger inventory recalculation so stock counts stay accurate
-    await InventoryService.handleIntakeDeleted(intake.productId);
+    await prisma.$transaction(async (tx) => {
+      if (isPurchase) {
+        const supplierInvoiceItem = await tx.supplierInvoiceItem.findFirst({
+          where: { intakeTransactionId: parseInt(id), invoice: { isDeleted: false } },
+          include: { invoice: true }
+        });
+        if (supplierInvoiceItem) {
+          if (supplierInvoiceItem.invoice.status !== "PENDING") {
+            throw new Error("Cannot delete this intake because its associated supplier invoice is paid/cleared. Please void/remove payment first.");
+          }
+          const { SupplierInvoiceService } = await import("../../supplier-invoices/services/SupplierInvoiceService");
+          await SupplierInvoiceService.deleteInvoice(supplierInvoiceItem.invoiceId, deleteReason, tx);
+        }
+      }
+
+      // Soft delete intake transaction
+      await tx.intakeTransaction.update({
+        where: { id: parseInt(id) },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          deletedBy: performedByUserId || null,
+          deleteReason: deleteReason || null,
+        }
+      });
+
+      // Hard-delete advances linked to this intake
+      await tx.intakeAdvance.deleteMany({
+        where: { intakeTransactionId: parseInt(id) }
+      });
+
+      // Recalculate inventory stock
+      await InventoryService.handleIntakeDeleted(intake.productId, tx);
+    });
 
     const party = await PartyRepository.getById(intake.partyId);
     const partyName = party ? party.name : "";
@@ -815,7 +899,23 @@ export class IntakeService {
 
       const productId = intake.productId;
 
-      // Hard-delete linked advances first (original preserved logic)
+      const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
+      const flags = await getFeatureFlags();
+      if (flags.intakeMode === "PURCHASE") {
+        const supplierInvoiceItem = await tx.supplierInvoiceItem.findFirst({
+          where: { intakeTransactionId: parseInt(id), invoice: { isDeleted: false } },
+          include: { invoice: true }
+        });
+        if (supplierInvoiceItem) {
+          if (supplierInvoiceItem.invoice.status !== "PENDING") {
+            throw new Error("Cannot delete this intake because its associated supplier invoice is paid/cleared. Please void/remove payment first.");
+          }
+          const { SupplierInvoiceService } = await import("../../supplier-invoices/services/SupplierInvoiceService");
+          await SupplierInvoiceService.hardDeleteInvoice(supplierInvoiceItem.invoiceId, deleteReason, tx);
+        }
+      }
+
+      // Hard-delete linked advances first
       await tx.intakeAdvance.deleteMany({
         where: { intakeTransactionId: parseInt(id) }
       });

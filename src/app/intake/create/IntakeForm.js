@@ -38,7 +38,9 @@ const INTAKE_FIELDS = [
   { name: "notes",       next: null,          prev: "entryDate" },
 ];
 
-export default function IntakeForm({ suppliers, products, settings, backUrl }) {
+export default function IntakeForm({ suppliers, products, settings, backUrl, featureFlags }) {
+  const intakeMode = featureFlags?.intakeMode || "RECEIPT";
+  const isPurchase = intakeMode === "PURCHASE";
   const router = useRouter();
   const formRef = useRef(null);
   const supplierRef = useRef(null);
@@ -281,8 +283,8 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Record Goods Intake</h1>
-            <p className="text-sm text-muted-foreground">Log new arrival of goods from a supplier.</p>
+            <h1 className="text-2xl font-bold tracking-tight">{isPurchase ? "Record Purchase Intake" : "Record Goods Intake"}</h1>
+            <p className="text-sm text-muted-foreground">{isPurchase ? "Log new purchase from a supplier." : "Log new arrival of goods from a supplier."}</p>
           </div>
         </div>
 
@@ -520,6 +522,36 @@ export default function IntakeForm({ suppliers, products, settings, backUrl }) {
           )}
         </div>
       </div>
+
+      {isPurchase && (
+        <div className="grid gap-4 md:grid-cols-3 bg-muted/20 p-4 rounded-lg border">
+          <div className="md:col-span-2 space-y-2">
+            <label htmlFor="rate" className="text-sm font-medium">Purchase Rate</label>
+            <input
+              id="rate"
+              name="rate"
+              type="number"
+              step="0.01"
+              required
+              placeholder="0.00"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono placeholder:text-muted-foreground"
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="rateUnit" className="text-sm font-medium">Rate Unit</label>
+            <select
+              id="rateUnit"
+              name="rateUnit"
+              defaultValue="KG"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+            >
+              <option value="KG">Per KG</option>
+              <option value="MAUND">Per Maund</option>
+              <option value="BAG">Per Bag</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* ... (Rest of the form remains unchanged) ... */}
       <div className="space-y-2">

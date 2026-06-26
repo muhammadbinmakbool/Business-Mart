@@ -9,9 +9,12 @@ import { cn } from "@/lib/utils";
 import { calculateIntakeNetWeight, UNIT_IDS, getUnitLabel } from "@/lib/units";
 import Modal from "@/components/ui/Modal";
 
-export default function StatusUpdateButtons({ intakeId, currentStatus, intake, buyers = [], allowedActions = {} }) {
+export default function StatusUpdateButtons({ intakeId, currentStatus, intake, buyers = [], allowedActions = {}, featureFlags }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const intakeMode = featureFlags?.intakeMode || "RECEIPT";
+  const isPurchase = intakeMode === "PURCHASE";
 
   // Cancellation state
   const [showCancelNotesModal, setShowCancelNotesModal] = useState(false);
@@ -239,22 +242,24 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
           )}
         >
           <Clock className="h-4 w-4" />
-          Mark as Pending
+          {isPurchase ? "Mark as Received" : "Mark as Pending"}
         </button>
 
-        <button
-          onClick={() => handleUpdate("SOLD")}
-          disabled={currentStatus === "SOLD" || loading}
-          className={cn(
-            "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors",
-            currentStatus === "SOLD" 
-              ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default font-medium" 
-              : "hover:bg-accent border border-transparent"
-          )}
-        >
-          <ShoppingBag className="h-4 w-4" />
-          Mark as Sold
-        </button>
+        {!isPurchase && (
+          <button
+            onClick={() => handleUpdate("SOLD")}
+            disabled={currentStatus === "SOLD" || loading}
+            className={cn(
+              "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors",
+              currentStatus === "SOLD" 
+                ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default font-medium" 
+                : "hover:bg-accent border border-transparent"
+            )}
+          >
+            <ShoppingBag className="h-4 w-4" />
+            Mark as Sold
+          </button>
+        )}
 
         <button
           onClick={() => handleUpdate("CLEARED")}

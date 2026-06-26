@@ -33,6 +33,9 @@ export default async function IntakePage({ searchParams }) {
     sortDirection
   });
 
+  const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
+  const flags = await getFeatureFlags();
+
   return (
     <IntakeListClient
       intakes={intakes}
@@ -48,6 +51,7 @@ export default async function IntakePage({ searchParams }) {
       currentMonth={month}
       currentSortField={sortField}
       currentSortDirection={sortDirection}
+      featureFlags={flags}
     />
   );
 }

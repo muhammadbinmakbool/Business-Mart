@@ -515,14 +515,8 @@ export class PartyProfileService {
           const clearingState = calculateInvoiceClearingState(total, newPaid);
           const newPaymentStatus = clearingState.paymentStatus;
 
-          await tx.supplierInvoice.update({
-            where: { id: inv.id },
-            data: {
-              paidAmount: newPaid,
-              paymentStatus: newPaymentStatus,
-              status: newPaymentStatus
-            }
-          });
+          const { SupplierInvoiceService } = await import("../../supplier-invoices/services/SupplierInvoiceService");
+          await SupplierInvoiceService.updateInvoicePaymentStatus(inv.id, newPaid, newPaymentStatus, tx);
 
           // Write allocation mapping record
           await tx.partyPaymentAllocation.create({

@@ -26,8 +26,11 @@ export default async function CreateIntakePage({ searchParams: searchParamsPromi
   });
   const settings = settingsRecord ? JSON.parse(settingsRecord.value) : {};
 
+  const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
+  const flags = await getFeatureFlags();
+
   return (
-    <IntakeForm suppliers={activeSuppliers} products={activeProducts} settings={settings} backUrl={backUrl} />
+    <IntakeForm suppliers={activeSuppliers} products={activeProducts} settings={settings} backUrl={backUrl} featureFlags={flags} />
   );
 }
 

@@ -10,7 +10,7 @@ export class SupplierInvoiceService {
   /**
    * Generates a new supplier invoice snapshot.
    */
-  static async generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake = {}, entryDate = null) {
+  static async generateInvoice(partyId, intakeIds, advanceIds, adjustmentsByIntake = {}, entryDate = null, tx = prisma) {
     // 1. Fetch live data for event records
     const parsedIntakeIds = Array.from(new Set(intakeIds.map(id => {
       const str = String(id);
@@ -21,7 +21,7 @@ export class SupplierInvoiceService {
     })));
 
     const [intakes, advances] = await Promise.all([
-      prisma.intakeTransaction.findMany({
+      tx.intakeTransaction.findMany({
         where: { id: { in: parsedIntakeIds } },
         include: { 
           product: true,
@@ -30,7 +30,7 @@ export class SupplierInvoiceService {
           }
         }
       }),
-      prisma.intakeAdvance.findMany({
+      tx.intakeAdvance.findMany({
         where: { id: { in: advanceIds.map(id => parseInt(id)) } }
       })
     ]);
@@ -99,7 +99,7 @@ export class SupplierInvoiceService {
     });
 
     // 4. Sequence number
-    const invoiceNumber = await SupplierInvoiceRepository.getNextInvoiceNumber();
+    const invoiceNumber = await SupplierInvoiceRepository.getNextInvoiceNumber(tx);
 
     const selectedTrackIds = intakeIds
       .filter(id => String(id).includes("-track-"))
@@ -125,7 +125,8 @@ export class SupplierInvoiceService {
       },
       itemsData,
       advanceIds,
-      selectedTrackIds
+      selectedTrackIds,
+      tx
     );
 
     await emitActivity({
@@ -591,38 +592,62 @@ export class SupplierInvoiceService {
    * Reverts related sales track settlements so intakes can be re-invoiced.
    * Only PENDING invoices can be soft-deleted.
    */
-  static async deleteInvoice(invoiceId, deleteReason) {
-    const invoice = await SupplierInvoiceRepository.getById(invoiceId);
-    if (!invoice) throw new Error("Invoice not found");
+  static async deleteInvoice(invoiceId, deleteReason, tx = prisma) {
+    const runOperations = async (dbClient) => {
+      const invoice = await dbClient.supplierInvoice.findUnique({
+        where: { id: parseInt(invoiceId) },
+        include: { items: true }
+      });
+      if (!invoice) throw new Error("Invoice not found");
 
-    if (invoice.status !== "PENDING") {
-      throw new Error("Only PENDING invoices can be deleted");
+      if (invoice.status !== "PENDING") {
+        throw new Error("Only PENDING invoices can be deleted");
+      }
+
+      let deletedBy = null;
+      try {
+        const { getSession } = await import("@/lib/session");
+        const session = await getSession();
+        if (session) deletedBy = session.userId;
+      } catch (e) {}
+
+      // Revert sales track settlements so intakes can be re-invoiced
+      const oldIntakeIds = invoice.items.map(item => item.intakeTransactionId);
+      await dbClient.salesTrack.updateMany({
+        where: {
+          intakeTransactionId: { in: oldIntakeIds },
+          isSettled: true
+        },
+        data: { isSettled: false }
+      });
+
+      // Disconnect advances from this invoice
+      await dbClient.intakeAdvance.updateMany({
+        where: { supplierInvoiceId: parseInt(invoiceId) },
+        data: { supplierInvoiceId: null }
+      });
+
+      await dbClient.supplierInvoice.update({
+        where: { id: parseInt(invoiceId) },
+        data: {
+          isDeleted: true,
+          deletedAt: new Date(),
+          deletedBy: deletedBy || null,
+          deleteReason: deleteReason || null,
+        }
+      });
+
+      return invoice;
+    };
+
+    let invoice;
+    if (tx === prisma) {
+      invoice = await prisma.$transaction(async (nestedTx) => {
+        return runOperations(nestedTx);
+      });
+    } else {
+      invoice = await runOperations(tx);
     }
-
-    let deletedBy = null;
-    try {
-      const { getSession } = await import("@/lib/session");
-      const session = await getSession();
-      if (session) deletedBy = session.userId;
-    } catch (e) {}
-
-    // Revert sales track settlements so intakes can be re-invoiced
-    const oldIntakeIds = invoice.items.map(item => item.intakeTransactionId);
-    await prisma.salesTrack.updateMany({
-      where: {
-        intakeTransactionId: { in: oldIntakeIds },
-        isSettled: true
-      },
-      data: { isSettled: false }
-    });
-
-    // Disconnect advances from this invoice
-    await prisma.intakeAdvance.updateMany({
-      where: { supplierInvoiceId: parseInt(invoiceId) },
-      data: { supplierInvoiceId: null }
-    });
-
-    await SupplierInvoiceRepository.softDelete(invoiceId, { deletedBy, deleteReason });
 
     await emitActivity({
       entityType: "SETTLEMENT",
@@ -640,24 +665,27 @@ export class SupplierInvoiceService {
    * Only PENDING invoices can be hard-deleted.
    * Requires an active Destructive Mode session.
    */
-  static async hardDeleteInvoice(invoiceId, deleteReason) {
-    const invoice = await SupplierInvoiceRepository.getById(invoiceId);
-    if (!invoice) throw new Error("Invoice not found");
+  static async hardDeleteInvoice(invoiceId, deleteReason, tx = prisma) {
+    const runOperations = async (dbClient) => {
+      const invoice = await dbClient.supplierInvoice.findUnique({
+        where: { id: parseInt(invoiceId) },
+        include: { items: true }
+      });
+      if (!invoice) throw new Error("Invoice not found");
 
-    if (invoice.status !== "PENDING") {
-      throw new Error("Only PENDING invoices can be permanently deleted");
-    }
+      if (invoice.status !== "PENDING") {
+        throw new Error("Only PENDING invoices can be permanently deleted");
+      }
 
-    const result = await prisma.$transaction(async (tx) => {
       // 1. Disconnect any advances linked to this invoice
-      await tx.intakeAdvance.updateMany({
+      await dbClient.intakeAdvance.updateMany({
         where: { supplierInvoiceId: parseInt(invoiceId) },
         data: { supplierInvoiceId: null }
       });
 
       // 2. Reset old sales tracks to unsettled
       const oldIntakeIds = invoice.items.map(item => item.intakeTransactionId);
-      await tx.salesTrack.updateMany({
+      await dbClient.salesTrack.updateMany({
         where: {
           intakeTransactionId: { in: oldIntakeIds },
           isSettled: true
@@ -666,11 +694,21 @@ export class SupplierInvoiceService {
       });
 
       // 3. Hard delete (cascade handles items and adjustments via DB schema)
-      // assertDestructiveMode is called inside SupplierInvoiceRepository.hardDelete
-      await SupplierInvoiceRepository.hardDelete(invoiceId, deleteReason);
+      await dbClient.supplierInvoice.delete({
+        where: { id: parseInt(invoiceId) }
+      });
 
-      return { success: true };
-    });
+      return invoice;
+    };
+
+    let invoice;
+    if (tx === prisma) {
+      invoice = await prisma.$transaction(async (nestedTx) => {
+        return runOperations(nestedTx);
+      });
+    } else {
+      invoice = await runOperations(tx);
+    }
 
     await emitActivity({
       entityType: "SETTLEMENT",
@@ -680,7 +718,7 @@ export class SupplierInvoiceService {
       meta: { supplierId: invoice.partyId, invoiceNumber: invoice.invoiceNumber, deleteReason }
     });
 
-    return result;
+    return { success: true };
   }
 
   static async recordPayment(id, amount) {
@@ -715,7 +753,7 @@ export class SupplierInvoiceService {
       const virtualAllocations = [...allocations, { allocatedAmount: amt }];
       const newClearing = calculateInvoiceClearingFromAllocations(total, virtualAllocations);
       
-      return tx.supplierInvoice.update({
+      const updatedInvoice = await tx.supplierInvoice.update({
         where: { id: invoiceId },
         data: {
           paidAmount: newClearing.paid,
@@ -723,6 +761,8 @@ export class SupplierInvoiceService {
           status: newClearing.paymentStatus
         }
       });
+      await SupplierInvoiceService.syncLinkedIntakeStatus(invoiceId, tx);
+      return updatedInvoice;
     });
 
     // Fetch session details
@@ -760,6 +800,8 @@ export class SupplierInvoiceService {
       description: paymentDescription,
       performedByUserId,
       performedByName,
+      performedByUserId,
+      performedByName,
       referenceType: "SETTLEMENT",
       referenceId: updated.id,
       referenceNumber: updated.invoiceNumber,
@@ -788,6 +830,186 @@ export class SupplierInvoiceService {
     });
 
     return updated;
+  }
+
+  static async generateInvoiceForPurchaseIntake(intake, advanceIds = [], tx = prisma) {
+    return this.generateInvoice(
+      intake.partyId,
+      [intake.id],
+      advanceIds,
+      {},
+      intake.entryDate,
+      tx
+    );
+  }
+
+  static async updateInvoiceAndRecalculate(invoiceId, tx = prisma) {
+    const invoice = await tx.supplierInvoice.findUnique({
+      where: { id: parseInt(invoiceId) },
+      include: {
+        items: {
+          include: {
+            intake: {
+              include: { product: true }
+            },
+            adjustments: true
+          }
+        },
+        advances: true
+      }
+    });
+    if (!invoice) return;
+
+    // 1. Map the items to calculate deductions using the centralized lib/financial utility
+    const mappedIntakes = invoice.items.map(item => {
+      const intake = item.intake;
+      if (!intake) return null;
+
+      // Ensure the latest rates/weights from the intake are used
+      const billingWeight = intake.netWeight !== null && intake.netWeight !== undefined
+        ? Number(intake.netWeight)
+        : Number(intake.grossWeight);
+
+      return {
+        ...intake,
+        virtualId: item.id,
+        grossWeight: Number(intake.grossWeight),
+        netWeight: intake.netWeight !== null ? Number(intake.netWeight) : null,
+        bagCount: Number(intake.bagCount || 0),
+        rate: intake.rate ? Number(intake.rate) : null,
+        rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
+        unit: intake.unit || DEFAULT_WEIGHT_UNIT,
+        product: intake.product,
+        adjustments: item.adjustments.map(adj => ({
+          id: adj.id,
+          adjustmentType: adj.adjustmentType,
+          code: adj.code,
+          method: adj.method,
+          value: Number(adj.value),
+          direction: adj.direction,
+          unit: adj.unit
+        }))
+      };
+    }).filter(Boolean);
+
+    if (mappedIntakes.length === 0) return;
+
+    // Call existing calculation engine!
+    const { totalGrossValue, totalDeductions, netValue, intakeBreakdowns } = calculateSupplierDeductions(mappedIntakes);
+
+    // 2. Write the updated calculations back to database items and item adjustments
+    for (const breakdown of intakeBreakdowns) {
+      const itemId = breakdown.intakeId; // this is the virtualId we assigned (item.id)
+      
+      const item = invoice.items.find(i => i.id === itemId);
+      const product = item.intake.product;
+      const actualRate = convertRate(item.intake.rate, item.intake.rateUnit || DEFAULT_WEIGHT_UNIT, item.intake.unit || DEFAULT_WEIGHT_UNIT, product);
+      
+      // Update item totals
+      await tx.supplierInvoiceItem.update({
+        where: { id: itemId },
+        data: {
+          weight: breakdown.gross / (actualRate ? Number(actualRate) : 1), // weight used for gross calculation
+          rate: actualRate ? Number(actualRate) : 0,
+          amount: breakdown.gross
+        }
+      });
+
+      // Update adjustments' calculatedAmount
+      for (const adjBreakdown of breakdown.adjustments) {
+        const dbAdj = item.adjustments.find(a => a.adjustmentType === adjBreakdown.adjustmentType && a.code === adjBreakdown.code);
+        if (dbAdj) {
+          await tx.supplierInvoiceAdjustment.update({
+            where: { id: dbAdj.id },
+            data: {
+              calculatedAmount: adjBreakdown.calculatedAmount
+            }
+          });
+        }
+      }
+    }
+
+    // 3. Compute final payable amount including advances linked to the invoice
+    const totalAdvances = invoice.advances.reduce((sum, adv) => sum + Number(adv.amount), 0);
+    const finalPayableAmount = netValue - totalAdvances;
+
+    // 4. Recalculate payment status based on allocations using the existing engine
+    const allocations = await tx.partyPaymentAllocation.findMany({
+      where: {
+        referenceType: "SETTLEMENT",
+        referenceId: invoice.id,
+        payment: { status: "ACTIVE" }
+      }
+    });
+    const newClearing = calculateInvoiceClearingFromAllocations(finalPayableAmount, allocations);
+
+    // 5. Update invoice
+    const updatedInvoice = await tx.supplierInvoice.update({
+      where: { id: invoice.id },
+      data: {
+        partyId: mappedIntakes[0].partyId, // Sync supplier partyId in case it was updated on the intake!
+        totalGrossValue,
+        totalDeductions,
+        finalPayableAmount,
+        paidAmount: newClearing.paid,
+        paymentStatus: newClearing.paymentStatus,
+        status: newClearing.paymentStatus
+      }
+    });
+
+    // Also sync the partyId of any linked advances to match the new supplier!
+    if (invoice.advances.length > 0) {
+      await tx.intakeAdvance.updateMany({
+        where: { id: { in: invoice.advances.map(a => a.id) } },
+        data: { partyId: mappedIntakes[0].partyId }
+      });
+    }
+
+    await this.syncLinkedIntakeStatus(invoice.id, tx);
+    return updatedInvoice;
+  }
+
+  static async updateLinkedAutoInvoice(intake, tx = prisma) {
+    const item = await tx.supplierInvoiceItem.findFirst({
+      where: { intakeTransactionId: intake.id }
+    });
+    if (!item) return;
+
+    await this.updateInvoiceAndRecalculate(item.invoiceId, tx);
+  }
+
+  static async updateInvoicePaymentStatus(invoiceId, newPaid, newPaymentStatus, tx) {
+    await tx.supplierInvoice.update({
+      where: { id: invoiceId },
+      data: {
+        paidAmount: newPaid,
+        paymentStatus: newPaymentStatus,
+        status: newPaymentStatus
+      }
+    });
+    await this.syncLinkedIntakeStatus(invoiceId, tx);
+  }
+
+  static async syncLinkedIntakeStatus(invoiceId, tx) {
+    const invoice = await tx.supplierInvoice.findUnique({
+      where: { id: parseInt(invoiceId) },
+      include: { items: { include: { intake: true } } }
+    });
+    if (!invoice) return;
+
+    const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
+    const flags = await getFeatureFlags();
+    if (flags.intakeMode === "PURCHASE") {
+      const targetStatus = invoice.status === "CLEARED" ? "CLEARED" : "PENDING";
+      for (const item of invoice.items) {
+        if (item.intake && item.intake.status !== targetStatus) {
+          await tx.intakeTransaction.update({
+            where: { id: item.intake.id },
+            data: { status: targetStatus }
+          });
+        }
+      }
+    }
   }
 }
 

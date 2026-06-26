@@ -25,8 +25,11 @@ export default async function EditIntakePage({ params: paramsPromise }) {
 
   const allowedActions = await IntakeWorkflowEngine.getAllowedActions(intake);
 
+  const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
+  const flags = await getFeatureFlags();
+
   return (
-    <EditIntakeForm intake={intake} suppliers={suppliers} products={activeProducts} buyers={buyers} allowedActions={allowedActions} />
+    <EditIntakeForm intake={intake} suppliers={suppliers} products={activeProducts} buyers={buyers} allowedActions={allowedActions} featureFlags={flags} />
   );
 }
 

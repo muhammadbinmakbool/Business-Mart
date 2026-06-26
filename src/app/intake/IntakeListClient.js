@@ -15,6 +15,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useSettings } from "@/components/layout/SettingsContext";
 import { formatCurrency } from "@/lib/formatters/financialFormatter";
 import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
+import { formatIntakeStatus, getIntakeStatusBadgeClass } from "@/lib/formatters/statusFormatter";
 
 export default function IntakeListClient({
   intakes = [],
@@ -29,7 +30,8 @@ export default function IntakeListClient({
   currentEndDate = "",
   currentMonth = "",
   currentSortField = "entryDate",
-  currentSortDirection = "desc"
+  currentSortDirection = "desc",
+  featureFlags
 }) {
   const { decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
@@ -143,15 +145,24 @@ export default function IntakeListClient({
     });
   }, [intakes]);
 
-  const tabs = [
-    { key: "ALL", label: "All", count: tabCounts.all },
-    { key: "PENDING", label: "Pending", count: tabCounts.pending },
-    { key: "SOLD", label: "Sold", count: tabCounts.sold },
-    { key: "CLEARED", label: "Cleared", count: tabCounts.cleared },
-    { key: "CANCELLED", label: "Cancelled", count: tabCounts.cancelled },
-  ];
+  const intakeMode = featureFlags?.intakeMode || "RECEIPT";
 
-  const showSoldColumns = currentTab === "SOLD" || currentTab === "CLEARED";
+  const tabs = intakeMode === "PURCHASE"
+    ? [
+        { key: "ALL", label: "All", count: tabCounts.all },
+        { key: "PENDING", label: "Received", count: tabCounts.pending },
+        { key: "CLEARED", label: "Cleared", count: tabCounts.cleared },
+        { key: "CANCELLED", label: "Cancelled", count: tabCounts.cancelled },
+      ]
+    : [
+        { key: "ALL", label: "All", count: tabCounts.all },
+        { key: "PENDING", label: "Pending", count: tabCounts.pending },
+        { key: "SOLD", label: "Sold", count: tabCounts.sold },
+        { key: "CLEARED", label: "Cleared", count: tabCounts.cleared },
+        { key: "CANCELLED", label: "Cancelled", count: tabCounts.cancelled },
+      ];
+
+  const showSoldColumns = intakeMode === "PURCHASE" || currentTab === "SOLD" || currentTab === "CLEARED";
 
   return (
     <div className="space-y-4">
@@ -301,61 +312,65 @@ export default function IntakeListClient({
                         </>
                       ),
                   },
-                  {
-                    key: "Bardana",
-                    label: "Bardana",
-                    className: "px-4 py-3 text-right text-muted-foreground whitespace-nowrap",
-                    sortable: false,
-                    render: (row, val) => (val !== null ? `${Number(val).toLocaleString()} KG` : "-"),
-                  },
-                  {
-                    key: "Khot",
-                    label: "Khot",
-                    className: "px-4 py-3 text-right text-muted-foreground whitespace-nowrap",
-                    sortable: false,
-                    render: (row, val) => (val !== null ? `${Number(val).toLocaleString()} KG` : "-"),
-                  },
-                  {
-                    key: "netWeight",
-                    label: "Net Weight",
-                    className: "px-4 py-3 text-right font-semibold text-emerald-600 whitespace-nowrap",
-                    render: (row, val) =>
-                      val !== null ? (
-                        <>
-                          {row.unit === "BAG" && row.product ? (
-                            <>
-                              {(() => {
-                                const grossWeight = Number(row.grossWeight) || 0;
-                                const baseQuantity = Number(row.baseQuantity) || 0;
-                                const factor =
-                                  grossWeight > 0
-                                    ? baseQuantity / grossWeight
-                                    : row.product.unitConversion
-                                    ? Number(row.product.unitConversion)
-                                    : 1;
-                                return (Number(val) * factor).toLocaleString(undefined, {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2,
-                                });
-                              })()}{" "}
-                              <span className="text-[10px] uppercase text-muted-foreground">KG</span>
-                            </>
-                          ) : (
-                            <>
-                              {Number(val).toLocaleString(undefined, {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}{" "}
-                              <span className="text-[10px] uppercase text-muted-foreground">
-                                {getUnitLabel(row.unit)}
-                              </span>
-                            </>
-                          )}
-                        </>
-                      ) : (
-                        "-"
-                      ),
-                  },
+                  ...(intakeMode !== "PURCHASE"
+                    ? [
+                        {
+                          key: "Bardana",
+                          label: "Bardana",
+                          className: "px-4 py-3 text-right text-muted-foreground whitespace-nowrap",
+                          sortable: false,
+                          render: (row, val) => (val !== null ? `${Number(val).toLocaleString()} KG` : "-"),
+                        },
+                        {
+                          key: "Khot",
+                          label: "Khot",
+                          className: "px-4 py-3 text-right text-muted-foreground whitespace-nowrap",
+                          sortable: false,
+                          render: (row, val) => (val !== null ? `${Number(val).toLocaleString()} KG` : "-"),
+                        },
+                        {
+                          key: "netWeight",
+                          label: "Net Weight",
+                          className: "px-4 py-3 text-right font-semibold text-emerald-600 whitespace-nowrap",
+                          render: (row, val) =>
+                            val !== null ? (
+                              <>
+                                {row.unit === "BAG" && row.product ? (
+                                  <>
+                                    {(() => {
+                                      const grossWeight = Number(row.grossWeight) || 0;
+                                      const baseQuantity = Number(row.baseQuantity) || 0;
+                                      const factor =
+                                        grossWeight > 0
+                                          ? baseQuantity / grossWeight
+                                          : row.product.unitConversion
+                                          ? Number(row.product.unitConversion)
+                                          : 1;
+                                      return (Number(val) * factor).toLocaleString(undefined, {
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2,
+                                      });
+                                    })()}{" "}
+                                    <span className="text-[10px] uppercase text-muted-foreground">KG</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    {Number(val).toLocaleString(undefined, {
+                                      minimumFractionDigits: 2,
+                                      maximumFractionDigits: 2,
+                                    })}{" "}
+                                    <span className="text-[10px] uppercase text-muted-foreground">
+                                      {getUnitLabel(row.unit)}
+                                    </span>
+                                  </>
+                                )}
+                              </>
+                            ) : (
+                              "-"
+                            ),
+                        },
+                      ]
+                    : []),
                   {
                     key: "initialTotal",
                     label: "Initial Total",
@@ -382,18 +397,10 @@ export default function IntakeListClient({
                 <span
                   className={cn(
                     "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase border",
-                    val === "PENDING"
-                      ? "bg-amber-100 text-amber-700 border-amber-200"
-                      : val === "PARTIAL"
-                      ? "bg-purple-100 text-purple-700 border-purple-200"
-                      : val === "SOLD"
-                      ? "bg-emerald-100 text-emerald-700 border-emerald-200"
-                      : val === "CLEARED"
-                      ? "bg-blue-100 text-blue-700 border-blue-200"
-                      : "bg-rose-100 text-rose-700 border-rose-200"
+                    getIntakeStatusBadgeClass(val)
                   )}
                 >
-                  {val}
+                  {formatIntakeStatus(val, intakeMode)}
                 </span>
               ),
             },

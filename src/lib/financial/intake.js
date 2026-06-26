@@ -6,17 +6,21 @@
  * @param {number|string} params.remainingWeight
  * @returns {Object} { status: 'PENDING'|'PARTIAL'|'SOLD', soldWeight: number, soldPercentage: number, remainingWeight: number }
  */
-export function calculateIntakeState({ grossWeight, remainingWeight }) {
+export function calculateIntakeState({ grossWeight, remainingWeight, intakeMode }) {
   const gross = Number(grossWeight || 0);
-  const remaining = Math.max(0, Number(remainingWeight !== null && remainingWeight !== undefined ? remainingWeight : gross));
+  const remaining = intakeMode === "PURCHASE"
+    ? gross
+    : Math.max(0, Number(remainingWeight !== null && remainingWeight !== undefined ? remainingWeight : gross));
   const sold = Math.max(0, gross - remaining);
   const percentage = gross > 0 ? (sold / gross) * 100 : 0;
 
   let status = "PENDING";
-  if (remaining <= 0) {
-    status = "SOLD";
-  } else if (remaining < gross) {
-    status = "PARTIAL";
+  if (intakeMode !== "PURCHASE") {
+    if (remaining <= 0) {
+      status = "SOLD";
+    } else if (remaining < gross) {
+      status = "PARTIAL";
+    }
   }
 
   return {
