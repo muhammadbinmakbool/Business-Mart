@@ -134,3 +134,16 @@ export async function hardDeleteIntakeAction(id, deleteReason) {
     return { error: error.message || "Failed to permanently delete intake transaction" };
   }
 }
+
+import { IntakePricingResolver } from "../utils/IntakePricingResolver";
+
+export async function getIntakeRateDefaultsAction(productId, partyId) {
+  try {
+    const defaults = await IntakePricingResolver.resolvePurchaseCost(productId, partyId);
+    return { success: true, data: defaults };
+  } catch (error) {
+    console.error("Failed to resolve intake rate defaults:", error);
+    return { success: false, error: error.message };
+  }
+}
+

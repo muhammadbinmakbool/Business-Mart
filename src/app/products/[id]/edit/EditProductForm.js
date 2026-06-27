@@ -262,7 +262,7 @@ export default function EditProductForm({ product, categories = [] }) {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label htmlFor="defaultBuyingRate" className="text-sm font-medium">Default Buying Rate</label>
+            <label htmlFor="defaultBuyingRate" className="text-sm font-medium">Default Cost (Optional)</label>
             <div className="flex gap-2">
               <input
                 id="defaultBuyingRate"
@@ -271,7 +271,7 @@ export default function EditProductForm({ product, categories = [] }) {
                 step="0.01"
                 value={defaultBuyingRate}
                 onChange={(e) => setDefaultBuyingRate(e.target.value)}
-                placeholder="0.00"
+                placeholder="Optional"
                 className="flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <select
@@ -290,7 +290,7 @@ export default function EditProductForm({ product, categories = [] }) {
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="defaultSellingRate" className="text-sm font-medium">Default Selling Rate</label>
+            <label htmlFor="defaultSellingRate" className="text-sm font-medium">Selling Price (Optional)</label>
             <div className="flex gap-2">
               <input
                 id="defaultSellingRate"
@@ -299,7 +299,7 @@ export default function EditProductForm({ product, categories = [] }) {
                 step="0.01"
                 value={defaultSellingRate}
                 onChange={(e) => setDefaultSellingRate(e.target.value)}
-                placeholder="0.00"
+                placeholder="Optional"
                 className="flex-1 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <select

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { updateIntakeAction } from "@/modules/intake/controllers/intakeActions";
+import { updateIntakeAction, getIntakeRateDefaultsAction } from "@/modules/intake/controllers/intakeActions";
 import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
@@ -61,6 +61,48 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
   const [buyerPartyId, setBuyerPartyId] = useState(intake.salesTracks?.[0]?.buyerPartyId?.toString() || "");
   const [rate, setRate] = useState(intake.rate || "");
   const [rateUnit, setRateUnit] = useState(intake.rateUnit || DEFAULT_WEIGHT_UNIT);
+  
+  // Rate Prefill states
+  const [prefillReason, setPrefillReason] = useState("NONE");
+  const [isRateDirty, setIsRateDirty] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
+  useEffect(() => {
+    if (isInitialLoad) {
+      setIsInitialLoad(false);
+      return;
+    }
+
+    async function prefillRate() {
+      setIsRateDirty(false);
+      setPrefillReason("NONE");
+      if (!selectedProductId) {
+        setRate("");
+        return;
+      }
+      const res = await getIntakeRateDefaultsAction(selectedProductId, selectedSupplierState);
+      if (res?.success && res.data) {
+        const { rate: pRate, rateUnit: pRateUnit, prefillReason: reason } = res.data;
+        if (pRate !== null) {
+          setRate(pRate.toString());
+          setRateUnit(pRateUnit || "KG");
+          setPrefillReason(reason);
+        } else {
+          setRate("");
+          setRateUnit(pRateUnit || "KG");
+          setPrefillReason("NONE");
+        }
+      } else {
+        setRate("");
+        setPrefillReason("NONE");
+      }
+    }
+
+    if (isPurchase) {
+      prefillRate();
+    }
+  }, [selectedProductId, selectedSupplierState, isPurchase]);
+
   const [bardanaGramPerBag, setBardanaGramPerBag] = useState(
     intake.Bardana && intake.bagCount ? Math.round((Number(intake.Bardana) * 1000) / Number(intake.bagCount)).toString() : "150"
   );
@@ -492,8 +534,8 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
               <DollarSign className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="font-bold text-sm">Purchase Rate Parameters</h3>
-              <p className="text-xs text-muted-foreground">Adjust purchase rate and rate unit</p>
+              <h3 className="font-bold text-sm">Purchase Cost Parameters</h3>
+              <p className="text-xs text-muted-foreground">Adjust purchase cost and unit</p>
             </div>
           </div>
 
@@ -502,16 +544,25 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
             <div className="grid grid-cols-3 gap-3 col-span-2">
               <div className="col-span-2 space-y-2">
                 <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                  <DollarSign className="h-3.5 w-3.5" /> Rate
+                  <DollarSign className="h-3.5 w-3.5" /> Purchase Cost
                 </label>
                 <input
                   type="number"
                   step="0.01"
-                  placeholder="Rate..."
+                  placeholder="Purchase Cost..."
                   value={rate}
-                  onChange={e => setRate(e.target.value)}
+                  onChange={e => {
+                    setRate(e.target.value);
+                    setIsRateDirty(true);
+                  }}
                   className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
                 />
+                {prefillReason === "LAST_PURCHASE" && !isRateDirty && (
+                  <p className="text-xs text-primary mt-1 font-medium">* Using last supplier purchase rate</p>
+                )}
+                {prefillReason === "PRODUCT_DEFAULT" && !isRateDirty && (
+                  <p className="text-xs text-primary mt-1 font-medium">* Using default product cost</p>
+                )}
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>

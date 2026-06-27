@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useEffect, useCallback } from "react";
 
-import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
+import { createIntakeAction, getIntakeRateDefaultsAction } from "@/modules/intake/controllers/intakeActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -49,6 +49,13 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [grossWeightVal, setGrossWeightVal] = useState("");
   
+  // Prefill and Rate states
+  const [rateVal, setRateVal] = useState("");
+  const [rateUnitVal, setRateUnitVal] = useState("");
+  const [prefillReason, setPrefillReason] = useState("NONE");
+  const [isRateDirty, setIsRateDirty] = useState(false);
+  const [prefillTrigger, setPrefillTrigger] = useState(0);
+
   // Packaging helper UI states
   const [useHelper, setUseHelper] = useState(false);
   const [helperQuantity, setHelperQuantity] = useState("");
@@ -59,6 +66,43 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
   const [selectedSupplierState, setSelectedSupplierState] = useState("");
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
   const [unitRegistry, setUnitRegistry] = useState(null);
+
+  useEffect(() => {
+    async function prefillRate() {
+      setIsRateDirty(false);
+      setPrefillReason("NONE");
+      if (!selectedProductId) {
+        setRateVal("");
+        return;
+      }
+      const res = await getIntakeRateDefaultsAction(selectedProductId, selectedSupplierState);
+      if (res?.success && res.data) {
+        const { rate, rateUnit, prefillReason: reason } = res.data;
+        if (rate !== null) {
+          setRateVal(rate.toString());
+          setRateUnitVal(rateUnit || "KG");
+          setPrefillReason(reason);
+        } else {
+          setRateVal("");
+          setRateUnitVal(rateUnit || "KG");
+          setPrefillReason("NONE");
+        }
+      } else {
+        setRateVal("");
+        setPrefillReason("NONE");
+      }
+    }
+    
+    if (isPurchase) {
+      prefillRate();
+    }
+  }, [selectedProductId, selectedSupplierState, isPurchase, prefillTrigger]);
+
+  useEffect(() => {
+    if (selectedUnit && (prefillReason === "NONE" || !rateVal)) {
+      setRateUnitVal(selectedUnit);
+    }
+  }, [selectedUnit, prefillReason, rateVal]);
 
   const defaultProductVal = settings?.defaults?.activeMarketProductId || settings?.defaults?.productId || "";
 
@@ -257,11 +301,22 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
       if (!saveAndContinue) {
         setSelectedProductId("");
         setSelectedUnit("");
+        setRateVal("");
+        setPrefillReason("NONE");
+        setIsRateDirty(false);
+      } else {
+        // Force a fresh lookup for the next transaction
+        setPrefillTrigger(prev => prev + 1);
       }
       setSelectedSupplierState("");
       // Restore partyId after reset
       if (keptPartyId && partySelect) {
-        requestAnimationFrame(() => { partySelect.value = keptPartyId; });
+        requestAnimationFrame(() => { 
+          partySelect.value = keptPartyId; 
+          if (saveAndContinue) {
+            setSelectedSupplierState(keptPartyId);
+          }
+        });
       }
       // Focus: if continuing, jump to weight/bagCount; otherwise supplier
       const focusTarget = saveAndContinue ? "grossWeight" : "partyId";
@@ -526,7 +581,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
       {isPurchase && (
         <div className="grid gap-4 md:grid-cols-3 bg-muted/20 p-4 rounded-lg border">
           <div className="md:col-span-2 space-y-2">
-            <label htmlFor="rate" className="text-sm font-medium">Purchase Rate</label>
+            <label htmlFor="rate" className="text-sm font-medium">Purchase Cost</label>
             <input
               id="rate"
               name="rate"
@@ -534,16 +589,27 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
               step="0.01"
               required
               placeholder="0.00"
+              value={rateVal}
+              onChange={(e) => {
+                setRateVal(e.target.value);
+                setIsRateDirty(true);
+              }}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono placeholder:text-muted-foreground"
             />
+            {prefillReason === "LAST_PURCHASE" && !isRateDirty && (
+              <p className="text-xs text-primary mt-1 font-medium">* Using last supplier purchase rate</p>
+            )}
+            {prefillReason === "PRODUCT_DEFAULT" && !isRateDirty && (
+              <p className="text-xs text-primary mt-1 font-medium">* Using default product cost</p>
+            )}
           </div>
           <div className="space-y-2">
             <label htmlFor="rateUnit" className="text-sm font-medium">Rate Unit</label>
             <select
               id="rateUnit"
               name="rateUnit"
-              defaultValue={selectedUnit || "KG"}
-              key={selectedUnit || "default"}
+              value={rateUnitVal}
+              onChange={(e) => setRateUnitVal(e.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             >
               {compatibleUnits.length > 0 ? (
