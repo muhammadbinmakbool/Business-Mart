@@ -19,6 +19,8 @@ export async function createIntakeAction(formData) {
     grossWeight: formData.get("grossWeight"),
     unit: formData.get("unit") || DEFAULT_WEIGHT_UNIT,
     notes: formData.get("notes") || "",
+    rate: formData.get("rate") ? Number(formData.get("rate")) : null,
+    rateUnit: formData.get("rateUnit") || DEFAULT_WEIGHT_UNIT,
     packagingMeta: formData.get("packagingMeta") ? JSON.parse(formData.get("packagingMeta")) : null,
     newPartyData: formData.get("partyId") === "new" ? {
       name: formData.get("newName"),

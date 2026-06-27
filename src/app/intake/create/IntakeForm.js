@@ -73,6 +73,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
       setPrefillReason("NONE");
       if (!selectedProductId) {
         setRateVal("");
+        setRateUnitVal("");
         return;
       }
       const res = await getIntakeRateDefaultsAction(selectedProductId, selectedSupplierState);
@@ -302,6 +303,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
         setSelectedProductId("");
         setSelectedUnit("");
         setRateVal("");
+        setRateUnitVal("");
         setPrefillReason("NONE");
         setIsRateDirty(false);
       } else {
@@ -608,9 +610,10 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
             <select
               id="rateUnit"
               name="rateUnit"
+              disabled={!selectedProductId}
               value={rateUnitVal}
               onChange={(e) => setRateUnitVal(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 font-medium"
             >
               {compatibleUnits.length > 0 ? (
                 compatibleUnits.map((u) => (
@@ -619,7 +622,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
                   </option>
                 ))
               ) : (
-                <option value="KG">Per KG</option>
+                <option value="">--</option>
               )}
             </select>
           </div>

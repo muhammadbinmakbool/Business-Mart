@@ -1,4 +1,4 @@
-import { ERROR_CODES } from "./errorCodes";
+import { ERROR_CODES } from "./errorCodes.js";
 
 /**
  * Resolves standard visual presentation properties from error codes or action error responses.
@@ -31,18 +31,31 @@ export function getErrorPresentation(errorOrCode) {
   }
 
   // If it is a structured error object
-  const code = errorOrCode.code || "UNKNOWN_ERROR";
-  const spec = ERROR_CODES[code] || ERROR_CODES.UNKNOWN_ERROR;
+  let code = errorOrCode.code || "UNKNOWN_ERROR";
+  let message = errorOrCode.error || errorOrCode.message;
 
-  // Custom metadata and message overrides from error object
-  const message = errorOrCode.error || errorOrCode.message || spec.message;
+  // Detect and format Zod validation errors (usually array JSON format)
+  if (typeof message === "string" && message.trim().startsWith("[")) {
+    try {
+      const parsed = JSON.parse(message);
+      if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].message) {
+        message = parsed.map(issue => `• ${issue.message}`).join("\n");
+        code = "VALIDATION_ERROR";
+      }
+    } catch (e) {
+      // Not a valid JSON or not a Zod error, ignore and keep original
+    }
+  }
+
+  const spec = ERROR_CODES[code] || ERROR_CODES.UNKNOWN_ERROR;
+  const finalMessage = message || spec.message;
   const title = errorOrCode.title || spec.title;
   const type = errorOrCode.type || spec.type;
   const metadata = errorOrCode.metadata || {};
 
   return {
     title,
-    message,
+    message: finalMessage,
     type,
     code,
     metadata

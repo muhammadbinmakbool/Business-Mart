@@ -416,9 +416,10 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
           <select
             id="unit"
             required
+            disabled={!selectedProductId}
             value={unit || ""}
             onChange={e => handleUnitChange(e.target.value || null)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 font-medium"
           >
             {compatibleUnits.length === 0 ? (
               <option value="">--</option>
@@ -567,9 +568,10 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>
                 <select
+                  disabled={!selectedProductId}
                   value={rateUnit || ""}
                   onChange={e => setRateUnit(e.target.value || null)}
-                  className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                  className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 font-medium"
                 >
                   {compatibleUnits.length === 0 ? (
                     <option value="">--</option>
@@ -633,9 +635,10 @@ export default function EditIntakeForm({ intake, suppliers, products, buyers = [
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>
                 <select
+                  disabled={!selectedProductId}
                   value={rateUnit || ""}
                   onChange={e => setRateUnit(e.target.value || null)}
-                  className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                  className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 font-medium"
                 >
                   {compatibleUnits.length === 0 ? (
                     <option value="">--</option>
