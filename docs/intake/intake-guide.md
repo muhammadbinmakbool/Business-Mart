@@ -1,114 +1,92 @@
-# Goods Intake & Stock Lifecycle Guide
+# Developer Guide: Generalized Goods Intake & Stock Lifecycle
 
-This document outlines the core principles, measurement systems, state transitions, and safety invariants of the **Goods Intake** system in Business Mart.
-
----
-
-## 🎯 Core Concepts
-
-The **Goods Intake** system is the entry point for all physical inventory in Business Mart. It records product arrivals from suppliers, establishes raw stock levels, manages optional advance payments, and feeds the centralized inventory engine.
+This document outlines the core architecture, transactional workflows, status lifecycle, validations, and safety invariants of the **Goods Intake** system in Business Mart.
 
 ---
 
-## 📏 Measurement & Unit Conversion System
+## 🎯 Architectural Overview
 
-Business Mart preserves the **exact unit** entered by the operator while storing a standardized weight in the product's **base unit** (usually KG) in the database.
-
-### 1. Dual-Unit Archival Architecture
-*   **Operational Suffix (`grossWeight` & `unit`)**: Preserves the actual entry format used by the supplier (e.g., `10 MAUND`, `50 BAG`, `200 KG`). This is used for printing receipts, bills, and invoicing.
-*   **Base Quantity (`baseQuantity`)**: Calculates the quantity/weight in the base unit dynamically at the service layer during entry/update using the product's `unitConversion` multiplier.
-
-### 2. Live Conversion Example (Maund to KG)
-$$\text{Base Quantity (KG)} = \text{Gross Weight (Maund)} \times 40$$
-
-If a supplier delivers **`10 MAUND`** of Wheat:
-*   The transaction stores `grossWeight: 10.00` and `unit: "MAUND"`.
-*   The baseQuantity field stores `baseQuantity: 400.00` (KG).
-*   The operational inventory snapshot (`Product.quantity`) is incremented by **`400.00`**.
+The Goods Intake system supports two distinct operational modes governed by the global `intakeMode` feature flag:
+1. **`RECEIPT` Mode (Classic Grain Market)**: Focuses on crop arrivals, storage refractions, and selling portion-based tracks.
+2. **`PURCHASE` Mode (Generalized Inventory)**: Handles direct goods purchases, requiring a purchase rate immediately, and automatically generating associated supplier invoices upon creation.
 
 ---
 
-## 🔄 Intake Lifecycle & Status Transitions
+## 🔄 Lifecycle & Status Transitions
 
-Each intake transaction has a lifecycle determined by its `status` field: `PENDING`, `SOLD`, `CLEARED`, or `CANCELLED`.
+### Mode-Aware Lifecycles
+* **`RECEIPT` Mode**: 
+  `PENDING` (Physical arrival) $\rightarrow$ `SOLD` (Weight & quality verified, sold to a buyer) $\rightarrow$ `CLEARED` (Settled & paid).
+* **`PURCHASE` Mode**:
+  `PENDING` (Invoice unpaid) $\rightarrow$ `CLEARED` (Invoice paid). Selling is disabled.
 
 ```mermaid
 stateDiagram-v2
-    [*] --> PENDING : Create Intake (adds to inventory)
-    PENDING --> SOLD : Product is Sold
-    SOLD --> CLEARED : Payment Cleared & Closed
-    PENDING --> CANCELLED : Void / Cancel (subtracts from inventory)
-    SOLD --> CANCELLED : Revert & Cancel (subtracts from inventory)
-    CLEARED --> CANCELLED : Revert & Cancel (subtracts from inventory)
-    CANCELLED --> PENDING : Re-activate (adds to inventory)
+    state "RECEIPT Mode" as receipt_flow {
+        [*] --> PENDING_R : Create Intake
+        PENDING_R --> SOLD_R : Sell Intake (sellIntake)
+        SOLD_R --> CLEARED_R : Invoice Paid & Cleared
+    }
+
+    state "PURCHASE Mode" as purchase_flow {
+        [*] --> PENDING_P : Create Intake (Auto-Invoice Generated)
+        PENDING_P --> CLEARED_P : Invoice Paid & Cleared (via syncLinkedIntakeStatus)
+    }
+    
+    PENDING_R --> CANCELLED : Cancel
+    PENDING_P --> CANCELLED : Cancel
+    CANCELLED --> [*]
 ```
 
-### Detailed Status Definitions
-
-| Status | Meaning | Affects Inventory? | Billing & Ledger Status |
-| :--- | :--- | :--- | :--- |
-| **`PENDING`** | Goods are physically present at the warehouse but waiting for final pricing, inspection, or quality check. | **YES (Active)**<br>Base quantity is active in `Product.quantity` stock. | Active. Eligible for supplier invoices and payment advances. Represents unchecked/unverified arrivals. |
-| **`SOLD`** | The physical weight, count, and quality of the delivery have been operationally verified and the product has been sold. | **YES (Active)**<br>No change to stock during `PENDING` $\rightarrow$ `SOLD`. | Active. Eligible for supplier invoices. Represents a verified delivery green-lit for billing. |
-| **`CLEARED`** | Indicates that the intake transaction has been fully paid, billed, and completely closed. | **YES (Active)**<br>No change to stock during transition. | Fully paid and ledger balanced. Represents a completely closed account cycle. |
-| **`CANCELLED`** | The intake was declared invalid, rejected, returned, or logged in error. | **NO (Voided)**<br>Stock is automatically decremented from `Product.quantity`. | Completely excluded from invoices, statements, and reports. |
+### Status Synchronization (`PURCHASE` Mode)
+In `PURCHASE` mode, status transitions are driven purely by the linked supplier invoice's payment status:
+* **Invoice Paid/Cleared**: Triggers `SupplierInvoiceService.syncLinkedIntakeStatus(invoiceId, tx)`, which updates all linked intake status fields to `CLEARED`.
+* **Invoice Unpaid**: Reverts linked intake status fields to `PENDING`.
 
 ---
 
-## 💵 Invoicing & Billing Integration
+## 🛡️ Invariants & Validation Checks
 
-The transition of an intake transaction through its statuses plays a vital role in coordinating operational storage and backend accounting.
+The system enforces strict constraints at the service layer to prevent inconsistent financial and inventory states:
 
-### 1. Invoicing Eligibility Rule
-The database repository only pulls active, valid records when calculating uninvoiced inventory balances for a supplier:
-```javascript
-// From IntakeRepository.js -> getUninvoicedByPartyId
-where: {
-  partyId: parseInt(partyId),
-  invoiceItems: { none: { invoice: { status: { not: "SUPERSEDED" } } } },
-  status: { not: "CANCELLED" }
-}
-```
-*   **`PENDING`**, **`SOLD`**, and **`CLEARED`** intakes are open/active for billing records.
-*   **`CANCELLED`** intakes are automatically hidden from the billing creator.
+### 1. Supplier Change Protection
+To avoid mismatching ledger entries, cash advances, and settlements:
+* Changing an intake's supplier (`partyId`) is **strictly blocked** if the intake has linked cash advances or is linked to an existing **Supplier Invoice**.
+* Operators must first delete linked advances or delete/disconnect the invoice before changing the supplier.
 
-### 2. Operational Control Checkpoint
-*   **Unverified (`PENDING`)**: Goods are physically in the warehouse, but billing should wait until weight scales, laboratory testing, and bags are fully verified.
-*   **Verified (`SOLD`)**: Signals a clean green-light to the accounting department that the intake weight is correct, verified, and has been sold.
-*   **Closed (`CLEARED`)**: Indication of final payment clearance, closing all active liabilities for this intake.
+### 2. Lock-on-Payment
+* If an intake is associated with a paid or partially cleared supplier invoice, it is **locked**.
+* The service layer blocks all edits (`updateIntake`) and deletions (`deleteIntake`, `hardDeleteIntake`) on the intake while the invoice is cleared.
 
-### 3. Invoice Lock
-Once the accountant selects intakes and generates a new **Supplier Invoice**:
-*   An immutable financial snapshot is created.
-*   The linked intakes are permanently marked as **Invoiced** and locked from being billed again.
+### 3. Inventory Stock Recalculation Guard
+* All inventory updates are delegated to `InventoryService.recalculateProductStock(productId, tx)`.
+* Every creation, update, and deletion is executed within a single transaction block (`tx`) passed to the recalculation function. This ensures that the stock quantity (`Product.quantity`) is recalculated atomically without race conditions.
 
 ---
 
-## 🛡️ Stock Safety & Inventory Invariants
+## 💾 Transactional Operations
 
-To prevent accounting discrepancy and negative physical stock states, the system enforces the following strict business invariants during the intake lifecycle:
+### 1. Intake Creation Flow (`_createIntakeInternal`)
+All creation operations occur within a single database transaction:
+1. Generate the unique intake number (`INT-XXXXXX`).
+2. Insert the `IntakeTransaction` record.
+3. If an advance payment is provided, insert the `IntakeAdvance` linked to the intake.
+4. If in `PURCHASE` mode, call `SupplierInvoiceService.generateInvoiceForPurchaseIntake` to generate the supplier invoice.
+5. Recalculate product stock in `InventoryService`.
 
-> [!IMPORTANT]
-> **Negative Inventory Prevention Rule**
-> The operational stock of any product (`Product.quantity`) must **NEVER go below 0** under any circumstances.
-
-### 1. Cancellation Guard
-When an active intake (`PENDING` or `COMPLETED`) is changed to `CANCELLED`, or when an intake is **deleted**, the system must subtract its weight from the product's stock snapshot.
-*   **The Guard**: Before completing the subtraction, the system queries `Product.quantity`.
-*   **The Invariant**: If `Product.quantity < baseQuantity`, the transaction is **aborted and rolled back**.
-*   **Error Thrown**: `INSUFFICIENT_STOCK: Reverting intake stock would result in negative inventory.`
-
-### 2. Product Update Guard
-If an operator edits an intake and changes the `productId` (switching the product):
-*   The system safely **decrements** the old product's stock (applying the negative inventory guard).
-*   The system **increments** the new product's stock.
+### 2. Cascading Deletion Flow
+Both soft and hard deletions are fully transaction-safe:
+1. **Unpaid Invoice Check**: Throws an error if the linked invoice is already paid/cleared.
+2. **Linked Invoice Cleanup**: Calls `SupplierInvoiceService.deleteInvoice` or `hardDeleteInvoice` passing `tx`.
+3. **Linked Advances Cleanup**: Deletes associated `IntakeAdvance` records using `tx` (since `IntakeAdvance` has no soft-delete column).
+4. **Inventory Recalculation**: Triggers stock recalculation for the product using `tx`.
+5. **Intake Cleanup**: Soft-deletes (sets `isDeleted: true`) or hard-deletes the `IntakeTransaction` record.
 
 ---
 
-## 📂 Implementation References
+## 📂 Code Files & References
 
-All business and database logic relating to the Goods Intake lifecycle is contained in these files:
-
-*   **Database Schema**: [schema.prisma](file:///d:/Projects/Next%20JS/prisma/schema.prisma) defines the `IntakeTransaction` model.
-*   **Validation Schema**: [intakeSchema.js](file:///d:/Projects/Next%20JS/src/modules/intake/validations/intakeSchema.js) parses and sanitizes forms.
-*   **Service Layer Orchestrator**: [IntakeService.js](file:///d:/Projects/Next%20JS/src/modules/intake/services/IntakeService.js) handles transactional stock snapshot increments, decrements, and conversion math.
-*   **Action Controllers**: [intakeActions.js](file:///d:/Projects/Next%20JS/src/modules/intake/controllers/intakeActions.js) processes incoming server requests.
+* **Service Layer**: [IntakeService.js](file:///d:/Projects/Next%20JS/src/modules/intake/services/IntakeService.js)
+* **Invoice Orchestrator**: [SupplierInvoiceService.js](file:///d:/Projects/Next%20JS/src/modules/supplier-invoices/services/SupplierInvoiceService.js)
+* **Inventory Recalculations**: [InventoryService.js](file:///d:/Projects/Next%20JS/src/modules/products/services/InventoryService.js)
+* **Feature Flag Configuration**: [featureFlags.js](file:///d:/Projects/Next%20JS/src/lib/settings/featureFlags.js)

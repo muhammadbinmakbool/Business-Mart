@@ -338,13 +338,19 @@ export class IntakeService {
       });
       if (!current) throw new Error("Intake transaction not found");
 
-      // Validation Rule: Block changing supplier if advances exist
+      // Validation Rule: Block changing supplier if advances or a supplier invoice exists
       if (validated.partyId && parseInt(validated.partyId) !== current.partyId) {
         const hasAdvances = await tx.intakeAdvance.findFirst({
           where: { intakeTransactionId: current.id }
         });
         if (hasAdvances) {
           throw new Error("Cannot change supplier because this intake is linked to cash advances. Please delete the advances first.");
+        }
+        const hasInvoice = await tx.supplierInvoiceItem.findFirst({
+          where: { intakeTransactionId: current.id }
+        });
+        if (hasInvoice) {
+          throw new Error("Cannot change supplier because this intake is already linked to a Supplier Invoice.");
         }
       }
 

@@ -542,12 +542,19 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
             <select
               id="rateUnit"
               name="rateUnit"
-              defaultValue="KG"
+              defaultValue={selectedUnit || "KG"}
+              key={selectedUnit || "default"}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium"
             >
-              <option value="KG">Per KG</option>
-              <option value="MAUND">Per Maund</option>
-              <option value="BAG">Per Bag</option>
+              {compatibleUnits.length > 0 ? (
+                compatibleUnits.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    Per {u.name}
+                  </option>
+                ))
+              ) : (
+                <option value="KG">Per KG</option>
+              )}
             </select>
           </div>
         </div>

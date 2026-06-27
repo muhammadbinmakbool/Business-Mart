@@ -10,6 +10,7 @@ import PasswordConfirmModal from "@/components/ui/PasswordConfirmModal";
 export default function FeatureFlagCard() {
   const [mounted, setMounted] = useState(false);
   const [flags, setFlags] = useState({
+    intakeMode: "RECEIPT",
     salesWorkflow: "CLASSIC",
     salesMode: "HYBRID",
     enableIntakeLinking: true,
@@ -41,6 +42,7 @@ export default function FeatureFlagCard() {
       if (res.success) {
         setFlags({
           ...res.flags,
+          intakeMode: res.flags.intakeMode || "RECEIPT",
           salesMode: res.flags.salesMode || "HYBRID",
           enableIntakeLinking: res.flags.enableIntakeLinking !== undefined ? res.flags.enableIntakeLinking : true,
           enablePrefilledInvoices: res.flags.enablePrefilledInvoices !== undefined ? res.flags.enablePrefilledInvoices : true,
@@ -65,6 +67,13 @@ export default function FeatureFlagCard() {
     setFlags((prev) => ({
       ...prev,
       salesMode: e.target.value
+    }));
+  };
+
+  const handleIntakeModeChange = (e) => {
+    setFlags((prev) => ({
+      ...prev,
+      intakeMode: e.target.value
     }));
   };
 
@@ -193,8 +202,8 @@ export default function FeatureFlagCard() {
       </div>
 
       <form onSubmit={handleSave} className="space-y-6">
-        {/* Sales Workflow Configurations */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Sales & Intake Operational Configurations */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="space-y-2">
             <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider block">
               Sales / Billing Workflow UI
@@ -227,6 +236,23 @@ export default function FeatureFlagCard() {
             </select>
             <span className="text-[10px] text-muted-foreground block">
               Governs whether invoice items must be traced back to supplier intakes.
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider block">
+              Intake Operational Mode
+            </label>
+            <select
+              value={flags.intakeMode}
+              onChange={handleIntakeModeChange}
+              className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="RECEIPT">Receipt Mode (Classic Grain)</option>
+              <option value="PURCHASE">Purchase Mode (Generalized)</option>
+            </select>
+            <span className="text-[10px] text-muted-foreground block">
+              Governs whether arrivals are crops for commission sales or direct stock purchases.
             </span>
           </div>
         </div>
