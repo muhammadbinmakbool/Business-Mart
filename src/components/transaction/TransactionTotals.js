@@ -7,7 +7,7 @@ import { round } from "@/lib/financial";
 import { useSettings } from "@/components/layout/SettingsContext";
 import { formatNumber } from "@/lib/formatters/financialFormatter";
 
-export default function PosTotals({
+export default function TransactionTotals({
   totals = { baseAmount: 0, totalWeight: 0, totalAdjustments: 0, finalAmount: 0, totalBagCount: 0 },
   adjustments = [],
   onAddAdjustment,

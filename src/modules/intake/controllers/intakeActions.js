@@ -148,4 +148,3 @@ export async function getIntakeRateDefaultsAction(productId, partyId) {
     return { success: false, error: error.message };
   }
 }
-

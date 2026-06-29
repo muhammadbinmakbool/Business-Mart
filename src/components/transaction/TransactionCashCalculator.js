@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React from "react";
 import { Coins, CheckCircle, AlertTriangle } from "lucide-react";
 import { round } from "@/lib/financial";
 import { useSettings } from "@/components/layout/SettingsContext";
 import { formatNumber } from "@/lib/formatters/financialFormatter";
 
-export default function PosCashCalculator({
+export default function TransactionCashCalculator({
   finalAmount = 0,
   cashReceived = "",
   onChangeCashReceived,
@@ -26,7 +26,6 @@ export default function PosCashCalculator({
   ];
 
   const handleQuickAdd = (val) => {
-    // If it's a relative addition, or absolute (Exact)
     const exactVal = Math.max(0, round(val));
     onChangeCashReceived(exactVal.toString());
   };

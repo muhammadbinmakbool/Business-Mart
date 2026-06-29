@@ -4,7 +4,7 @@ import { Trash2, CornerDownRight } from "lucide-react";
 import { getUnitsByCategory } from "@/lib/units";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 
-export default function PosProductTable({
+export default function TransactionProductTable({
   items = [],
   products = [],
   onChangeItem,

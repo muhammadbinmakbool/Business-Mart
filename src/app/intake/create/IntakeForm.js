@@ -1,17 +1,18 @@
 "use client";
 
-import React, { useRef, useState, useEffect, useCallback } from "react";
+import React, { useRef, useState, useEffect, useCallback, useMemo } from "react";
 
 import { createIntakeAction, getIntakeRateDefaultsAction } from "@/modules/intake/controllers/intakeActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
-import { getUnitsByCategory, normalizeQuantity, convertFromBase, UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
+import { getUnitsByCategory, normalizeQuantity, convertFromBase, convertRate, UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 import { getProductValidationState } from "@/modules/products/utils/productValidation";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getLocalDateString } from "@/lib/utils";
 import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
@@ -39,8 +40,6 @@ const INTAKE_FIELDS = [
 ];
 
 export default function IntakeForm({ suppliers, products, settings, backUrl, featureFlags }) {
-  const intakeMode = featureFlags?.intakeMode || "RECEIPT";
-  const isPurchase = intakeMode === "PURCHASE";
   const router = useRouter();
   const formRef = useRef(null);
   const supplierRef = useRef(null);
@@ -48,15 +47,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
   const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [grossWeightVal, setGrossWeightVal] = useState("");
-  
-  // Prefill and Rate states
-  const [rateVal, setRateVal] = useState("");
-  const [rateUnitVal, setRateUnitVal] = useState("");
-  const [prefillReason, setPrefillReason] = useState("NONE");
-  const [isRateDirty, setIsRateDirty] = useState(false);
-  const [prefillTrigger, setPrefillTrigger] = useState(0);
 
-  // Packaging helper UI states
   const [useHelper, setUseHelper] = useState(false);
   const [helperQuantity, setHelperQuantity] = useState("");
   const [helperSizePerUnit, setHelperSizePerUnit] = useState("");
@@ -66,44 +57,6 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
   const [selectedSupplierState, setSelectedSupplierState] = useState("");
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
   const [unitRegistry, setUnitRegistry] = useState(null);
-
-  useEffect(() => {
-    async function prefillRate() {
-      setIsRateDirty(false);
-      setPrefillReason("NONE");
-      if (!selectedProductId) {
-        setRateVal("");
-        setRateUnitVal("");
-        return;
-      }
-      const res = await getIntakeRateDefaultsAction(selectedProductId, selectedSupplierState);
-      if (res?.success && res.data) {
-        const { rate, rateUnit, prefillReason: reason } = res.data;
-        if (rate !== null) {
-          setRateVal(rate.toString());
-          setRateUnitVal(rateUnit || "KG");
-          setPrefillReason(reason);
-        } else {
-          setRateVal("");
-          setRateUnitVal(rateUnit || "KG");
-          setPrefillReason("NONE");
-        }
-      } else {
-        setRateVal("");
-        setPrefillReason("NONE");
-      }
-    }
-    
-    if (isPurchase) {
-      prefillRate();
-    }
-  }, [selectedProductId, selectedSupplierState, isPurchase, prefillTrigger]);
-
-  useEffect(() => {
-    if (selectedUnit && (prefillReason === "NONE" || !rateVal)) {
-      setRateUnitVal(selectedUnit);
-    }
-  }, [selectedUnit, prefillReason, rateVal]);
 
   const defaultProductVal = settings?.defaults?.activeMarketProductId || settings?.defaults?.productId || "";
 
@@ -327,7 +280,6 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
       });
     }
   }
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Page Header */}
@@ -340,8 +292,8 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{isPurchase ? "Record Purchase Intake" : "Record Goods Intake"}</h1>
-            <p className="text-sm text-muted-foreground">{isPurchase ? "Log new purchase from a supplier." : "Log new arrival of goods from a supplier."}</p>
+            <h1 className="text-2xl font-bold tracking-tight">Record Goods Intake</h1>
+            <p className="text-sm text-muted-foreground">Log new arrival of goods from a supplier.</p>
           </div>
         </div>
 
@@ -580,54 +532,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
         </div>
       </div>
 
-      {isPurchase && (
-        <div className="grid gap-4 md:grid-cols-3 bg-muted/20 p-4 rounded-lg border">
-          <div className="md:col-span-2 space-y-2">
-            <label htmlFor="rate" className="text-sm font-medium">Purchase Cost</label>
-            <input
-              id="rate"
-              name="rate"
-              type="number"
-              step="0.01"
-              required
-              placeholder="0.00"
-              value={rateVal}
-              onChange={(e) => {
-                setRateVal(e.target.value);
-                setIsRateDirty(true);
-              }}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono placeholder:text-muted-foreground"
-            />
-            {prefillReason === "LAST_PURCHASE" && !isRateDirty && (
-              <p className="text-xs text-primary mt-1 font-medium">* Using last supplier purchase rate</p>
-            )}
-            {prefillReason === "PRODUCT_DEFAULT" && !isRateDirty && (
-              <p className="text-xs text-primary mt-1 font-medium">* Using default product cost</p>
-            )}
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="rateUnit" className="text-sm font-medium">Rate Unit</label>
-            <select
-              id="rateUnit"
-              name="rateUnit"
-              disabled={!selectedProductId}
-              value={rateUnitVal}
-              onChange={(e) => setRateUnitVal(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 font-medium"
-            >
-              {compatibleUnits.length > 0 ? (
-                compatibleUnits.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    Per {u.name}
-                  </option>
-                ))
-              ) : (
-                <option value="">--</option>
-              )}
-            </select>
-          </div>
-        </div>
-      )}
+
 
       {/* ... (Rest of the form remains unchanged) ... */}
       <div className="space-y-2">

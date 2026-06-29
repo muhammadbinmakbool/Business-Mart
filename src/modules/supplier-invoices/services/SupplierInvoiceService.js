@@ -57,7 +57,7 @@ export class SupplierInvoiceService {
           }
         });
       } else {
-        if (intakeIds.includes(String(intake.id))) {
+        if (intakeIds.includes(String(intake.id)) || intakeIds.includes(Number(intake.id))) {
           decomposedIntakes.push(intake);
         }
       }
