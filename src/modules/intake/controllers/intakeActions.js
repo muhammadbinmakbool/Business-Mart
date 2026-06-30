@@ -1,6 +1,7 @@
 "use server";
 
 import { IntakeService } from "../services/IntakeService";
+import { PurchaseDocumentService } from "../services/PurchaseDocumentService";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { invalidateCacheBucket } from "@/modules/aggregations/cache";
@@ -146,5 +147,17 @@ export async function getIntakeRateDefaultsAction(productId, partyId) {
   } catch (error) {
     console.error("Failed to resolve intake rate defaults:", error);
     return { success: false, error: error.message };
+  }
+}
+
+export async function createPurchaseDocumentAction(payload) {
+  try {
+    const res = await PurchaseDocumentService.createPurchaseDocument(payload);
+    revalidatePath("/intake");
+    invalidateIntakeCache();
+    return res;
+  } catch (error) {
+    console.error("Purchase Document creation error:", error);
+    return { success: false, error: error.message || "Failed to create purchase document" };
   }
 }

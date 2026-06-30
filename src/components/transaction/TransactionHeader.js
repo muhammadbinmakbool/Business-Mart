@@ -40,7 +40,22 @@ export default function TransactionHeader({
   setNewBuyerData,
   loadingDraftSuggestion,
   draftSuggestion,
-  handleApplyPrefill
+  handleApplyPrefill,
+
+  // Customization Props
+  partyLabel = "Customer / Buyer (F5)",
+  dateLabel = "Billing Date",
+  partyPlaceholder = "Select Buyer...",
+  showScanner = true,
+  resetLabel = "Clear",
+  showCheckoutNew = true,
+  checkoutNewLabel = "Checkout & New",
+  showPrint = true,
+  printLabel = "Save & Print",
+  saveLabel = "Save Bill",
+  backUrl = "/sales",
+  newPartySectionTitle = "New Buyer Quick Master Setup",
+  partyNameLabel = "Buyer Name"
 }) {
   return (
     <>
@@ -51,9 +66,9 @@ export default function TransactionHeader({
           <div className="flex items-center shrink-0">
             <button
               type="button"
-              onClick={() => router.push("/sales")}
+              onClick={() => router.push(backUrl)}
               className="rounded-lg p-1.5 hover:bg-accent border hover:border-muted-foreground/10 text-muted-foreground hover:text-foreground transition-all cursor-pointer"
-              title="Back to Invoices"
+              title="Back"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -65,7 +80,7 @@ export default function TransactionHeader({
             <div className="space-y-0.5">
               <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                 <User className="h-3 w-3 text-primary" />
-                Customer / Buyer (F5)
+                {partyLabel}
               </label>
               <SearchableSelect
                 id="pos-buyer-select"
@@ -75,7 +90,7 @@ export default function TransactionHeader({
                   setIsNewBuyer(val === "new");
                 }}
                 options={buyerOptions}
-                placeholder="Select Buyer..."
+                placeholder={partyPlaceholder}
                 variant="compact"
               />
             </div>
@@ -84,7 +99,7 @@ export default function TransactionHeader({
             <div className="space-y-0.5">
               <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
                 <Calendar className="h-3 w-3 text-primary" />
-                Billing Date
+                {dateLabel}
               </label>
               <input
                 type="date"
@@ -96,57 +111,67 @@ export default function TransactionHeader({
 
             {/* Barcode Search / Scan field */}
             <div className="space-y-0.5 relative">
-              <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
-                <Keyboard className="h-3 w-3 text-primary" />
-                Scan Barcode / Search (F2)
-              </label>
-              <form onSubmit={handleScannerSearch} className="relative">
-                <input
-                  ref={scannerInputRef}
-                  id="scannerInput"
-                  type="text"
-                  placeholder="Scan item or type name..."
-                  value={scannerQuery}
-                  onChange={(e) => setScannerQuery(e.target.value)}
-                  onKeyDown={handleScannerResultsKeyDown}
-                  className={`w-full bg-background border rounded-lg pl-8 pr-2.5 py-1 text-xs outline-none transition-all font-medium focus:ring-2 focus:ring-primary/10 ${
-                    flashError 
-                      ? "border-red-500 ring-2 ring-red-500/20 bg-red-50/10" 
-                      : "border-border hover:border-muted-foreground/30 focus:border-primary"
-                  }`}
-                />
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              </form>
+              {showScanner ? (
+                <>
+                  <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                    <Keyboard className="h-3 w-3 text-primary" />
+                    Scan Barcode / Search (F2)
+                  </label>
+                  <form onSubmit={handleScannerSearch} className="relative">
+                    <input
+                      ref={scannerInputRef}
+                      id="scannerInput"
+                      type="text"
+                      placeholder="Scan item or type name..."
+                      value={scannerQuery}
+                      onChange={(e) => setScannerQuery(e.target.value)}
+                      onKeyDown={handleScannerResultsKeyDown}
+                      className={`w-full bg-background border rounded-lg pl-8 pr-2.5 py-1 text-xs outline-none transition-all font-medium focus:ring-2 focus:ring-primary/10 ${
+                        flashError 
+                          ? "border-red-500 ring-2 ring-red-500/20 bg-red-50/10" 
+                          : "border-border hover:border-muted-foreground/30 focus:border-primary"
+                      }`}
+                    />
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                  </form>
 
-              {/* Autocomplete Dropdown Search Overlay */}
-              {scannerResults.length > 0 && (
-                <div className="absolute z-50 left-0 right-0 mt-1 bg-card border border-border shadow-xl rounded-xl p-2 max-h-48 overflow-y-auto space-y-0.5 animate-in fade-in slide-in-from-top-2 duration-150">
-                  <div className="text-[10px] font-bold text-muted-foreground px-2 py-1 border-b mb-1 uppercase tracking-wider">
-                    Multiple matches found. Arrow keys & Enter:
+                  {/* Autocomplete Dropdown Search Overlay */}
+                  {scannerResults.length > 0 && (
+                    <div className="absolute z-50 left-0 right-0 mt-1 bg-card border border-border shadow-xl rounded-xl p-2 max-h-48 overflow-y-auto space-y-0.5 animate-in fade-in slide-in-from-top-2 duration-150">
+                      <div className="text-[10px] font-bold text-muted-foreground px-2 py-1 border-b mb-1 uppercase tracking-wider">
+                        Multiple matches found. Arrow keys & Enter:
+                      </div>
+                      {scannerResults.map((p, idx) => {
+                        const active = idx === scannerIndex;
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => handleSelectSearchResult(p)}
+                            onMouseEnter={() => setScannerIndex(idx)}
+                            className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-all ${
+                              active 
+                                ? "bg-primary text-primary-foreground shadow-md" 
+                                : "hover:bg-muted text-foreground"
+                            }`}
+                          >
+                            <span>{p.name}</span>
+                            <span className={`text-[9px] px-1 py-0.5 rounded font-bold ${
+                              active ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                            }`}>
+                              ID: {p.id}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="h-full flex items-end">
+                  <div className="text-[10px] text-muted-foreground font-semibold pb-2">
+                    Bulk Purchase Intake Document Entry Mode
                   </div>
-                  {scannerResults.map((p, idx) => {
-                    const active = idx === scannerIndex;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => handleSelectSearchResult(p)}
-                        onMouseEnter={() => setScannerIndex(idx)}
-                        className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between transition-all ${
-                          active 
-                            ? "bg-primary text-primary-foreground shadow-md" 
-                            : "hover:bg-muted text-foreground"
-                        }`}
-                      >
-                        <span>{p.name}</span>
-                        <span className={`text-[9px] px-1 py-0.5 rounded font-bold ${
-                          active ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
-                        }`}>
-                          ID: {p.id}
-                        </span>
-                      </button>
-                    );
-                  })}
                 </div>
               )}
             </div>
@@ -158,39 +183,43 @@ export default function TransactionHeader({
               type="button"
               onClick={handleReset}
               className="flex items-center justify-center gap-1 text-[11px] font-bold px-2.5 py-1.5 bg-muted text-foreground border rounded-lg hover:bg-accent transition-all cursor-pointer"
-              title="Clear Cart (Esc)"
+              title="Clear"
             >
               <RotateCcw className="h-3 w-3" />
-              Clear
+              {resetLabel}
             </button>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => handleSave(true, false)}
-              className="flex items-center justify-center gap-1 text-[11px] font-bold px-2.5 py-1.5 bg-primary/10 hover:bg-primary/25 border border-primary/25 text-primary rounded-lg transition-all cursor-pointer"
-              title="Quick Checkout (Ctrl+Space)"
-            >
-              Checkout & New
-            </button>
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={() => handleSave(true, true)}
-              className="flex items-center justify-center gap-1 text-[11px] font-bold px-2.5 py-1.5 bg-emerald-600/10 hover:bg-emerald-600/25 border border-emerald-600/25 text-emerald-500 rounded-lg transition-all cursor-pointer"
-              title="Save & Print Receipt (F7 / Ctrl+P)"
-            >
-              <Printer className="h-3 w-3" />
-              Save & Print
-            </button>
+            {showCheckoutNew && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => handleSave(true, false)}
+                className="flex items-center justify-center gap-1 text-[11px] font-bold px-2.5 py-1.5 bg-primary/10 hover:bg-primary/25 border border-primary/25 text-primary rounded-lg transition-all cursor-pointer"
+                title="Checkout & New"
+              >
+                {checkoutNewLabel}
+              </button>
+            )}
+            {showPrint && (
+              <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => handleSave(true, true)}
+                className="flex items-center justify-center gap-1 text-[11px] font-bold px-2.5 py-1.5 bg-emerald-600/10 hover:bg-emerald-600/25 border border-emerald-600/25 text-emerald-500 rounded-lg transition-all cursor-pointer"
+                title="Save & Print"
+              >
+                <Printer className="h-3 w-3" />
+                {printLabel}
+              </button>
+            )}
             <button
               type="button"
               disabled={isSubmitting}
               onClick={() => handleSave(false, false)}
               className="flex items-center justify-center gap-1 text-[11px] font-bold px-3 py-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/95 transition-all shadow-md shadow-primary/10 cursor-pointer"
-              title="Save & Close Invoice (Ctrl+Enter)"
+              title="Save"
             >
               <Save className="h-3 w-3" />
-              Save Bill
+              {saveLabel}
             </button>
           </div>
         </div>
@@ -200,11 +229,11 @@ export default function TransactionHeader({
           <div className="bg-primary/5 border border-primary/20 rounded-xl p-2.5 space-y-1.5 animate-in fade-in slide-in-from-top-3 duration-250 shrink-0">
             <div className="flex items-center gap-1.5 text-[9px] font-bold text-primary uppercase tracking-wider">
               <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-              New Buyer Quick Master Setup
+              {newPartySectionTitle}
             </div>
             <div className="grid gap-2 grid-cols-1 md:grid-cols-3">
               <div className="space-y-0.5">
-                <label className="text-[9px] font-bold uppercase text-muted-foreground">Buyer Name</label>
+                <label className="text-[9px] font-bold uppercase text-muted-foreground">{partyNameLabel}</label>
                 <input
                   required
                   value={newBuyerData.name}

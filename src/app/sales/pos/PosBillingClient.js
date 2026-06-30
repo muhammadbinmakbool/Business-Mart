@@ -33,7 +33,7 @@ import SearchableSelect from "@/components/ui/SearchableSelect";
 import TransactionHeader from "@/components/transaction/TransactionHeader";
 import TransactionProductTable from "@/components/transaction/TransactionProductTable";
 import TransactionTotals from "@/components/transaction/TransactionTotals";
-import TransactionCashCalculator from "@/components/transaction/TransactionCashCalculator";
+import TransactionSettlement from "@/components/transaction/TransactionSettlement";
 
 export default function PosBillingClient({ 
   buyers = [], 
@@ -851,11 +851,12 @@ export default function PosBillingClient({
           />
         </div>
         <div className="md:col-span-1">
-          <TransactionCashCalculator
+          <TransactionSettlement
             finalAmount={totals.finalAmount}
             cashReceived={cashReceived}
             onChangeCashReceived={setCashReceived}
             calculatorRef={cashCalculatorRef}
+            layout="cash"
           />
         </div>
       </div>

@@ -1,16 +1,22 @@
 "use client";
 
 import React from "react";
-import { Coins, CheckCircle, AlertTriangle } from "lucide-react";
+import { Coins, CheckCircle, AlertTriangle, Wallet } from "lucide-react";
 import { round } from "@/lib/financial";
 import { useSettings } from "@/components/layout/SettingsContext";
 import { formatNumber } from "@/lib/formatters/financialFormatter";
 
-export default function TransactionCashCalculator({
+export const DEFAULT_PAYMENT_METHODS = ["CASH", "BANK", "CHEQUE", "JAZZCASH", "EASYPAISA"];
+
+export default function TransactionSettlement({
   finalAmount = 0,
-  cashReceived = "",
+  cashReceived = "", // represents amount paid in settlement layout
   onChangeCashReceived,
-  calculatorRef
+  calculatorRef,
+  layout = "cash", // "cash" | "settlement"
+  paymentMethod = "CASH",
+  onChangePaymentMethod,
+  paymentMethods = DEFAULT_PAYMENT_METHODS
 }) {
   const { decimalPlaces, currencySymbol } = useSettings();
   const parsedCash = parseFloat(cashReceived) || 0;
@@ -30,6 +36,81 @@ export default function TransactionCashCalculator({
     onChangeCashReceived(exactVal.toString());
   };
 
+  // Compute payment status for settlement layout
+  const getPaymentStatus = () => {
+    if (parsedCash <= 0) return { label: "PENDING", bg: "bg-red-500/10 text-red-500 border-red-500/20" };
+    if (parsedCash >= finalAmount) return { label: "CLEARED", bg: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" };
+    return { label: "PARTIAL", bg: "bg-amber-500/10 text-amber-500 border-amber-500/20" };
+  };
+
+  const status = getPaymentStatus();
+  const remainingDue = Math.max(0, finalAmount - parsedCash);
+
+  if (layout === "settlement") {
+    return (
+      <div className="bg-card border border-border/60 rounded-xl p-3 shadow-sm backdrop-blur-md flex flex-col justify-between h-full">
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/80 flex items-center gap-1.5 border-b border-border/40 pb-1.5">
+            <Wallet className="h-3.5 w-3.5 text-primary" />
+            Settlement (F3)
+          </h3>
+
+          {/* Amount Paid Input */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Amount Paid</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono font-bold text-sm">PKR</span>
+              <input
+                ref={calculatorRef}
+                id="cashReceived"
+                type="number"
+                step="any"
+                placeholder="0.00"
+                value={cashReceived}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => onChangeCashReceived(e.target.value)}
+                className="w-full bg-background border border-border hover:border-muted-foreground/30 focus:border-primary rounded-xl pl-11 pr-3 py-1 font-mono font-bold text-base text-foreground outline-none transition-all focus:ring-2 focus:ring-primary/10"
+              />
+            </div>
+          </div>
+
+          {/* Payment Method Select */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">Payment Method</label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => onChangePaymentMethod && onChangePaymentMethod(e.target.value)}
+              className="w-full bg-background border border-border hover:border-muted-foreground/30 focus:border-primary rounded-xl px-3 py-1.5 font-semibold text-xs text-foreground outline-none transition-all focus:ring-2 focus:ring-primary/10"
+            >
+              {paymentMethods.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Status and Remaining Summary */}
+        <div className="mt-3 space-y-2 pt-2 border-t border-border/30">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground font-medium">Payment Status:</span>
+            <span className={`px-2 py-0.5 rounded-full border text-[9px] font-extrabold tracking-wider ${status.bg}`}>
+              {status.label}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground font-medium">Remaining Due:</span>
+            <span className="font-mono font-bold text-foreground">
+              {currencySymbol} {formatNumber(remainingDue, "en", decimalPlaces)}
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback to classic cash calculator layout (default POS layout)
   return (
     <div className="bg-card border border-border/60 rounded-xl p-3 shadow-sm backdrop-blur-md flex flex-col justify-between h-full">
       <div className="space-y-2">

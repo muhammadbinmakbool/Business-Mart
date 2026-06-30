@@ -29,8 +29,31 @@ export default async function CreateIntakePage({ searchParams: searchParamsPromi
   const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
   const flags = await getFeatureFlags();
 
+  // Fetch active adjustments from DB
+  const { AdjustmentService } = await import("@/modules/adjustments/services/AdjustmentService");
+  const dbAdjustments = await AdjustmentService.listActiveAdjustments();
+  
+  // Filter supplier adjustments and check feature flags
+  let activeSupplierAdjustments = dbAdjustments.filter(
+    adj => adj.applicableTo === "SUPPLIER" || adj.applicableTo === "BOTH"
+  );
+  
+  if (!flags.features?.gst) {
+    activeSupplierAdjustments = activeSupplierAdjustments.filter(adj => adj.code !== "GST");
+  }
+  if (!flags.features?.discount) {
+    activeSupplierAdjustments = activeSupplierAdjustments.filter(adj => adj.code !== "DISCOUNT");
+  }
+
   return (
-    <IntakeForm suppliers={activeSuppliers} products={activeProducts} settings={settings} backUrl={backUrl} featureFlags={flags} />
+    <IntakeForm 
+      suppliers={activeSuppliers} 
+      products={activeProducts} 
+      settings={settings} 
+      backUrl={backUrl} 
+      featureFlags={flags} 
+      adjustmentDefinitions={activeSupplierAdjustments}
+    />
   );
 }
 
