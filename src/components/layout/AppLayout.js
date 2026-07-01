@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
@@ -40,9 +40,9 @@ const MODULE_GROUPS = [
   },
 ];
 
-export function AppLayout({ children, salesWorkflow, isSourceTrackingEnabled }) {
+export function AppLayout({ children, salesWorkflow, isSourceTrackingEnabled, intakeMode }) {
   const pathname = usePathname();
-  const { isCollapsed, toggleCollapse, isMobileOpen, setIsMobileOpen } = useSidebar();
+  const { isCollapsed, setIsCollapsed, toggleCollapse, isMobileOpen, setIsMobileOpen, isInitialized } = useSidebar();
   const { isDestructiveActive } = useAuth();
 
   const isLoginPage = pathname === "/login";
@@ -52,6 +52,16 @@ export function AppLayout({ children, salesWorkflow, isSourceTrackingEnabled }) 
     window.location.reload();
   };
 
+  const isPosPage = pathname === "/sales/pos" || (pathname === "/sales/create" && salesWorkflow === "POS");
+  const isIntakePurchasePage = pathname === "/intake/create" && intakeMode === "PURCHASE";
+
+  // Automatically collapse the sidebar initially when landing on POS or Intake Purchase forms
+  useEffect(() => {
+    if (isInitialized && (isPosPage || isIntakePurchasePage)) {
+      setIsCollapsed(true);
+    }
+  }, [pathname, isPosPage, isIntakePurchasePage, isInitialized, setIsCollapsed]);
+
   if (isLoginPage) {
     return (
       <div className="min-h-screen w-screen bg-background flex flex-col justify-center">
@@ -59,8 +69,6 @@ export function AppLayout({ children, salesWorkflow, isSourceTrackingEnabled }) 
       </div>
     );
   }
-
-  const isPosPage = pathname === "/sales/pos" || (pathname === "/sales/create" && salesWorkflow === "POS");
 
   // Find the module group matching the current route (exact prefix match)
   const activeModuleGroup = MODULE_GROUPS.find((group) =>
@@ -82,28 +90,26 @@ export function AppLayout({ children, salesWorkflow, isSourceTrackingEnabled }) 
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Desktop Sidebar (hidden on mobile) */}
         {(() => {
-          const effectiveCollapsed = isCollapsed || isPosPage;
+          const effectiveCollapsed = isCollapsed;
           return (
             <div 
               className="relative hidden md:block h-full transition-all duration-300 ease-in-out shrink-0 border-r"
               style={{ width: effectiveCollapsed ? "80px" : "256px" }}
             >
-              <Sidebar forceCollapsed={isPosPage} isSourceTrackingEnabled={isSourceTrackingEnabled} />
+              <Sidebar isSourceTrackingEnabled={isSourceTrackingEnabled} />
 
               {/* Collapse / Expand toggle — lives here so it's never clipped by Sidebar's overflow-hidden */}
-              {!isPosPage && (
-                <button
-                  onClick={toggleCollapse}
-                  className="absolute -right-3 top-20 z-40 flex h-6 w-6 items-center justify-center rounded-full border bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground cursor-pointer transition-all duration-200 hover:scale-110"
-                  title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="h-3 w-3" />
-                  ) : (
-                    <ChevronLeft className="h-3 w-3" />
-                  )}
-                </button>
-              )}
+              <button
+                onClick={toggleCollapse}
+                className="absolute -right-3 top-20 z-40 flex h-6 w-6 items-center justify-center rounded-full border bg-background text-foreground shadow-sm hover:bg-accent hover:text-accent-foreground cursor-pointer transition-all duration-200 hover:scale-110"
+                title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+              >
+                {isCollapsed ? (
+                  <ChevronRight className="h-3 w-3" />
+                ) : (
+                  <ChevronLeft className="h-3 w-3" />
+                )}
+              </button>
             </div>
           );
         })()}

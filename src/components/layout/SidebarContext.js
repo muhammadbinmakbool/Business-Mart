@@ -6,6 +6,7 @@ const SidebarContext = createContext();
 
 export function SidebarProvider({ children }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   // Load initial desktop collapse state from localStorage on mount safely (SSR/Hydration safe)
@@ -17,6 +18,8 @@ export function SidebarProvider({ children }) {
       }
     } catch (e) {
       console.error("Error reading sidebar collapse state:", e);
+    } finally {
+      setIsInitialized(true);
     }
   }, []);
 
@@ -40,6 +43,7 @@ export function SidebarProvider({ children }) {
         toggleCollapse,
         isMobileOpen,
         setIsMobileOpen,
+        isInitialized,
       }}
     >
       {children}

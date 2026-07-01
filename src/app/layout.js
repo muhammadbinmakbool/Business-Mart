@@ -43,7 +43,11 @@ export default async function RootLayout({ children }) {
           <AuthProvider>
             <SettingsProvider initialSettings={initialSettings}>
               <SidebarProvider>
-                <AppLayout salesWorkflow={salesWorkflow} isSourceTrackingEnabled={isSourceTrackingEnabled}>
+                <AppLayout 
+                  salesWorkflow={salesWorkflow} 
+                  isSourceTrackingEnabled={isSourceTrackingEnabled}
+                  intakeMode={flags.intakeMode}
+                >
                   {children}
                 </AppLayout>
                 <Toaster position="top-center" richColors />
