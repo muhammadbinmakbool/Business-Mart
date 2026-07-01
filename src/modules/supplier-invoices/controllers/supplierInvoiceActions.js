@@ -33,7 +33,7 @@ export async function generateSupplierInvoiceAction(formData) {
     
     safeRevalidatePath("/supplier-invoices");
     invalidateSupplierCache();
-    return { success: true, data: invoice };
+    return { success: true, data: JSON.parse(JSON.stringify(invoice)) };
   } catch (error) {
     console.error("Failed to generate supplier invoice:", error);
     return { success: false, error: error.message };
@@ -205,7 +205,7 @@ export async function editSupplierInvoiceAction(formData) {
     safeRevalidatePath(`/supplier-invoices/${invoiceId}`);
     safeRevalidatePath("/supplier-invoices");
     invalidateSupplierCache();
-    return { success: true, data: newInvoice };
+    return { success: true, data: JSON.parse(JSON.stringify(newInvoice)) };
   } catch (error) {
     console.error("Failed to edit supplier invoice:", error);
     return { success: false, error: error.message };

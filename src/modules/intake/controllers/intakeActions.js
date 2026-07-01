@@ -155,7 +155,7 @@ export async function createPurchaseDocumentAction(payload) {
     const res = await PurchaseDocumentService.createPurchaseDocument(payload);
     revalidatePath("/intake");
     invalidateIntakeCache();
-    return res;
+    return JSON.parse(JSON.stringify(res));
   } catch (error) {
     console.error("Purchase Document creation error:", error);
     return { success: false, error: error.message || "Failed to create purchase document" };

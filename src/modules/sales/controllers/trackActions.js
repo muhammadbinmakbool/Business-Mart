@@ -63,7 +63,7 @@ export async function hardDeleteTrackAction(id, deleteReason) {
 export async function getUnbilledTracksAction(buyerPartyId) {
   try {
     const tracks = await SalesTrackService.listUnbilledByBuyer(buyerPartyId);
-    return { success: true, data: tracks };
+    return { success: true, data: JSON.parse(JSON.stringify(tracks)) };
   } catch (error) {
     console.error("Error fetching unbilled tracks:", error);
     return { success: false, error: error.message };
