@@ -70,8 +70,8 @@ export default function TransactionTotals({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 bg-card border border-border/60 rounded-xl p-3 shadow-sm backdrop-blur-md">
       {/* Left Column: Active Adjustments & Add Adjustment */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between border-b border-border/40 pb-1.5">
+      <div className="flex flex-col justify-between gap-2 h-full">
+        <div className="flex items-center justify-between border-b border-border/40 pb-1.5 shrink-0">
           <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/80 flex items-center gap-1.5">
             <Tag className="h-3.5 w-3.5 text-primary" />
             Invoice Adjustments
@@ -88,11 +88,11 @@ export default function TransactionTotals({
 
         {/* Adjustments List */}
         {adjustments.length === 0 ? (
-          <div className="text-[11px] text-muted-foreground py-3 text-center italic">
+          <div className="text-[11px] text-muted-foreground py-3 text-center italic flex-1 flex items-center justify-center min-h-[60px]">
             No adjustments applied to this invoice.
           </div>
         ) : (
-          <div className="max-h-[85px] overflow-y-auto pr-1 grid grid-cols-2 gap-1.5 align-content-start">
+          <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-3 gap-1.5 align-content-start min-h-[60px]">
             {adjustments.map((adj, index) => {
               const sign = adj.direction === "SUBTRACT" ? "-" : "+";
               const definition = adjustmentDefinitions.find(d => d.code === adj.code);
@@ -100,17 +100,15 @@ export default function TransactionTotals({
                 ? adj.isUserEditable
                 : (definition ? definition.isUserEditable : true);
               
+              const methodName = adj.method === "PER_WEIGHT" ? "Per Weight" : adj.method === "PER_BAG" ? "Per Bag" : adj.method === "PERCENTAGE" ? "Percentage" : "Fixed";
+              const displayName = `${adj.adjustmentType} - ${methodName}`;
+              
               return (
-                <div key={index} className="flex flex-col justify-between bg-muted/40 border rounded-lg p-1.5 text-[10px] gap-1 relative group">
-                  <div className="flex items-start justify-between gap-1">
-                    <div className="min-w-0 flex-1">
-                      <span className="font-bold text-foreground block truncate" title={adj.adjustmentType}>
-                        {adj.adjustmentType}
-                      </span>
-                      <span className="text-muted-foreground text-[8px] block -mt-0.5 leading-none">
-                        {adj.method.toLowerCase().replace("_", " ")}
-                      </span>
-                    </div>
+                <div key={index} className="flex flex-col justify-between bg-muted/40 border rounded-lg p-1.5 text-xs gap-1.5 relative group">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-bold text-foreground text-[10px] truncate flex-1" title={displayName}>
+                      {displayName}
+                    </span>
                     <button
                       type="button"
                       onClick={() => onRemoveAdjustment(index)}
@@ -120,7 +118,7 @@ export default function TransactionTotals({
                       <Trash2 className="h-3 w-3" />
                     </button>
                   </div>
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex items-center gap-1.5">
                     <div className="flex-1">
                       {isEditable ? (
                         <input
@@ -131,10 +129,10 @@ export default function TransactionTotals({
                             const val = e.target.value;
                             onEditAdjustmentValue?.(index, val === "" ? "" : Number(val));
                           }}
-                          className="w-full px-1 py-0.5 text-[9px] border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right"
+                          className="w-full px-1.5 py-0.5 text-[10px] border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right"
                         />
                       ) : (
-                        <span className="text-[9px] font-mono font-bold text-muted-foreground bg-muted px-1 py-0.5 rounded block text-right">
+                        <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded block text-right">
                           {adj.value}
                         </span>
                       )}
@@ -294,7 +292,7 @@ export default function TransactionTotals({
         )}
 
         {/* Invoice Notes / Remarks */}
-        <div className="pt-1.5 border-t border-border/40">
+        <div className="pt-1.5 border-t border-border/40 shrink-0">
           {showNotes ? (
             <div className="space-y-1">
               <div className="flex items-center justify-between">
