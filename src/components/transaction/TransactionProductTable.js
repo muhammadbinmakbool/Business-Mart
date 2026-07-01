@@ -143,25 +143,24 @@ export default function TransactionProductTable({
                     />
                   </td>
 
-                  {/* Weight/Quantity Column */}
                   <td className="px-2 py-0.5">
-                    <input
-                      id={`cell-${index}-weight`}
-                      type="number"
-                      step="any"
-                      placeholder="0.00"
-                      value={item.weight}
-                      onFocus={(e) => {
-                        e.target.select();
-                        setFocusedRowIndex(index);
-                      }}
-                      onKeyDown={(e) => handleKeyDown(e, index, "weight")}
-                      onChange={(e) => onChangeItem(index, "weight", e.target.value)}
-                      className="w-full bg-transparent border-0 focus:ring-1 focus:ring-primary rounded-md px-1.5 py-1 text-xs text-foreground outline-none font-mono font-medium"
-                      readOnly={item.useHelper}
-                    />
-                    <div className="mt-0.5 px-1.5 flex flex-col gap-1">
-                      <label className="inline-flex items-center gap-1 text-[9px] font-bold text-muted-foreground uppercase cursor-pointer select-none">
+                    <div className="flex items-center gap-1 w-full">
+                      <input
+                        id={`cell-${index}-weight`}
+                        type="number"
+                        step="any"
+                        placeholder="0.00"
+                        value={item.weight}
+                        onFocus={(e) => {
+                          e.target.select();
+                          setFocusedRowIndex(index);
+                        }}
+                        onKeyDown={(e) => handleKeyDown(e, index, "weight")}
+                        onChange={(e) => onChangeItem(index, "weight", e.target.value)}
+                        className="flex-1 bg-transparent border-0 focus:ring-1 focus:ring-primary rounded-md px-1.5 py-1 text-xs text-foreground outline-none font-mono font-medium"
+                        readOnly={item.useHelper}
+                      />
+                      <label className="inline-flex items-center gap-1 text-[9px] font-bold text-muted-foreground uppercase cursor-pointer select-none shrink-0 px-1">
                         <input
                           type="checkbox"
                           checked={item.useHelper || false}
@@ -170,8 +169,10 @@ export default function TransactionProductTable({
                         />
                         Helper
                       </label>
-                      {item.useHelper && (
-                        <div className="grid grid-cols-3 gap-0.5 mt-0.5 bg-muted/30 p-1 rounded border border-border">
+                    </div>
+                    {item.useHelper && (
+                      <div className="mt-1 px-1.5">
+                        <div className="grid grid-cols-3 gap-0.5 bg-muted/30 p-1 rounded border border-border">
                           <input
                             type="text"
                             placeholder="Type"
@@ -194,8 +195,8 @@ export default function TransactionProductTable({
                             className="w-full bg-background border-none rounded px-1 py-0.5 text-[9px] font-mono outline-none"
                           />
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </td>
 
                   {/* Unit Column */}
