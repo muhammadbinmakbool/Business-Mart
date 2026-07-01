@@ -111,7 +111,7 @@ export default function TransactionProductTable({
                     : (unitRegistry
                         ? Object.values(unitRegistry.units).filter(u => u.unitCategoryCode === (selectedProduct.unitCategory || selectedProduct.category)).map(u => ({ id: u.code, name: u.name }))
                         : getUnitsByCategory(selectedProduct.category)))
-                : [{ id: "KG", name: "Kilogram" }];
+                : [];
               
               const isFocused = focusedRowIndex === index;
 
@@ -203,17 +203,22 @@ export default function TransactionProductTable({
                   <td className="px-2 py-0.5">
                     <select
                       id={`cell-${index}-unit`}
-                      value={item.unit}
+                      value={selectedProduct ? item.unit : ""}
+                      disabled={!selectedProduct}
                       onFocus={() => setFocusedRowIndex(index)}
                       onKeyDown={(e) => handleKeyDown(e, index, "unit")}
                       onChange={(e) => onChangeItem(index, "unit", e.target.value)}
-                      className="w-full bg-transparent border-0 focus:ring-1 focus:ring-primary rounded-md px-1.5 py-1 text-xs text-foreground outline-none font-semibold"
+                      className="w-full bg-transparent border-0 focus:ring-1 focus:ring-primary rounded-md px-1.5 py-1 text-xs text-foreground outline-none font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {compatibleUnits.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.id}
-                        </option>
-                      ))}
+                      {selectedProduct ? (
+                        compatibleUnits.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.id}
+                          </option>
+                        ))
+                      ) : (
+                        <option value="">--</option>
+                      )}
                     </select>
                   </td>
 
@@ -236,16 +241,21 @@ export default function TransactionProductTable({
                       />
                       <select
                         id={`cell-${index}-rateUnit`}
-                        value={item.rateUnit || item.unit || "KG"}
+                        value={selectedProduct ? (item.rateUnit || item.unit) : ""}
+                        disabled={!selectedProduct}
                         onFocus={() => setFocusedRowIndex(index)}
                         onChange={(e) => onChangeItem(index, "rateUnit", e.target.value)}
-                        className="bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase rounded px-1.5 py-1 border-none outline-none focus:ring-1 focus:ring-primary shrink-0 transition-colors cursor-pointer"
+                        className="bg-muted hover:bg-muted/80 text-foreground text-[10px] font-bold uppercase rounded px-1.5 py-1 border-none outline-none focus:ring-1 focus:ring-primary shrink-0 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {compatibleUnits.map((u) => (
-                          <option key={u.id} value={u.id} className="bg-background text-foreground">
-                            / {u.id}
-                          </option>
-                        ))}
+                        {selectedProduct ? (
+                          compatibleUnits.map((u) => (
+                            <option key={u.id} value={u.id} className="bg-background text-foreground">
+                              / {u.id}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="">--</option>
+                        )}
                       </select>
                     </div>
                   </td>
