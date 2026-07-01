@@ -208,18 +208,24 @@ export default React.forwardRef(function SearchableSelect({
         disabled={disabled}
         autoFocus={autoFocus}
         onClick={handleToggle}
-        className={`w-full flex items-center justify-between text-sm text-left focus:outline-none font-medium transition-all ${
+        className={`w-full flex items-center justify-between text-left focus:outline-none font-medium transition-all ${
           variant === "compact"
-            ? "border-0 bg-transparent rounded-lg px-2 py-1 text-foreground"
-            : "rounded-md border bg-background text-foreground px-3 py-2"
+            ? "text-xs border-0 bg-transparent rounded-lg px-2 py-1 text-foreground"
+            : variant === "outline-compact"
+              ? "text-xs border border-border bg-background rounded-lg px-2.5 py-1 text-foreground"
+              : "text-sm rounded-md border bg-background text-foreground px-3 py-2"
         } ${
           disabled 
             ? "opacity-50 cursor-not-allowed bg-muted border-input" 
             : variant === "compact"
               ? "focus:ring-1 focus:ring-primary hover:bg-muted/20"
-              : isOpen 
-                ? "ring-2 ring-primary border-primary" 
-                : "border-input hover:border-muted-foreground/30"
+              : variant === "outline-compact"
+                ? isOpen
+                  ? "border-primary ring-1 ring-primary"
+                  : "hover:border-muted-foreground/30"
+                : isOpen 
+                  ? "ring-2 ring-primary border-primary" 
+                  : "border-input hover:border-muted-foreground/30"
         } ${className}`}
         {...rest}
       >

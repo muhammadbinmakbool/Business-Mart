@@ -91,7 +91,7 @@ export default function TransactionHeader({
                 }}
                 options={buyerOptions}
                 placeholder={partyPlaceholder}
-                variant="compact"
+                variant="outline-compact"
               />
             </div>
 
