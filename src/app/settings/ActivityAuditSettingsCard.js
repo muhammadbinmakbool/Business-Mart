@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { Shield, Pencil, X, Check, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { getActivityAuditSettingsAction, saveActivityAuditSettingsAction } from "@/modules/settings/controllers/settingsActions";
 import { DestructiveModeModal } from "@/components/layout/DestructiveModeModal";
 import { exitDestructiveModeAction, getDestructiveModeStatusAction } from "@/modules/auth/controllers/destructiveActions";
 
 export default function ActivityAuditSettingsCard() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -68,8 +70,8 @@ export default function ActivityAuditSettingsCard() {
             ...settings,
             allowDestructiveDelete: false
           });
-          // Reload page to refresh other components (e.g. Topbar banner)
-          window.location.reload();
+          // Refresh other layout components (e.g. Topbar banner) without hard reload
+          router.refresh();
         } else {
           toast.error(res.error || "Failed to deactivate Destructive Mode.");
         }
@@ -92,8 +94,8 @@ export default function ActivityAuditSettingsCard() {
       ...settings,
       allowDestructiveDelete: true
     });
-    // Reload page to refresh other components (e.g. Topbar banner)
-    window.location.reload();
+    // Refresh other layout components (e.g. Topbar banner) without hard reload
+    router.refresh();
   };
 
   const handleCancel = () => {

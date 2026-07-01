@@ -792,7 +792,7 @@ export default function PosBillingClient({
   };
 
   return (
-    <div className="flex flex-col h-full min-h-0 space-y-3">
+    <div className="flex flex-col h-full min-h-0 gap-3">
       <TransactionHeader
         router={router}
         buyerId={buyerId}

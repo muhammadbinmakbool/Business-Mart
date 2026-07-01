@@ -3,11 +3,13 @@
 import React, { useState, useEffect, useTransition } from "react";
 import { Sliders, Check, ShieldAlert, AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { getFeatureFlagsAction, saveFeatureFlagsAction } from "@/modules/settings/controllers/settingsActions";
 import { checkReauthStatusAction } from "@/modules/auth/controllers/userActions";
 import PasswordConfirmModal from "@/components/ui/PasswordConfirmModal";
 
 export default function FeatureFlagCard() {
+  const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [flags, setFlags] = useState({
     intakeMode: "RECEIPT",
@@ -111,8 +113,7 @@ export default function FeatureFlagCard() {
     
     if (res.success) {
       toast.success("Feature flags saved successfully!");
-      // Reload is helpful to trigger root layout propagation immediately
-      window.location.reload();
+      router.refresh();
     } else {
       toast.error(res.error || "Failed to save feature flags.");
       throw new Error(res.error || "Failed to save feature flags.");

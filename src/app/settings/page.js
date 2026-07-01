@@ -35,6 +35,11 @@ function SettingsContent() {
   const [userRole, setUserRole] = useState(null);
   const [featureFlags, setFeatureFlags] = useState(null);
 
+  const handleTabChange = (tabName) => {
+    setActiveTab(tabName);
+    router.replace(`/settings?tab=${tabName}`, { scroll: false });
+  };
+
   useEffect(() => {
     async function checkAuth() {
       const { canAccessSettings } = await import("@/lib/permissions");
@@ -116,7 +121,7 @@ function SettingsContent() {
         {/* Left Navigation Tabs */}
         <div className="md:col-span-1 space-y-1">
           <button 
-            onClick={() => setActiveTab("general")}
+            onClick={() => handleTabChange("general")}
             className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === "general"
                 ? "bg-primary text-primary-foreground"
@@ -128,7 +133,7 @@ function SettingsContent() {
           </button>
           
           <button 
-            onClick={() => setActiveTab("security")}
+            onClick={() => handleTabChange("security")}
             className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === "security"
                 ? "bg-primary text-primary-foreground"
@@ -148,7 +153,7 @@ function SettingsContent() {
           </Link>
 
           <button 
-            onClick={() => setActiveTab("defaults")}
+            onClick={() => handleTabChange("defaults")}
             className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === "defaults"
                 ? "bg-primary text-primary-foreground"
@@ -160,7 +165,7 @@ function SettingsContent() {
           </button>
 
           <button 
-            onClick={() => setActiveTab("print")}
+            onClick={() => handleTabChange("print")}
             className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === "print"
                 ? "bg-primary text-primary-foreground"
@@ -172,7 +177,7 @@ function SettingsContent() {
           </button>
 
           <button 
-            onClick={() => setActiveTab("inventory")}
+            onClick={() => handleTabChange("inventory")}
             className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === "inventory"
                 ? "bg-primary text-primary-foreground"
@@ -184,7 +189,7 @@ function SettingsContent() {
           </button>
 
           <button 
-            onClick={() => setActiveTab("settlement-ledger")}
+            onClick={() => handleTabChange("settlement-ledger")}
             className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === "settlement-ledger"
                 ? "bg-primary text-primary-foreground"
@@ -196,7 +201,7 @@ function SettingsContent() {
           </button>
 
           <button 
-            onClick={() => setActiveTab("intake-workflow")}
+            onClick={() => handleTabChange("intake-workflow")}
             className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === "intake-workflow"
                 ? "bg-primary text-primary-foreground"
@@ -208,7 +213,7 @@ function SettingsContent() {
           </button>
 
           <button 
-            onClick={() => setActiveTab("activity-audit")}
+            onClick={() => handleTabChange("activity-audit")}
             className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
               activeTab === "activity-audit"
                 ? "bg-primary text-primary-foreground"
@@ -221,7 +226,7 @@ function SettingsContent() {
 
           {userRole === "SUPER_ADMIN" && (
             <button 
-              onClick={() => setActiveTab("feature-flags")}
+              onClick={() => handleTabChange("feature-flags")}
               className={`w-full text-left px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-2 transition-all cursor-pointer ${
                 activeTab === "feature-flags"
                   ? "bg-primary text-primary-foreground"

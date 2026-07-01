@@ -267,7 +267,7 @@ export default function TransactionHeader({
       </div>
 
       {/* Draft Suggestion Alert Banner */}
-      {buyerId && buyerId !== "new" && (
+      {buyerId && buyerId !== "new" && (loadingDraftSuggestion || (draftSuggestion && draftSuggestion.items && draftSuggestion.items.length > 0)) && (
         <div className="space-y-2">
           {loadingDraftSuggestion ? (
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex items-center gap-2 text-xs text-muted-foreground animate-pulse">

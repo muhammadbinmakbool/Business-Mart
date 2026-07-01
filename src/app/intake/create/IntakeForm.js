@@ -583,7 +583,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
 
   if (isPurchaseMode) {
     return (
-      <div className="flex flex-col h-[calc(100vh-5rem)] gap-4 select-none">
+      <div className="flex flex-col h-[calc(100vh-5rem)] gap-3 select-none">
         {/* Header */}
         <TransactionHeader
           router={router}
