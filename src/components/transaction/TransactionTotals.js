@@ -92,7 +92,7 @@ export default function TransactionTotals({
             No adjustments applied to this invoice.
           </div>
         ) : (
-          <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-3 gap-1.5 align-content-start min-h-[60px]">
+          <div className="flex-1 overflow-y-auto pr-1 grid grid-cols-3 gap-1.5 content-start min-h-[60px]">
             {adjustments.map((adj, index) => {
               const sign = adj.direction === "SUBTRACT" ? "-" : "+";
               const definition = adjustmentDefinitions.find(d => d.code === adj.code);
@@ -104,9 +104,9 @@ export default function TransactionTotals({
               const displayName = `${adj.adjustmentType} - ${methodName}`;
               
               return (
-                <div key={index} className="flex flex-col justify-between bg-muted/40 border rounded-lg p-1.5 text-xs gap-1.5 relative group">
+                <div key={index} className="flex flex-col justify-between bg-muted/40 border rounded-lg p-1.5 h-[56px] relative group shrink-0">
                   <div className="flex items-center justify-between gap-1">
-                    <span className="font-bold text-foreground text-[10px] truncate flex-1" title={displayName}>
+                    <span className="font-bold text-foreground text-xs truncate flex-1" title={displayName}>
                       {displayName}
                     </span>
                     <button
@@ -115,7 +115,7 @@ export default function TransactionTotals({
                       className="text-muted-foreground hover:text-destructive rounded transition-colors shrink-0 p-0.5"
                       title="Remove adjustment"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </button>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -129,15 +129,15 @@ export default function TransactionTotals({
                             const val = e.target.value;
                             onEditAdjustmentValue?.(index, val === "" ? "" : Number(val));
                           }}
-                          className="w-full px-1.5 py-0.5 text-[10px] border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right"
+                          className="w-full px-1.5 py-0.5 text-xs border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-mono text-right"
                         />
                       ) : (
-                        <span className="text-[10px] font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded block text-right">
+                        <span className="text-xs font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded block text-right">
                           {adj.value}
                         </span>
                       )}
                     </div>
-                    <span className={`font-mono font-bold shrink-0 text-[10px] ${adj.direction === "SUBTRACT" ? "text-red-500" : "text-green-500"}`}>
+                    <span className={`font-mono font-bold shrink-0 text-xs ${adj.direction === "SUBTRACT" ? "text-red-500" : "text-green-500"}`}>
                       {sign}{adj.method === "PERCENTAGE" ? "%" : adj.method === "PER_WEIGHT" ? `/${adj.unit || "KG"}` : adj.method === "PER_BAG" ? "/BAG" : "PKR"}
                     </span>
                   </div>

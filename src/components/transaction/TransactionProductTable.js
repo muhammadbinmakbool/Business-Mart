@@ -243,7 +243,7 @@ export default function TransactionProductTable({
                       >
                         {compatibleUnits.map((u) => (
                           <option key={u.id} value={u.id} className="bg-background text-foreground">
-                            /{u.id}
+                            / {u.id}
                           </option>
                         ))}
                       </select>
