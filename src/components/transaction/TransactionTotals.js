@@ -313,7 +313,7 @@ export default function TransactionTotals({
 
           <div className="flex items-center gap-1 text-muted-foreground">
             <Scale className="h-3 w-3" />
-            <span>Total Weight</span>
+            <span>Total Quantity</span>
           </div>
           <div className="text-right font-mono font-semibold text-foreground">
             {round(totals.totalWeight).toLocaleString()} KG
@@ -321,7 +321,7 @@ export default function TransactionTotals({
 
           <div className="flex items-center gap-1 text-muted-foreground">
             <Archive className="h-3 w-3" />
-            <span>Derived Bag Count</span>
+            <span>Derived Unit Count</span>
           </div>
           <div className="text-right font-mono font-semibold text-foreground">
             {round(totals.totalBagCount, 1).toLocaleString()} bags

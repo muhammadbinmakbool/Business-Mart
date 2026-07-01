@@ -88,7 +88,7 @@ export default function TransactionProductTable({
             <tr className="border-b text-muted-foreground text-[9px] font-bold uppercase tracking-wider">
               <th className="px-3 py-1.5 w-[8%] text-center">#</th>
               <th className="px-3 py-1.5 w-[35%]">Product Name</th>
-              <th className="px-3 py-1.5 w-[15%]">Quantity / Weight</th>
+              <th className="px-3 py-1.5 w-[15%]">Quantity</th>
               <th className="px-3 py-1.5 w-[12%]">Unit</th>
               <th className="px-3 py-1.5 w-[15%]">Rate (PKR)</th>
               <th className="px-3 py-1.5 w-[15%] text-right">Amount</th>
