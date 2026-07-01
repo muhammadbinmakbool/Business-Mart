@@ -185,7 +185,7 @@ export default function PosBillingClient({
         code: d.code,
         adjustmentType: d.name,
         method: d.method,
-        value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
+        value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : "",
         direction: d.direction,
         unit: "KG",
         isUserEditable: d.isUserEditable
@@ -711,7 +711,10 @@ export default function PosBillingClient({
             packagingMeta
           };
         }),
-        adjustments,
+        adjustments: adjustments.map(adj => ({
+          ...adj,
+          value: adj.value === "" ? 0 : Number(adj.value)
+        })),
         newPartyData: buyerId === "new" ? { ...newBuyerData, partyType: "BUYER" } : null
       };
 

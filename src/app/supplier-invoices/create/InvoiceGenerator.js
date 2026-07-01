@@ -210,7 +210,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
                 code: d.code,
                 adjustmentType: d.name,
                 method: d.method,
-                value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
+                value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : "",
                 direction: d.direction,
                 unit: d.method === "PER_WEIGHT" ? "KG" : null,
                 isUserEditable: d.isUserEditable
@@ -225,7 +225,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
               code: d.code,
               adjustmentType: d.name,
               method: d.method,
-              value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
+              value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : "",
               direction: d.direction,
               unit: d.method === "PER_WEIGHT" ? "KG" : null,
               isUserEditable: d.isUserEditable
@@ -256,7 +256,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
               code: d.code,
               adjustmentType: d.name,
               method: d.method,
-              value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
+              value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : "",
               direction: d.direction,
               unit: d.method === "PER_WEIGHT" ? "KG" : null,
               isUserEditable: d.isUserEditable
@@ -380,7 +380,15 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
     formData.append("partyId", selectedParty.id);
     formData.append("intakeIds", JSON.stringify(selectedIntakes));
     formData.append("advanceIds", JSON.stringify(selectedAdvances));
-    formData.append("adjustmentsByIntake", JSON.stringify(adjustmentsByIntake));
+    
+    const sanitizedAdjustmentsByIntake = {};
+    Object.keys(adjustmentsByIntake).forEach(key => {
+      sanitizedAdjustmentsByIntake[key] = (adjustmentsByIntake[key] || []).map(adj => ({
+        ...adj,
+        value: adj.value === "" ? 0 : Number(adj.value)
+      }));
+    });
+    formData.append("adjustmentsByIntake", JSON.stringify(sanitizedAdjustmentsByIntake));
     formData.append("entryDate", entryDate);
 
     if (initialInvoice) {

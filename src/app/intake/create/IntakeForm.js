@@ -94,7 +94,7 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
         code: d.code,
         adjustmentType: d.name,
         method: d.method,
-        value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : 0,
+        value: d.defaultConfiguredValue !== null ? d.defaultConfiguredValue : "",
         direction: d.direction,
         unit: "KG",
         isUserEditable: d.isUserEditable
@@ -452,7 +452,10 @@ export default function IntakeForm({ suppliers, products, settings, backUrl, fea
             notes: purchaseNotes
           };
         }),
-        adjustments: purchaseAdjustments,
+        adjustments: purchaseAdjustments.map(adj => ({
+          ...adj,
+          value: adj.value === "" ? 0 : Number(adj.value)
+        })),
         amountPaid: parseFloat(amountPaid) || 0,
         paymentMethod: "CASH",
         notes: purchaseNotes

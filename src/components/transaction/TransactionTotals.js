@@ -125,6 +125,7 @@ export default function TransactionTotals({
                           type="number"
                           step="any"
                           value={adj.value}
+                          placeholder="0"
                           onChange={(e) => {
                             const val = e.target.value;
                             onEditAdjustmentValue?.(index, val === "" ? "" : Number(val));
@@ -133,7 +134,7 @@ export default function TransactionTotals({
                         />
                       ) : (
                         <span className="text-xs font-mono font-bold text-muted-foreground bg-muted px-1.5 py-0.5 rounded block text-right">
-                          {adj.value}
+                          {adj.value !== "" ? adj.value : 0}
                         </span>
                       )}
                     </div>
