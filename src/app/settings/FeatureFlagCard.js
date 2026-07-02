@@ -410,56 +410,7 @@ export default function FeatureFlagCard() {
           </div>
         </div>
 
-        {/* Feature Switches */}
-        <div className="border-t pt-6 space-y-4">
-          <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-widest">
-            Granular Feature Capabilities
-          </h4>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* GST (Taxes) */}
-            <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/20">
-              <div className="space-y-0.5 pr-4">
-                <span className="text-sm font-semibold block">GST (Taxes) Subsystem</span>
-                <span className="text-xs text-muted-foreground">Exposes General Sales Tax option in invoice adjustment lists.</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleFeatureToggle("gst")}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  flags.features?.gst ? "bg-primary" : "bg-muted-foreground/30"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${
-                    flags.features?.gst ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Discounts */}
-            <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/20">
-              <div className="space-y-0.5 pr-4">
-                <span className="text-sm font-semibold block">Discount Adjustments</span>
-                <span className="text-xs text-muted-foreground">Exposes Discount option in invoice adjustment lists.</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleFeatureToggle("discount")}
-                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                  flags.features?.discount ? "bg-primary" : "bg-muted-foreground/30"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-background shadow ring-0 transition duration-200 ease-in-out ${
-                    flags.features?.discount ? "translate-x-5" : "translate-x-0"
-                  }`}
-                />
-              </button>
-            </div>
-          </div>
-        </div>
       </form>
 
       {/* Password Confirmation Modal */}
