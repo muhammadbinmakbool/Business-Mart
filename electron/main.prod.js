@@ -201,6 +201,65 @@ function killServerProcess() {
   }
 }
 
+// Dynamically start application server and redirect existing setup window
+async function startApplicationFlowFromRecovery(resolvedDb, dbConfig) {
+  const provider = dbConfig.db.provider;
+  console.log('[DB Boot] Dynamically checking migrations from recovery flow...');
+  const migrationRes = runMigrationsOnly(provider, resolvedDb.database, dbConfig.db);
+  if (!migrationRes.success) {
+    console.error(`[DB Boot] Auto-migration failed: ${migrationRes.error}`);
+    dialog.showErrorBox(
+      'Database Migration Failed',
+      `An error occurred while automatically applying database updates:\n\n${migrationRes.error}\n\nPlease contact support if this issue persists.`
+    );
+    app.quit();
+    return false;
+  }
+
+  // Spawn standalone Next.js server
+  const processStarted = spawnStandaloneServer(resolvedDb.connectionString, provider);
+  if (!processStarted) {
+    return false;
+  }
+
+  // Health check loop
+  console.log('[Server Health] Starting health check polling...');
+  const isHealthy = await checkServerHealth(`http://${HOST}:${PORT}/`);
+  if (!isHealthy) {
+    dialog.showErrorBox(
+      'Server Start Timeout',
+      `Next.js standalone server failed to respond within 30 seconds at http://${HOST}:${PORT}.\n\n` +
+      `Please contact system administrator or check logs.`
+    );
+    killServerProcess();
+    app.quit();
+    return false;
+  }
+
+  console.log('[Server Health] Next.js is healthy and online! Redirecting window...');
+  if (mainWindow) {
+    mainWindow.loadURL(`http://${HOST}:${PORT}`);
+    
+    // Remove all recovery listeners from will-navigate
+    mainWindow.webContents.removeAllListeners('will-navigate');
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+      try {
+        const allowedOrigin = `http://${HOST}:${PORT}`;
+        const parsedUrl = new URL(url);
+
+        if (parsedUrl.origin !== allowedOrigin) {
+          event.preventDefault();
+          console.warn(`Blocked external navigation to: ${url}`);
+        }
+      } catch (err) {
+        event.preventDefault();
+        console.error(`Blocked malformed URL navigation: ${url}`, err);
+      }
+    });
+  }
+  return true;
+}
+
 // Save manual configuration changes back to config.json
 function saveDatabaseConfig(newDbConfig) {
   const configPath = getWritableConfigPath();
@@ -350,10 +409,35 @@ app.whenReady().then(async () => {
     );
 
     if (test.success) {
-      // DB exists and is accessible — save config and relaunch into the app
+      // Check if it's SQLite and the file does not exist, or schema check is invalid
+      if (configPayload.provider === 'sqlite') {
+        const { getSqliteDbPath, testSqliteSchema } = require('./dbConnectionResolver');
+        const dbPath = getSqliteDbPath(configPayload.database);
+        if (!fs.existsSync(dbPath) || !testSqliteSchema(dbPath).success) {
+          console.log(`[IPC] SQLite database file '${configPayload.database}' is missing or schema is invalid. Transitioning to bootstrap.`);
+          saveDatabaseConfig(configPayload);
+          
+          resolvedDbState = {
+            success: false,
+            mode: 'BOOTSTRAP_REQUIRED',
+            server: 'SQLite',
+            database: configPayload.database
+          };
+          return { success: true, mode: 'BOOTSTRAP_REQUIRED' };
+        }
+      }
+
+      // DB exists and is accessible — save config and launch server dynamically
       console.log('[IPC] Connection fully verified. Saving configuration...');
       saveDatabaseConfig(configPayload);
-      setTimeout(() => { app.relaunch(); app.exit(0); }, 500);
+      
+      const { resolveDatabaseConnection } = require('./dbConnectionResolver');
+      const updatedDbInfo = loadDatabaseConfig();
+      const resolvedDb = resolveDatabaseConnection(updatedDbInfo);
+      
+      setTimeout(() => {
+        startApplicationFlowFromRecovery(resolvedDb, updatedDbInfo);
+      }, 50);
       return { success: true };
     } else if (test.reason === 'DB_NOT_FOUND') {
       // Server is reachable, credentials work, but DB doesn't exist yet.
@@ -422,9 +506,15 @@ app.whenReady().then(async () => {
       };
     }
 
-    // Step 4: Only relaunch AFTER everything succeeded
-    console.log('[IPC] Database successfully bootstrapped! Relaunching application...');
-    setTimeout(() => { app.relaunch(); app.exit(0); }, 500);
+    // Step 4: Dynamically start server and load the app instead of relaunching
+    console.log('[IPC] Database successfully bootstrapped! Starting standalone server...');
+    const { resolveDatabaseConnection } = require('./dbConnectionResolver');
+    const updatedDbInfo = loadDatabaseConfig();
+    const resolvedDb = resolveDatabaseConnection(updatedDbInfo);
+
+    setTimeout(() => {
+      startApplicationFlowFromRecovery(resolvedDb, updatedDbInfo);
+    }, 50);
     return { success: true };
   });
 

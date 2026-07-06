@@ -720,5 +720,7 @@ module.exports = {
   createDatabase,
   runMigrationsAndSeed,
   testNativeConnection,
-  runMigrationsOnly
+  runMigrationsOnly,
+  getSqliteDbPath,
+  testSqliteSchema
 };
