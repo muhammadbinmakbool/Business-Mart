@@ -205,9 +205,9 @@ function killServerProcess() {
 
 // Dynamically start application server and redirect existing setup window
 async function startApplicationFlowFromRecovery(resolvedDb, dbConfig) {
-  const provider = dbConfig.db.provider;
+  const provider = dbConfig.provider;
   console.log('[DB Boot] Dynamically checking migrations from recovery flow...');
-  const migrationRes = runMigrationsOnly(provider, resolvedDb.database, dbConfig.db);
+  const migrationRes = runMigrationsOnly(provider, resolvedDb.database, dbConfig);
   if (!migrationRes.success) {
     ApplicationLogger.error(`[DB Boot] Auto-migration failed: ${migrationRes.error}`);
     dialog.showErrorBox(
