@@ -4,6 +4,7 @@ import { PartyService } from "@/modules/parties/services/PartyService";
 import { ProductService } from "@/modules/products/services/ProductService";
 import { SaleService } from "@/modules/sales/services/SaleService";
 import { IntakeService } from "@/modules/intake/services/IntakeService";
+import { ApplicationLogger } from "@/lib/logger";
 
 export async function getCommandPaletteDataAction() {
   try {
@@ -67,7 +68,7 @@ export async function getCommandPaletteDataAction() {
       intakes: formattedIntakes
     };
   } catch (error) {
-    console.error("Failed to load command palette data:", error);
+    ApplicationLogger.error("Failed to load command palette data", error);
     return { parties: [], products: [], sales: [], intakes: [] };
   }
 }

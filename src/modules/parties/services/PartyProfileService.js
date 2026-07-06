@@ -1,6 +1,7 @@
 import { PartyRepository } from "../repositories/PartyRepository";
 import { logPaymentEvent, logSaleEvent, logSettlementEvent } from "@/modules/activity-log/activityLogger";
 import { calculateInvoiceClearingFromAllocations, calculatePartyFinancialPosition } from "@/lib/financial";
+import { ApplicationLogger } from "@/lib/logger";
 
 export class PartyProfileService {
   /**
@@ -112,7 +113,7 @@ export class PartyProfileService {
     try {
       logs = await PartyRepository.getPartyActivityLogs(pId);
     } catch (e) {
-      console.error("Failed to fetch activity logs for party timeline:", e);
+      ApplicationLogger.error("Failed to fetch activity logs for party timeline", e);
     }
 
     // Timeline Events: compiles chronological list of business transactions

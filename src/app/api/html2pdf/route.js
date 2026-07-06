@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { ApplicationLogger } from "@/lib/logger";
 
 import { createRequire } from "module";
 
@@ -17,7 +18,7 @@ export async function GET() {
       }
     });
   } catch (error) {
-    console.error("Failed to read html2pdf.bundle.min.js:", error);
+    ApplicationLogger.error("Failed to read html2pdf.bundle.min.js", error);
     return new NextResponse("console.error('html2pdf library could not be loaded');", {
       status: 500,
       headers: { "Content-Type": "application/javascript" }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { SaleService } from "../services/SaleService";
 import { invalidateCacheBucket } from "@/modules/aggregations/cache";
+import { ApplicationLogger } from "@/lib/logger";
 
 function invalidateSalesCache() {
   invalidateCacheBucket("dashboard");
@@ -16,7 +17,7 @@ export async function createSaleAction(data) {
     invalidateSalesCache();
     return { success: true, data: JSON.parse(JSON.stringify(sale)) };
   } catch (error) {
-    console.error("Failed to record sale:", error);
+    ApplicationLogger.error("Failed to record sale", error);
     return { success: false, error: error.message };
   }
 }

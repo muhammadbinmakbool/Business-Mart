@@ -1,6 +1,7 @@
 const { app } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { ApplicationLogger } = require('./logger');
 
 function getWritableConfigPath() {
   try {
@@ -89,7 +90,7 @@ function loadDatabaseConfig() {
       }
     } catch (err) {
       configStatus = 'error';
-      console.warn(`[DB Config] Failed to parse config file: ${configPath}. Defaulting to fallback. Error: ${err.message}`);
+      ApplicationLogger.error(`[DB Config] Failed to parse config file: ${configPath}. Defaulting to fallback.`, err);
     }
   } else {
     configStatus = 'fallback';

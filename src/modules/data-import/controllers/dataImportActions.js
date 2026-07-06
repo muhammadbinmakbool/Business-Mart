@@ -3,6 +3,7 @@
 import { DataImportService } from "../services/DataImportService";
 import { withOwnership } from "@/lib/session";
 import { revalidatePath } from "next/cache";
+import { ApplicationLogger } from "@/lib/logger";
 
 import { prisma } from "@/lib/prisma";
 
@@ -28,7 +29,7 @@ export async function validateImportAction(formData) {
     const report = await DataImportService.validateImport(buffer, type);
     return JSON.parse(JSON.stringify({ success: true, report }));
   } catch (error) {
-    console.error("Error in validateImportAction:", error);
+    ApplicationLogger.error("Error in validateImportAction", error);
     return { success: false, error: error.message || "Failed to validate import spreadsheet." };
   }
 }
@@ -50,7 +51,7 @@ export async function commitImportAction(rows, type, resolutions) {
 
     return JSON.parse(JSON.stringify({ success: true, stats, migrationId }));
   } catch (error) {
-    console.error("Error in commitImportAction:", error);
+    ApplicationLogger.error("Error in commitImportAction", error);
     return { success: false, error: error.message || "Failed to commit historical data import." };
   }
 }
@@ -88,7 +89,7 @@ export async function getImportSummaryAction() {
       }
     }));
   } catch (error) {
-    console.error("Error in getImportSummaryAction:", error);
+    ApplicationLogger.error("Error in getImportSummaryAction", error);
     return { success: false, error: error.message || "Failed to fetch import summary." };
   }
 }

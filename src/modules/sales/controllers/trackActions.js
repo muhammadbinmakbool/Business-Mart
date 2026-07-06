@@ -2,6 +2,7 @@
 
 import { SalesTrackService } from "../services/SalesTrackService";
 import { revalidatePath } from "next/cache";
+import { ApplicationLogger } from "@/lib/logger";
 
 export async function createTrackAction(data) {
   try {
@@ -9,7 +10,7 @@ export async function createTrackAction(data) {
     revalidatePath("/source-tracking");
     return { success: true };
   } catch (error) {
-    console.error("Error creating track entry:", error);
+    ApplicationLogger.error("Error creating track entry", error);
     return { success: false, error: error.message };
   }
 }
@@ -20,7 +21,7 @@ export async function updateTrackAction(id, data) {
     revalidatePath("/source-tracking");
     return { success: true };
   } catch (error) {
-    console.error("Error updating track entry:", error);
+    ApplicationLogger.error("Error updating track entry", error);
     return { success: false, error: error.message };
   }
 }
@@ -43,7 +44,7 @@ export async function deleteTrackAction(id, confirmPassword, deleteReason) {
     revalidatePath("/source-tracking");
     return { success: true };
   } catch (error) {
-    console.error("Error deleting track entry:", error);
+    ApplicationLogger.error("Error deleting track entry", error);
     return { success: false, error: error.message };
   }
 }
@@ -55,7 +56,7 @@ export async function hardDeleteTrackAction(id, deleteReason) {
     revalidatePath("/source-tracking");
     return { success: true };
   } catch (error) {
-    console.error("Error permanently deleting track entry:", error);
+    ApplicationLogger.error("Error permanently deleting track entry", error);
     return { success: false, error: error.message };
   }
 }
@@ -65,7 +66,7 @@ export async function getUnbilledTracksAction(buyerPartyId) {
     const tracks = await SalesTrackService.listUnbilledByBuyer(buyerPartyId);
     return { success: true, data: JSON.parse(JSON.stringify(tracks)) };
   } catch (error) {
-    console.error("Error fetching unbilled tracks:", error);
+    ApplicationLogger.error("Error fetching unbilled tracks", error);
     return { success: false, error: error.message };
   }
 }

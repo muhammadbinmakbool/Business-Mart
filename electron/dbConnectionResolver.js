@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { loadDatabaseConfig } = require('./dbConfig');
+const { ApplicationLogger } = require('./logger');
 
 // Helper to retrieve the active provider from env or config.json
 function getActiveProvider() {
@@ -400,12 +401,12 @@ try {
     } else {
       let errDetail = output;
       if (result.stderr) errDetail += '\n' + result.stderr;
-      console.error(`[DB Resolver] Native database creation failed: ${errDetail}`);
+      ApplicationLogger.error(`[DB Resolver] Native database creation failed: ${errDetail}`);
       return { success: false, error: errDetail };
     }
   } catch (err) {
     try { fs.unlinkSync(tempPsPath); } catch (e) {}
-    console.error('[DB Resolver] Exception during native CREATE DATABASE:', err.message);
+    ApplicationLogger.error('[DB Resolver] Exception during native CREATE DATABASE:', err);
     return { success: false, error: err.message };
   }
 }
@@ -451,7 +452,7 @@ function runMigrationsAndSeed(server, database, trustedConnection, user, passwor
     console.log('[DB Resolver] Seed Output:', seedStdout);
     
     if (seedResult.status !== 0) {
-      console.error('[DB Resolver] Seeding Failed:', seedStderr);
+      ApplicationLogger.error('[DB Resolver] Seeding Failed:', seedStderr);
       return {
         success: false,
         error: `Database created and migrated successfully, but seeding failed (exit code ${seedResult.status}).\n\nStderr:\n${seedStderr}\n\nStdout:\n${seedStdout}`
@@ -460,7 +461,7 @@ function runMigrationsAndSeed(server, database, trustedConnection, user, passwor
     
     return { success: true };
   } catch (err) {
-    console.error('[DB Resolver] Exception during seeding:', err.message);
+    ApplicationLogger.error('[DB Resolver] Exception during seeding:', err);
     return {
       success: false,
       error: `Exception during seeding: ${err.message}`
@@ -503,7 +504,7 @@ function runMigrationsOnly(provider, database, configHint) {
     console.log('[DB Resolver] Auto-migrations Output:', migrationStdout);
 
     if (migrationResult.status !== 0) {
-      console.error('[DB Resolver] Auto-migrations Failed:', migrationStderr);
+      ApplicationLogger.error('[DB Resolver] Auto-migrations Failed:', migrationStderr);
       return {
         success: false,
         error: `Auto-migrations failed (exit code ${migrationResult.status}).\n\nStderr:\n${migrationStderr}\n\nStdout:\n${migrationStdout}`
@@ -513,7 +514,7 @@ function runMigrationsOnly(provider, database, configHint) {
     console.log('[DB Resolver] Auto-migration successfully completed.');
     return { success: true };
   } catch (err) {
-    console.error('[DB Resolver] Exception during auto-migration:', err.message);
+    ApplicationLogger.error('[DB Resolver] Exception during auto-migration:', err);
     return { success: false, error: err.message };
   }
 }
@@ -635,7 +636,7 @@ function resolveDatabaseConnection(configHint) {
           };
         }
       } catch (err) {
-        console.error(`[DB Resolver] SQLite file permission error: ${err.message}`);
+        ApplicationLogger.error('[DB Resolver] SQLite file permission error:', err);
         return {
           success: false,
           mode: 'UNREACHABLE',
@@ -657,7 +658,7 @@ function resolveDatabaseConnection(configHint) {
   }
 
   if (!configHint || !configHint.database || !configHint.server) {
-    console.error('[DB Resolver] FAILED: Strict config check failed. Missing server or database in configuration parameters.');
+    ApplicationLogger.error('[DB Resolver] FAILED: Strict config check failed. Missing server or database in configuration parameters.');
     return { 
       success: false, 
       mode: 'CONFIG_ERROR',
@@ -704,7 +705,7 @@ function resolveDatabaseConnection(configHint) {
       ? 'Authentication failed. Please verify your username and password.'
       : 'Cannot connect to SQL Server instance. Ensure the host is online and TCP/IP is enabled.';
 
-    console.error(`[DB Resolver] Connection failed: ${mode} (${testResult.reason}). Details: ${testResult.error}`);
+    ApplicationLogger.error(`[DB Resolver] Connection failed: ${mode} (${testResult.reason}). Details: ${testResult.error}`);
     return {
       success: false,
       mode,

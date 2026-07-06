@@ -5,6 +5,7 @@ import { PurchaseDocumentService } from "../services/PurchaseDocumentService";
 import { revalidatePath } from "next/cache";
 import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { invalidateCacheBucket } from "@/modules/aggregations/cache";
+import { ApplicationLogger } from "@/lib/logger";
 
 function invalidateIntakeCache() {
   invalidateCacheBucket("dashboard");
@@ -46,7 +47,7 @@ export async function createIntakeAction(formData) {
     invalidateIntakeCache();
     return { success: true };
   } catch (error) {
-    console.error("Intake creation error:", error);
+    ApplicationLogger.error("Intake creation error", error);
     return { error: error.message || "Failed to create intake transaction" };
   }
 }
@@ -72,7 +73,7 @@ export async function sellIntakeAction(id, data) {
     invalidateIntakeCache();
     return { success: true };
   } catch (error) {
-    console.error("Error selling intake:", error);
+    ApplicationLogger.error("Error selling intake", error);
     return { error: error.message || "Failed to sell intake" };
   }
 }
@@ -145,7 +146,7 @@ export async function getIntakeRateDefaultsAction(productId, partyId) {
     const defaults = await IntakePricingResolver.resolvePurchaseCost(productId, partyId);
     return { success: true, data: defaults };
   } catch (error) {
-    console.error("Failed to resolve intake rate defaults:", error);
+    ApplicationLogger.error("Failed to resolve intake rate defaults", error);
     return { success: false, error: error.message };
   }
 }
@@ -157,7 +158,7 @@ export async function createPurchaseDocumentAction(payload) {
     invalidateIntakeCache();
     return JSON.parse(JSON.stringify(res));
   } catch (error) {
-    console.error("Purchase Document creation error:", error);
+    ApplicationLogger.error("Purchase Document creation error", error);
     return { success: false, error: error.message || "Failed to create purchase document" };
   }
 }

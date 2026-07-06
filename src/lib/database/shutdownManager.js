@@ -1,5 +1,6 @@
 import { prisma } from "../prisma";
 import { isSQLite } from "./provider";
+import { ApplicationLogger } from "../logger";
 
 if (typeof window === "undefined") {
   const gracefulShutdown = async (signal) => {
@@ -21,7 +22,7 @@ if (typeof window === "undefined") {
           await prisma.$executeRawUnsafe("PRAGMA wal_checkpoint(TRUNCATE);");
           console.log("[ShutdownManager] WAL checkpoint completed successfully.");
         } catch (err) {
-          console.error("[ShutdownManager] SQLite WAL checkpoint failed:", err.message);
+          ApplicationLogger.error("[ShutdownManager] SQLite WAL checkpoint failed", err);
         }
       }
 
@@ -30,10 +31,10 @@ if (typeof window === "undefined") {
         await prisma.$disconnect();
         console.log("[ShutdownManager] Prisma client disconnected cleanly.");
       } catch (err) {
-        console.error("[ShutdownManager] Prisma disconnect failed:", err.message);
+        ApplicationLogger.error("[ShutdownManager] Prisma disconnect failed", err);
       }
     } catch (err) {
-      console.error("[ShutdownManager] Error during shutdown routine:", err.message);
+      ApplicationLogger.error("[ShutdownManager] Error during shutdown routine", err);
     } finally {
       clearTimeout(watchdog);
       console.log("[ShutdownManager] Database teardown completed. Releasing process control.");

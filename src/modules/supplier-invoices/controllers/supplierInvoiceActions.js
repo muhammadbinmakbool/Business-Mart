@@ -6,6 +6,7 @@ import { SupplierInvoiceRepository } from "../repositories/SupplierInvoiceReposi
 import { emitActivity } from "@/modules/activity-log/activityLogger";
 import { calculateInvoiceClearingState } from "@/lib/financial";
 import { invalidateCacheBucket } from "@/modules/aggregations/cache";
+import { ApplicationLogger } from "@/lib/logger";
 
 function safeRevalidatePath(path) {
   try {
@@ -35,7 +36,7 @@ export async function generateSupplierInvoiceAction(formData) {
     invalidateSupplierCache();
     return { success: true, data: JSON.parse(JSON.stringify(invoice)) };
   } catch (error) {
-    console.error("Failed to generate supplier invoice:", error);
+    ApplicationLogger.error("Failed to generate supplier invoice", error);
     return { success: false, error: error.message };
   }
 }
@@ -48,7 +49,7 @@ export async function regenerateSupplierInvoiceAction(invoiceId, adjustmentsByIn
     invalidateSupplierCache();
     return { success: true, data: JSON.parse(JSON.stringify(newInvoice)) };
   } catch (error) {
-    console.error("Failed to regenerate supplier invoice:", error);
+    ApplicationLogger.error("Failed to regenerate supplier invoice", error);
     return { success: false, error: error.message };
   }
 }
@@ -207,7 +208,7 @@ export async function editSupplierInvoiceAction(formData) {
     invalidateSupplierCache();
     return { success: true, data: JSON.parse(JSON.stringify(newInvoice)) };
   } catch (error) {
-    console.error("Failed to edit supplier invoice:", error);
+    ApplicationLogger.error("Failed to edit supplier invoice", error);
     return { success: false, error: error.message };
   }
 }
@@ -224,7 +225,7 @@ export async function deleteSupplierInvoiceAction(invoiceId, confirmPassword, de
     invalidateSupplierCache();
     return { success: true };
   } catch (error) {
-    console.error("Failed to delete supplier invoice:", error);
+    ApplicationLogger.error("Failed to delete supplier invoice", error);
     return { success: false, error: error.message };
   }
 }
@@ -237,7 +238,7 @@ export async function hardDeleteSupplierInvoiceAction(invoiceId, deleteReason) {
     invalidateSupplierCache();
     return { success: true };
   } catch (error) {
-    console.error("Failed to permanently delete supplier invoice:", error);
+    ApplicationLogger.error("Failed to permanently delete supplier invoice", error);
     return { success: false, error: error.message };
   }
 }

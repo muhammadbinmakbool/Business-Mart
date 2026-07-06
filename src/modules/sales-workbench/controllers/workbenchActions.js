@@ -1,6 +1,7 @@
 "use server";
 
 import { SalesDraftService } from "../services/SalesDraftService";
+import { ApplicationLogger } from "@/lib/logger";
 
 /**
  * Exposes a Server Action to retrieve draft suggestions for a single buyer.
@@ -14,7 +15,7 @@ export async function getBuyerDraftSuggestionAction(buyerId) {
     const draft = await SalesDraftService.buildDraftForBuyer(buyerId);
     return { success: true, draft };
   } catch (error) {
-    console.error("Error in getBuyerDraftSuggestionAction Server Action:", error);
+    ApplicationLogger.error("Error in getBuyerDraftSuggestionAction Server Action", error);
     return { success: false, error: error.message || "Failed to build draft suggestions." };
   }
 }

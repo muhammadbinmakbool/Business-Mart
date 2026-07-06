@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { invalidateCacheBucket } from "@/modules/aggregations/cache";
 import { getProductValidationState } from "../utils/productValidation";
+import { ApplicationLogger } from "@/lib/logger";
 
 export async function createProductAction(formData) {
   const data = {
@@ -110,7 +111,7 @@ export async function getActiveProductsAction() {
     const products = await ProductService.listProducts();
     return { success: true, products: products.filter(p => p.isActive) };
   } catch (error) {
-    console.error("Failed to fetch active products:", error);
+    ApplicationLogger.error("Failed to fetch active products", error);
     return { success: false, error: error.message || "Failed to load products" };
   }
 }

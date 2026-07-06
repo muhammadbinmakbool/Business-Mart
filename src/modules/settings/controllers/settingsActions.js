@@ -11,6 +11,7 @@ import { getActivityAuditSettings, DEFAULT_ACTIVITY_AUDIT_SETTINGS } from "@/lib
 import { WorkflowSettingsProvider, DEFAULT_INTAKE_WORKFLOW_SETTINGS } from "@/modules/workflow/core/WorkflowSettingsProvider";
 import { withSecurity } from "@/lib/authGuard";
 import { getSession } from "@/lib/session";
+import { ApplicationLogger } from "@/lib/logger";
 
 
 export async function getSettings() {
@@ -41,7 +42,7 @@ export async function getSettings() {
       defaults
     };
   } catch (error) {
-    console.error("Failed to load settings in getSettings server action:", error);
+    ApplicationLogger.error("Failed to load settings in getSettings server action", error);
     return {
       adjustments: { visibility: {} },
       defaults: { productId: null, activeMarketProductId: null }
@@ -60,7 +61,7 @@ export async function updateSettings(settings) {
       try {
         parsed = JSON.parse(record.value);
       } catch (e) {
-        console.error("Failed to parse existing settings JSON:", e);
+        ApplicationLogger.error("Failed to parse existing settings JSON", e);
       }
     }
     
@@ -103,7 +104,7 @@ export async function updateSettings(settings) {
     revalidatePath("/settings");
     return { success: true };
   } catch (error) {
-    console.error("Failed to save settings in updateSettings server action:", error);
+    ApplicationLogger.error("Failed to save settings in updateSettings server action", error);
     return { success: false, error: error.message || "Failed to save settings" };
   }
 }
@@ -187,7 +188,7 @@ export async function getPrintSettingsAction() {
       }
     };
   } catch (error) {
-    console.error("Failed to load settings in getPrintSettingsAction:", error);
+    ApplicationLogger.error("Failed to load settings in getPrintSettingsAction", error);
     return { success: false, error: error.message };
   }
 }
@@ -206,7 +207,7 @@ export async function savePrintSettingsAction(printSettings) {
       try {
         parsed = JSON.parse(record.value);
       } catch (e) {
-        console.error("Failed to parse existing print settings JSON:", e);
+        ApplicationLogger.error("Failed to parse existing print settings JSON", e);
       }
     }
     
@@ -227,7 +228,7 @@ export async function savePrintSettingsAction(printSettings) {
     revalidatePath("/settings");
     return { success: true };
   } catch (error) {
-    console.error("Failed to save settings in savePrintSettingsAction:", error);
+    ApplicationLogger.error("Failed to save settings in savePrintSettingsAction", error);
     return { success: false, error: error.message || "Failed to save print settings" };
   }
 }
@@ -272,7 +273,7 @@ export async function getGeneralSettingsAction() {
       }
     };
   } catch (error) {
-    console.error("Failed to load general settings:", error);
+    ApplicationLogger.error("Failed to load general settings", error);
     return { success: false, error: error.message || "Failed to load general settings" };
   }
 }
@@ -300,7 +301,7 @@ export async function saveGeneralSettingsAction(settings) {
           await deleteFile(parsed.logoPath);
         }
       } catch (e) {
-        console.error("Failed to parse existing general settings or clean old logo:", e);
+        ApplicationLogger.error("Failed to parse existing general settings or clean old logo", e);
       }
     }
 
@@ -326,7 +327,7 @@ export async function saveGeneralSettingsAction(settings) {
     revalidatePath("/settings");
     return { success: true };
   } catch (error) {
-    console.error("Failed to save general settings:", error);
+    ApplicationLogger.error("Failed to save general settings", error);
     return { success: false, error: error.message || "Failed to save general settings" };
   }
 }
@@ -344,7 +345,7 @@ export async function uploadLogoAction(formData) {
     const logoPath = await storeFile(file, "logo");
     return { success: true, logoPath };
   } catch (error) {
-    console.error("Failed to upload company logo:", error);
+    ApplicationLogger.error("Failed to upload company logo", error);
     return { success: false, error: error.message || "Failed to upload logo file" };
   }
 }
@@ -357,7 +358,7 @@ export async function getInventorySettingsAction() {
     const settings = await getInventorySettings();
     return { success: true, settings };
   } catch (error) {
-    console.error("Failed to get inventory settings action:", error);
+    ApplicationLogger.error("Failed to get inventory settings action", error);
     return { success: false, error: error.message || "Failed to fetch inventory settings" };
   }
 }
@@ -396,7 +397,7 @@ export async function saveInventorySettingsAction(settings) {
     revalidatePath("/settings");
     return { success: true };
   } catch (error) {
-    console.error("Failed to save inventory settings action:", error);
+    ApplicationLogger.error("Failed to save inventory settings action", error);
     return { success: false, error: error.message || "Failed to save inventory settings" };
   }
 }
@@ -409,7 +410,7 @@ export async function getSettlementLedgerSettingsAction() {
     const settings = await getSettlementLedgerSettings();
     return { success: true, settings };
   } catch (error) {
-    console.error("Failed to get settlement & ledger settings action:", error);
+    ApplicationLogger.error("Failed to get settlement & ledger settings action", error);
     return { success: false, error: error.message || "Failed to fetch settlement & ledger settings" };
   }
 }
@@ -445,7 +446,7 @@ export async function saveSettlementLedgerSettingsAction(settings) {
     revalidatePath("/settings");
     return { success: true };
   } catch (error) {
-    console.error("Failed to save settlement & ledger settings action:", error);
+    ApplicationLogger.error("Failed to save settlement & ledger settings action", error);
     return { success: false, error: error.message || "Failed to save settlement & ledger settings" };
   }
 }
@@ -458,7 +459,7 @@ export async function getActivityAuditSettingsAction() {
     const settings = await getActivityAuditSettings();
     return { success: true, settings };
   } catch (error) {
-    console.error("Failed to get activity & audit settings action:", error);
+    ApplicationLogger.error("Failed to get activity & audit settings action", error);
     return { success: false, error: error.message || "Failed to fetch activity & audit settings" };
   }
 }
@@ -496,7 +497,7 @@ export async function saveActivityAuditSettingsAction(settings) {
     revalidatePath("/settings");
     return { success: true };
   } catch (error) {
-    console.error("Failed to save activity & audit settings action:", error);
+    ApplicationLogger.error("Failed to save activity & audit settings action", error);
     return { success: false, error: error.message || "Failed to save activity & audit settings" };
   }
 }
@@ -509,7 +510,7 @@ export async function getIntakeWorkflowSettingsAction() {
     const settings = await WorkflowSettingsProvider.loadSettings();
     return { success: true, settings };
   } catch (error) {
-    console.error("Failed to get intake workflow settings action:", error);
+    ApplicationLogger.error("Failed to get intake workflow settings action", error);
     return { success: false, error: error.message || "Failed to fetch intake workflow settings" };
   }
 }
@@ -548,7 +549,7 @@ export async function saveIntakeWorkflowSettingsAction(settings) {
     revalidatePath("/settings");
     return { success: true };
   } catch (error) {
-    console.error("Failed to save intake workflow settings action:", error);
+    ApplicationLogger.error("Failed to save intake workflow settings action", error);
     return { success: false, error: error.message || "Failed to save intake workflow settings" };
   }
 }

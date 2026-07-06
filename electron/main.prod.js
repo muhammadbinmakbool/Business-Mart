@@ -7,6 +7,7 @@ const { spawn } = require('child_process');
 const { resolveDatabaseConnection, getLocalSQLInstances, runMigrationsOnly } = require('./dbConnectionResolver');
 const { getWritableConfigPath, loadDatabaseConfig } = require('./dbConfig');
 const { performShutdownBackup } = require('./shutdownBackup');
+const { ApplicationLogger } = require('./logger');
 
 let mainWindow;
 let serverProcess;
@@ -76,7 +77,7 @@ function spawnStandaloneServer(connectionString, provider) {
 
   if (!fs.existsSync(serverJsPath)) {
     const errorMsg = `Next.js standalone server not found at: ${serverJsPath}. Did you run 'npm run build'?`;
-    console.error(errorMsg);
+    ApplicationLogger.error(errorMsg);
     dialog.showErrorBox('Server Not Found', errorMsg);
     app.quit();
     return null;
@@ -92,6 +93,7 @@ function spawnStandaloneServer(connectionString, provider) {
     NODE_ENV: 'production',
     DATABASE_URL: connectionString,
     DB_PROVIDER: provider,
+    USER_DATA_PATH: app.getPath('userData'),
     JWT_SECRET: process.env.JWT_SECRET || 'bm-super-secret-production-key-fallback',
     ELECTRON_RUN_AS_NODE: '1' // Force Electron binary to act as standard Node.js interpreter
   };
@@ -108,7 +110,7 @@ function spawnStandaloneServer(connectionString, provider) {
   });
 
   serverProcess.stderr.on('data', (data) => {
-    console.error(`[Next.js Server Error]: ${data.toString().trim()}`);
+    ApplicationLogger.error(data.toString().trim(), null, '[Next Server]');
   });
 
   serverProcess.on('close', (code) => {
@@ -182,7 +184,7 @@ function createWindow(isRecovery = false) {
         }
       } catch (err) {
         event.preventDefault();
-        console.error(`Blocked malformed URL navigation: ${url}`, err);
+        ApplicationLogger.error(`Blocked malformed URL navigation: ${url}`, err);
       }
     });
   }
@@ -207,7 +209,7 @@ async function startApplicationFlowFromRecovery(resolvedDb, dbConfig) {
   console.log('[DB Boot] Dynamically checking migrations from recovery flow...');
   const migrationRes = runMigrationsOnly(provider, resolvedDb.database, dbConfig.db);
   if (!migrationRes.success) {
-    console.error(`[DB Boot] Auto-migration failed: ${migrationRes.error}`);
+    ApplicationLogger.error(`[DB Boot] Auto-migration failed: ${migrationRes.error}`);
     dialog.showErrorBox(
       'Database Migration Failed',
       `An error occurred while automatically applying database updates:\n\n${migrationRes.error}\n\nPlease contact support if this issue persists.`
@@ -253,7 +255,7 @@ async function startApplicationFlowFromRecovery(resolvedDb, dbConfig) {
         }
       } catch (err) {
         event.preventDefault();
-        console.error(`Blocked malformed URL navigation: ${url}`, err);
+        ApplicationLogger.error(`Blocked malformed URL navigation: ${url}`, err);
       }
     });
   }
@@ -304,7 +306,7 @@ function saveDatabaseConfig(newDbConfig) {
     fs.writeFileSync(configPath, JSON.stringify(configData, null, 2), 'utf8');
     console.log(`[DB Config] Saved updated database config to: ${configPath}`);
   } catch (err) {
-    console.error(`[DB Config] Failed to save config to writable path: ${configPath}`, err);
+    ApplicationLogger.error(`[DB Config] Failed to save config to writable path: ${configPath}`, err);
   }
 
   // If in development mode, also write back to the workspace resources folder so it is updated in source control
@@ -525,9 +527,9 @@ app.whenReady().then(async () => {
 
   if (!resolvedDb || resolvedDb.success === false) {
     if (resolvedDb && resolvedDb.mode === 'BOOTSTRAP_REQUIRED') {
-      console.error(`[DB Boot] Reachable SQL Server found at [${initialDbInfo.server}], but database [${initialDbInfo.database}] is missing. Spawning Setup UI...`);
+      ApplicationLogger.error(`[DB Boot] Reachable SQL Server found at [${initialDbInfo.server}], but database [${initialDbInfo.database}] is missing. Spawning Setup UI...`);
     } else {
-      console.error('[DB Boot] FAILED to resolve any working SQL Server connection. Launching Recovery Configuration UI...');
+      ApplicationLogger.error('[DB Boot] FAILED to resolve any working SQL Server connection. Launching Recovery Configuration UI...');
     }
     createWindow(true); // Open window in Recovery Mode
     return;
@@ -539,7 +541,7 @@ app.whenReady().then(async () => {
   console.log('[DB Boot] Checking for pending database migrations...');
   const migrationRes = runMigrationsOnly(initialDbInfo.provider, resolvedDb.database, initialDbInfo);
   if (!migrationRes.success) {
-    console.error(`[DB Boot] Auto-migration failed: ${migrationRes.error}`);
+    ApplicationLogger.error(`[DB Boot] Auto-migration failed: ${migrationRes.error}`);
     dialog.showErrorBox(
       'Database Migration Failed',
       `An error occurred while automatically applying database updates:\n\n${migrationRes.error}\n\nPlease contact support if this issue persists.`

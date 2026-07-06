@@ -2,6 +2,7 @@ import { AdvanceRepository } from "../repositories/AdvanceRepository";
 import { advanceSchema } from "../validations/intakeSchema";
 import { DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { withOwnership } from "@/lib/session";
+import { ApplicationLogger } from "@/lib/logger";
 
 export class AdvanceService {
   static async listAdvances() {
@@ -78,7 +79,7 @@ export class AdvanceService {
         }
       });
     } catch (e) {
-      console.error("Failed to log advance payment event:", e);
+      ApplicationLogger.error("Failed to log advance payment event", e);
     }
 
     return advance;

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { LedgerService } from "../services/LedgerService";
 import { invalidateCacheBucket } from "@/modules/aggregations/cache";
+import { ApplicationLogger } from "@/lib/logger";
 
 /**
  * Action to fetch live reconciliation details.
@@ -12,7 +13,7 @@ export async function getLiveReconciliationAction(filters = {}) {
     const data = await LedgerService.getLiveReconciliationData(filters);
     return { success: true, data };
   } catch (error) {
-    console.error("Failed to fetch live reconciliation data:", error);
+    ApplicationLogger.error("Failed to fetch live reconciliation data", error);
     return { success: false, error: error.message };
   }
 }
@@ -25,7 +26,7 @@ export async function getLiveReconciliationSummaryAction(filters = {}) {
     const data = await LedgerService.getLiveReconciliationSummary(filters);
     return { success: true, data };
   } catch (error) {
-    console.error("Failed to fetch live reconciliation summary:", error);
+    ApplicationLogger.error("Failed to fetch live reconciliation summary", error);
     return { success: false, error: error.message };
   }
 }
@@ -40,7 +41,7 @@ export async function createLedgerSessionAction(data) {
     invalidateCacheBucket("ledger");
     return { success: true, data: session };
   } catch (error) {
-    console.error("Failed to create ledger session snapshot:", error);
+    ApplicationLogger.error("Failed to create ledger session snapshot", error);
     return { success: false, error: error.message };
   }
 }
@@ -54,7 +55,7 @@ export async function listLedgerSessionsAction({ page, limit, searchQuery } = {}
     const sessions = await LedgerService.listSessions();
     return { success: true, data: sessions };
   } catch (error) {
-    console.error("Failed to list saved ledger sessions:", error);
+    ApplicationLogger.error("Failed to list saved ledger sessions", error);
     return { success: false, error: error.message };
   }
 }
@@ -67,7 +68,7 @@ export async function getLedgerSessionDetailsAction(id) {
     const details = await LedgerService.getSessionDetails(id);
     return { success: true, data: details };
   } catch (error) {
-    console.error(`Failed to fetch ledger session ${id} details:`, error);
+    ApplicationLogger.error(`Failed to fetch ledger session ${id} details`, error);
     return { success: false, error: error.message };
   }
 }
@@ -82,7 +83,7 @@ export async function toggleLockSessionAction(id) {
     invalidateCacheBucket("ledger");
     return { success: true, data: updated };
   } catch (error) {
-    console.error(`Failed to toggle lock for session ${id}:`, error);
+    ApplicationLogger.error(`Failed to toggle lock for session ${id}`, error);
     return { success: false, error: error.message };
   }
 }
@@ -97,7 +98,7 @@ export async function deleteLedgerSessionAction(id, deleteReason) {
     invalidateCacheBucket("ledger");
     return { success: true, data: result };
   } catch (error) {
-    console.error(`Failed to delete session ${id}:`, error);
+    ApplicationLogger.error(`Failed to delete session ${id}`, error);
     return { success: false, error: error.message };
   }
 }
@@ -112,7 +113,7 @@ export async function hardDeleteLedgerSessionAction(id, force = false, deleteRea
     invalidateCacheBucket("ledger");
     return { success: true, data: result };
   } catch (error) {
-    console.error(`Failed to permanently delete session ${id}:`, error);
+    ApplicationLogger.error(`Failed to permanently delete session ${id}`, error);
     return { success: false, error: error.message };
   }
 }
@@ -160,7 +161,7 @@ export async function getLiveLedgerPageAction({ startDate, endDate, supplierId, 
       }
     };
   } catch (error) {
-    console.error("Failed to fetch live ledger page details:", error);
+    ApplicationLogger.error("Failed to fetch live ledger page details", error);
     return { success: false, error: error.message };
   }
 }
@@ -179,7 +180,7 @@ export async function getLiveLedgerPrintDataAction({ startDate, endDate, supplie
     });
     return { success: true, data };
   } catch (error) {
-    console.error("Failed to fetch live ledger print data:", error);
+    ApplicationLogger.error("Failed to fetch live ledger print data", error);
     return { success: false, error: error.message };
   }
 }

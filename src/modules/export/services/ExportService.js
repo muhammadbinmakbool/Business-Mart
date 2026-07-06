@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { filterSales } from "@/modules/sales/utils/salesFilters";
 import { filterInvoices } from "@/modules/supplier-invoices/utils/invoiceFilters";
 import { filterSessions } from "@/modules/ledger/utils/ledgerFilters";
+import { ApplicationLogger } from "@/lib/logger";
 
 export class ExportService {
   /**
@@ -28,7 +29,7 @@ export class ExportService {
             whereClause = {};
           }
         } catch (error) {
-          console.error("ExportService: Failed to load activity audit settings, falling back to isDeleted = false:", error);
+          ApplicationLogger.error("ExportService: Failed to load activity audit settings, falling back to isDeleted = false", error);
         }
 
         while (hasMore) {

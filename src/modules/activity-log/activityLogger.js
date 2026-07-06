@@ -1,6 +1,7 @@
 import { ActivityLogService } from "./services/ActivityLogService";
 import { getSession } from "@/lib/session";
 import { SYSTEM_BUSINESS_ID, USER_ROLES } from "@/lib/constants";
+import { ApplicationLogger } from "@/lib/logger";
 
 /**
  * Enhanced Domain Event Dispatcher that automatically attributes acting user
@@ -60,9 +61,9 @@ async function processQueue() {
           await ActivityLogService.createLog(nextLog);
           success = true;
         } catch (error) {
-          console.error(
-            `ActivityLogger: Save attempt ${attempts}/${MAX_RETRIES} failed for entity ${nextLog.entityType} (ID: ${nextLog.entityId}):`,
-            error.message
+          ApplicationLogger.error(
+            `ActivityLogger: Save attempt ${attempts}/${MAX_RETRIES} failed for entity ${nextLog.entityType} (ID: ${nextLog.entityId})`,
+            error
           );
           
           if (attempts < MAX_RETRIES) {
@@ -73,7 +74,7 @@ async function processQueue() {
 
       // Safe Dead-Letter buffer transition on permanent failure
       if (!success) {
-        console.error("ActivityLogger: Log permanently failed to save. Offloading to dead-letter buffer:", nextLog);
+        ApplicationLogger.error("ActivityLogger: Log permanently failed to save. Offloading to dead-letter buffer", new Error(JSON.stringify(nextLog)));
         
         if (failedLogsBuffer.length >= MAX_FAILED_BUFFER_SIZE) {
           // Drop oldest failed log to avoid memory growth leak
@@ -185,7 +186,7 @@ export async function emitActivity({
 
   // 3. Trigger background queue worker asynchronously without awaiting
   processQueue().catch(err => {
-    console.error("ActivityLogger Background Queue Processor encountered critical failure:", err);
+    ApplicationLogger.error("ActivityLogger Background Queue Processor encountered critical failure", err);
   });
 }
 
@@ -198,7 +199,7 @@ async function gracefulShutdown() {
       await processQueue();
       console.log("ActivityLogger: Graceful flush completed. All logs written to database.");
     } catch (err) {
-      console.error("ActivityLogger: Graceful shutdown flush failed:", err);
+      ApplicationLogger.error("ActivityLogger: Graceful shutdown flush failed", err);
     }
   }
 }
