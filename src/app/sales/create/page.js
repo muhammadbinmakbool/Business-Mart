@@ -29,17 +29,10 @@ export default async function CreateSalePage({ searchParams: searchParamsPromise
   const { AdjustmentService } = await import("@/modules/adjustments/services/AdjustmentService");
   const dbAdjustments = await AdjustmentService.listActiveAdjustments();
   
-  // Filter buyer adjustments and check feature flags
-  let activeBuyerAdjustments = dbAdjustments.filter(
+  // Filter buyer adjustments
+  const activeBuyerAdjustments = dbAdjustments.filter(
     adj => adj.applicableTo === "BUYER" || adj.applicableTo === "BOTH"
   );
-  
-  if (!flags.features?.gst) {
-    activeBuyerAdjustments = activeBuyerAdjustments.filter(adj => adj.code !== "GST");
-  }
-  if (!flags.features?.discount) {
-    activeBuyerAdjustments = activeBuyerAdjustments.filter(adj => adj.code !== "DISCOUNT");
-  }
 
   // Parse workbench prefill params
   const salesTrackIdsParam = searchParams.salesTrackIds || "";

@@ -22,10 +22,6 @@ export default function FeatureFlagCard() {
       sourceTracking: true,
       batchTracking: true,
       supplierMapping: true
-    },
-    features: {
-      gst: true,
-      discount: true
     }
   });
 
@@ -92,16 +88,6 @@ export default function FeatureFlagCard() {
       modules: {
         ...prev.modules,
         [moduleKey]: !prev.modules[moduleKey]
-      }
-    }));
-  };
-
-  const handleFeatureToggle = (featureKey) => {
-    setFlags((prev) => ({
-      ...prev,
-      features: {
-        ...prev.features,
-        [featureKey]: !prev.features[featureKey]
       }
     }));
   };

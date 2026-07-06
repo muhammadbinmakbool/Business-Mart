@@ -24,17 +24,10 @@ export default async function CreateSupplierInvoicePage({ searchParams: searchPa
   const { AdjustmentService } = await import("@/modules/adjustments/services/AdjustmentService");
   const dbAdjustments = await AdjustmentService.listActiveAdjustments();
   
-  // Filter supplier adjustments and check feature flags
-  let activeSupplierAdjustments = dbAdjustments.filter(
+  // Filter supplier adjustments
+  const activeSupplierAdjustments = dbAdjustments.filter(
     adj => adj.applicableTo === "SUPPLIER" || adj.applicableTo === "BOTH"
   );
-  
-  if (!flags.features?.gst) {
-    activeSupplierAdjustments = activeSupplierAdjustments.filter(adj => adj.code !== "GST");
-  }
-  if (!flags.features?.discount) {
-    activeSupplierAdjustments = activeSupplierAdjustments.filter(adj => adj.code !== "DISCOUNT");
-  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pb-12">

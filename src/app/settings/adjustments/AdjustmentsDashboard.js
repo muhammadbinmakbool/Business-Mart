@@ -7,12 +7,10 @@ import { useSearchParams } from "next/navigation";
 import AdjustmentsListClient from "@/app/adjustments/AdjustmentsListClient";
 import AdjustmentVisibilityCard from "../AdjustmentVisibilityCard";
 import { listAdjustmentsAction } from "@/modules/adjustments/controllers/adjustmentActions";
-import { getFeatureFlagsAction } from "@/modules/settings/controllers/settingsActions";
 
 function DashboardContent({ userRole }) {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState("templates");
-  const [featureFlags, setFeatureFlags] = useState(null);
   const [adjustmentsData, setAdjustmentsData] = useState({ items: [], totalCount: 0 });
   const [loadingAdjustments, setLoadingAdjustments] = useState(false);
 
@@ -23,16 +21,6 @@ function DashboardContent({ userRole }) {
   const limit = parseInt(searchParams.get("limit")) || 50;
   const search = searchParams.get("search") || "";
   const applicableTo = searchParams.get("applicableTo") || "ALL";
-
-  useEffect(() => {
-    async function loadFlags() {
-      const res = await getFeatureFlagsAction();
-      if (res.success) {
-        setFeatureFlags(res.flags);
-      }
-    }
-    loadFlags();
-  }, []);
 
   useEffect(() => {
     if (activeTab === "templates") {
@@ -56,23 +44,13 @@ function DashboardContent({ userRole }) {
   }, [activeTab, page, limit, search, applicableTo, refreshTrigger]);
 
   const allowedAdjustments = useMemo(() => {
-    if (!featureFlags) return null;
     const { ADJUSTMENT_TYPES_BUYER, ADJUSTMENT_TYPES_SUPPLIER } = require("@/lib/constants");
     
-    const buyer = [
-      ...ADJUSTMENT_TYPES_BUYER.filter(type => type !== "GST" && type !== "Discount"),
-      ...(featureFlags.features?.gst ? ["GST"] : []),
-      ...(featureFlags.features?.discount ? ["Discount"] : [])
-    ];
-    
-    const supplier = [
-      ...ADJUSTMENT_TYPES_SUPPLIER.filter(type => type !== "GST" && type !== "Discount"),
-      ...(featureFlags.features?.gst ? ["GST"] : []),
-      ...(featureFlags.features?.discount ? ["Discount"] : [])
-    ];
-    
-    return { buyer, supplier };
-  }, [featureFlags]);
+    return {
+      buyer: [...ADJUSTMENT_TYPES_BUYER, "GST", "Discount"],
+      supplier: [...ADJUSTMENT_TYPES_SUPPLIER, "GST", "Discount"]
+    };
+  }, []);
 
   const tabs = [
     { id: "templates", label: "Configure Templates", icon: Sliders },

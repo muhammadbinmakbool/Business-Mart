@@ -12,10 +12,6 @@ export const DEFAULT_FEATURE_FLAGS = {
     sourceTracking: true,
     batchTracking: true,
     supplierMapping: true
-  },
-  features: {
-    gst: true,
-    discount: true
   }
 };
 
@@ -54,10 +50,6 @@ export async function getFeatureFlags() {
         ...DEFAULT_FEATURE_FLAGS.modules,
         ...(parsed.modules || {}),
         sourceTracking
-      },
-      features: {
-        ...DEFAULT_FEATURE_FLAGS.features,
-        ...(parsed.features || {})
       }
     };
   } catch (e) {
