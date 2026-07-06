@@ -621,3 +621,13 @@ app.on('will-quit', (event) => {
 process.on('exit', () => {
   killServerProcess();
 });
+
+// Global Exception and Rejection Handlers
+process.on('uncaughtException', (error) => {
+  ApplicationLogger.error(error, null, '[Electron Main Uncaught]');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  ApplicationLogger.error(error, { promise }, '[Electron Main Unhandled Rejection]');
+});

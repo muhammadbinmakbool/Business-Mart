@@ -58,6 +58,17 @@ if (!logDir) {
   }
 }
 
+function getFullErrorStack(error) {
+  if (!(error instanceof Error)) return String(error);
+  let result = error.stack || error.message;
+  if (error.cause instanceof Error) {
+    result += `\n\nCaused by: ${getFullErrorStack(error.cause)}`;
+  } else if (error.cause !== undefined && error.cause !== null) {
+    result += `\n\nCaused by: ${typeof error.cause === "object" ? JSON.stringify(error.cause, null, 2) : String(error.cause)}`;
+  }
+  return result;
+}
+
 function formatLogEntry(level, processType, messageOrError, context) {
   const now = new Date();
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -68,7 +79,7 @@ function formatLogEntry(level, processType, messageOrError, context) {
 
   if (messageOrError instanceof Error) {
     message = messageOrError.message;
-    stack = messageOrError.stack || "";
+    stack = getFullErrorStack(messageOrError);
   } else {
     message = String(messageOrError);
   }

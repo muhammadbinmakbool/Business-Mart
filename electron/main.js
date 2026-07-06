@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { performShutdownBackup } = require('./shutdownBackup');
+const { ApplicationLogger } = require('./logger');
 
 let mainWindow;
 
@@ -80,4 +81,14 @@ app.on('window-all-closed', () => {
 
 app.on('will-quit', () => {
   performShutdownBackup();
+});
+
+// Global Exception and Rejection Handlers
+process.on('uncaughtException', (error) => {
+  ApplicationLogger.error(error, null, '[Electron Main Dev Uncaught]');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
+  ApplicationLogger.error(error, { promise }, '[Electron Main Dev Unhandled Rejection]');
 });

@@ -34,6 +34,17 @@ if (process.env.USER_DATA_PATH) {
   logDir = path.join(userDataPath, "logs");
 }
 
+function getFullErrorStack(error) {
+  if (!(error instanceof Error)) return String(error);
+  let result = error.stack || error.message;
+  if (error.cause instanceof Error) {
+    result += `\n\nCaused by: ${getFullErrorStack(error.cause)}`;
+  } else if (error.cause !== undefined && error.cause !== null) {
+    result += `\n\nCaused by: ${typeof error.cause === "object" ? JSON.stringify(error.cause, null, 2) : String(error.cause)}`;
+  }
+  return result;
+}
+
 function formatLogEntry(level, processType, messageOrError, context) {
   const now = new Date();
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -44,7 +55,7 @@ function formatLogEntry(level, processType, messageOrError, context) {
 
   if (messageOrError instanceof Error) {
     message = messageOrError.message;
-    stack = messageOrError.stack || "";
+    stack = getFullErrorStack(messageOrError);
   } else {
     message = String(messageOrError);
   }
@@ -128,3 +139,19 @@ export const ApplicationLogger = {
     writeLog("DEBUG", processType, msg, context);
   }
 };
+
+// Register global uncaught exceptions and unhandled rejections on the Next.js server process
+if (typeof process !== "undefined" && typeof process.on === "function") {
+  if (!process._hasApplicationLoggerListeners) {
+    process._hasApplicationLoggerListeners = true;
+    
+    process.on("uncaughtException", (error) => {
+      ApplicationLogger.error(error, null, "[Next Uncaught]");
+    });
+
+    process.on("unhandledRejection", (reason, promise) => {
+      const error = reason instanceof Error ? reason : new Error(String(reason));
+      ApplicationLogger.error(error, { promise }, "[Next Unhandled Rejection]");
+    });
+  }
+}
