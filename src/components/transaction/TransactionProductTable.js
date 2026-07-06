@@ -126,12 +126,12 @@ export default function TransactionProductTable({
                   onClick={() => setFocusedRowIndex(index)}
                 >
                   {/* Row index indicator */}
-                  <td className="px-3 py-1 text-center text-[11px] font-mono text-muted-foreground">
+                  <td className="px-3 py-1 text-center text-[11px] font-mono text-muted-foreground align-top">
                     {index + 1}
                   </td>
 
                   {/* Product Column */}
-                  <td className="px-2 py-0.5">
+                  <td className="px-2 py-0.5 align-top">
                     <SearchableSelect
                       id={`cell-${index}-productId`}
                       value={item.productId}
@@ -143,7 +143,7 @@ export default function TransactionProductTable({
                     />
                   </td>
 
-                  <td className="px-2 py-0.5">
+                  <td className="px-2 py-0.5 align-top">
                     <div className="flex items-center gap-1 w-full">
                       <input
                         id={`cell-${index}-weight`}
@@ -200,7 +200,7 @@ export default function TransactionProductTable({
                   </td>
 
                   {/* Unit Column */}
-                  <td className="px-2 py-0.5">
+                  <td className="px-2 py-0.5 align-top">
                     <select
                       id={`cell-${index}-unit`}
                       value={selectedProduct ? item.unit : ""}
@@ -223,7 +223,7 @@ export default function TransactionProductTable({
                   </td>
 
                   {/* Rate Column */}
-                  <td className="px-2 py-0.5">
+                  <td className="px-2 py-0.5 align-top">
                     <div className="flex items-center gap-1.5">
                       <input
                         id={`cell-${index}-rate`}
@@ -261,12 +261,12 @@ export default function TransactionProductTable({
                   </td>
 
                   {/* Amount Column (Computed, read-only) */}
-                  <td className="px-3 py-1 text-right text-[11px] font-mono font-bold text-foreground">
+                  <td className="px-3 py-1 text-right text-[11px] font-mono font-bold text-foreground align-top">
                     PKR {item.amount ? Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
                   </td>
 
                   {/* Actions Column */}
-                  <td className="px-2 py-0.5 text-center">
+                  <td className="px-2 py-0.5 text-center align-top">
                     <button
                       type="button"
                       tabIndex={-1}

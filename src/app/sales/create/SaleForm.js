@@ -708,7 +708,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
 
                 return (
                   <tr key={index} className="group">
-                    <td className="px-2 py-2">
+                    <td className="px-2 py-2 align-top">
                       <SearchableSelect
                         ref={!initialData ? registerField(`item-${index}-productId`) : undefined}
                         id={`item-${index}-productId`}
@@ -741,7 +741,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                         </div>
                       )}
                     </td>
-                    <td className="px-2 py-2 min-w-[200px]">
+                    <td className="px-2 py-2 min-w-[200px] align-top">
                       <div className="flex items-center gap-1">
                         <input
                           ref={!initialData ? registerField(`item-${index}-weight`) : undefined}
@@ -828,7 +828,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                         return null;
                       })()}
                     </td>
-                    <td className="px-2 py-2">
+                    <td className="px-2 py-2 align-top">
                       <div className="flex items-center gap-1">
                         <input
                           ref={!initialData ? registerField(`item-${index}-rate`) : undefined}
@@ -871,7 +871,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                         return null;
                       })()}
                     </td>
-                    <td className="px-4 py-2 text-right font-bold tabular-nums">
+                    <td className="px-4 py-2 text-right font-bold tabular-nums align-top">
                       {(() => {
                         const product = products.find(p => p.id === parseInt(item.productId));
                         if (!product) return "0";
@@ -884,7 +884,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                         }
                       })()}
                     </td>
-                    <td className="px-2 py-2 text-center">
+                    <td className="px-2 py-2 text-center align-top">
                       <button
                         type="button"
                         onClick={() => removeItem(index)}
