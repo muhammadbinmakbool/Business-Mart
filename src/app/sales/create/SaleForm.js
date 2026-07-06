@@ -743,6 +743,23 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                     </td>
                     <td className="px-2 py-2 min-w-[200px] align-top">
                       <div className="flex items-center gap-1">
+                        <label className="inline-flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase cursor-pointer select-none shrink-0 px-1.5 py-1 hover:bg-muted/50 rounded transition-colors">
+                          <input
+                            type="checkbox"
+                            checked={item.useHelper || false}
+                            onChange={(e) => {
+                              const newItems = [...items];
+                              newItems[index].useHelper = e.target.checked;
+                              if (!e.target.checked) {
+                                newItems[index].helperQuantity = "";
+                                newItems[index].helperSizePerUnit = "";
+                              }
+                              setItems(newItems);
+                            }}
+                            className="rounded border-muted text-primary focus:ring-primary h-3 w-3"
+                          />
+                          Helper
+                        </label>
                         <input
                           ref={!initialData ? registerField(`item-${index}-weight`) : undefined}
                           data-field={`item-${index}-weight`}
@@ -770,26 +787,9 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                           )}
                         </select>
                       </div>
-                      <div className="mt-1 px-1">
-                        <label className="inline-flex items-center gap-1 text-[10px] font-bold text-muted-foreground uppercase cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={item.useHelper || false}
-                            onChange={(e) => {
-                              const newItems = [...items];
-                              newItems[index].useHelper = e.target.checked;
-                              if (!e.target.checked) {
-                                newItems[index].helperQuantity = "";
-                                newItems[index].helperSizePerUnit = "";
-                              }
-                              setItems(newItems);
-                            }}
-                            className="rounded border-muted text-primary focus:ring-primary h-3 w-3"
-                          />
-                          Helper
-                        </label>
-                        {item.useHelper && (
-                          <div className="grid grid-cols-3 gap-1 mt-1 bg-muted/20 p-1.5 rounded border border-border">
+                      {item.useHelper && (
+                        <div className="mt-1 px-1">
+                          <div className="grid grid-cols-3 gap-1 bg-muted/20 p-1.5 rounded border border-border">
                             <input
                               type="text"
                               placeholder="Type"
@@ -812,8 +812,8 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                               className="w-full bg-background border rounded px-1 py-0.5 text-[10px] font-mono outline-none"
                             />
                           </div>
-                        )}
-                      </div>
+                        </div>
+                      )}
                       {(() => {
                         const rowSuggestion = assistantSuggestions.rowSuggestions?.[index];
                         if (rowSuggestion?.unit && !item.unit) {
