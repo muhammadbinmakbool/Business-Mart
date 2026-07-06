@@ -15,7 +15,8 @@
     "public/**/*",
     "prisma/**/*",
     "resources/**/*",
-    "Assets/**/*"
+    "Assets/**/*",
+    "!**/*.tmp*"
   ],
   "win": {
     "target": "nsis",

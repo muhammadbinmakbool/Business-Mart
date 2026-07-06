@@ -27,3 +27,6 @@ console.log('[Copy Standalone] Starting post-build asset copy...');
 copyDir(srcPublic, destPublic);
 copyDir(srcStatic, destStatic);
 console.log('[Copy Standalone] Asset copying complete.');
+
+// Run cleanup of temporary Prisma engine files to ensure standalone folder is clean
+require('./cleanup-prisma-temp-files');
