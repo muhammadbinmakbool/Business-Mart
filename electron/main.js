@@ -1,5 +1,6 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { performShutdownBackup } = require('./shutdownBackup');
 
 let mainWindow;
@@ -48,6 +49,20 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  ipcMain.handle('select-directory', async (event, defaultPath) => {
+    const options = {
+      properties: ['openDirectory', 'createDirectory']
+    };
+    if (defaultPath && fs.existsSync(defaultPath)) {
+      options.defaultPath = defaultPath;
+    }
+    const result = await dialog.showOpenDialog(mainWindow, options);
+    if (result.canceled) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+
   createWindow();
 
   app.on('activate', () => {

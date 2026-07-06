@@ -300,6 +300,20 @@ let resolvedDbState = null;
 
 app.whenReady().then(async () => {
   // 1. Set up safe IPC handlers for the Recovery Screen UI
+  ipcMain.handle('select-directory', async (event, defaultPath) => {
+    const options = {
+      properties: ['openDirectory', 'createDirectory']
+    };
+    if (defaultPath && fs.existsSync(defaultPath)) {
+      options.defaultPath = defaultPath;
+    }
+    const result = await dialog.showOpenDialog(mainWindow, options);
+    if (result.canceled) {
+      return null;
+    }
+    return result.filePaths[0];
+  });
+
   ipcMain.handle('get-sql-instances', async () => {
     return getLocalSQLInstances();
   });

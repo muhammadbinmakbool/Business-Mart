@@ -8,5 +8,6 @@ contextBridge.exposeInMainWorld('ELECTRON_ENV', {
   getInstallerProvider: () => ipcRenderer.invoke('get-installer-provider'),
   getConfig: () => ipcRenderer.invoke('get-current-config'),
   testAndSaveConfig: (config) => ipcRenderer.invoke('test-and-save-config', config),
-  createAndBootstrapDb: (connectionString) => ipcRenderer.invoke('create-and-bootstrap-db', connectionString)
+  createAndBootstrapDb: (connectionString) => ipcRenderer.invoke('create-and-bootstrap-db', connectionString),
+  selectDirectory: (defaultPath) => ipcRenderer.invoke('select-directory', defaultPath)
 });
