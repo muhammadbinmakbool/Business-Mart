@@ -147,6 +147,11 @@ model IntakeTransaction {
   remainingWeight  Decimal?              @db.Decimal(18, 2)
   notes            String?
   packagingMeta    Json?
+  arrivalMeta      Json?
+  isWeightRecorded Boolean               @default(true)
+  arrivalCompletedAt DateTime?
+  sellingCompletedAt DateTime?
+  weightCompletedAt  DateTime?
   status           String                @default("PENDING")
   isDeleted        Boolean               @default(false)
   deletedAt        DateTime?
