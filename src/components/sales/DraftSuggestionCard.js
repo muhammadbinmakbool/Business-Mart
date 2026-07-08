@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { ArrowRight, Lightbulb, Check } from "lucide-react";
+import { ArrowRight, Lightbulb, Check, Lock, AlertCircle } from "lucide-react";
+import { showToast } from "@/components/ui/Toast";
 
 /**
  * Reusable, presentational UI component for rendering suggested draft invoices.
@@ -22,6 +23,7 @@ export default function DraftSuggestionCard({
 
   const items = draftSuggestion.items;
   const isSelectable = typeof onToggleItemSelection === "function" && selectedItemIds instanceof Set;
+  const hasWeightPending = items.some(i => i.isWeightRecorded === false);
   
   // Compact POS Style Card
   if (isCompact) {
@@ -30,16 +32,31 @@ export default function DraftSuggestionCard({
         <div className="flex items-start gap-2.5">
           <Lightbulb className="h-4 w-4 text-primary shrink-0 mt-0.5" />
           <div>
-            <h4 className="text-xs font-bold text-foreground">Intelligent Draft Invoice Available</h4>
+            <h4 className="text-xs font-bold text-foreground">
+              Intelligent Draft Invoice Available
+              {hasWeightPending && (
+                <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 px-2 py-0.5 rounded text-[10px] font-bold border border-rose-200/50 uppercase ml-2">
+                  <AlertCircle className="h-3 w-3" />
+                  Weight Pending
+                </span>
+              )}
+            </h4>
             <p className="text-[10px] text-muted-foreground">We matched unbilled intakes or direct purchase history patterns for this buyer.</p>
           </div>
         </div>
         <button
           type="button"
-          onClick={() => onApply(draftSuggestion)}
-          className="shrink-0 bg-primary hover:bg-primary/90 text-primary-foreground text-[10.5px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer self-start md:self-center flex items-center gap-1"
+          disabled={hasWeightPending}
+          onClick={() => {
+            if (hasWeightPending) {
+              showToast.error("This draft contains items with pending weight calculations. Please finalize weight details first.");
+              return;
+            }
+            onApply(draftSuggestion);
+          }}
+          className="shrink-0 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-primary-foreground text-[10.5px] font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer self-start md:self-center flex items-center gap-1"
         >
-          {buttonText} ({items.length} Items)
+          {hasWeightPending ? "Weight Pending" : `${buttonText} (${items.length} Items)`}
           <ArrowRight className="h-3 w-3" />
         </button>
       </div>
@@ -55,16 +72,25 @@ export default function DraftSuggestionCard({
           <div className="flex items-start gap-2.5">
             <Lightbulb className="h-5 w-5 text-primary shrink-0 mt-0.5 animate-pulse" />
             <div>
-              <h4 className="text-sm font-bold text-foreground">Intelligent Draft Suggestion Available</h4>
+              <h4 className="text-sm font-bold text-foreground">
+                Intelligent Draft Suggestion Available
+                {hasWeightPending && (
+                  <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 px-2 py-0.5 rounded text-[10px] font-bold border border-rose-200/50 uppercase ml-2">
+                    <AlertCircle className="h-3 w-3" />
+                    Weight Pending
+                  </span>
+                )}
+              </h4>
               <p className="text-[11px] text-muted-foreground">We found unbilled intakes or recurring purchase patterns for this buyer.</p>
             </div>
           </div>
           <button
             type="button"
+            disabled={hasWeightPending}
             onClick={() => onApply(draftSuggestion)}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold px-3.5 py-1.5 rounded-lg transition-all cursor-pointer self-start sm:self-center shadow-sm flex items-center gap-1.5"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground text-xs font-bold px-3.5 py-1.5 rounded-lg transition-all cursor-pointer self-start sm:self-center shadow-sm flex items-center gap-1.5"
           >
-            {buttonText} ({items.length} Items)
+            {hasWeightPending ? "Weight Pending" : `${buttonText} (${items.length} Items)`}
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -74,30 +100,56 @@ export default function DraftSuggestionCard({
       <div className="divide-y divide-border/60">
         {items.map(item => {
           const isSelected = isSelectable ? selectedItemIds.has(item.id) : true;
+          const isWeightPending = item.isWeightRecorded === false;
           
           return (
             <div
               key={item.id}
-              onClick={() => isSelectable && onToggleItemSelection(draftSuggestion.buyerId, item.id)}
+              onClick={() => {
+                if (isWeightPending) {
+                  showToast.error("This item has a pending weight calculation. Please finalize the weight in the Intake module first.");
+                  return;
+                }
+                if (isSelectable) onToggleItemSelection(draftSuggestion.buyerId, item.id);
+              }}
               className={`flex items-start gap-3 px-4 py-3 transition-colors ${
-                isSelectable ? "hover:bg-muted/10 cursor-pointer" : "bg-background/40"
-              }`}
+                isSelectable && !isWeightPending ? "hover:bg-muted/10 cursor-pointer" : "bg-background/40"
+              } ${isWeightPending ? "opacity-75" : ""}`}
             >
               {isSelectable && (
-                <div className={`mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-all ${
-                  isSelected 
-                    ? "bg-primary border-primary text-primary-foreground" 
-                    : "border-gray-300 dark:border-gray-700 bg-background"
-                }`}>
-                  {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
-                </div>
+                isWeightPending ? (
+                  <div className="mt-0.5 h-4 w-4 flex items-center justify-center shrink-0 text-muted-foreground" title="Weight Pending">
+                    <Lock className="h-3.5 w-3.5 text-rose-500" />
+                  </div>
+                ) : (
+                  <div className={`mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-all ${
+                    isSelected 
+                      ? "bg-primary border-primary text-primary-foreground" 
+                      : "border-gray-300 dark:border-gray-700 bg-background"
+                  }`}>
+                    {isSelected && <Check className="h-3 w-3 stroke-[3]" />}
+                  </div>
+                )
               )}
               
               <div className="flex-1 space-y-0.5">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-bold text-foreground">{item.productName}</span>
+                  <span className="text-sm font-bold text-foreground flex items-center gap-1">
+                    {item.productName}
+                    {isWeightPending && (
+                      <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 px-2 py-0.5 rounded text-[10px] font-bold border border-rose-200/50 uppercase tracking-wider shrink-0">
+                        <AlertCircle className="h-3 w-3" />
+                        Weight Pending
+                      </span>
+                    )}
+                  </span>
                   <span className="text-sm font-bold text-foreground">
-                    {item.weight} {item.unit} @ Rs. {item.rate}
+                    {isWeightPending ? (
+                      <span className="text-rose-600 font-normal italic">Pending</span>
+                    ) : (
+                      `${item.weight} ${item.unit}`
+                    )}
+                    {" "}@ Rs. {item.rate}
                   </span>
                 </div>
                 

@@ -38,6 +38,7 @@ export class SalesDraftDataProvider {
             remainingWeight: true,
             unit: true,
             rateUnit: true,
+            isWeightRecorded: true,
             party: {
               select: {
                 id: true,

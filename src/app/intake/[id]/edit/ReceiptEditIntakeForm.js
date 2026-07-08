@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { updateIntakeAction } from "@/modules/intake/controllers/intakeActions";
+import { updateIntakeAction, sellIntakeAction, updateIntakeStatusAction } from "@/modules/intake/controllers/intakeActions";
 import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { calculateIntakeNetWeight, UNIT_IDS, getUnitLabel, DEFAULT_WEIGHT_UNIT, getUnitsByCategory } from "@/lib/units";
-import { Scale, User, DollarSign, Box, ChevronLeft } from "lucide-react";
+import { Scale, User, DollarSign, Box, ChevronLeft, Truck, CheckCircle2, AlertCircle, Lock, Save, Edit3 } from "lucide-react";
 import { getProductValidationState } from "@/modules/products/utils/productValidation";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
@@ -18,36 +18,87 @@ import { getProductForIntake } from "@/modules/products/services/ProductInteract
 export default function ReceiptEditIntakeForm({ intake, suppliers, products, buyers = [], allowedActions = {}, featureFlags }) {
   const router = useRouter();
 
-  // Controlled States
-  const [selectedProductId, setSelectedProductId] = useState(intake.productId.toString());
-  const [grossWeight, setGrossWeight] = useState(intake.grossWeight || "");
-  const [unit, setUnit] = useState(intake.unit || DEFAULT_WEIGHT_UNIT);
-  const [bagCount, setBagCount] = useState(intake.bagCount || "");
-  const [status, setStatus] = useState(intake.status || "PENDING");
-  const [notes, setNotes] = useState(intake.notes || "");
+  // ──────────────────────────────────────────────────────────────────────────
+  // STATES
+  // ──────────────────────────────────────────────────────────────────────────
+  const [unitRegistry, setUnitRegistry] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
+
+  // Modals for status revert
+  const [showUnbilledConfirmModal, setShowUnbilledConfirmModal] = useState(false);
+  const [showBilledBlockModal, setShowBilledBlockModal] = useState(false);
+  const [showSupplierBlockModal, setShowSupplierBlockModal] = useState(false);
+  const [statusToRevert, setStatusToRevert] = useState(null);
+
+  // Section 1: Arrival States
   const [selectedSupplierState, setSelectedSupplierState] = useState(intake.partyId.toString());
+  const [selectedProductId, setSelectedProductId] = useState(intake.productId.toString());
+  const [entryDate, setEntryDate] = useState(getLocalDateString(intake.entryDate));
+  const [notes, setNotes] = useState(intake.notes || "");
+  const [unit, setUnit] = useState(intake.unit || DEFAULT_WEIGHT_UNIT);
 
-  // Packaging helper UI states
-  const initialMeta = intake.packagingMeta ? (typeof intake.packagingMeta === "string" ? JSON.parse(intake.packagingMeta) : intake.packagingMeta) : null;
-  const [useHelper, setUseHelper] = useState(!!initialMeta);
-  const [helperQuantity, setHelperQuantity] = useState(initialMeta?.count || "");
-  const [helperSizePerUnit, setHelperSizePerUnit] = useState(initialMeta?.sizePerUnit || "");
-  const [helperUnitLabel, setHelperUnitLabel] = useState(initialMeta?.type || "Bag");
+  const initialArrivalMeta = intake.arrivalMeta ? (typeof intake.arrivalMeta === "string" ? JSON.parse(intake.arrivalMeta) : intake.arrivalMeta) : null;
+  const [containerType, setContainerType] = useState(initialArrivalMeta?.containerType || "Bag");
+  const [containerCount, setContainerCount] = useState(initialArrivalMeta?.containerCount || "");
+  const [transportType, setTransportType] = useState(initialArrivalMeta?.transportType || "Tractor Trolley");
+  const [transportIdentifier, setTransportIdentifier] = useState(initialArrivalMeta?.transportIdentifier || "");
+  const [deliveredBy, setDeliveredBy] = useState(initialArrivalMeta?.deliveredBy || "");
 
+  // Section 2: Selling States
+  const hasSalesTrack = intake.salesTracks && intake.salesTracks.length > 0;
+  const firstSalesTrack = hasSalesTrack ? intake.salesTracks[0] : null;
+
+  const [buyerPartyId, setBuyerPartyId] = useState(firstSalesTrack?.buyerPartyId?.toString() || "");
+  const [rate, setRate] = useState(intake.rate || "");
+  const [rateUnit, setRateUnit] = useState(intake.rateUnit || DEFAULT_WEIGHT_UNIT);
+
+  // Section 3: Weight States
+  const [grossWeight, setGrossWeight] = useState(intake.grossWeight || "");
+  const [bagCount, setBagCount] = useState(intake.bagCount || "");
+  const [bardanaGramPerBag, setBardanaGramPerBag] = useState(
+    intake.Bardana && intake.bagCount ? Math.round((Number(intake.Bardana) * 1000) / Number(intake.bagCount)).toString() : "150"
+  );
+  const [khotRate, setKhotRate] = useState("0");
+  const [khotRateUnit, setKhotRateUnit] = useState(DEFAULT_WEIGHT_UNIT);
+
+  // Section 4: Finance / Final Status
+  const [status, setStatus] = useState(intake.status || "PENDING");
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // DERIVED WORKFLOW STATES
+  // ──────────────────────────────────────────────────────────────────────────
+  // Section 1: Arrival (always complete since we are editing a created intake)
+  const isSection1Complete = true;
+
+  // Section 2: Selling
+  const isSection2Complete = hasSalesTrack && intake.rate !== null && Number(intake.rate) > 0;
+
+  // Section 3: Weight
+  const isSection3Complete = intake.isWeightRecorded === true;
+
+  // Section 4: Finance (requires both Selling and Weight to be complete)
+  const isSection4Locked = !isSection2Complete || !isSection3Complete;
+  const isSection4Complete = intake.status === "CLEARED";
+
+  // Reversion Checks helper info
+  const isBilled = firstSalesTrack ? (firstSalesTrack.isBilled || firstSalesTrack.saleTransactionId !== null) : false;
+  const supplierInvoiceItem = intake.invoiceItems?.[0];
+  const hasSupplierInvoice = !!supplierInvoiceItem;
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // OPTIONS & HELPERS
+  // ──────────────────────────────────────────────────────────────────────────
   const supplierOptions = React.useMemo(() => suppliers.map(s => ({
     value: s.id.toString(),
     label: s.name,
     subLabel: s.phoneNumber
   })), [suppliers]);
 
-  const productOptions = React.useMemo(() => products.map(p => {
-    const validation = getProductValidationState(p);
-    return {
-      value: p.id.toString(),
-      label: validation.isValid ? p.name : `${p.name} (⚠️ Misconfigured)`,
-      subLabel: validation.isValid ? undefined : "Invalid configuration"
-    };
-  }), [products]);
+  const productOptions = React.useMemo(() => products.map(p => ({
+    value: p.id.toString(),
+    label: p.name
+  })), [products]);
 
   const buyerOptions = React.useMemo(() => buyers.map(b => ({
     value: b.id.toString(),
@@ -55,59 +106,20 @@ export default function ReceiptEditIntakeForm({ intake, suppliers, products, buy
     subLabel: b.phoneNumber
   })), [buyers]);
 
-  // SOLD calculations states
-  const [buyerPartyId, setBuyerPartyId] = useState(intake.salesTracks?.[0]?.buyerPartyId?.toString() || "");
-  const [rate, setRate] = useState(intake.rate || "");
-  const [rateUnit, setRateUnit] = useState(intake.rateUnit || DEFAULT_WEIGHT_UNIT);
-
-  const [bardanaGramPerBag, setBardanaGramPerBag] = useState(
-    intake.Bardana && intake.bagCount ? Math.round((Number(intake.Bardana) * 1000) / Number(intake.bagCount)).toString() : "150"
-  );
-  const [khotRate, setKhotRate] = useState("0");
-  const [khotRateUnit, setKhotRateUnit] = useState(DEFAULT_WEIGHT_UNIT);
-
-  // Status Reversion states
-  const [showUnbilledConfirmModal, setShowUnbilledConfirmModal] = useState(false);
-  const [showBilledBlockModal, setShowBilledBlockModal] = useState(false);
-  const [showSupplierBlockModal, setShowSupplierBlockModal] = useState(false);
-  const [formDataToSubmit, setFormDataToSubmit] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
-  const [unitRegistry, setUnitRegistry] = useState(null);
-
-  const salesTrack = intake.salesTracks?.[0];
-  const hasSalesTrack = !!salesTrack;
-  const isBilled = salesTrack ? (salesTrack.isBilled || salesTrack.saleTransactionId !== null) : false;
-
-  const supplierInvoiceItem = intake.invoiceItems?.[0];
-  const hasSupplierInvoice = !!supplierInvoiceItem;
-
-  useEffect(() => {
-    async function loadRegistry() {
-      const res = await getUnitRegistryAction();
-      if (res.success) {
-        setUnitRegistry(res.data);
-      }
-    }
-    loadRegistry();
-  }, []);
-
   const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
-
-  React.useEffect(() => {
-    if (!intake.unit) {
-      setUnit(selectedProduct?.primaryUnit || null);
-    }
-    if (!intake.rateUnit || intake.status === "PENDING") {
-      setRateUnit(selectedProduct?.buyingRateUnit || null);
-    }
-  }, [intake, selectedProduct, unitRegistry]);
-
   const compatibleUnits = selectedProduct
     ? (unitRegistry
         ? Object.values(unitRegistry.units).filter(u => u.unitCategoryCode === (selectedProduct.unitCategory || selectedProduct.category)).map(u => ({ id: u.code, name: u.name }))
         : getUnitsByCategory(selectedProduct.category))
     : [];
+
+  useEffect(() => {
+    async function loadRegistry() {
+      const res = await getUnitRegistryAction();
+      if (res.success) setUnitRegistry(res.data);
+    }
+    loadRegistry();
+  }, []);
 
   const handleProductChange = async (productId) => {
     if (productId) {
@@ -121,34 +133,10 @@ export default function ReceiptEditIntakeForm({ intake, suppliers, products, buy
     } else {
       setSelectedProductId("");
       setUnit(null);
-      setGrossWeight("");
     }
   };
 
-  const handleGrossWeightChange = (val) => {
-    setGrossWeight(val);
-  };
-
-  const handleUnitChange = (newUnit) => {
-    setUnit(newUnit);
-  };
-
-  const handleHelperChange = (qty, size) => {
-    setHelperQuantity(qty);
-    setHelperSizePerUnit(size);
-    if (qty && size) {
-      const calculated = parseFloat(qty) * parseFloat(size);
-      setGrossWeight(calculated.toString());
-      // For refraction/tare weight calculations when status is SOLD, sync bagCount with helperQuantity if type is bag
-      if (helperUnitLabel.toLowerCase() === "bag") {
-        setBagCount(Math.round(parseFloat(qty)).toString());
-      }
-    } else {
-      setGrossWeight("");
-    }
-  };
-
-  // Real-time calculation logic
+  // Real-time weight calculation logic
   let grossWeightKg = 0, bardanaKg = 0, khotKg = 0, netWeightKg = 0, netWeight = 0;
   try {
     const calculated = calculateIntakeNetWeight({
@@ -166,84 +154,95 @@ export default function ReceiptEditIntakeForm({ intake, suppliers, products, buy
     khotKg = calculated.khotKg;
     netWeightKg = calculated.netWeightKg;
     netWeight = calculated.netWeight;
-  } catch (err) {
-    // Fail-safe fallback during initial render or until registry loads
-  }
+  } catch (err) {}
 
-  const executeSubmit = async (formData) => {
+  // ──────────────────────────────────────────────────────────────────────────
+  // SECTION SAVE HANDLERS
+  // ──────────────────────────────────────────────────────────────────────────
+  const handleSaveArrival = async (e) => {
+    e.preventDefault();
     setIsSubmitting(true);
+    const formData = new FormData();
     formData.set("partyId", selectedSupplierState);
     formData.set("productId", selectedProductId);
-    formData.set("unit", unit);
-    formData.set("grossWeight", grossWeight);
-    
-    const packagingMeta = useHelper && helperQuantity && helperSizePerUnit ? {
-      type: helperUnitLabel || "Bag",
-      count: parseFloat(helperQuantity),
-      sizePerUnit: parseFloat(helperSizePerUnit),
-      unitLabel: unit || "KG"
-    } : null;
-    formData.set("packagingMeta", packagingMeta ? JSON.stringify(packagingMeta) : "");
-    if (useHelper && helperUnitLabel.toLowerCase() === "bag") {
-      formData.set("bagCount", helperQuantity);
-    } else {
-      formData.set("bagCount", bagCount || "");
-    }
-    
-    formData.set("status", status);
+    formData.set("entryDate", entryDate);
     formData.set("notes", notes);
+    formData.set("unit", unit);
 
-    if (Number(grossWeight) <= 0) {
-      setErrorModal({
-        isOpen: true,
-        title: "Invalid Weight Parameter",
-        message: "Gross weight parameter must be a positive number greater than zero.",
-        type: "error"
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (status === "SOLD") {
-      const requireBuyer = allowedActions.rules?.requiresBuyer;
-      if (requireBuyer && !buyerPartyId) {
-        showToast.error("Please select a buyer Party");
-        setIsSubmitting(false);
-        return;
-      }
-      if (!rate || Number(rate) <= 0) {
-        showToast.error("Please specify a valid Rate");
-        setIsSubmitting(false);
-        return;
-      }
-      formData.set("buyerPartyId", buyerPartyId);
-      formData.set("rate", rate.toString());
-      formData.set("rateUnit", rateUnit);
-      formData.set("Bardana", bardanaKg.toString());
-      formData.set("Khot", khotKg.toString());
-      formData.set("netWeight", netWeight.toString());
-    }
+    const arrivalMeta = {
+      containerType,
+      containerCount: containerCount ? parseInt(containerCount) : null,
+      transportType,
+      transportIdentifier,
+      deliveredBy
+    };
+    formData.set("arrivalMeta", JSON.stringify(arrivalMeta));
 
     const result = await updateIntakeAction(intake.id, formData);
     setIsSubmitting(false);
     if (result?.error) {
-      const presentation = getErrorPresentation(result);
-      setErrorModal({
-        isOpen: true,
-        title: presentation.title,
-        message: presentation.message,
-        type: presentation.type
-      });
+      showToast.error(result.error);
     } else {
-      showToast.success("Intake updated successfully");
-      router.push(`/intake/${intake.id}`);
+      showToast.success("Arrival details saved successfully");
+      router.refresh();
     }
   };
 
-  const onSubmit = async (e) => {
+  const handleSaveSelling = async (e) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
+    if (!buyerPartyId) {
+      showToast.error("Buyer party is required to save sale details");
+      return;
+    }
+    if (!rate || Number(rate) <= 0) {
+      showToast.error("Please specify a valid Rate");
+      return;
+    }
+    setIsSubmitting(true);
+    const result = await sellIntakeAction(intake.id, {
+      buyerPartyId,
+      rate,
+      rateUnit,
+      isPartialSale: false
+    });
+    setIsSubmitting(false);
+    if (result?.error) {
+      showToast.error(result.error);
+    } else {
+      showToast.success("Selling details saved successfully");
+      router.refresh();
+    }
+  };
 
+  const handleSaveWeight = async (e) => {
+    e.preventDefault();
+    if (!grossWeight || Number(grossWeight) <= 0) {
+      showToast.error("Please specify a valid gross weight");
+      return;
+    }
+    setIsSubmitting(true);
+    const formData = new FormData();
+    formData.set("grossWeight", grossWeight);
+    formData.set("bagCount", bagCount || "");
+    formData.set("Bardana", bardanaKg.toString());
+    formData.set("Khot", khotKg.toString());
+    formData.set("netWeight", netWeight.toString());
+    formData.set("unit", unit);
+
+    const result = await updateIntakeAction(intake.id, formData);
+    setIsSubmitting(false);
+    if (result?.error) {
+      showToast.error(result.error);
+    } else {
+      showToast.success("Weight calculation saved successfully");
+      router.refresh();
+    }
+  };
+
+  const handleSaveFinance = async (e) => {
+    e.preventDefault();
+    
+    // Status Reversion Safeguards
     const isReverting = (intake.status === "SOLD" || intake.status === "CLEARED") && (status === "PENDING" || status === "CANCELLED");
     if (isReverting) {
       if (hasSupplierInvoice) {
@@ -255,44 +254,39 @@ export default function ReceiptEditIntakeForm({ intake, suppliers, products, buy
           setShowBilledBlockModal(true);
           return;
         } else {
-          setFormDataToSubmit(formData);
+          setStatusToRevert(status);
           setShowUnbilledConfirmModal(true);
           return;
         }
       }
     }
 
-    await executeSubmit(formData);
+    await executeFinanceStatusSave(status);
+  };
+
+  const executeFinanceStatusSave = async (finalStatus) => {
+    setIsSubmitting(true);
+    const result = await updateIntakeStatusAction(intake.id, finalStatus, notes);
+    setIsSubmitting(false);
+    if (result?.error) {
+      showToast.error(result.error);
+    } else {
+      showToast.success("Status finalized successfully");
+      router.push(`/intake/${intake.id}`);
+    }
   };
 
   const confirmRevertSubmit = async () => {
     setShowUnbilledConfirmModal(false);
-    if (formDataToSubmit) {
-      await executeSubmit(formDataToSubmit);
-      setFormDataToSubmit(null);
+    if (statusToRevert) {
+      await executeFinanceStatusSave(statusToRevert);
+      setStatusToRevert(null);
     }
   };
 
-  useEffect(() => {
-    const handleEscape = (e) => {
-      if (e.key === "Escape") {
-        if (
-          !showBilledBlockModal && 
-          !showSupplierBlockModal && 
-          !errorModal.isOpen && 
-          !showUnbilledConfirmModal
-        ) {
-          router.push(`/intake/${intake.id}`);
-        }
-      }
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [showBilledBlockModal, showSupplierBlockModal, errorModal.isOpen, showUnbilledConfirmModal, intake.id, router]);
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Page Header */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link
@@ -302,52 +296,62 @@ export default function ReceiptEditIntakeForm({ intake, suppliers, products, buy
             <ChevronLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Edit Intake {intake.intakeNumber}</h1>
-            <p className="text-sm text-muted-foreground">Adjust arrival details if recorded incorrectly.</p>
+            <h1 className="text-2xl font-bold tracking-tight">Workflow: {intake.intakeNumber}</h1>
+            <p className="text-sm text-muted-foreground">Manage progressive intake steps from arrival to clearing.</p>
           </div>
         </div>
 
-        {/* Date Input at the top-right */}
-        <div className="flex items-center gap-2 bg-card border rounded-lg px-3 py-1.5 shadow-sm">
-          <label htmlFor="entryDate" className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-            Entry Date
-          </label>
-          <input
-            id="entryDate"
-            name="entryDate"
-            type="date"
-            required
-            defaultValue={getLocalDateString(intake.entryDate)}
-            form="edit-intake-form"
-            className="bg-transparent border-0 text-sm focus:outline-none focus:ring-0 outline-none font-mono w-36 text-foreground"
-          />
+        {/* Global Progress Indicator */}
+        <div className="flex items-center gap-2 bg-muted/40 border rounded-lg px-4 py-2 text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground shadow-sm">
+          <span>Weighed:</span>
+          {isSection3Complete ? (
+            <span className="text-emerald-600">Yes</span>
+          ) : (
+            <span className="text-amber-500 animate-pulse">Pending</span>
+          )}
+          <span className="mx-2">|</span>
+          <span>Status:</span>
+          <span className="text-foreground">{intake.status}</span>
         </div>
       </div>
 
-      {/* Form Container */}
-      <div className="rounded-xl border bg-card p-6 shadow-sm">
-        <form 
-          id="edit-intake-form"
-          onSubmit={onSubmit} 
-          className="space-y-6"
-        >
-          <div className="grid gap-6 md:grid-cols-2">
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      {/* SECTION 1: ARRIVAL DETAILS */}
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      <div className="rounded-xl border bg-card p-6 shadow-sm space-y-6">
+        <div className="flex items-center justify-between border-b pb-3">
+          <div className="flex items-center gap-3">
+            <div className="bg-primary/10 p-2 rounded-lg text-primary">
+              <Truck className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-foreground">Section 1: Arrival & Transport Details</h2>
+              <p className="text-xs text-muted-foreground">Log supplier product and transport load details</p>
+            </div>
+          </div>
+          <div className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-200/50 flex items-center gap-1">
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span>Complete</span>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveArrival} className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <label htmlFor="partyId" className="text-sm font-medium">Supplier</label>
+              <label htmlFor="partyId" className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Supplier</label>
               <SearchableSelect
                 id="partyId"
                 name="partyId"
                 required
-                autoFocus
                 value={selectedSupplierState}
                 onChange={setSelectedSupplierState}
                 options={supplierOptions}
-                placeholder="Select a supplier..."
+                placeholder="Select supplier..."
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="productId" className="text-sm font-medium">Product</label>
+              <label htmlFor="productId" className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Product</label>
               <SearchableSelect
                 id="productId"
                 name="productId"
@@ -355,431 +359,491 @@ export default function ReceiptEditIntakeForm({ intake, suppliers, products, buy
                 value={selectedProductId}
                 onChange={handleProductChange}
                 options={productOptions}
-                placeholder="Select a product..."
+                placeholder="Select product..."
               />
             </div>
+          </div>
 
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 bg-muted/20 p-4 rounded-xl border">
             <div className="space-y-2">
-              <label htmlFor="unit" className="text-sm font-medium">Measurement Unit</label>
+              <label htmlFor="containerType" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Container Type</label>
               <select
-                id="unit"
-                required
-                disabled={!selectedProductId}
-                value={unit || ""}
-                onChange={e => handleUnitChange(e.target.value || null)}
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 font-medium"
+                id="containerType"
+                value={containerType}
+                onChange={(e) => setContainerType(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                {compatibleUnits.length === 0 ? (
-                  <option value="">--</option>
-                ) : (
-                  compatibleUnits.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
-                  ))
-                )}
+                <option value="Bag">Bag (Bora)</option>
+                <option value="Box">Box</option>
+                <option value="Crate">Crate</option>
+                <option value="None">Bulk/None</option>
               </select>
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="grossWeight" className="text-sm font-medium">
-                Gross Quantity
-              </label>
+              <label htmlFor="containerCount" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Container Count</label>
               <input
-                id="grossWeight"
+                id="containerCount"
                 type="number"
-                step="0.01"
-                required
-                value={grossWeight}
-                onChange={e => handleGrossWeightChange(e.target.value)}
+                placeholder="e.g. 150"
+                value={containerCount}
+                onChange={(e) => setContainerCount(e.target.value)}
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="status" className="text-sm font-medium">Status</label>
+              <label htmlFor="transportType" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Transport Type</label>
+              <select
+                id="transportType"
+                value={transportType}
+                onChange={(e) => setTransportType(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="Tractor Trolley">Tractor Trolley</option>
+                <option value="Truck">Truck</option>
+                <option value="Cart">Rehri/Cart</option>
+                <option value="Hand Carry">Hand Carry</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="transportIdentifier" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Vehicle Plate / ID</label>
+              <input
+                id="transportIdentifier"
+                type="text"
+                placeholder="e.g. LHR-4321"
+                value={transportIdentifier}
+                onChange={(e) => setTransportIdentifier(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="deliveredBy" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Driver / Bearer Name</label>
+              <input
+                id="deliveredBy"
+                type="text"
+                placeholder="e.g. Muhammad Jameel"
+                value={deliveredBy}
+                onChange={(e) => setDeliveredBy(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-3 items-end">
+            <div className="space-y-2 md:col-span-2">
+              <label htmlFor="notes" className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Notes / Remarks</label>
+              <input
+                id="notes"
+                type="text"
+                placeholder="Remarks..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="entryDate" className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Arrival Date</label>
+              <input
+                id="entryDate"
+                type="date"
+                value={entryDate}
+                onChange={(e) => setEntryDate(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold hover:bg-primary/95 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              <span>Save Arrival Details</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      {/* SECTION 2: SELLING DETAILS */}
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      <div className="rounded-xl border bg-card p-6 shadow-sm space-y-6">
+        <div className="flex items-center justify-between border-b pb-3">
+          <div className="flex items-center gap-3">
+            <div className="bg-emerald-100 p-2 rounded-lg text-emerald-700">
+              <DollarSign className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-foreground">Section 2: Selling Details</h2>
+              <p className="text-xs text-muted-foreground">Link buyer party, sale rates, and configure trace</p>
+            </div>
+          </div>
+          {isSection2Complete ? (
+            <div className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-200/50 flex items-center gap-1">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Complete</span>
+            </div>
+          ) : (
+            <div className="bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-amber-200/50 flex items-center gap-1 animate-pulse">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span>Pending Sale</span>
+            </div>
+          )}
+        </div>
+
+        <form onSubmit={handleSaveSelling} className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="buyerPartyId" className="text-xs font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-1">
+                <User className="h-3.5 w-3.5" /> Buyer Party
+              </label>
+              <SearchableSelect
+                id="buyerPartyId"
+                name="buyerPartyId"
+                required
+                value={buyerPartyId}
+                onChange={setBuyerPartyId}
+                options={buyerOptions}
+                placeholder="Select buyer..."
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2 space-y-2">
+                <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-1">
+                  <DollarSign className="h-3.5 w-3.5" /> Sale Rate
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Rate..."
+                  value={rate}
+                  onChange={e => setRate(e.target.value)}
+                  className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Unit</label>
+                <select
+                  disabled={!selectedProductId}
+                  value={rateUnit || ""}
+                  onChange={e => setRateUnit(e.target.value || null)}
+                  className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 font-medium"
+                >
+                  {compatibleUnits.map(u => (
+                    <option key={u.id} value={u.id}>/ {u.id}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold hover:bg-primary/95 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              <span>Save Sale details</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      {/* SECTION 3: WEIGHT & REFRACTION CALCULATION */}
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      <div className="rounded-xl border bg-card p-6 shadow-sm space-y-6">
+        <div className="flex items-center justify-between border-b pb-3">
+          <div className="flex items-center gap-3">
+            <div className="bg-indigo-100 p-2 rounded-lg text-indigo-700">
+              <Scale className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-foreground">Section 3: Weight & Refraction Calculation</h2>
+              <p className="text-xs text-muted-foreground">Compute actual gross and net weights, subtracting tares</p>
+            </div>
+          </div>
+          {isSection3Complete ? (
+            <div className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-200/50 flex items-center gap-1">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Weighed</span>
+            </div>
+          ) : (
+            <div className="bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-amber-200/50 flex items-center gap-1 animate-pulse">
+              <AlertCircle className="h-3.5 w-3.5" />
+              <span>Weight Pending</span>
+            </div>
+          )}
+        </div>
+
+        <form onSubmit={handleSaveWeight} className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <label htmlFor="grossWeight" className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Gross Weight</label>
+              <div className="relative">
+                <input
+                  id="grossWeight"
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="0.00"
+                  value={grossWeight}
+                  onChange={e => setGrossWeight(e.target.value)}
+                  className="w-full rounded-md border bg-background pl-3 pr-10 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+                />
+                <span className="absolute right-3 top-2 text-xs text-muted-foreground uppercase">{unit}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="bagCount" className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Bag Count</label>
+              <input
+                id="bagCount"
+                type="number"
+                placeholder="Bags..."
+                value={bagCount}
+                onChange={e => setBagCount(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="unit" className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Weight Unit</label>
+              <select
+                id="unit"
+                value={unit}
+                onChange={e => setUnit(e.target.value)}
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-semibold"
+              >
+                {compatibleUnits.map(u => (
+                  <option key={u.id} value={u.id}>{u.name} ({u.id})</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 bg-muted/20 p-4 rounded-xl border">
+            {/* Bardana */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-1">
+                <Box className="h-3.5 w-3.5 text-amber-600" /> Bardana Grams/Bag
+              </label>
+              <input
+                type="number"
+                value={bardanaGramPerBag}
+                onChange={e => setBardanaGramPerBag(e.target.value)}
+                className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary font-mono"
+              />
+              <div className="text-[11px] text-muted-foreground font-mono flex justify-between px-1">
+                <span>Calculated Bardana:</span>
+                <span className="font-bold text-foreground">{bardanaKg.toFixed(2)} KG</span>
+              </div>
+            </div>
+
+            {/* Khot */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold uppercase text-muted-foreground tracking-wider flex items-center gap-1">
+                <Scale className="h-3.5 w-3.5 text-rose-600" /> Khot Impurities
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  type="number"
+                  value={khotRate}
+                  onChange={e => setKhotRate(e.target.value)}
+                  className="col-span-2 w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary font-mono"
+                />
+                <select
+                  value={khotRateUnit}
+                  onChange={e => setKhotRateUnit(e.target.value)}
+                  className="w-full bg-background border rounded-lg px-2 py-2 text-sm outline-none focus:ring-2 focus:ring-primary font-medium"
+                >
+                  <option value={UNIT_IDS.KG}>/ KG</option>
+                  <option value={UNIT_IDS.MAUND}>/ Maund</option>
+                </select>
+              </div>
+              <div className="text-[11px] text-muted-foreground font-mono flex justify-between px-1">
+                <span>Calculated Khot:</span>
+                <span className="font-bold text-foreground">{khotKg.toFixed(2)} KG</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Real-time Net Weight calculations banner */}
+          <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200/50 p-4 rounded-xl flex items-center justify-between">
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-bold uppercase text-emerald-800 dark:text-emerald-400 tracking-wider">Computed Net Weight (Finalized)</span>
+              <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400 font-mono">
+                {netWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span className="text-xs font-normal uppercase ml-1 italic">{getUnitLabel(unit)}</span>
+              </div>
+            </div>
+            <div className="bg-emerald-100 dark:bg-emerald-900/40 p-2.5 rounded-lg text-emerald-700 dark:text-emerald-400">
+              <Scale className="h-6 w-6" />
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="bg-primary text-primary-foreground px-5 py-2 rounded-lg text-sm font-semibold hover:bg-primary/95 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+            >
+              <Save className="h-4 w-4" />
+              <span>Save Weight details</span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      {/* SECTION 4: FINANCE & CLEARING */}
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      <div className={`rounded-xl border bg-card p-6 shadow-sm space-y-6 relative overflow-hidden transition-all duration-300 ${isSection4Locked ? "bg-muted/30 border-muted" : ""}`}>
+        {/* Padlock locked overlay */}
+        {isSection4Locked && (
+          <div className="absolute inset-0 bg-background/50 dark:bg-background/80 backdrop-blur-[1px] flex flex-col items-center justify-center gap-2 z-10 animate-in fade-in duration-300">
+            <div className="bg-muted border shadow-sm p-3 rounded-full text-muted-foreground animate-bounce">
+              <Lock className="h-6 w-6" />
+            </div>
+            <p className="text-sm font-bold text-foreground">Section Locked</p>
+            <p className="text-xs text-muted-foreground max-w-sm text-center px-6">
+              Please complete Section 2 (Selling Details) and Section 3 (Weight details) to unlock Finance & Status Finalization.
+            </p>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between border-b pb-3">
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-100 p-2 rounded-lg text-blue-700">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-bold text-base text-foreground">Section 4: Finance & Status Finalization</h2>
+              <p className="text-xs text-muted-foreground">Finalize lifecycle status and sync ledger invoices</p>
+            </div>
+          </div>
+          {isSection4Complete ? (
+            <div className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border border-emerald-200/50 flex items-center gap-1">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              <span>Cleared</span>
+            </div>
+          ) : (
+            <div className="bg-secondary text-secondary-foreground px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border flex items-center gap-1">
+              <Lock className="h-3.5 w-3.5" />
+              <span>Unfinalized</span>
+            </div>
+          )}
+        </div>
+
+        <form onSubmit={handleSaveFinance} className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label htmlFor="status" className="text-xs font-bold uppercase text-muted-foreground tracking-wider">Workflow Status</label>
               <select
                 id="status"
-                required
                 value={status}
                 onChange={e => setStatus(e.target.value)}
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-semibold"
               >
-                <option value="PENDING">Pending</option>
+                <option value="PENDING">Pending (Draft)</option>
                 <option value="SOLD">Sold</option>
-                <option value="CLEARED">Cleared</option>
+                <option value="CLEARED">Cleared (Settled)</option>
                 <option value="CANCELLED">Cancelled</option>
               </select>
             </div>
-
-            {/* Packaging Helper Section */}
-            <div className="md:col-span-2">
-              {/* Packaging Helper Toggle */}
-              <div className="flex items-center gap-2 py-1">
-                <input
-                  id="useHelper"
-                  type="checkbox"
-                  checked={useHelper}
-                  onChange={(e) => {
-                    setUseHelper(e.target.checked);
-                    if (!e.target.checked) {
-                      setHelperQuantity("");
-                      setHelperSizePerUnit("");
-                    }
-                  }}
-                  className="rounded border-primary text-primary focus:ring-primary h-4 w-4 cursor-pointer"
-                />
-                <label htmlFor="useHelper" className="text-xs font-bold uppercase tracking-wider text-muted-foreground select-none cursor-pointer hover:text-foreground transition-colors">
-                  Use Packaging Helper
-                </label>
-                {useHelper && (
-                  <span className="text-[10px] text-primary bg-primary/10 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ml-2">
-                    Helper Active
-                  </span>
-                )}
-              </div>
-
-              {/* Expanded Packaging Helper Section */}
-              {useHelper && (
-                <div className="mt-2 border border-border bg-card/40 rounded-lg p-4 grid gap-4 grid-cols-3 animate-in fade-in duration-200 shadow-sm">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Package Type</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Bag, Box, Crate"
-                      value={helperUnitLabel}
-                      onChange={(e) => setHelperUnitLabel(e.target.value)}
-                      className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium placeholder:text-muted-foreground"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Quantity</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 10"
-                      value={helperQuantity}
-                      onChange={(e) => handleHelperChange(e.target.value, helperSizePerUnit)}
-                      className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono placeholder:text-muted-foreground"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Size per Unit</label>
-                    <input
-                      type="number"
-                      placeholder="e.g. 50"
-                      value={helperSizePerUnit}
-                      onChange={(e) => handleHelperChange(helperQuantity, e.target.value)}
-                      className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono placeholder:text-muted-foreground"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
 
-          {/* Conditional SOLD status section */}
-          {status === "SOLD" && (
-            <div className="rounded-xl border bg-muted/20 p-6 space-y-6 mt-6 animate-in slide-in-from-top-4 duration-300">
-              <div className="flex items-center gap-3 border-b pb-3">
-                <div className="bg-emerald-100 p-2 rounded-lg text-emerald-700">
-                  <Scale className="h-5 w-5" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm">Sell & Refraction Parameters</h3>
-                  <p className="text-xs text-muted-foreground">Adjust buyer, selling rate, and tare/impurity weights</p>
-                </div>
-              </div>
-
-              <div className="grid gap-6 md:grid-cols-2">
-                {/* Buyer */}
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5" /> Buyer Party
-                  </label>
-                  <SearchableSelect
-                    id="buyerPartyId"
-                    name="buyerPartyId"
-                    required={allowedActions.rules?.requiresBuyer}
-                    value={buyerPartyId}
-                    onChange={setBuyerPartyId}
-                    options={buyerOptions}
-                    placeholder="Select Buyer..."
-                  />
-                </div>
-
-                {/* Rate & Unit */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="col-span-2 space-y-2">
-                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                      <DollarSign className="h-3.5 w-3.5" /> Rate
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder="Rate..."
-                      value={rate}
-                      onChange={e => setRate(e.target.value)}
-                      className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>
-                    <select
-                      disabled={!selectedProductId}
-                      value={rateUnit || ""}
-                      onChange={e => setRateUnit(e.target.value || null)}
-                      className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 font-medium"
-                    >
-                      {compatibleUnits.length === 0 ? (
-                        <option value="">--</option>
-                      ) : (
-                        compatibleUnits.map(u => (
-                          <option key={u.id} value={u.id}>/ {u.id}</option>
-                        ))
-                      )}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Bardana */}
-                <div className="space-y-3 border p-4 rounded-xl bg-card">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Box className="h-3.5 w-3.5 text-amber-600" /> Bardana (Tare Weight)
-                  </h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Bags</label>
-                      <input
-                        type="number"
-                        value={bagCount}
-                        onChange={e => setBagCount(e.target.value)}
-                        className="w-full bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Grams/Bag</label>
-                      <input
-                        type="number"
-                        value={bardanaGramPerBag}
-                        onChange={e => setBardanaGramPerBag(e.target.value)}
-                        className="w-full bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
-                      />
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground bg-muted/40 p-2 rounded flex justify-between font-mono">
-                    <span>Calculated Bardana:</span>
-                    <span className="font-semibold text-foreground">{bardanaKg.toFixed(2)} KG</span>
-                  </div>
-                </div>
-
-                {/* Khot */}
-                <div className="space-y-3 border p-4 rounded-xl bg-card">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                    <Scale className="h-3.5 w-3.5 text-rose-600" /> Khot (Impurity Deduction)
-                  </h4>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="col-span-2 space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Impurity (Grams)</label>
-                      <input
-                        type="number"
-                        value={khotRate}
-                        onChange={e => setKhotRate(e.target.value)}
-                        className="w-full bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-muted-foreground uppercase">Per Unit</label>
-                      <select
-                        value={khotRateUnit}
-                        onChange={e => setKhotRateUnit(e.target.value)}
-                        className="w-full bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
-                      >
-                        <option value={UNIT_IDS.KG}>/ KG</option>
-                        <option value={UNIT_IDS.MAUND}>/ Maund</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="text-[11px] text-muted-foreground bg-muted/40 p-2 rounded flex justify-between font-mono">
-                    <span>Calculated Khot:</span>
-                    <span className="font-semibold text-foreground">{khotKg.toFixed(2)} KG</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Live netWeight Display */}
-              <div className="bg-emerald-50 border border-emerald-200/50 p-4 rounded-xl flex items-center justify-between mt-4">
-                <div className="space-y-0.5">
-                  <span className="text-[10px] font-bold uppercase text-emerald-800 tracking-wider">Computed Net Weight (For Billing)</span>
-                  <div className="text-2xl font-black text-emerald-700 font-mono">
-                    {unit === UNIT_IDS.BAG ? (
-                      <>
-                        {netWeightKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <span className="text-xs font-normal uppercase ml-1 italic">KG</span>
-                      </>
-                    ) : (
-                      <>
-                        {netWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <span className="text-xs font-normal uppercase ml-1 italic">{getUnitLabel(unit)}</span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <div className="bg-emerald-100 p-2 rounded-lg text-emerald-700">
-                  <Scale className="h-6 w-6" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <label htmlFor="notes" className="text-sm font-medium">Notes (Optional)</label>
-            <textarea
-              id="notes"
-              rows={3}
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
+          <div className="bg-blue-50/50 dark:bg-blue-950/10 border border-blue-200/50 p-4 rounded-xl text-xs space-y-1.5 leading-relaxed">
+            <h4 className="font-bold text-blue-900 dark:text-blue-400">Clearing & Ledger Sync Info:</h4>
+            <p className="text-muted-foreground">
+              Transitioning this intake to <strong className="text-foreground">CLEARED</strong> commits the average buying rate to the supplier ledger and registers weight-accurate balances for final settlement generation. Reverting status is prohibited once invoices are generated.
+            </p>
           </div>
 
-          <div className="flex justify-end gap-3 pt-6 border-t font-medium">
-            <Link
-              href={`/intake/${intake.id}`}
-              className="px-6 py-2 text-sm hover:bg-accent rounded-md transition-colors"
-            >
-              Cancel
-            </Link>
+          <div className="flex justify-end pt-2">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-primary text-primary-foreground px-6 py-2 rounded-md text-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-primary text-primary-foreground px-6 py-2.5 rounded-lg text-sm font-semibold hover:bg-primary/95 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
             >
-              {isSubmitting ? "Saving..." : "Save Changes"}
+              <Save className="h-4 w-4" />
+              <span>Finalize Status & Clear</span>
             </button>
           </div>
-
-          {/* Unbilled Status Revert Confirmation Modal */}
-          <Modal
-            isOpen={showUnbilledConfirmModal}
-            onClose={() => {
-              setShowUnbilledConfirmModal(false);
-              setFormDataToSubmit(null);
-            }}
-            title="Revert Intake Status"
-            description="Reverting will remove sales trace"
-            type="warning"
-            confirmLabel="Confirm Revert"
-            onConfirm={confirmRevertSubmit}
-          >
-            <div className="space-y-4">
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                Reverting this intake&apos;s status to <span className="font-bold text-foreground">{status}</span> will have the following operational consequences:
-              </p>
-              
-              <ul className="space-y-2 text-xs text-muted-foreground bg-muted/40 p-4 rounded-xl border border-muted-foreground/10">
-                <li className="flex items-start gap-2">
-                  <span className="text-amber-600 font-bold">•</span>
-                  <span><strong>Remove Source Tracking</strong>: The active sales trace tied to buyer <strong>{salesTrack?.buyer?.name || "N/A"}</strong> will be permanently deleted.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-amber-600 font-bold">•</span>
-                  <span><strong>Remove Billing Eligibility</strong>: It will no longer be eligible to generate a Sales Invoice.</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-amber-600 font-bold">•</span>
-                  <span><strong>Restore Inventory</strong>: The quantity ({Number(intake.baseQuantity || 0).toLocaleString()} KG) will be returned to inventory.</span>
-                </li>
-              </ul>
-
-              <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg flex gap-3 text-xs text-amber-800 dark:text-amber-300">
-                <span className="font-black text-sm">⚠️</span>
-                <span>This action cannot be undone. Make sure you want to revert this transaction&apos;s status.</span>
-              </div>
-            </div>
-          </Modal>
-
-          {/* Billed Status Revert Block Modal */}
-          <Modal
-            isOpen={showBilledBlockModal}
-            onClose={() => setShowBilledBlockModal(false)}
-            title="Reversion Blocked"
-            description="Intake is already billed"
-            type="error"
-            confirmLabel="Close Dialog"
-            onConfirm={() => setShowBilledBlockModal(false)}
-            cancelLabel={null}
-          >
-            <div className="space-y-4">
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                This intake is already included in a finalized invoice/sale transaction, so you cannot revert its status.
-              </p>
-
-              <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl space-y-2 text-xs">
-                <div className="font-bold text-rose-900 dark:text-rose-400">Linked Sales Trace Info:</div>
-                <div className="grid grid-cols-2 gap-y-1 text-muted-foreground">
-                  <div>Buyer Party:</div>
-                  <div className="font-semibold text-foreground">{salesTrack?.buyer?.name || "N/A"}</div>
-                  <div>Weight:</div>
-                  <div className="font-semibold text-foreground">{Number(salesTrack?.quantity || 0).toLocaleString()} {intake.unit}</div>
-                  <div>Invoice ID / Status:</div>
-                  <div className="font-semibold text-rose-700 dark:text-rose-400">Billed & Finalized</div>
-                </div>
-              </div>
-
-              <div className="bg-rose-50 dark:bg-rose-950/20 p-3.5 rounded-lg border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-300 leading-normal">
-                <strong>How to resolve:</strong> You must first edit or delete the associated Sales Invoice in the Sales/Billing module to remove this intake before you can revert its status here.
-              </div>
-            </div>
-          </Modal>
-
-          {/* Supplier Settlement Revert Block Modal */}
-          <Modal
-            isOpen={showSupplierBlockModal}
-            onClose={() => setShowSupplierBlockModal(false)}
-            title="Reversion Blocked"
-            description="Intake is settled with supplier"
-            type="error"
-            confirmLabel="Close Dialog"
-            onConfirm={() => setShowSupplierBlockModal(false)}
-            cancelLabel={null}
-          >
-            <div className="space-y-4">
-              <p className="text-sm leading-relaxed text-muted-foreground">
-                This intake is already included in a finalized **Supplier Settlement / Invoice**, so you cannot revert its status.
-              </p>
-
-              <div className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-xl space-y-2 text-xs">
-                <div className="font-bold text-rose-900 dark:text-rose-400">Linked Supplier Settlement Info:</div>
-                <div className="grid grid-cols-2 gap-y-1 text-muted-foreground">
-                  <div>Supplier Invoice:</div>
-                  <div className="font-semibold text-foreground">{supplierInvoiceItem?.invoice?.invoiceNumber || "N/A"}</div>
-                  <div>Settled Weight:</div>
-                  <div className="font-semibold text-foreground">{Number(supplierInvoiceItem?.weight || 0).toLocaleString()} KG</div>
-                  <div>Supplier Settlement Status:</div>
-                  <div className="font-semibold text-rose-700 dark:text-rose-400">{supplierInvoiceItem?.invoice?.status || "COMPLETED"}</div>
-                </div>
-              </div>
-
-              <div className="bg-rose-50 dark:bg-rose-950/20 p-3.5 rounded-lg border border-rose-200 dark:border-rose-900 text-xs text-rose-800 dark:text-rose-300 leading-normal">
-                <strong>How to resolve:</strong> You must first edit or delete the associated Supplier Invoice <strong>{supplierInvoiceItem?.invoice?.invoiceNumber || ""}</strong> in the Supplier Invoices module to exclude this intake before you can revert its status here.
-              </div>
-            </div>
-          </Modal>
-
-          {/* Structured Validation/Conflict Error Modal */}
-          <Modal
-            isOpen={errorModal.isOpen}
-            onClose={() => setErrorModal({...errorModal, isOpen: false})}
-            title={errorModal.title}
-            type={errorModal.type}
-            confirmLabel="OK, Understood"
-            onConfirm={() => setErrorModal({...errorModal, isOpen: false})}
-            cancelLabel={null}
-          >
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {errorModal.message}
-            </p>
-          </Modal>
         </form>
       </div>
+
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      {/* MODALS */}
+      {/* ────────────────────────────────────────────────────────────────────────── */}
+      {/* Unbilled Status Revert Confirmation Modal */}
+      <Modal
+        isOpen={showUnbilledConfirmModal}
+        onClose={() => {
+          setShowUnbilledConfirmModal(false);
+          setStatusToRevert(null);
+        }}
+        title="Revert Intake Status"
+        description="Reverting will remove sales trace"
+        type="warning"
+        confirmLabel="Confirm Revert"
+        onConfirm={confirmRevertSubmit}
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Reverting this intake&apos;s status will delete the active sales trace tied to buyer <strong>{firstSalesTrack?.buyer?.name || "N/A"}</strong>, remove invoice eligibility, and restore inventory stock.
+          </p>
+          <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-lg flex gap-3 text-xs text-amber-800 dark:text-amber-300">
+            <span className="font-black text-sm">⚠️</span>
+            <span>This action cannot be undone. Make sure you want to revert this transaction&apos;s status.</span>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Billed Status Revert Block Modal */}
+      <Modal
+        isOpen={showBilledBlockModal}
+        onClose={() => setShowBilledBlockModal(false)}
+        title="Reversion Blocked"
+        description="Intake is already billed"
+        type="error"
+        confirmLabel="Close Dialog"
+        onConfirm={() => setShowBilledBlockModal(false)}
+        cancelLabel={null}
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            This intake is already included in a finalized invoice/sale transaction, so you cannot revert its status. You must first delete/edit the Sales Invoice.
+          </p>
+        </div>
+      </Modal>
+
+      {/* Supplier Settlement Revert Block Modal */}
+      <Modal
+        isOpen={showSupplierBlockModal}
+        onClose={() => setShowSupplierBlockModal(false)}
+        title="Reversion Blocked"
+        description="Intake is settled with supplier"
+        type="error"
+        confirmLabel="Close Dialog"
+        onConfirm={() => setShowSupplierBlockModal(false)}
+        cancelLabel={null}
+      >
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            This intake is already settled with the supplier (Invoice <strong>{supplierInvoiceItem?.invoice?.invoiceNumber || ""}</strong>), so you cannot revert its status.
+          </p>
+        </div>
+      </Modal>
     </div>
   );
 }

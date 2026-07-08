@@ -69,10 +69,12 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
       const json = await res.json();
       if (json.success) {
         setData(json);
-        // Initialize default selections: select all items by default for all drafts
+        // Initialize default selections: select only weighed items by default for all drafts
         const initialSelections = {};
         json.drafts.forEach(draft => {
-          initialSelections[draft.buyerId] = new Set(draft.items.map(i => i.id));
+          initialSelections[draft.buyerId] = new Set(
+            draft.items.filter(i => i.isWeightRecorded !== false).map(i => i.id)
+          );
         });
         setSelectedDraftItems(initialSelections);
       } else {
@@ -192,6 +194,12 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
     }
 
     const selectedItems = draft.items.filter(i => selectedIds.has(i.id));
+    const hasUnweighed = selectedItems.some(i => i.isWeightRecorded === false);
+    if (hasUnweighed) {
+      showToast.error("Cannot convert. Some selected items have pending weight calculations.");
+      return;
+    }
+
     const salesTrackIds = selectedItems
       .filter(i => i.type === "TRACKED" && i.salesTrackId)
       .map(i => i.salesTrackId)
@@ -317,12 +325,18 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
                     className="p-4 rounded-xl border bg-background/50 hover:bg-background transition-all flex items-center justify-between gap-4"
                   >
                     <div className="space-y-1">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs font-bold text-primary">{intake.intakeNumber}</span>
                         <span className="text-[10px] text-muted-foreground">•</span>
                         <span className="text-[10px] text-muted-foreground">
                           {new Date(intake.entryDate).toLocaleDateString()}
                         </span>
+                        {intake.isWeightRecorded === false && (
+                          <span className="inline-flex items-center gap-1 bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 px-2 py-0.5 rounded text-[9px] font-bold border border-rose-200/50 uppercase tracking-wider ml-1">
+                            <AlertCircle className="h-2.5 w-2.5" />
+                            Weight Pending
+                          </span>
+                        )}
                       </div>
                       <h4 className="text-sm font-bold text-card-foreground">
                         {intake.product?.name}
@@ -331,11 +345,17 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
                         Supplier: <span className="font-medium text-foreground">{intake.party?.name}</span>
                       </p>
                       <div className="flex gap-2 text-[10px] font-mono mt-1 text-muted-foreground bg-muted/30 px-2 py-1 rounded w-fit">
-                        <span>Gross: {intake.grossWeight} {intake.unit}</span>
-                        <span>|</span>
-                        <span className="text-amber-600 font-bold dark:text-amber-400">
-                          Remaining: {remaining} {intake.unit}
-                        </span>
+                        {intake.isWeightRecorded === false ? (
+                          <span className="text-rose-600 font-bold dark:text-rose-400">Weight Pending</span>
+                        ) : (
+                          <>
+                            <span>Gross: {intake.grossWeight} {intake.unit}</span>
+                            <span>|</span>
+                            <span className="text-amber-600 font-bold dark:text-amber-400">
+                              Remaining: {remaining} {intake.unit}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
 

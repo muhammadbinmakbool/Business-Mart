@@ -24,6 +24,7 @@ export async function createIntakeAction(formData) {
     rate: formData.get("rate") ? Number(formData.get("rate")) : null,
     rateUnit: formData.get("rateUnit") || DEFAULT_WEIGHT_UNIT,
     packagingMeta: formData.get("packagingMeta") ? JSON.parse(formData.get("packagingMeta")) : null,
+    arrivalMeta: formData.get("arrivalMeta") ? JSON.parse(formData.get("arrivalMeta")) : null,
     newPartyData: formData.get("partyId") === "new" ? {
       name: formData.get("newName"),
       phoneNumber: formData.get("newPhone"),
@@ -37,15 +38,17 @@ export async function createIntakeAction(formData) {
   const advanceNotes = formData.get("advanceNotes");
 
   try {
+    let createdIntake;
     if (advanceAmount && parseFloat(advanceAmount) > 0) {
-      await IntakeService.createIntakeWithAdvance(data, advanceAmount, advanceNotes);
+      const res = await IntakeService.createIntakeWithAdvance(data, advanceAmount, advanceNotes);
+      createdIntake = res.intake;
     } else {
-      await IntakeService.createIntake(data);
+      createdIntake = await IntakeService.createIntake(data);
     }
     
     revalidatePath("/intake");
     invalidateIntakeCache();
-    return { success: true };
+    return { success: true, id: createdIntake.id };
   } catch (error) {
     ApplicationLogger.error("Intake creation error", error);
     return { error: error.message || "Failed to create intake transaction" };
@@ -96,6 +99,7 @@ export async function updateIntakeAction(id, formData) {
     Khot: formData.get("Khot") ? Number(formData.get("Khot")) : null,
     netWeight: formData.get("netWeight") ? Number(formData.get("netWeight")) : null,
     packagingMeta: formData.get("packagingMeta") ? JSON.parse(formData.get("packagingMeta")) : null,
+    arrivalMeta: formData.get("arrivalMeta") ? JSON.parse(formData.get("arrivalMeta")) : null,
   };
 
 

@@ -79,7 +79,8 @@ export class InventoryService {
       where: {
         productId: prodId,
         status: { not: "CANCELLED" },
-        isDeleted: false
+        isDeleted: false,
+        isWeightRecorded: true
       },
       include: {
         product: true

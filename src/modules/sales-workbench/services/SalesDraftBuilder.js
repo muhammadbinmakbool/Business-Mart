@@ -45,6 +45,7 @@ export class SalesDraftBuilder {
         unit: originalUnit,
         rateUnit: originalRateUnit,
         intakeNumber: track.intakeTransaction?.intakeNumber || null,
+        isWeightRecorded: track.intakeTransaction ? track.intakeTransaction.isWeightRecorded : true,
         type: "TRACKED",
         confidence: 1.0,
         rationale: `Pending billing for Intake ${track.intakeTransaction?.intakeNumber || `#${track.intakeTransactionId}`}`
