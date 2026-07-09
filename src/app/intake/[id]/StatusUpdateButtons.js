@@ -497,7 +497,6 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                 </label>
                 <select
                   required={allowedActions.rules?.requiresBuyer}
-                  disabled={isCommercialLocked}
                   value={buyerPartyId}
                   onChange={e => setBuyerPartyId(e.target.value)}
                   className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium disabled:opacity-75 disabled:bg-muted/30"
@@ -685,7 +684,6 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase">Per Unit</label>
                     <select
-                      disabled={isCommercialLocked}
                       value={khotRateUnit}
                       onChange={e => setKhotRateUnit(e.target.value)}
                       className="w-full bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium disabled:opacity-75 disabled:bg-muted/30"
