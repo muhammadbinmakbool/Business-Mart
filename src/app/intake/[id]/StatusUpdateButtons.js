@@ -37,6 +37,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
   const [grossWeightInput, setGrossWeightInput] = useState(
     isWeightRecorded ? (intake.grossWeight ? intake.grossWeight.toString() : "") : ""
   );
+  const [grossWeightUnit, setGrossWeightUnit] = useState(intake?.unit || "KG");
 
   const maxRemaining = isWeightRecorded
     ? (intake?.remainingWeight !== null && intake?.remainingWeight !== undefined ? Number(intake.remainingWeight) : Number(intake?.grossWeight || 0))
@@ -60,9 +61,11 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     if (!intake || intake.status === "PENDING" || intake.status === "PARTIAL") {
       setRateUnit(isBagProduct ? "BAG" : (intake?.product?.buyingRateUnit || "KG"));
       setKhotRateUnit(intake?.product?.primaryUnit || "KG");
+      setGrossWeightUnit(intake?.unit || "KG");
     } else {
       setRateUnit(intake.rateUnit || (isBagProduct ? "BAG" : "KG"));
       setKhotRateUnit(intake.khotRateUnit || "KG");
+      setGrossWeightUnit(intake.unit || "KG");
     }
   }, [intake, isBagProduct]);
 
@@ -107,6 +110,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
           setRateUnit(track.rateUnit || "KG");
           setIsPartialSale(true);
           setSoldQuantity(track.quantity && Number(track.quantity) > 0 ? track.quantity.toString() : "");
+          setGrossWeightUnit(intakeRef.current?.unit || "KG");
         }
       } else {
         setCompletingSalesTrackId(null);
@@ -126,7 +130,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
   try {
     const calculated = calculateIntakeNetWeight({
       grossWeight: activeGrossWeight,
-      unit: intake?.unit || "KG",
+      unit: grossWeightUnit || "KG",
       bagCount: Number(bagCount) || 0,
       bardanaGramPerBag: Number(bardanaGramPerBag) || 0,
       khotRate: Number(khotRate) || 0,
@@ -296,6 +300,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
       salesTrackId: completingSalesTrackId,
       ...(!isWeightRecorded ? {
         grossWeight: Number(grossWeightInput) || 0,
+        grossWeightUnit: grossWeightUnit,
         bagCount: Number(bagCount) || 0
       } : {})
     });
@@ -319,6 +324,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
       setRateUnit("KG");
       setIsPartialSale(false);
       setSoldQuantity("");
+      setGrossWeightUnit(intake?.unit || "KG");
     }
   };
 
@@ -434,9 +440,15 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                         }}
                         className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
                       />
-                      <span className="flex items-center px-3 bg-muted border rounded-lg text-sm text-muted-foreground font-bold uppercase font-mono">
-                        {getUnitLabel(intake?.unit)}
-                      </span>
+                      <select
+                        value={grossWeightUnit}
+                        onChange={e => setGrossWeightUnit(e.target.value)}
+                        className="bg-muted border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-bold uppercase font-mono cursor-pointer"
+                      >
+                        {categoryUnits.map(u => (
+                          <option key={u.code} value={u.code}>{u.code}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 )
@@ -508,7 +520,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                       <div className="flex justify-between items-center">
                         <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                          <Scale className="h-3.5 w-3.5" /> {isWeightRecorded ? `Sold Quantity (${intake?.unit || "KG"})` : `Gross Weight (${getUnitLabel(intake?.unit)})`}
+                          <Scale className="h-3.5 w-3.5" /> {isWeightRecorded ? `Sold Quantity (${intake?.unit || "KG"})` : `Gross Weight`}
                         </label>
                         {isWeightRecorded && maxRemaining < 99999999 && (
                           <span className="text-[10px] font-semibold text-amber-600 font-mono">
@@ -516,25 +528,52 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                           </span>
                         )}
                       </div>
-                      <input
-                        required
-                        disabled={isCommercialLocked}
-                        type="number"
-                        step="0.01"
-                        placeholder={isWeightRecorded ? `Enter quantity in ${intake?.unit || "KG"}...` : `Enter gross weight in ${getUnitLabel(intake?.unit)}...`}
-                        value={isWeightRecorded ? soldQuantity : grossWeightInput}
-                        onChange={e => {
-                          if (isWeightRecorded) {
-                            setSoldQuantity(e.target.value);
-                          } else {
-                            setGrossWeightInput(e.target.value);
-                            setSoldQuantity(e.target.value);
-                          }
-                        }}
-                        {...(isWeightRecorded && maxRemaining < 99999999 ? { max: maxRemaining } : {})}
-                        min={0.01}
-                        className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono disabled:opacity-75 disabled:bg-muted/30"
-                      />
+                      
+                      {isWeightRecorded ? (
+                        <div className="flex gap-2">
+                          <input
+                            required
+                            disabled={isCommercialLocked}
+                            type="number"
+                            step="0.01"
+                            placeholder={`Enter quantity in ${intake?.unit || "KG"}...`}
+                            value={soldQuantity}
+                            onChange={e => setSoldQuantity(e.target.value)}
+                            {...(maxRemaining < 99999999 ? { max: maxRemaining } : {})}
+                            min={0.01}
+                            className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono disabled:opacity-75 disabled:bg-muted/30"
+                          />
+                          <span className="flex items-center px-3 bg-muted border rounded-lg text-sm text-muted-foreground font-bold uppercase font-mono">
+                            {getUnitLabel(intake?.unit)}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input
+                            required
+                            disabled={isWeightRecorded}
+                            type="number"
+                            step="0.01"
+                            placeholder={`Enter gross weight...`}
+                            value={grossWeightInput}
+                            onChange={e => {
+                              setGrossWeightInput(e.target.value);
+                              setSoldQuantity(e.target.value);
+                            }}
+                            min={0.01}
+                            className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono disabled:opacity-75 disabled:bg-muted/30"
+                          />
+                          <select
+                            value={grossWeightUnit}
+                            onChange={e => setGrossWeightUnit(e.target.value)}
+                            className="bg-muted border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-bold uppercase font-mono cursor-pointer"
+                          >
+                            {categoryUnits.map(u => (
+                              <option key={u.code} value={u.code}>{u.code}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -560,7 +599,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>
                   <select
-                    disabled={isCommercialLocked}
+                    disabled={isWeightRecorded}
                     value={rateUnit}
                     onChange={e => setRateUnit(e.target.value)}
                     className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium disabled:opacity-75 disabled:bg-muted/30"
@@ -628,7 +667,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase">Per Unit</label>
                     <select
-                      disabled={isCommercialLocked}
+                      disabled={isWeightRecorded}
                       value={khotRateUnit}
                       onChange={e => setKhotRateUnit(e.target.value)}
                       className="w-full bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium disabled:opacity-75 disabled:bg-muted/30"

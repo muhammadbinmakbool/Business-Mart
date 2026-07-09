@@ -782,7 +782,7 @@ export class IntakeService {
       if (isWeightRecordedNow) {
         grossWeightVal = Number(data.grossWeight);
         bagCountVal = data.bagCount ? Number(data.bagCount) : null;
-        baseQuantity = normalizeQuantity(grossWeightVal, intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
+        baseQuantity = normalizeQuantity(grossWeightVal, data.grossWeightUnit || intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
       }
 
       // Fetch existing SalesTrack records
@@ -806,7 +806,7 @@ export class IntakeService {
           // Calculate net weight for this portion
           const portionWeightDetails = calculateIntakeNetWeight({
             grossWeight: Number(data.grossWeight),
-            unit: intake.unit || DEFAULT_WEIGHT_UNIT,
+            unit: data.grossWeightUnit || intake.unit || DEFAULT_WEIGHT_UNIT,
             bagCount: Number(data.bagCount) || 0,
             bardanaGramPerBag: Number(data.Bardana) || 0,
             khotRate: Number(data.Khot) || 0,
@@ -846,6 +846,7 @@ export class IntakeService {
             where: { id: intakeId },
             data: {
               grossWeight: newIntakeGross,
+              unit: data.grossWeightUnit || intake.unit || DEFAULT_WEIGHT_UNIT,
               bagCount: newIntakeBags,
               baseQuantity: newIntakeBaseQty,
               Bardana: newIntakeBardana,
@@ -868,6 +869,7 @@ export class IntakeService {
             where: { id: intakeId },
             data: {
               grossWeight: grossWeightVal,
+              unit: data.grossWeightUnit || intake.unit || DEFAULT_WEIGHT_UNIT,
               bagCount: bagCountVal,
               baseQuantity: baseQuantity,
               Bardana: Bardana,
