@@ -39,6 +39,9 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
   );
   const [grossWeightUnit, setGrossWeightUnit] = useState(intake?.unit || "KG");
 
+  const remainingAmt = intake?.remainingWeight !== null ? Number(intake.remainingWeight) : Number(intake?.grossWeight || 0);
+  const isCurrentWeightRecorded = isWeightRecorded && completingSalesTrackId === null && remainingAmt > 0;
+
   const maxRemaining = isWeightRecorded
     ? (intake?.remainingWeight !== null && intake?.remainingWeight !== undefined ? Number(intake.remainingWeight) : Number(intake?.grossWeight || 0))
     : (rateUnit === "BAG"
@@ -55,7 +58,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     ? Object.values(unitRegistry.units).filter(u => u.unitCategoryCode === (intake.product.unitCategory || intake.product.category))
     : [];
 
-  const isCommercialLocked = !isPurchase && (intake?.status === "SOLD" || intake?.status === "PARTIAL");
+  const isCommercialLocked = !isPurchase && (intake?.status === "SOLD" || intake?.status === "PARTIAL") && completingSalesTrackId !== null;
 
   React.useEffect(() => {
     if (!intake || intake.status === "PENDING" || intake.status === "PARTIAL") {
@@ -82,7 +85,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
           );
       setSoldQuantity(remaining > 0 ? remaining.toString() : "");
     }
-  }, [intake, isModalOpen, grossWeightInput, rateUnit, unitRegistry]);
+  }, [intake, isModalOpen, rateUnit, unitRegistry]);
 
   React.useEffect(() => {
     async function loadRegistry() {
@@ -121,7 +124,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     return () => window.removeEventListener("open-sell-modal", handleOpen);
   }, []);
 
-  const activeGrossWeight = isWeightRecorded
+  const activeGrossWeight = isCurrentWeightRecorded
     ? (isPartialSale ? (Number(soldQuantity) || 0) : maxRemaining)
     : (Number(grossWeightInput) || 0);
 
@@ -172,6 +175,18 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
   async function handleUpdate(status) {
     if (status === "SOLD") {
+      setCompletingSalesTrackId(null);
+      setBuyerPartyId("");
+      setRate(intake?.rate || "");
+      setRateUnit(isBagProduct ? "BAG" : (intake?.product?.buyingRateUnit || "KG"));
+      setIsPartialSale(false);
+      setSoldQuantity("");
+      setGrossWeightInput("");
+      setGrossWeightUnit(intake?.unit || "KG");
+      setBagCount(intake?.bagCount || "");
+      setBardanaGramPerBag("150");
+      setKhotRate("0");
+      setKhotRateUnit(intake?.product?.primaryUnit || "KG");
       setIsModalOpen(true);
       return;
     }
@@ -252,8 +267,8 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
   async function handleSellSubmit(e) {
     e.preventDefault();
-    const isWeightRequired = intake?.status === "SOLD" || intake?.status === "PARTIAL";
-    if (isWeightRequired && !isWeightRecorded && (!grossWeightInput || Number(grossWeightInput) <= 0)) {
+    const isWeightRequired = (intake?.status === "SOLD" || intake?.status === "PARTIAL") && (!isPartialSale || completingSalesTrackId !== null);
+    if (isWeightRequired && !isCurrentWeightRecorded && (!grossWeightInput || Number(grossWeightInput) <= 0)) {
       showToast.error("Please enter a valid gross weight to complete weighment.");
       return;
     }
@@ -279,7 +294,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
           return;
         }
       } else {
-        if (isWeightRecorded) {
+        if (isCurrentWeightRecorded) {
           showToast.error("Please enter a valid sold quantity");
           return;
         }
@@ -296,9 +311,9 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
       Khot: khotKg,
       netWeight: netWeight,
       isPartialSale,
-      soldQuantity: isPartialSale ? soldVal : (isWeightRecorded ? maxRemaining : netWeight),
+      soldQuantity: isPartialSale ? soldVal : (isCurrentWeightRecorded ? maxRemaining : netWeight),
       salesTrackId: completingSalesTrackId,
-      ...(!isWeightRecorded ? {
+      ...(!isCurrentWeightRecorded ? {
         grossWeight: Number(grossWeightInput) || 0,
         grossWeightUnit: grossWeightUnit,
         bagCount: Number(bagCount) || 0
@@ -318,14 +333,17 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setCompletingSalesTrackId(null);
-    if (!isWeightRecorded && intake?.status !== "SOLD" && intake?.status !== "PARTIAL") {
-      setBuyerPartyId("");
-      setRate("");
-      setRateUnit("KG");
-      setIsPartialSale(false);
-      setSoldQuantity("");
-      setGrossWeightUnit(intake?.unit || "KG");
-    }
+    setBuyerPartyId("");
+    setRate("");
+    setRateUnit("KG");
+    setIsPartialSale(false);
+    setSoldQuantity("");
+    setGrossWeightInput("");
+    setGrossWeightUnit(intake?.unit || "KG");
+    setBagCount("");
+    setBardanaGramPerBag("150");
+    setKhotRate("0");
+    setKhotRateUnit("KG");
   };
 
   return (
@@ -421,7 +439,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
             {/* Modal Body / Form */}
             <form onSubmit={handleSellSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Gross weight read-only summary or input */}
-              {!isWeightRecorded ? (
+              {!isCurrentWeightRecorded ? (
                 !isPartialSale && (
                   <div className="space-y-2 bg-amber-500/5 p-4 rounded-xl border border-amber-500/10">
                     <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
@@ -507,7 +525,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                         onChange={(e) => {
                           setIsPartialSale(e.target.checked);
                           if (!e.target.checked) {
-                            setSoldQuantity(isWeightRecorded ? maxRemaining.toString() : "");
+                            setSoldQuantity(isCurrentWeightRecorded ? maxRemaining.toString() : "");
                             setGrossWeightInput("");
                           }
                         }}
@@ -520,16 +538,16 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                       <div className="flex justify-between items-center">
                         <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                          <Scale className="h-3.5 w-3.5" /> {isWeightRecorded ? `Sold Quantity (${intake?.unit || "KG"})` : `Gross Weight`}
+                          <Scale className="h-3.5 w-3.5" /> {isCurrentWeightRecorded ? `Sold Quantity (${intake?.unit || "KG"})` : `Gross Weight`}
                         </label>
-                        {isWeightRecorded && maxRemaining < 99999999 && (
+                        {isCurrentWeightRecorded && maxRemaining < 99999999 && (
                           <span className="text-[10px] font-semibold text-amber-600 font-mono">
                             Max Available: {maxRemaining.toLocaleString()} {intake?.unit || "KG"}
                           </span>
                         )}
                       </div>
                       
-                      {isWeightRecorded ? (
+                      {isCurrentWeightRecorded ? (
                         <div className="flex gap-2">
                           <input
                             required
@@ -551,7 +569,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                         <div className="flex gap-2">
                           <input
                             required
-                            disabled={isWeightRecorded}
+                            disabled={isCurrentWeightRecorded}
                             type="number"
                             step="0.01"
                             placeholder={`Enter gross weight...`}
@@ -599,7 +617,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>
                   <select
-                    disabled={isWeightRecorded}
+                    disabled={isCommercialLocked}
                     value={rateUnit}
                     onChange={e => setRateUnit(e.target.value)}
                     className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium disabled:opacity-75 disabled:bg-muted/30"
@@ -667,7 +685,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase">Per Unit</label>
                     <select
-                      disabled={isWeightRecorded}
+                      disabled={isCommercialLocked}
                       value={khotRateUnit}
                       onChange={e => setKhotRateUnit(e.target.value)}
                       className="w-full bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium disabled:opacity-75 disabled:bg-muted/30"
@@ -722,9 +740,9 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                 onClick={handleSellSubmit}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
-                {isWeightRecorded 
+                {isCurrentWeightRecorded 
                   ? "Save & Sold" 
-                  : (intake?.status === "PENDING" 
+                  : ((intake?.status === "PENDING" || intake?.status === "PARTIAL")
                       ? (grossWeightInput && Number(grossWeightInput) > 0 ? "Save & Complete" : "Save & Complete Later")
                       : "Save & Complete"
                     )

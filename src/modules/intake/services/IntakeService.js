@@ -767,14 +767,19 @@ export class IntakeService {
       if (intake.status === "CANCELLED") {
         throw new Error("Cannot sell a cancelled intake");
       }
-      const intakeWeightRecorded = !!(intake.isWeightRecorded && Number(intake.grossWeight || 0) > 0);
+      const remainingAmt = intake.remainingWeight !== null ? Number(intake.remainingWeight) : Number(intake.grossWeight || 0);
+      const isCurrentWeightRecorded = !!(
+        intake.isWeightRecorded &&
+        Number(intake.grossWeight || 0) > 0 &&
+        remainingAmt > 0
+      );
 
-      if (intake.status === "SOLD" && intakeWeightRecorded) {
+      if (intake.status === "SOLD" && isCurrentWeightRecorded) {
         throw new Error("This intake is already fully sold");
       }
 
-      const isWeightRecordedNow = !intakeWeightRecorded && data.grossWeight && Number(data.grossWeight) > 0;
-      const isWeightRecorded = intakeWeightRecorded || isWeightRecordedNow;
+      const isWeightRecordedNow = data.grossWeight && Number(data.grossWeight) > 0;
+      const isWeightRecorded = isCurrentWeightRecorded || isWeightRecordedNow;
       
       let grossWeightVal = Number(intake.grossWeight);
       let bagCountVal = intake.bagCount;
@@ -791,7 +796,7 @@ export class IntakeService {
       });
 
       // RESUME WEIGHMENT WORKFLOW FOR EXISTING SOLD/PARTIAL WORKFLOW
-      if (!intakeWeightRecorded && (intake.status === "SOLD" || intake.status === "PARTIAL")) {
+      if (data.salesTrackId || (!isCurrentWeightRecorded && intake.status === "SOLD")) {
         if (!isWeightRecordedNow) {
           throw new Error("Gross weight is required to complete weighment.");
         }
@@ -946,11 +951,7 @@ export class IntakeService {
         }
 
         newRemainingWeight = defaultSellWeight - soldQty;
-        const stateResult = calculateIntakeState({
-          grossWeight: grossWeightVal,
-          remainingWeight: newRemainingWeight
-        });
-        newStatus = stateResult.status;
+        newStatus = isPartial ? "PARTIAL" : "SOLD";
       } else {
         if (isPartial) {
           const rawSoldQty = Number(data.soldQuantity);
