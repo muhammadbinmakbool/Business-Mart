@@ -208,15 +208,15 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
             )}
 
             {!isPurchase && intake.remainingWeight !== null && intake.remainingWeight !== undefined && Number(intake.remainingWeight) < Number(intake.grossWeight) && (
-              <div className="bg-amber-500/5 border border-amber-500/10 p-4 rounded-xl flex items-center justify-between text-xs pt-3 mt-4">
+              <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/10 dark:border-amber-500/20 p-4 rounded-xl flex items-center justify-between text-xs pt-3 mt-4">
                 <div className="space-y-0.5">
-                  <div className="font-bold text-amber-800 uppercase tracking-widest text-[9px]">Sold Consumption Breakdown</div>
+                  <div className="font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest text-[9px]">Sold Consumption Breakdown</div>
                   <div className="text-muted-foreground">
-                    Sold: <span className="font-bold text-amber-950">{(Number(intake.grossWeight) - Number(intake.remainingWeight)).toLocaleString()} {intake.unit}</span> 
+                    Sold: <span className="font-bold text-amber-800 dark:text-amber-300">{(Number(intake.grossWeight) - Number(intake.remainingWeight)).toLocaleString()} {intake.unit}</span> 
                     {" "}({(((Number(intake.grossWeight) - Number(intake.remainingWeight)) / Number(intake.grossWeight)) * 100).toFixed(1)}%)
                   </div>
                 </div>
-                <div className="font-bold text-amber-900 bg-amber-500/10 px-2 py-0.5 rounded uppercase text-[10px]">
+                <div className="font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 dark:bg-amber-500/20 px-2 py-0.5 rounded uppercase text-[10px]">
                   {intake.status}
                 </div>
               </div>
