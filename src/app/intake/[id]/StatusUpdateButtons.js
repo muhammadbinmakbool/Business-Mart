@@ -416,25 +416,30 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
             <form onSubmit={handleSellSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Gross weight read-only summary or input */}
               {!isWeightRecorded ? (
-                <div className="space-y-2 bg-amber-500/5 p-4 rounded-xl border border-amber-500/10">
-                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                    <Scale className="h-3.5 w-3.5 text-amber-600" /> Gross Weight {intake?.status === "PENDING" ? "(Optional)" : "(Required to Complete Weighment)"}
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      required={intake?.status !== "PENDING"}
-                      type="number"
-                      step="0.01"
-                      placeholder={intake?.status === "PENDING" ? "Leave empty if weight not yet recorded" : "Enter gross weight..."}
-                      value={grossWeightInput}
-                      onChange={e => setGrossWeightInput(e.target.value)}
-                      className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
-                    />
-                    <span className="flex items-center px-3 bg-muted border rounded-lg text-sm text-muted-foreground font-bold uppercase font-mono">
-                      {getUnitLabel(intake?.unit)}
-                    </span>
+                !isPartialSale && (
+                  <div className="space-y-2 bg-amber-500/5 p-4 rounded-xl border border-amber-500/10">
+                    <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
+                      <Scale className="h-3.5 w-3.5 text-amber-600" /> Gross Weight {intake?.status === "PENDING" ? "(Optional)" : "(Required to Complete Weighment)"}
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        required={intake?.status !== "PENDING"}
+                        type="number"
+                        step="0.01"
+                        placeholder={intake?.status === "PENDING" ? "Leave empty if weight not yet recorded" : "Enter gross weight..."}
+                        value={grossWeightInput}
+                        onChange={e => {
+                          setGrossWeightInput(e.target.value);
+                          setSoldQuantity(""); // Keep soldQuantity optional/empty for full sale
+                        }}
+                        className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+                      />
+                      <span className="flex items-center px-3 bg-muted border rounded-lg text-sm text-muted-foreground font-bold uppercase font-mono">
+                        {getUnitLabel(intake?.unit)}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                )
               ) : (
                 <div className="bg-primary/5 p-4 rounded-xl flex items-center justify-between border border-primary/10">
                   <div className="space-y-1">
@@ -474,37 +479,40 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                 </select>
               </div>
 
-              {/* Optional Partial Sale Toggle */}
-              {allowedActions.rules?.supportsPartialSell && (
+              {/* Optional Partial Sale Toggle / Weight Card */}
+              {(isPartialSale || (intake?.status === "PENDING" && allowedActions.rules?.supportsPartialSell)) && (
                 <div className="bg-muted/30 p-4 rounded-xl border border-border/60 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <label className="text-sm font-bold text-foreground">Partial Sale</label>
-                      <p className="text-xs text-muted-foreground">Sell a fraction of the remaining intake</p>
+                  {intake?.status === "PENDING" && (
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <label className="text-sm font-bold text-foreground">Partial Sale</label>
+                        <p className="text-xs text-muted-foreground">Sell a fraction of the remaining intake</p>
+                      </div>
+                      <input
+                        type="checkbox"
+                        disabled={isCommercialLocked}
+                        checked={isPartialSale}
+                        onChange={(e) => {
+                          setIsPartialSale(e.target.checked);
+                          if (!e.target.checked) {
+                            setSoldQuantity(isWeightRecorded ? maxRemaining.toString() : "");
+                            setGrossWeightInput("");
+                          }
+                        }}
+                        className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer animate-none disabled:opacity-75"
+                      />
                     </div>
-                    <input
-                      type="checkbox"
-                      disabled={isCommercialLocked}
-                      checked={isPartialSale}
-                      onChange={(e) => {
-                        setIsPartialSale(e.target.checked);
-                        if (!e.target.checked) {
-                          setSoldQuantity(isWeightRecorded ? maxRemaining.toString() : "");
-                        }
-                      }}
-                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer animate-none disabled:opacity-75"
-                    />
-                  </div>
+                  )}
 
                   {isPartialSale && (
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                       <div className="flex justify-between items-center">
                         <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                          <Scale className="h-3.5 w-3.5" /> Sold Quantity ({isWeightRecorded ? (intake?.unit || "KG") : rateUnit})
+                          <Scale className="h-3.5 w-3.5" /> {isWeightRecorded ? `Sold Quantity (${intake?.unit || "KG"})` : `Gross Weight (${getUnitLabel(intake?.unit)})`}
                         </label>
-                        {maxRemaining < 99999999 && (
+                        {isWeightRecorded && maxRemaining < 99999999 && (
                           <span className="text-[10px] font-semibold text-amber-600 font-mono">
-                            Max Available: {maxRemaining.toLocaleString()} {isWeightRecorded ? (intake?.unit || "KG") : rateUnit}
+                            Max Available: {maxRemaining.toLocaleString()} {intake?.unit || "KG"}
                           </span>
                         )}
                       </div>
@@ -513,10 +521,17 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                         disabled={isCommercialLocked}
                         type="number"
                         step="0.01"
-                        placeholder={isWeightRecorded ? `Enter quantity in ${intake?.unit || "KG"}...` : `Enter quantity in ${rateUnit}...`}
-                        value={soldQuantity}
-                        onChange={e => setSoldQuantity(e.target.value)}
-                        {...(maxRemaining < 99999999 ? { max: maxRemaining } : {})}
+                        placeholder={isWeightRecorded ? `Enter quantity in ${intake?.unit || "KG"}...` : `Enter gross weight in ${getUnitLabel(intake?.unit)}...`}
+                        value={isWeightRecorded ? soldQuantity : grossWeightInput}
+                        onChange={e => {
+                          if (isWeightRecorded) {
+                            setSoldQuantity(e.target.value);
+                          } else {
+                            setGrossWeightInput(e.target.value);
+                            setSoldQuantity(e.target.value);
+                          }
+                        }}
+                        {...(isWeightRecorded && maxRemaining < 99999999 ? { max: maxRemaining } : {})}
                         min={0.01}
                         className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono disabled:opacity-75 disabled:bg-muted/30"
                       />
