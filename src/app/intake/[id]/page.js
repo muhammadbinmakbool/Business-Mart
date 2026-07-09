@@ -145,44 +145,100 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                   quantityValueText = `${Number(intake.grossWeight)} ${label}${Number(intake.grossWeight) !== 1 ? (intake.unit === "PACK" ? 's' : 'es') : ''}`;
                   quantitySubText = `× ${conversionFactor} PIECE`;
                 } else {
-                  // Fallback for KG or other units
                   quantityValueText = `${Number(intake.grossWeight).toLocaleString()}`;
                   quantitySubText = getUnitLabel(intake.unit);
                 }
               }
 
+              const arrivalMeta = intake.arrivalMeta ? (typeof intake.arrivalMeta === 'string' ? JSON.parse(intake.arrivalMeta) : intake.arrivalMeta) : null;
+              const isFullySold = intake.status === "SOLD" || intake.status === "CLEARED";
+
+              const qTitle = isFullySold ? "Quantity" : "Arrival Packaging";
+              const qValueText = (!isFullySold && arrivalMeta?.containerCount) 
+                ? `${arrivalMeta.containerCount} ${arrivalMeta.containerType || 'Bag'}${Number(arrivalMeta.containerCount) !== 1 ? 's' : ''}`
+                : quantityValueText;
+              const qSubText = (!isFullySold && arrivalMeta?.containerCount)
+                ? "Declared count upon arrival"
+                : quantitySubText;
+
+              const gTitle = isFullySold ? "Gross Quantity" : "Arrival Transport";
+              let gValueText = "";
+              let gSubText = "";
+              if (!isFullySold) {
+                if (arrivalMeta?.transportType) {
+                  gValueText = `${arrivalMeta.transportType}${arrivalMeta.transportIdentifier ? ` (${arrivalMeta.transportIdentifier})` : ''}`;
+                } else {
+                  gValueText = "N/A";
+                }
+                if (arrivalMeta?.deliveredBy) {
+                  gSubText = `Driver: ${arrivalMeta.deliveredBy}`;
+                } else {
+                  gSubText = "No transport details";
+                }
+              } else {
+                if (intake.unit === "BAG") {
+                  gValueText = `${Number(intake.baseQuantity).toLocaleString()} KG`;
+                } else {
+                  gValueText = `${Number(intake.grossWeight).toLocaleString()} ${getUnitLabel(intake.unit)}`;
+                }
+                gSubText = "Final weighed quantity";
+              }
+
+              const rTitle = isFullySold 
+                ? "Remaining Quantity" 
+                : (intake.status === "PENDING" ? "Weighment Status" : "Remaining Weight");
+              
+              let rValueText = "";
+              let rSubText = "";
+              let rColorClass = "text-purple-700 dark:text-purple-400";
+              let rBgClass = "bg-purple-500/5 border border-purple-500/10";
+              
+              if (!isFullySold && intake.status === "PENDING") {
+                rValueText = "Pending";
+                rSubText = "Weighment has not occurred";
+                rColorClass = "text-amber-600 dark:text-amber-400";
+                rBgClass = "bg-amber-500/5 border border-amber-500/10";
+              } else {
+                rValueText = `${Number(intake.remainingWeight || 0).toLocaleString()} ${getUnitLabel(intake.unit)}`;
+                rSubText = "Remaining unsold quantity";
+              }
+
               return (
                 <div className="grid gap-6 sm:grid-cols-3 pt-4 border-t">
                   <div className="bg-muted/30 p-4 rounded-lg space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-muted-foreground">Quantity</span>
+                    <span className="text-[10px] font-bold uppercase text-muted-foreground">{qTitle}</span>
                     <div className="text-2xl font-bold flex flex-col items-start">
-                      <span>{quantityValueText}</span>
-                      {quantitySubText && (
+                      <span>{qValueText}</span>
+                      {qSubText && (
                         <span className="text-xs font-normal text-muted-foreground italic leading-none mt-1">
-                          {quantitySubText}
+                          {qSubText}
                         </span>
                       )}
                     </div>
                   </div>
+
                   <div className="bg-primary/5 p-4 rounded-lg space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-primary">Gross Quantity</span>
-                    <div className="text-2xl font-bold text-primary">
-                      {intake.unit === "BAG" ? (
-                        <>
-                          {Number(intake.baseQuantity).toLocaleString()} <span className="text-sm font-normal italic uppercase">KG</span>
-                        </>
-                      ) : (
-                        <>
-                          {Number(intake.grossWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{getUnitLabel(intake.unit)}</span>
-                        </>
+                    <span className="text-[10px] font-bold uppercase text-primary">{gTitle}</span>
+                    <div className="text-2xl font-bold text-primary flex flex-col items-start">
+                      <span>{gValueText}</span>
+                      {gSubText && (
+                        <span className="text-xs font-normal text-primary/70 italic leading-none mt-1">
+                          {gSubText}
+                        </span>
                       )}
                     </div>
                   </div>
-                  {!isPurchase && intake.remainingWeight !== null && intake.remainingWeight !== undefined && (
-                    <div className="bg-purple-500/5 border border-purple-500/10 p-4 rounded-lg space-y-1">
-                      <span className="text-[10px] font-bold uppercase text-purple-600">Remaining Quantity</span>
-                      <div className="text-2xl font-bold text-purple-700">
-                        {Number(intake.remainingWeight).toLocaleString()} <span className="text-sm font-normal italic uppercase">{getUnitLabel(intake.unit)}</span>
+
+                  {!isPurchase && (
+                    <div className={`p-4 rounded-lg space-y-1 ${rBgClass}`}>
+                      <span className="text-[10px] font-bold uppercase text-muted-foreground">{rTitle}</span>
+                      <div className={`text-2xl font-bold flex flex-col items-start ${rColorClass}`}>
+                        <span>{rValueText}</span>
+                        {rSubText && (
+                          <span className="text-xs font-normal text-muted-foreground italic leading-none mt-1">
+                            {rSubText}
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
