@@ -335,7 +335,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
           onClick={() => handleUpdate("PENDING")}
           disabled={currentStatus === "PENDING" || loading}
           className={cn(
-            "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors",
+            "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
             currentStatus === "PENDING" 
               ? "bg-amber-50 text-amber-600 border border-amber-200 cursor-default font-medium" 
               : "hover:bg-accent border border-transparent"
@@ -348,9 +348,9 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
         {!isPurchase && (
           <button
             onClick={() => handleUpdate("SOLD")}
-            disabled={((currentStatus === "SOLD" && isWeightRecorded) || (currentStatus === "PARTIAL" && isWeightRecorded && Number(intake.remainingWeight) <= 0)) || loading}
+            disabled={((currentStatus === "SOLD" && isWeightRecorded) || currentStatus === "CLEARED") || loading}
             className={cn(
-              "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors",
+              "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
               (currentStatus === "SOLD" && isWeightRecorded)
                 ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default font-medium" 
                 : "hover:bg-accent border border-transparent"
@@ -365,7 +365,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
           onClick={() => handleUpdate("CLEARED")}
           disabled={currentStatus === "CLEARED" || !isWeightRecorded || loading}
           className={cn(
-            "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors",
+            "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
             currentStatus === "CLEARED" 
               ? "bg-blue-50 text-blue-600 border border-blue-200 cursor-default font-medium" 
               : (!isWeightRecorded ? "opacity-50 cursor-not-allowed bg-muted/20" : "hover:bg-accent border border-transparent")
@@ -380,7 +380,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
           onClick={() => handleUpdate("CANCELLED")}
           disabled={currentStatus === "CANCELLED" || loading}
           className={cn(
-            "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors",
+            "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
             currentStatus === "CANCELLED" 
               ? "bg-rose-50 text-rose-600 border border-rose-200 cursor-default font-medium" 
               : "hover:bg-accent border border-transparent"
@@ -432,7 +432,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                         required={intake?.status !== "PENDING"}
                         type="number"
                         step="0.01"
-                        placeholder={intake?.status === "PENDING" ? "Leave empty if weight not yet recorded" : "Enter gross weight..."}
+                        placeholder={intake?.status === "PENDING" ? "Enter gross weight..." : "Enter gross weight..."}
                         value={grossWeightInput}
                         onChange={e => {
                           setGrossWeightInput(e.target.value);
