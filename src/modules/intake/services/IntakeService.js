@@ -791,7 +791,7 @@ export class IntakeService {
       });
 
       // RESUME WEIGHMENT WORKFLOW FOR EXISTING SOLD/PARTIAL WORKFLOW
-      if (!isPurchase && !intakeWeightRecorded && (intake.status === "SOLD" || intake.status === "PARTIAL")) {
+      if (!intakeWeightRecorded && (intake.status === "SOLD" || intake.status === "PARTIAL")) {
         if (!isWeightRecordedNow) {
           throw new Error("Gross weight is required to complete weighment.");
         }
