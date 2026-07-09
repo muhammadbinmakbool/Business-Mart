@@ -951,15 +951,16 @@ export class IntakeService {
       } else {
         if (isPartial) {
           const rawSoldQty = Number(data.soldQuantity);
-          if (isNaN(rawSoldQty) || rawSoldQty <= 0) {
-            throw new Error("Sold quantity must be greater than zero for partial sale");
+          if (rawSoldQty && rawSoldQty > 0) {
+            soldQty = convertFromBase(
+              normalizeQuantity(rawSoldQty, rateUnit, intake.product, unitRegistry),
+              intake.unit || DEFAULT_WEIGHT_UNIT,
+              intake.product,
+              unitRegistry
+            );
+          } else {
+            soldQty = 0;
           }
-          soldQty = convertFromBase(
-            normalizeQuantity(rawSoldQty, rateUnit, intake.product, unitRegistry),
-            intake.unit || DEFAULT_WEIGHT_UNIT,
-            intake.product,
-            unitRegistry
-          );
           newStatus = "PARTIAL";
           newRemainingWeight = 0; // Reconciled later in weight calculation
         } else {
