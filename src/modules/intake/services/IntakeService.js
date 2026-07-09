@@ -840,7 +840,8 @@ export class IntakeService {
 
           // Check if there are other incomplete/in-progress tracks (quantity === 0)
           const remainingIncompleteTracks = existingTracks.filter(t => t.id !== targetTrack.id && Number(t.quantity) === 0);
-          const newStatus = remainingIncompleteTracks.length > 0 ? "PARTIAL" : "SOLD";
+          const hasRemainderTrack = existingTracks.some(t => t.notes && t.notes.includes("marked as SOLD")) || (targetTrack.notes && targetTrack.notes.includes("marked as SOLD"));
+          const newStatus = (remainingIncompleteTracks.length > 0 || !hasRemainderTrack) ? "PARTIAL" : "SOLD";
 
           const updatedIntake = await tx.intakeTransaction.update({
             where: { id: intakeId },

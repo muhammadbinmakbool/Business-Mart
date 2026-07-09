@@ -492,9 +492,9 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
               </div>
 
               {/* Optional Partial Sale Toggle / Weight Card */}
-              {(isPartialSale || (intake?.status === "PENDING" && allowedActions.rules?.supportsPartialSell)) && (
+              {(isPartialSale || ((intake?.status === "PENDING" || intake?.status === "PARTIAL") && allowedActions.rules?.supportsPartialSell)) && (
                 <div className="bg-muted/30 p-4 rounded-xl border border-border/60 space-y-4">
-                  {intake?.status === "PENDING" && (
+                  {!completingSalesTrackId && (intake?.status === "PENDING" || intake?.status === "PARTIAL") && (
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
                         <label className="text-sm font-bold text-foreground">Partial Sale</label>
