@@ -26,13 +26,13 @@ export default function SalesBreakdown({ salesTracks = [], intake, currencySymbo
           const isRemainderTrack = Number(track.quantity) === 0;
 
           return (
-            <div key={track.id} className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div key={track.id} className="bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/10 dark:border-blue-500/20 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div className="space-y-1">
-                <div className="font-semibold text-blue-950 flex items-center gap-1.5 font-sans">
+                <div className="font-semibold text-blue-950 dark:text-blue-100 flex items-center gap-1.5 font-sans">
                   <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                   {track.buyer?.name || "Unknown Buyer"}
                   {isTrackPending && (
-                    <span className="text-[9px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 uppercase animate-pulse">
+                    <span className="text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-100 dark:border-amber-900/50 uppercase animate-pulse">
                       {Number(track.quantity) === 0 ? "In Progress / Weight Pending" : "Weight Pending"}
                     </span>
                   )}
@@ -42,7 +42,7 @@ export default function SalesBreakdown({ salesTracks = [], intake, currencySymbo
                 </div>
                 {track.saleTransaction && (
                   <div className="text-xs font-semibold text-primary mt-1">
-                    Invoice: <Link href={`/sales/${track.saleTransaction.id}`} className="hover:underline text-blue-700">{track.saleTransaction.saleNumber}</Link>
+                    Invoice: <Link href={`/sales/${track.saleTransaction.id}`} className="hover:underline text-blue-700 dark:text-blue-400">{track.saleTransaction.saleNumber}</Link>
                   </div>
                 )}
                 
@@ -50,7 +50,7 @@ export default function SalesBreakdown({ salesTracks = [], intake, currencySymbo
                 {isTrackPending && (
                   <button
                     onClick={() => handleCompleteSale(track.id)}
-                    className="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100/80 px-2.5 py-1 rounded-md border border-amber-200 transition-colors flex items-center gap-1.5"
+                    className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300 hover:text-amber-800 dark:hover:text-amber-200 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100/80 dark:hover:bg-amber-900/30 px-2.5 py-1 rounded-md border border-amber-200 dark:border-amber-900/50 transition-colors flex items-center gap-1.5"
                   >
                     <Scale className="h-3 w-3" />
                     Complete Sale (Record Weight)
@@ -58,13 +58,13 @@ export default function SalesBreakdown({ salesTracks = [], intake, currencySymbo
                 )}
               </div>
               <div className="sm:text-right flex sm:flex-col justify-between items-center sm:items-end gap-2 border-t sm:border-0 pt-2 sm:pt-0">
-                <div className="font-bold text-blue-900">
+                <div className="font-bold text-blue-900 dark:text-blue-200">
                   {isTrackPending ? (
                     isRemainderTrack ? (
-                      <span className="text-xs font-semibold text-amber-700 italic">Pending Weighment</span>
+                      <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 italic">Pending Weighment</span>
                     ) : (
                       <>
-                        {Number(track.quantity).toLocaleString()} <span className="text-[10px] text-amber-600 font-semibold italic">({getUnitLabel(intake.unit)} - Pending Weighment)</span>
+                        {Number(track.quantity).toLocaleString()} <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold italic">({getUnitLabel(intake.unit)} - Pending Weighment)</span>
                       </>
                     )
                   ) : (
@@ -76,13 +76,15 @@ export default function SalesBreakdown({ salesTracks = [], intake, currencySymbo
                 <div className="text-xs text-muted-foreground">
                   {formatCurrency(track.sellingRate, "en", currencySymbol, decimalPlaces)} / {getUnitLabel((intake.unit === "BAG" || intake.product?.primaryUnit === "BAG") ? "BAG" : (track.rateUnit || "KG"))}
                 </div>
-                <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                  {isTrackPending && isRemainderTrack ? (
-                    <span className="text-[10px] font-semibold text-amber-700 italic">Pending Weighment</span>
-                  ) : (
-                    formatCurrency(track.baseAmount, "en", currencySymbol, decimalPlaces)
-                  )}
-                </div>
+                {isTrackPending && isRemainderTrack ? (
+                  <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-0.5 rounded border border-amber-100 dark:border-amber-900/50 italic">
+                    Pending Weighment
+                  </div>
+                ) : (
+                  <div className="text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/30 px-2 py-0.5 rounded border border-emerald-100 dark:border-emerald-900/30">
+                    {formatCurrency(track.baseAmount, "en", currencySymbol, decimalPlaces)}
+                  </div>
+                )}
               </div>
             </div>
           );
