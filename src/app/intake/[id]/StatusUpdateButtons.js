@@ -6,7 +6,7 @@ import { getUnitRegistryAction } from "@/modules/products/controllers/unitAction
 import { showToast } from "@/components/ui/Toast";
 import { Clock, BadgeCheck, ShoppingBag, XCircle, X, Scale, User, DollarSign, Box } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { calculateIntakeNetWeight, UNIT_IDS, getUnitLabel } from "@/lib/units";
+import { calculateIntakeNetWeight, UNIT_IDS, getUnitLabel, convertFromBase } from "@/lib/units";
 import Modal from "@/components/ui/Modal";
 
 export default function StatusUpdateButtons({ intakeId, currentStatus, intake, buyers = [], allowedActions = {}, featureFlags }) {
@@ -27,19 +27,34 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
   const [rateUnit, setRateUnit] = useState(intake?.rateUnit || "KG");
   const [bagCount, setBagCount] = useState(intake?.bagCount || "");
   const [bardanaGramPerBag, setBardanaGramPerBag] = useState("150");
+  const isWeightRecorded = !!(intake?.isWeightRecorded && Number(intake?.grossWeight || 0) > 0);
+
   const [khotRate, setKhotRate] = useState("0");
   const [khotRateUnit, setKhotRateUnit] = useState("KG");
   const [isPartialSale, setIsPartialSale] = useState(false);
   const [soldQuantity, setSoldQuantity] = useState("");
+  const [completingSalesTrackId, setCompletingSalesTrackId] = useState(null);
   const [grossWeightInput, setGrossWeightInput] = useState(
-    intake?.isWeightRecorded ? (intake.grossWeight ? intake.grossWeight.toString() : "") : ""
+    isWeightRecorded ? (intake.grossWeight ? intake.grossWeight.toString() : "") : ""
   );
 
-  const maxRemaining = intake?.isWeightRecorded
+  const maxRemaining = isWeightRecorded
     ? (intake?.remainingWeight !== null && intake?.remainingWeight !== undefined ? Number(intake.remainingWeight) : Number(intake?.grossWeight || 0))
-    : (Number(grossWeightInput) || 0);
+    : (rateUnit === "BAG"
+        ? Math.max(0, (intake?.bagCount || 0) - (intake?.salesTracks?.reduce((sum, t) => {
+            if (!unitRegistry) return sum + Number(t.quantity || 0);
+            return sum + convertFromBase(Number(t.quantity || 0), "BAG", intake?.product, unitRegistry);
+          }, 0) || 0))
+        : 99999999
+      );
 
   const isBagProduct = intake?.unit === "BAG" || intake?.product?.category === "BAG" || intake?.product?.primaryUnit === "BAG";
+
+  const categoryUnits = intake?.product && unitRegistry
+    ? Object.values(unitRegistry.units).filter(u => u.unitCategoryCode === (intake.product.unitCategory || intake.product.category))
+    : [];
+
+  const isCommercialLocked = !isPurchase && (intake?.status === "SOLD" || intake?.status === "PARTIAL");
 
   React.useEffect(() => {
     if (!intake || intake.status === "PENDING" || intake.status === "PARTIAL") {
@@ -53,12 +68,18 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
   React.useEffect(() => {
     if (intake) {
-      const remaining = intake.isWeightRecorded
+      const remaining = isWeightRecorded
         ? (intake.remainingWeight !== null && intake.remainingWeight !== undefined ? Number(intake.remainingWeight) : Number(intake.grossWeight || 0))
-        : (Number(grossWeightInput) || 0);
-      setSoldQuantity(remaining.toString());
+        : (rateUnit === "BAG"
+            ? Math.max(0, (intake.bagCount || 0) - (intake.salesTracks?.reduce((sum, t) => {
+                if (!unitRegistry) return sum + Number(t.quantity || 0);
+                return sum + convertFromBase(Number(t.quantity || 0), "BAG", intake.product, unitRegistry);
+              }, 0) || 0))
+            : 0
+          );
+      setSoldQuantity(remaining > 0 ? remaining.toString() : "");
     }
-  }, [intake, isModalOpen, grossWeightInput]);
+  }, [intake, isModalOpen, grossWeightInput, rateUnit, unitRegistry]);
 
   React.useEffect(() => {
     async function loadRegistry() {
@@ -70,7 +91,33 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     loadRegistry();
   }, []);
 
-  const activeGrossWeight = intake?.isWeightRecorded
+  const intakeRef = React.useRef(intake);
+  React.useEffect(() => {
+    intakeRef.current = intake;
+  }, [intake]);
+
+  React.useEffect(() => {
+    const handleOpen = (e) => {
+      if (e?.detail?.salesTrackId) {
+        setCompletingSalesTrackId(e.detail.salesTrackId);
+        const track = intakeRef.current?.salesTracks?.find(t => t.id === e.detail.salesTrackId);
+        if (track) {
+          setBuyerPartyId(track.buyerPartyId ? track.buyerPartyId.toString() : "");
+          setRate(track.buyingRate ? track.buyingRate.toString() : "");
+          setRateUnit(track.rateUnit || "KG");
+          setIsPartialSale(true);
+          setSoldQuantity(track.quantity && Number(track.quantity) > 0 ? track.quantity.toString() : "");
+        }
+      } else {
+        setCompletingSalesTrackId(null);
+      }
+      setIsModalOpen(true);
+    };
+    window.addEventListener("open-sell-modal", handleOpen);
+    return () => window.removeEventListener("open-sell-modal", handleOpen);
+  }, []);
+
+  const activeGrossWeight = isWeightRecorded
     ? (isPartialSale ? (Number(soldQuantity) || 0) : maxRemaining)
     : (Number(grossWeightInput) || 0);
 
@@ -108,6 +155,16 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
   const supplierInvoiceItem = intake?.invoiceItems?.[0];
   const hasSupplierInvoice = !!supplierInvoiceItem;
+
+  React.useEffect(() => {
+    if (isModalOpen && intake && !isWeightRecorded && (intake.status === "SOLD" || intake.status === "PARTIAL") && salesTrack) {
+      setBuyerPartyId(salesTrack.buyerPartyId ? salesTrack.buyerPartyId.toString() : "");
+      setRate(salesTrack.buyingRate ? salesTrack.buyingRate.toString() : "");
+      setRateUnit(salesTrack.rateUnit || "KG");
+      setIsPartialSale(intake.status === "PARTIAL");
+      setSoldQuantity(salesTrack.quantity ? salesTrack.quantity.toString() : "");
+    }
+  }, [isModalOpen, intake, salesTrack]);
 
   async function handleUpdate(status) {
     if (status === "SOLD") {
@@ -191,8 +248,9 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
   async function handleSellSubmit(e) {
     e.preventDefault();
-    if (!intake?.isWeightRecorded && (!grossWeightInput || Number(grossWeightInput) <= 0)) {
-      showToast.error("Please enter a valid gross weight");
+    const isWeightRequired = intake?.status === "SOLD" || intake?.status === "PARTIAL";
+    if (isWeightRequired && !isWeightRecorded && (!grossWeightInput || Number(grossWeightInput) <= 0)) {
+      showToast.error("Please enter a valid gross weight to complete weighment.");
       return;
     }
     if (allowedActions.rules?.requiresBuyer && !buyerPartyId) {
@@ -204,15 +262,24 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
       return;
     }
 
+    let soldVal = 0;
     if (isPartialSale) {
-      const soldVal = Number(soldQuantity);
-      if (isNaN(soldVal) || soldVal <= 0) {
-        showToast.error("Please enter a valid sold quantity");
-        return;
-      }
-      if (soldVal > maxRemaining) {
-        showToast.error(`Sold quantity cannot exceed remaining quantity (${maxRemaining})`);
-        return;
+      if (soldQuantity && soldQuantity.trim() !== "") {
+        soldVal = Number(soldQuantity);
+        if (isNaN(soldVal) || soldVal <= 0) {
+          showToast.error("Please enter a valid sold quantity");
+          return;
+        }
+        if (soldVal > maxRemaining) {
+          showToast.error(`Sold quantity cannot exceed remaining quantity (${maxRemaining})`);
+          return;
+        }
+      } else {
+        if (isWeightRecorded) {
+          showToast.error("Please enter a valid sold quantity");
+          return;
+        }
+        soldVal = 0;
       }
     }
 
@@ -225,9 +292,10 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
       Khot: khotKg,
       netWeight: netWeight,
       isPartialSale,
-      soldQuantity: isPartialSale ? Number(soldQuantity) : (intake?.isWeightRecorded ? maxRemaining : netWeight),
-      ...(!intake?.isWeightRecorded ? {
-        grossWeight: Number(grossWeightInput),
+      soldQuantity: isPartialSale ? soldVal : (isWeightRecorded ? maxRemaining : netWeight),
+      salesTrackId: completingSalesTrackId,
+      ...(!isWeightRecorded ? {
+        grossWeight: Number(grossWeightInput) || 0,
         bagCount: Number(bagCount) || 0
       } : {})
     });
@@ -237,10 +305,22 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
       setLoading(false);
     } else {
       showToast.success("Intake successfully sold!");
-      setIsModalOpen(false);
+      handleCloseModal();
       setLoading(false);
     }
   }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setCompletingSalesTrackId(null);
+    if (!isWeightRecorded && intake?.status !== "SOLD" && intake?.status !== "PARTIAL") {
+      setBuyerPartyId("");
+      setRate("");
+      setRateUnit("KG");
+      setIsPartialSale(false);
+      setSoldQuantity("");
+    }
+  };
 
   return (
     <>
@@ -262,28 +342,29 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
         {!isPurchase && (
           <button
             onClick={() => handleUpdate("SOLD")}
-            disabled={(currentStatus === "SOLD" && intake?.isWeightRecorded) || loading}
+            disabled={((currentStatus === "SOLD" && isWeightRecorded) || (currentStatus === "PARTIAL" && isWeightRecorded && Number(intake.remainingWeight) <= 0)) || loading}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors",
-              (currentStatus === "SOLD" && intake?.isWeightRecorded)
+              (currentStatus === "SOLD" && isWeightRecorded)
                 ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default font-medium" 
                 : "hover:bg-accent border border-transparent"
             )}
           >
             <ShoppingBag className="h-4 w-4" />
-            {currentStatus === "SOLD" && !intake?.isWeightRecorded ? "Record Weight / Complete Sale" : "Mark as Sold"}
+            {(currentStatus === "SOLD" || currentStatus === "PARTIAL") && !isWeightRecorded ? "Record Weight" : "Mark as Sold"}
           </button>
         )}
 
         <button
           onClick={() => handleUpdate("CLEARED")}
-          disabled={currentStatus === "CLEARED" || loading}
+          disabled={currentStatus === "CLEARED" || !isWeightRecorded || loading}
           className={cn(
             "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors",
             currentStatus === "CLEARED" 
               ? "bg-blue-50 text-blue-600 border border-blue-200 cursor-default font-medium" 
-              : "hover:bg-accent border border-transparent"
+              : (!isWeightRecorded ? "opacity-50 cursor-not-allowed bg-muted/20" : "hover:bg-accent border border-transparent")
           )}
+          title={!isWeightRecorded ? "Weight must be recorded before clearing finance" : undefined}
         >
           <BadgeCheck className="h-4 w-4" />
           Mark as Cleared
@@ -316,15 +397,15 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                 </div>
                 <div>
                   <h3 className="font-bold text-base">
-                    {intake?.isWeightRecorded ? `Sell Intake ${intake?.intakeNumber}` : `Record Weight & Sell Intake ${intake?.intakeNumber}`}
+                    {isWeightRecorded ? `Sell Intake ${intake?.intakeNumber}` : `Record Weight & Sell Intake ${intake?.intakeNumber}`}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    {intake?.isWeightRecorded ? "Complete billing tare & refraction fields" : "Enter gross weight and complete tare/refraction fields"}
+                    {isWeightRecorded ? "Complete billing tare & refraction fields" : "Enter gross weight and complete tare/refraction fields"}
                   </p>
                 </div>
               </div>
               <button 
-                onClick={() => setIsModalOpen(false)}
+                onClick={handleCloseModal}
                 className="p-1.5 hover:bg-accent rounded-full transition-colors text-muted-foreground"
               >
                 <X className="h-4 w-4" />
@@ -334,17 +415,17 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
             {/* Modal Body / Form */}
             <form onSubmit={handleSellSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
               {/* Gross weight read-only summary or input */}
-              {!intake?.isWeightRecorded ? (
+              {!isWeightRecorded ? (
                 <div className="space-y-2 bg-amber-500/5 p-4 rounded-xl border border-amber-500/10">
                   <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                    <Scale className="h-3.5 w-3.5 text-amber-600" /> Gross Weight (Required to Complete Weighment)
+                    <Scale className="h-3.5 w-3.5 text-amber-600" /> Gross Weight {intake?.status === "PENDING" ? "(Optional)" : "(Required to Complete Weighment)"}
                   </label>
                   <div className="flex gap-2">
                     <input
-                      required
+                      required={intake?.status !== "PENDING"}
                       type="number"
                       step="0.01"
-                      placeholder="Enter gross weight..."
+                      placeholder={intake?.status === "PENDING" ? "Leave empty if weight not yet recorded" : "Enter gross weight..."}
                       value={grossWeightInput}
                       onChange={e => setGrossWeightInput(e.target.value)}
                       className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
@@ -381,9 +462,10 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                 </label>
                 <select
                   required={allowedActions.rules?.requiresBuyer}
+                  disabled={isCommercialLocked}
                   value={buyerPartyId}
                   onChange={e => setBuyerPartyId(e.target.value)}
-                  className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                  className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium disabled:opacity-75 disabled:bg-muted/30"
                 >
                   <option value="">Select Buyer...</option>
                   {buyers.map(b => (
@@ -402,14 +484,15 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                     </div>
                     <input
                       type="checkbox"
+                      disabled={isCommercialLocked}
                       checked={isPartialSale}
                       onChange={(e) => {
                         setIsPartialSale(e.target.checked);
                         if (!e.target.checked) {
-                          setSoldQuantity(maxRemaining.toString());
+                          setSoldQuantity(isWeightRecorded ? maxRemaining.toString() : "");
                         }
                       }}
-                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer animate-none"
+                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-600 cursor-pointer animate-none disabled:opacity-75"
                     />
                   </div>
 
@@ -417,22 +500,25 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                     <div className="space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
                       <div className="flex justify-between items-center">
                         <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
-                          <Scale className="h-3.5 w-3.5" /> Sold Quantity ({intake?.unit})
+                          <Scale className="h-3.5 w-3.5" /> Sold Quantity ({isWeightRecorded ? (intake?.unit || "KG") : rateUnit})
                         </label>
-                        <span className="text-[10px] font-semibold text-amber-600 font-mono">
-                          Max Available: {maxRemaining.toLocaleString()} {intake?.unit}
-                        </span>
+                        {maxRemaining < 99999999 && (
+                          <span className="text-[10px] font-semibold text-amber-600 font-mono">
+                            Max Available: {maxRemaining.toLocaleString()} {isWeightRecorded ? (intake?.unit || "KG") : rateUnit}
+                          </span>
+                        )}
                       </div>
                       <input
                         required
+                        disabled={isCommercialLocked}
                         type="number"
                         step="0.01"
-                        placeholder={`Enter weight in ${intake?.unit}...`}
+                        placeholder={isWeightRecorded ? `Enter quantity in ${intake?.unit || "KG"}...` : `Enter quantity in ${rateUnit}...`}
                         value={soldQuantity}
                         onChange={e => setSoldQuantity(e.target.value)}
-                        max={maxRemaining}
+                        {...(maxRemaining < 99999999 ? { max: maxRemaining } : {})}
                         min={0.01}
-                        className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono"
+                        className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-500/20 font-mono disabled:opacity-75 disabled:bg-muted/30"
                       />
                     </div>
                   )}
@@ -447,28 +533,29 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                   </label>
                   <input
                     required
+                    disabled={isCommercialLocked}
                     type="number"
                     step="0.01"
                     placeholder="Rate..."
                     value={rate}
                     onChange={e => setRate(e.target.value)}
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono disabled:opacity-75 disabled:bg-muted/30"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest">Unit</label>
                   <select
+                    disabled={isCommercialLocked}
                     value={rateUnit}
                     onChange={e => setRateUnit(e.target.value)}
-                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                    className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium disabled:opacity-75 disabled:bg-muted/30"
                   >
                     {isBagProduct ? (
                       <option value="BAG">/ Bag</option>
                     ) : (
-                      <>
-                        <option value={UNIT_IDS.KG}>/ KG</option>
-                        <option value={UNIT_IDS.MAUND}>/ Maund</option>
-                      </>
+                      categoryUnits.map(u => (
+                        <option key={u.code} value={u.code}>/ {u.code}</option>
+                      ))
                     )}
                   </select>
                 </div>
@@ -526,12 +613,14 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-muted-foreground uppercase">Per Unit</label>
                     <select
+                      disabled={isCommercialLocked}
                       value={khotRateUnit}
                       onChange={e => setKhotRateUnit(e.target.value)}
-                      className="w-full bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium"
+                      className="w-full bg-background border rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-medium disabled:opacity-75 disabled:bg-muted/30"
                     >
-                      <option value={UNIT_IDS.KG}>/ KG</option>
-                      <option value={UNIT_IDS.MAUND}>/ Maund</option>
+                      {categoryUnits.map(u => (
+                        <option key={u.code} value={u.code}>/ {u.code}</option>
+                      ))}
                     </select>
                   </div>
                 </div>
@@ -569,7 +658,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
             <div className="border-t px-6 py-4 bg-muted/20 flex justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setIsModalOpen(false)}
+                onClick={handleCloseModal}
                 className="px-4 py-2 border rounded-lg text-sm font-medium hover:bg-accent transition-colors"
               >
                 Cancel
@@ -579,7 +668,13 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                 onClick={handleSellSubmit}
                 className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
               >
-                Save sold state
+                {isWeightRecorded 
+                  ? "Save & Sold" 
+                  : (intake?.status === "PENDING" 
+                      ? (grossWeightInput && Number(grossWeightInput) > 0 ? "Save & Complete" : "Save & Complete Later")
+                      : "Save & Complete"
+                    )
+                }
               </button>
             </div>
           </div>

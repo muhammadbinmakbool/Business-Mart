@@ -6,6 +6,8 @@ import { PartyService } from "@/modules/parties/services/PartyService";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import StatusUpdateButtons from "./StatusUpdateButtons";
+import WorkflowProgress from "./WorkflowProgress";
+import SalesBreakdown from "./SalesBreakdown";
 import { deleteIntakeAction, hardDeleteIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { convertRate, normalizeQuantity, getUnitLabel, UNIT_IDS } from "@/lib/units";
 import ResponsiveHeader from "@/components/ResponsiveHeader";
@@ -76,6 +78,10 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
           </div>
         }
       />
+
+      {/* {!isPurchase && (
+        <WorkflowProgress intake={intake} />
+      )} */}
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-6">
@@ -218,43 +224,12 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
 
             {/* Sales Breakdown Section */}
             {!isPurchase && intake.salesTracks && intake.salesTracks.length > 0 && (
-              <div className="pt-6 border-t space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
-                  <FileText className="h-4.5 w-4.5 text-primary" />
-                  Sales Breakdown
-                </h3>
-                <div className="space-y-3">
-                  {intake.salesTracks.map((track) => (
-                    <div key={track.id} className="bg-blue-500/5 border border-blue-500/10 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                      <div className="space-y-1">
-                        <div className="font-semibold text-blue-950 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-                          {track.buyer?.name || "Unknown Buyer"}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Sold on: {format(new Date(track.createdAt), "dd MMM yyyy, hh:mm a")}
-                        </div>
-                        {track.saleTransaction && (
-                          <div className="text-xs font-semibold text-primary mt-1">
-                            Invoice: <Link href={`/sales/${track.saleTransaction.id}`} className="hover:underline text-blue-700">{track.saleTransaction.saleNumber}</Link>
-                          </div>
-                        )}
-                      </div>
-                      <div className="sm:text-right flex sm:flex-col justify-between items-center sm:items-end gap-2 border-t sm:border-0 pt-2 sm:pt-0">
-                        <div className="font-bold text-blue-900">
-                          {Number(track.quantity).toLocaleString()} <span className="text-xs font-normal uppercase italic">{getUnitLabel(intake.unit)}</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {formatCurrency(track.sellingRate, "en", currencySymbol, decimalPlaces)} / {getUnitLabel((intake.unit === "BAG" || intake.product?.primaryUnit === "BAG") ? "BAG" : (track.rateUnit || "KG"))}
-                        </div>
-                        <div className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                          {formatCurrency(track.baseAmount, "en", currencySymbol, decimalPlaces)}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <SalesBreakdown
+                salesTracks={intake.salesTracks}
+                intake={intake}
+                currencySymbol={currencySymbol}
+                decimalPlaces={decimalPlaces}
+              />
             )}
 
             {intake.notes && (
