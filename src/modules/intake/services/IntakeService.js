@@ -339,11 +339,14 @@ export class IntakeService {
 
   static async updateIntake(id, data) {
     const { buyerPartyId, ...rest } = data;
-    const validated = intakeSchema.partial().parse(rest);
-    const ownership = await withOwnership();
     const { getFeatureFlags } = await import("@/lib/settings/featureFlags");
     const flags = await getFeatureFlags();
     const isPurchase = flags.intakeMode === "PURCHASE";
+
+    const { intakeSchema, receiptIntakeSchema } = await import("../validations/intakeSchema");
+    const schema = isPurchase ? intakeSchema : receiptIntakeSchema;
+    const validated = schema.partial().parse(rest);
+    const ownership = await withOwnership();
     
     let oldStatus;
     const unitRegistry = await UnitService.getUnitRegistry();
@@ -767,8 +770,19 @@ export class IntakeService {
         throw new Error("This intake is already fully sold");
       }
 
-      const defaultSellWeight = intake.remainingWeight !== null ? Number(intake.remainingWeight) : Number(intake.grossWeight);
-      const isWeightRecorded = intake.isWeightRecorded;
+      const isWeightRecordedNow = !intake.isWeightRecorded && data.grossWeight && Number(data.grossWeight) > 0;
+      const isWeightRecorded = intake.isWeightRecorded || isWeightRecordedNow;
+      
+      let grossWeightVal = Number(intake.grossWeight);
+      let bagCountVal = intake.bagCount;
+      let baseQuantity = Number(intake.baseQuantity);
+      if (isWeightRecordedNow) {
+        grossWeightVal = Number(data.grossWeight);
+        bagCountVal = data.bagCount ? Number(data.bagCount) : null;
+        baseQuantity = normalizeQuantity(grossWeightVal, intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
+      }
+
+      const defaultSellWeight = isWeightRecordedNow ? netWeight : (intake.remainingWeight !== null ? Number(intake.remainingWeight) : Number(intake.grossWeight));
       
       let soldQty = 0;
       let newRemainingWeight = 0;
@@ -786,7 +800,7 @@ export class IntakeService {
 
         newRemainingWeight = defaultSellWeight - soldQty;
         const stateResult = calculateIntakeState({
-          grossWeight: Number(intake.grossWeight),
+          grossWeight: grossWeightVal,
           remainingWeight: newRemainingWeight
         });
         newStatus = stateResult.status;
@@ -833,7 +847,14 @@ export class IntakeService {
           rateUnit: rateUnit,
           sellingCompletedAt: new Date(),
           userId: ownership.userId,
-          businessId: ownership.businessId
+          businessId: ownership.businessId,
+          ...(isWeightRecordedNow ? {
+            grossWeight: grossWeightVal,
+            baseQuantity: baseQuantity,
+            bagCount: bagCountVal,
+            isWeightRecorded: true,
+            weightCompletedAt: new Date()
+          } : {})
         }
       });
 

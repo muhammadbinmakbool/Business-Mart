@@ -31,10 +31,13 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
   const [khotRateUnit, setKhotRateUnit] = useState("KG");
   const [isPartialSale, setIsPartialSale] = useState(false);
   const [soldQuantity, setSoldQuantity] = useState("");
+  const [grossWeightInput, setGrossWeightInput] = useState(
+    intake?.isWeightRecorded ? (intake.grossWeight ? intake.grossWeight.toString() : "") : ""
+  );
 
-  const maxRemaining = intake?.remainingWeight !== null && intake?.remainingWeight !== undefined 
-    ? Number(intake.remainingWeight) 
-    : Number(intake?.grossWeight || 0);
+  const maxRemaining = intake?.isWeightRecorded
+    ? (intake?.remainingWeight !== null && intake?.remainingWeight !== undefined ? Number(intake.remainingWeight) : Number(intake?.grossWeight || 0))
+    : (Number(grossWeightInput) || 0);
 
   const isBagProduct = intake?.unit === "BAG" || intake?.product?.category === "BAG" || intake?.product?.primaryUnit === "BAG";
 
@@ -50,10 +53,12 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
   React.useEffect(() => {
     if (intake) {
-      const remaining = intake.remainingWeight !== null && intake.remainingWeight !== undefined ? Number(intake.remainingWeight) : Number(intake.grossWeight || 0);
+      const remaining = intake.isWeightRecorded
+        ? (intake.remainingWeight !== null && intake.remainingWeight !== undefined ? Number(intake.remainingWeight) : Number(intake.grossWeight || 0))
+        : (Number(grossWeightInput) || 0);
       setSoldQuantity(remaining.toString());
     }
-  }, [intake, isModalOpen]);
+  }, [intake, isModalOpen, grossWeightInput]);
 
   React.useEffect(() => {
     async function loadRegistry() {
@@ -65,7 +70,9 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
     loadRegistry();
   }, []);
 
-  const activeGrossWeight = isPartialSale ? (Number(soldQuantity) || 0) : maxRemaining;
+  const activeGrossWeight = intake?.isWeightRecorded
+    ? (isPartialSale ? (Number(soldQuantity) || 0) : maxRemaining)
+    : (Number(grossWeightInput) || 0);
 
   // Real-time calculation using core registry helper
   let grossWeightKg = 0, bardanaKg = 0, khotKg = 0, netWeightKg = 0, netWeight = 0;
@@ -184,6 +191,10 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
   async function handleSellSubmit(e) {
     e.preventDefault();
+    if (!intake?.isWeightRecorded && (!grossWeightInput || Number(grossWeightInput) <= 0)) {
+      showToast.error("Please enter a valid gross weight");
+      return;
+    }
     if (allowedActions.rules?.requiresBuyer && !buyerPartyId) {
       showToast.error("Please select a buyer");
       return;
@@ -214,9 +225,12 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
       Khot: khotKg,
       netWeight: netWeight,
       isPartialSale,
-      soldQuantity: isPartialSale ? Number(soldQuantity) : maxRemaining
+      soldQuantity: isPartialSale ? Number(soldQuantity) : (intake?.isWeightRecorded ? maxRemaining : netWeight),
+      ...(!intake?.isWeightRecorded ? {
+        grossWeight: Number(grossWeightInput),
+        bagCount: Number(bagCount) || 0
+      } : {})
     });
-    setLoading(true);
 
     if (result?.error) {
       showToast.error(result.error);
@@ -248,16 +262,16 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
         {!isPurchase && (
           <button
             onClick={() => handleUpdate("SOLD")}
-            disabled={currentStatus === "SOLD" || loading}
+            disabled={(currentStatus === "SOLD" && intake?.isWeightRecorded) || loading}
             className={cn(
               "w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm transition-colors",
-              currentStatus === "SOLD" 
+              (currentStatus === "SOLD" && intake?.isWeightRecorded)
                 ? "bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default font-medium" 
                 : "hover:bg-accent border border-transparent"
             )}
           >
             <ShoppingBag className="h-4 w-4" />
-            Mark as Sold
+            {currentStatus === "SOLD" && !intake?.isWeightRecorded ? "Record Weight / Complete Sale" : "Mark as Sold"}
           </button>
         )}
 
@@ -301,8 +315,12 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                   <ShoppingBag className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-base">Sell Intake {intake?.intakeNumber}</h3>
-                  <p className="text-xs text-muted-foreground">Complete billing tare & refraction fields</p>
+                  <h3 className="font-bold text-base">
+                    {intake?.isWeightRecorded ? `Sell Intake ${intake?.intakeNumber}` : `Record Weight & Sell Intake ${intake?.intakeNumber}`}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {intake?.isWeightRecorded ? "Complete billing tare & refraction fields" : "Enter gross weight and complete tare/refraction fields"}
+                  </p>
                 </div>
               </div>
               <button 
@@ -315,24 +333,46 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
             {/* Modal Body / Form */}
             <form onSubmit={handleSellSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Gross weight read-only summary */}
-              <div className="bg-primary/5 p-4 rounded-xl flex items-center justify-between border border-primary/10">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-bold uppercase text-primary tracking-widest">Gross Quantity</span>
-                  <div className="text-xl font-black text-primary">
-                    {intake?.unit === "BAG" ? (
-                      <>
-                        {Number(grossWeightKg).toLocaleString()} <span className="text-xs font-normal uppercase">KG</span>
-                      </>
-                    ) : (
-                      <>
-                        {Number(intake?.grossWeight).toLocaleString()} <span className="text-xs font-normal uppercase">{getUnitLabel(intake?.unit)}</span>
-                      </>
-                    )}
+              {/* Gross weight read-only summary or input */}
+              {!intake?.isWeightRecorded ? (
+                <div className="space-y-2 bg-amber-500/5 p-4 rounded-xl border border-amber-500/10">
+                  <label className="text-xs font-bold uppercase text-muted-foreground tracking-widest flex items-center gap-1.5">
+                    <Scale className="h-3.5 w-3.5 text-amber-600" /> Gross Weight (Required to Complete Weighment)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      required
+                      type="number"
+                      step="0.01"
+                      placeholder="Enter gross weight..."
+                      value={grossWeightInput}
+                      onChange={e => setGrossWeightInput(e.target.value)}
+                      className="w-full bg-background border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/20 font-mono"
+                    />
+                    <span className="flex items-center px-3 bg-muted border rounded-lg text-sm text-muted-foreground font-bold uppercase font-mono">
+                      {getUnitLabel(intake?.unit)}
+                    </span>
                   </div>
                 </div>
-                <Scale className="h-8 w-8 text-primary/30" />
-              </div>
+              ) : (
+                <div className="bg-primary/5 p-4 rounded-xl flex items-center justify-between border border-primary/10">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-primary tracking-widest">Gross Quantity</span>
+                    <div className="text-xl font-black text-primary">
+                      {intake?.unit === "BAG" ? (
+                        <>
+                          {Number(grossWeightKg).toLocaleString()} <span className="text-xs font-normal uppercase">KG</span>
+                        </>
+                      ) : (
+                        <>
+                          {Number(intake?.grossWeight).toLocaleString()} <span className="text-xs font-normal uppercase">{getUnitLabel(intake?.unit)}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <Scale className="h-8 w-8 text-primary/30" />
+                </div>
+              )}
 
               {/* Buyer selection */}
               <div className="space-y-2">

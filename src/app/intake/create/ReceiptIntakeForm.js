@@ -5,17 +5,23 @@ import { createIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import { showToast } from "@/components/ui/Toast";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Truck, Package, ArrowRight, User } from "lucide-react";
+import { ChevronLeft, Truck, Package, ArrowRight, User, Scale, DollarSign } from "lucide-react";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
 import { getLocalDateString } from "@/lib/utils";
 import Modal from "@/components/ui/Modal";
 import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
+import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
+import { getProductValidationState } from "@/modules/products/utils/productValidation";
+import { getProductForIntake } from "@/modules/products/services/ProductInteractionService";
+import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 
 const INTAKE_FIELDS = [
   { name: "partyId", next: "productId", prev: null },
-  { name: "productId", next: "containerType", prev: "partyId" },
-  { name: "containerType", next: "containerCount", prev: "productId" },
+  { name: "productId", next: "unit", prev: "partyId" },
+  { name: "unit", next: "grossWeight", prev: "productId" },
+  { name: "grossWeight", next: "containerType", prev: "unit" },
+  { name: "containerType", next: "containerCount", prev: "grossWeight" },
   { name: "containerCount", next: "transportType", prev: "containerType" },
   { name: "transportType", next: "transportIdentifier", prev: "containerCount" },
   { name: "transportIdentifier", next: "deliveredBy", prev: "transportType" },
@@ -32,6 +38,15 @@ export default function ReceiptIntakeForm({ suppliers, products, settings, backU
   const [selectedProductId, setSelectedProductId] = useState("");
   const [selectedSupplierState, setSelectedSupplierState] = useState("");
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
+  const [unitRegistry, setUnitRegistry] = useState(null);
+
+  // Core Weighment States
+  const [selectedUnit, setSelectedUnit] = useState("KG");
+  const [grossWeightVal, setGrossWeightVal] = useState("");
+  const [useHelper, setUseHelper] = useState(false);
+  const [helperQuantity, setHelperQuantity] = useState("");
+  const [helperSizePerUnit, setHelperSizePerUnit] = useState("");
+  const [helperUnitLabel, setHelperUnitLabel] = useState("Bag");
 
   // Arrival meta states
   const [containerType, setContainerType] = useState("Bag");
@@ -51,10 +66,72 @@ export default function ReceiptIntakeForm({ suppliers, products, settings, backU
     }))
   ], [suppliers]);
 
-  const productOptions = React.useMemo(() => products.map(p => ({
-    value: p.id.toString(),
-    label: p.name
-  })), [products]);
+  const productOptions = React.useMemo(() => products.map(p => {
+    const validation = getProductValidationState(p);
+    return {
+      value: p.id.toString(),
+      label: validation.isValid ? p.name : `${p.name} (⚠️ Misconfigured)`,
+    };
+  }), [products]);
+
+  const selectedProduct = products.find(p => p.id === parseInt(selectedProductId));
+  const compatibleUnits = selectedProduct
+    ? (unitRegistry
+        ? Object.values(unitRegistry.units)
+            .filter(u => u.unitCategoryCode === (selectedProduct.unitCategory || selectedProduct.category))
+            .map(u => ({ id: u.code, name: u.name }))
+        : [])
+    : [];
+
+  useEffect(() => {
+    async function loadData() {
+      const res = await getUnitRegistryAction();
+      if (res.success) {
+        setUnitRegistry(res.data);
+      }
+      if (defaultProductVal) {
+        const defaultProductStr = defaultProductVal.toString();
+        const prodExists = products.some(p => p.id === parseInt(defaultProductStr));
+        if (prodExists) {
+          handleProductChange(defaultProductStr);
+        }
+      }
+    }
+    loadData();
+  }, []);
+
+  const handleProductChange = async (productId) => {
+    if (productId) {
+      const sessionMemory = {
+        lastUnit: fastEntryMemoryStore.getLastValue("lastUnit", "intake"),
+      };
+      const result = await getProductForIntake(productId, sessionMemory);
+      if (!result.success) {
+        showToast.error(result.error);
+        setSelectedProductId("");
+        setSelectedUnit("KG");
+        setGrossWeightVal("");
+        return;
+      }
+      setSelectedProductId(productId);
+      setSelectedUnit(result.defaults.unit);
+    } else {
+      setSelectedProductId("");
+      setSelectedUnit("KG");
+      setGrossWeightVal("");
+    }
+  };
+
+  const handleHelperChange = (qty, size) => {
+    setHelperQuantity(qty);
+    setHelperSizePerUnit(size);
+    if (qty && size) {
+      const calculated = parseFloat(qty) * parseFloat(size);
+      setGrossWeightVal(calculated.toString());
+    } else {
+      setGrossWeightVal("");
+    }
+  };
 
   const handleKeyboardSubmit = useCallback(() => {
     if (!formRef.current) return;
@@ -69,16 +146,21 @@ export default function ReceiptIntakeForm({ suppliers, products, settings, backU
     enableSmartDefaults: true,
   });
 
-  useEffect(() => {
-    if (defaultProductVal) {
-      const defaultProductStr = defaultProductVal.toString();
-      if (products.some(p => p.id === parseInt(defaultProductStr))) {
-        setSelectedProductId(defaultProductStr);
-      }
-    }
-  }, [defaultProductVal, products]);
-
   async function handleSubmit(formData, shouldRedirect) {
+    const grossWeightStr = formData.get("grossWeight");
+    const grossWeight = grossWeightStr ? parseFloat(grossWeightStr) : 0;
+    const advanceAmount = formData.get("advanceAmount");
+
+    if ((grossWeightStr && grossWeight < 0) || (advanceAmount && parseFloat(advanceAmount) < 0)) {
+      setErrorModal({
+        isOpen: true,
+        title: "Invalid Negative Parameters",
+        message: "Weight and advance amount parameters must be positive numbers.",
+        type: "error"
+      });
+      return;
+    }
+
     const arrivalMeta = {
       containerType,
       containerCount: containerCount ? parseInt(containerCount) : null,
@@ -88,7 +170,22 @@ export default function ReceiptIntakeForm({ suppliers, products, settings, backU
     };
 
     formData.set("arrivalMeta", JSON.stringify(arrivalMeta));
-    formData.set("bagCount", containerType.toLowerCase() === "bag" && containerCount ? containerCount : "");
+
+    const packagingMeta = useHelper && helperQuantity && helperSizePerUnit ? {
+      type: helperUnitLabel || "Bag",
+      count: parseFloat(helperQuantity),
+      sizePerUnit: parseFloat(helperSizePerUnit),
+      unitLabel: selectedUnit || "KG"
+    } : null;
+    formData.set("packagingMeta", packagingMeta ? JSON.stringify(packagingMeta) : "");
+
+    let bagCount = "";
+    if (useHelper && helperUnitLabel.toLowerCase() === "bag") {
+      bagCount = helperQuantity;
+    } else if (containerType.toLowerCase() === "bag" && containerCount) {
+      bagCount = containerCount;
+    }
+    formData.set("bagCount", bagCount);
 
     const result = await createIntakeAction(formData);
 
@@ -105,12 +202,23 @@ export default function ReceiptIntakeForm({ suppliers, products, settings, backU
 
     showToast.success("Goods arrival registered successfully");
 
+    // Save to memory store on successful save
+    const savedPartyId = formData.get("partyId");
+    const savedProductId = formData.get("productId");
+    const savedUnit = formData.get("unit");
+    if (savedPartyId) fastEntryMemoryStore.setLastValue("lastSupplier", savedPartyId, "intake");
+    if (savedProductId) fastEntryMemoryStore.setLastValue("lastProduct", savedProductId, "intake");
+    if (savedUnit) fastEntryMemoryStore.setLastValue("lastUnit", savedUnit, "intake");
+
     if (shouldRedirect) {
-      router.push(`/intake/${result.id}/edit`);
+      router.push(`/intake/${result.id}`);
     } else {
       formRef.current?.reset();
       setSelectedProductId("");
       setSelectedSupplierState("");
+      setGrossWeightVal("");
+      setHelperQuantity("");
+      setHelperSizePerUnit("");
       setContainerCount("");
       setTransportIdentifier("");
       setDeliveredBy("");
@@ -122,7 +230,7 @@ export default function ReceiptIntakeForm({ suppliers, products, settings, backU
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 pb-12">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -191,7 +299,7 @@ export default function ReceiptIntakeForm({ suppliers, products, settings, backU
                 name="productId"
                 required
                 value={selectedProductId}
-                onChange={setSelectedProductId}
+                onChange={handleProductChange}
                 options={productOptions}
                 placeholder="Select a product..."
               />
@@ -249,7 +357,115 @@ export default function ReceiptIntakeForm({ suppliers, products, settings, backU
             </div>
           )}
 
-          {/* Section 1: Arrival & Transport Details */}
+          {/* Weighment Section (Optional) */}
+          <div className="border border-border bg-card/50 rounded-xl p-5 space-y-4">
+            <div className="flex items-center gap-2 border-b pb-3 mb-2">
+              <Scale className="h-5 w-5 text-primary" />
+              <h3 className="font-bold text-sm text-foreground uppercase tracking-wider">Initial Weighment (Optional)</h3>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2 col-span-2">
+                <label htmlFor="grossWeight" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Gross Weight</label>
+                <input
+                  ref={registerField("grossWeight")}
+                  id="grossWeight"
+                  name="grossWeight"
+                  type="number"
+                  step="0.01"
+                  placeholder="Leave empty if weight not yet recorded"
+                  value={grossWeightVal}
+                  onChange={(e) => setGrossWeightVal(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono placeholder:text-muted-foreground"
+                />
+              </div>
+
+              <div className="space-y-2 col-span-1">
+                <label htmlFor="unit" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Unit</label>
+                <select
+                  ref={registerField("unit")}
+                  id="unit"
+                  name="unit"
+                  value={selectedUnit}
+                  onChange={(e) => setSelectedUnit(e.target.value)}
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {compatibleUnits.length > 0 ? (
+                    compatibleUnits.map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.name} ({u.id})
+                      </option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="KG">Kilogram (KG)</option>
+                      <option value="MAUND">Maund (40 KG)</option>
+                      <option value="BAG">Bag (Bora)</option>
+                    </>
+                  )}
+                </select>
+              </div>
+
+              {/* Packaging Helper Section */}
+              <div className="md:col-span-3">
+                <div className="flex items-center gap-2 py-1">
+                  <input
+                    id="useHelper"
+                    type="checkbox"
+                    checked={useHelper}
+                    onChange={(e) => {
+                      setUseHelper(e.target.checked);
+                      if (!e.target.checked) {
+                        setHelperQuantity("");
+                        setHelperSizePerUnit("");
+                      }
+                    }}
+                    className="rounded border-primary text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                  />
+                  <label htmlFor="useHelper" className="text-xs font-bold uppercase tracking-wider text-muted-foreground select-none cursor-pointer hover:text-foreground transition-colors">
+                    Use Packaging Helper
+                  </label>
+                </div>
+
+                {useHelper && (
+                  <div className="mt-2 border border-border bg-card/40 rounded-lg p-4 grid gap-4 grid-cols-3 animate-in fade-in duration-200 shadow-sm">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Package Type</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Bag, Box, Crate"
+                        value={helperUnitLabel}
+                        onChange={(e) => setHelperUnitLabel(e.target.value)}
+                        className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-medium placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Quantity</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 10"
+                        value={helperQuantity}
+                        onChange={(e) => handleHelperChange(e.target.value, helperSizePerUnit)}
+                        className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono placeholder:text-muted-foreground"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Size per Unit</label>
+                      <input
+                        type="number"
+                        placeholder="e.g. 50"
+                        value={helperSizePerUnit}
+                        onChange={(e) => handleHelperChange(helperQuantity, e.target.value)}
+                        className="w-full rounded-md border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono placeholder:text-muted-foreground"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Transport & Container Details */}
           <div className="border border-border bg-card/50 rounded-xl p-5 space-y-4">
             <div className="flex items-center gap-2 border-b pb-3 mb-2">
               <Truck className="h-5 w-5 text-primary" />
@@ -331,6 +547,36 @@ export default function ReceiptIntakeForm({ suppliers, products, settings, backU
             </div>
           </div>
 
+          {/* Advance Payment Section (Optional) */}
+          <div className="border border-border bg-card/50 rounded-xl p-5 space-y-4">
+            <div className="flex items-center gap-2 border-b pb-3 mb-2">
+              <DollarSign className="h-5 w-5 text-primary" />
+              <h3 className="font-bold text-sm text-foreground uppercase tracking-wider">Advance Payment (Optional)</h3>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="advanceAmount" className="text-sm font-medium">Amount Paid</label>
+                <input
+                  id="advanceAmount"
+                  name="advanceAmount"
+                  type="number"
+                  placeholder="0.00"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="advanceNotes" className="text-sm font-medium">Advance Remarks</label>
+                <input
+                  id="advanceNotes"
+                  name="advanceNotes"
+                  placeholder="e.g. Paid via Cash"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary placeholder:text-muted-foreground"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <label htmlFor="notes" className="text-sm font-medium">Arrival Notes / Remarks</label>
             <textarea
@@ -365,7 +611,7 @@ export default function ReceiptIntakeForm({ suppliers, products, settings, backU
               type="submit"
               className="bg-primary text-primary-foreground px-6 py-2 rounded-md text-sm font-medium hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
             >
-              <span>Save & Continue</span>
+              <span>Save & View Intake</span>
               <ArrowRight className="h-4 w-4" />
             </button>
           </div>

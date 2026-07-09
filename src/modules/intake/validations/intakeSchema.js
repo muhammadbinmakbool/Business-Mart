@@ -23,6 +23,27 @@ export const arrivalSchema = z.object({
   entryDate: z.string().or(z.date()).transform((val) => new Date(val)),
   notes: z.string().optional().nullable(),
   arrivalMeta: z.any().optional().nullable(),
+  grossWeight: z.coerce.number().optional().nullable(),
+  bagCount: z.coerce.number().optional().nullable(),
+  unit: z.string().optional().nullable(),
+});
+
+export const receiptIntakeSchema = z.object({
+  partyId: z.coerce.number().min(1, "Supplier is required"),
+  productId: z.coerce.number().min(1, "Product is required"),
+  entryDate: z.string().or(z.date()).transform((val) => new Date(val)),
+  bagCount: z.coerce.number().optional().nullable(),
+  grossWeight: z.coerce.number().optional().nullable(),
+  netWeight: z.coerce.number().optional().nullable(),
+  Bardana: z.coerce.number().optional().nullable(),
+  Khot: z.coerce.number().optional().nullable(),
+  unit: z.string().optional().nullable(),
+  rate: z.coerce.number().optional().nullable(),
+  rateUnit: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  status: z.string().optional().nullable(),
+  packagingMeta: z.any().optional().nullable(),
+  arrivalMeta: z.any().optional().nullable(),
 });
 
 export const sellingSchema = z.object({
