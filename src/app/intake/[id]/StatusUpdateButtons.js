@@ -705,15 +705,15 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                 <div className="space-y-0.5">
                   <span className="text-[10px] font-bold uppercase text-emerald-800 tracking-wider">Calculated Net Weight</span>
                   <div className="text-2xl font-black text-emerald-700 font-mono">
-                    {intake?.unit === "BAG" ? (
+                    {grossWeightUnit === "BAG" ? (
                       <>
                         {netWeightKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <span className="text-xs font-normal uppercase ml-1 italic">{getUnitLabel(intake?.unit)}</span>
+                        <span className="text-xs font-normal uppercase ml-1 italic">{getUnitLabel(grossWeightUnit)}</span>
                       </>
                     ) : (
                       <>
                         {netWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <span className="text-xs font-normal uppercase ml-1 italic">{getUnitLabel(intake?.unit)}</span>
+                        <span className="text-xs font-normal uppercase ml-1 italic">{getUnitLabel(grossWeightUnit)}</span>
                       </>
                     )}
                   </div>
