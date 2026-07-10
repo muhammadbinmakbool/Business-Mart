@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createTrackAction, updateTrackAction } from "@/modules/sales/controllers/trackActions";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 import { 
   getUnitsByCategory, 
   normalizeQuantity, 
@@ -35,6 +37,7 @@ export default function MappingForm({
   parties = [], 
   products = [] 
 }) {
+  const { settings } = useSettings();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -288,7 +291,7 @@ export default function MappingForm({
               >
                 <option value="">No Sale Linked</option>
                 {sales.map(s => (
-                  <option key={s.id} value={s.id}>{s.saleNumber} - {s.party?.name} ({Number(s.totalWeight).toLocaleString()} KG)</option>
+                  <option key={s.id} value={s.id}>{s.saleNumber} - {s.party?.name} ({formatUnitDisplay(s.totalWeight, "KG", null, "en", null, settings)})</option>
                 ))}
               </select>
             </div>
@@ -302,7 +305,7 @@ export default function MappingForm({
               >
                 <option value="">Select Intake...</option>
                 {intakes.map(i => (
-                  <option key={i.id} value={i.id}>{i.intakeNumber} - {i.party?.name} - {i.product?.name || "N/A"} ({Number(i.grossWeight).toLocaleString()} {getUnitLabel(i.unit)})</option>
+                  <option key={i.id} value={i.id}>{i.intakeNumber} - {i.party?.name} - {i.product?.name || "N/A"} ({formatUnitDisplay(i.grossWeight, i.unit, i.product, "en", null, settings)})</option>
                 ))}
               </select>
             </div>

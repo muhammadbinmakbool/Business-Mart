@@ -16,6 +16,7 @@ import { getProductForIntake } from "@/modules/products/services/ProductInteract
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 
 export default function PurchaseIntakeForm({ suppliers, products, settings, backUrl, featureFlags, adjustmentDefinitions = [] }) {
+  const { currencySymbol = "Rs.", decimalPlaces = 2 } = settings || {};
   const router = useRouter();
 
   // ── Purchase Mode States ──
@@ -381,6 +382,8 @@ export default function PurchaseIntakeForm({ suppliers, products, settings, back
           focusedRowIndex={focusedPurchaseRowIndex}
           setFocusedRowIndex={setFocusedPurchaseRowIndex}
           unitRegistry={unitRegistry}
+          currencySymbol={currencySymbol}
+          decimalPlaces={decimalPlaces}
         />
       </div>
 

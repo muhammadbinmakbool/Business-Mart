@@ -16,6 +16,7 @@ import { useSettings } from "@/components/layout/SettingsContext";
 import { formatCurrency } from "@/lib/formatters/financialFormatter";
 import { getUnitRegistryAction } from "@/modules/products/controllers/unitActions";
 import { formatIntakeStatus, getIntakeStatusBadgeClass } from "@/lib/formatters/statusFormatter";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
 export default function IntakeListClient({
   intakes = [],
@@ -33,7 +34,7 @@ export default function IntakeListClient({
   currentSortDirection = "desc",
   featureFlags
 }) {
-  const { decimalPlaces, currencySymbol } = useSettings();
+  const { settings, decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -274,17 +275,9 @@ export default function IntakeListClient({
               className: "px-4 py-3 text-right font-semibold",
               render: (row, val) =>
                 row.unit === "BAG" ? (
-                  <>
-                    {Number(row.baseQuantity).toLocaleString()}{" "}
-                    <span className="text-[10px] text-muted-foreground uppercase">KG</span>
-                  </>
+                  formatUnitDisplay(row.baseQuantity, "KG", null, "en", null, settings)
                 ) : (
-                  <>
-                    {Number(val).toLocaleString()}{" "}
-                    <span className="text-[10px] text-muted-foreground uppercase">
-                      {getUnitLabel(row.unit)}
-                    </span>
-                  </>
+                  formatUnitDisplay(val, row.unit, row.product, "en", null, settings)
                 ),
             },
             ...(showSoldColumns
@@ -319,14 +312,14 @@ export default function IntakeListClient({
                           label: "Bardana",
                           className: "px-4 py-3 text-right text-muted-foreground whitespace-nowrap",
                           sortable: false,
-                          render: (row, val) => (val !== null ? `${Number(val).toLocaleString()} KG` : "-"),
+                          render: (row, val) => (val !== null ? formatUnitDisplay(val, "KG", null, "en", null, settings) : "-"),
                         },
                         {
                           key: "Khot",
                           label: "Khot",
                           className: "px-4 py-3 text-right text-muted-foreground whitespace-nowrap",
                           sortable: false,
-                          render: (row, val) => (val !== null ? `${Number(val).toLocaleString()} KG` : "-"),
+                          render: (row, val) => (val !== null ? formatUnitDisplay(val, "KG", null, "en", null, settings) : "-"),
                         },
                         {
                           key: "netWeight",
@@ -334,37 +327,21 @@ export default function IntakeListClient({
                           className: "px-4 py-3 text-right font-semibold text-emerald-600 whitespace-nowrap",
                           render: (row, val) =>
                             val !== null ? (
-                              <>
-                                {row.unit === "BAG" && row.product ? (
-                                  <>
-                                    {(() => {
-                                      const grossWeight = Number(row.grossWeight) || 0;
-                                      const baseQuantity = Number(row.baseQuantity) || 0;
-                                      const factor =
-                                        grossWeight > 0
-                                          ? baseQuantity / grossWeight
-                                          : row.product.unitConversion
-                                          ? Number(row.product.unitConversion)
-                                          : 1;
-                                      return (Number(val) * factor).toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                      });
-                                    })()}{" "}
-                                    <span className="text-[10px] uppercase text-muted-foreground">KG</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    {Number(val).toLocaleString(undefined, {
-                                      minimumFractionDigits: 2,
-                                      maximumFractionDigits: 2,
-                                    })}{" "}
-                                    <span className="text-[10px] uppercase text-muted-foreground">
-                                      {getUnitLabel(row.unit)}
-                                    </span>
-                                  </>
-                                )}
-                              </>
+                              row.unit === "BAG" && row.product ? (
+                                (() => {
+                                  const grossWeight = Number(row.grossWeight) || 0;
+                                  const baseQuantity = Number(row.baseQuantity) || 0;
+                                  const factor =
+                                    grossWeight > 0
+                                      ? baseQuantity / grossWeight
+                                      : row.product.unitConversion
+                                      ? Number(row.product.unitConversion)
+                                      : 1;
+                                  return formatUnitDisplay(Number(val) * factor, "KG", null, "en", null, settings);
+                                })()
+                              ) : (
+                                formatUnitDisplay(val, row.unit, row.product, "en", null, settings)
+                              )
                             ) : (
                               "-"
                             ),

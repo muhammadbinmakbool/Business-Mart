@@ -10,6 +10,9 @@ import DateRangeFilter from "@/components/DateRangeFilter";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import DataTable from "@/components/ui/DataTable";
 import PaginationControls from "@/components/ui/PaginationControls";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 export default function SourceTrackingListClient({
   tracks = [],
@@ -25,6 +28,7 @@ export default function SourceTrackingListClient({
   currentSortDirection = "desc",
   isSupplierMappingEnabled = true
 }) {
+  const { settings, decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -209,13 +213,13 @@ export default function SourceTrackingListClient({
                     <div className="text-rose-600/70">
                       B:{" "}
                       {displayBuyingRate !== null
-                        ? `Rs. ${Number(displayBuyingRate).toLocaleString()} /${displayUnitLabel}`
+                        ? `${formatCurrency(displayBuyingRate, "en", currencySymbol, decimalPlaces)} /${displayUnitLabel}`
                         : "-"}
                     </div>
                     <div className="text-emerald-600/70">
                       S:{" "}
                       {displaySellingRate !== null
-                        ? `Rs. ${Number(displaySellingRate).toLocaleString()} /${displayUnitLabel}`
+                        ? `${formatCurrency(displaySellingRate, "en", currencySymbol, decimalPlaces)} /${displayUnitLabel}`
                         : "-"}
                     </div>
                   </>
@@ -244,17 +248,7 @@ export default function SourceTrackingListClient({
                         displayWeight = displayWeight * factor;
                         displayUnit = "KG";
                       }
-                      return (
-                        <>
-                          {displayWeight.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}{" "}
-                          <span className="text-[10px] opacity-40 uppercase">
-                            {getUnitLabel(displayUnit)}
-                          </span>
-                        </>
-                      );
+                      return formatUnitDisplay(displayWeight, displayUnit, row.product, "en", null, settings);
                     })()}
                   </>
                 ) : (
@@ -268,7 +262,7 @@ export default function SourceTrackingListClient({
                 "px-4 py-3.5 text-right font-semibold text-amber-700 font-mono text-xs whitespace-nowrap",
               render: (row, val) =>
                 val !== null && val !== undefined ? (
-                  <>Rs. {Number(val).toLocaleString()}</>
+                  <>{formatCurrency(val, "en", currencySymbol, decimalPlaces)}</>
                 ) : (
                   <span className="text-muted-foreground opacity-50">-</span>
                 ),

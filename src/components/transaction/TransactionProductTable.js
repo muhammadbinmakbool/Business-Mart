@@ -3,6 +3,7 @@ import React, { useRef, useEffect, useMemo } from "react";
 import { Trash2, CornerDownRight } from "lucide-react";
 import { getUnitsByCategory } from "@/lib/units";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 export default function TransactionProductTable({
   items = [],
@@ -12,7 +13,9 @@ export default function TransactionProductTable({
   onRemoveItem,
   focusedRowIndex,
   setFocusedRowIndex,
-  unitRegistry = null
+  unitRegistry = null,
+  currencySymbol = "Rs.",
+  decimalPlaces = 2
 }) {
   const tableRef = useRef(null);
 
@@ -262,7 +265,7 @@ export default function TransactionProductTable({
 
                   {/* Amount Column (Computed, read-only) */}
                   <td className="px-3 py-1 text-right text-[11px] font-mono font-bold text-foreground align-top">
-                    PKR {item.amount ? Number(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
+                    {formatCurrency(item.amount || 0, "en", currencySymbol, decimalPlaces)}
                   </td>
 
                   {/* Actions Column */}

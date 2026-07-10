@@ -15,6 +15,7 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useHeaderAction } from "@/components/layout/HeaderActionContext";
 import { useSettings } from "@/components/layout/SettingsContext";
 import { formatCurrency } from "@/lib/formatters/financialFormatter";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
 export default function SalesListClient({
   sales = [],
@@ -31,7 +32,7 @@ export default function SalesListClient({
   currentSortField = "entryDate",
   currentSortDirection = "desc"
 }) {
-  const { decimalPlaces, currencySymbol } = useSettings();
+  const { settings, decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -52,20 +53,21 @@ export default function SalesListClient({
   }), [currentPreset, currentStartDate, currentEndDate, currentMonth]);
 
   const updateFilters = (updates) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParams);
     
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value === null || value === undefined || value === "") {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-    });
-    
-    if (!("page" in updates)) {
+    // Page resets when filters change
+    if (updates.page === undefined) {
       params.set("page", "1");
     }
-    
+
+    Object.entries(updates).forEach(([key, val]) => {
+      if (val === undefined || val === null || val === "") {
+        params.delete(key);
+      } else {
+        params.set(key, val.toString());
+      }
+    });
+
     router.push(`${pathname}?${params.toString()}`);
   };
 
@@ -76,24 +78,24 @@ export default function SalesListClient({
     }
   }, [sales, currentPage]);
 
-  const handleSort = (field) => {
-    let direction = "asc";
-    if (currentSortField === field && currentSortDirection === "asc") {
-      direction = "desc";
-    }
-    updateFilters({ sortField: field, sortDirection: direction });
+  const handleSort = (field, direction) => {
+    updateFilters({
+      sortField: field,
+      sortDirection: direction
+    });
   };
 
   // Pre-calculate custom fields for sorting/display
   const mappedSales = useMemo(() => {
-    return sales.map((sale) => {
+    return sales.map(sale => {
+      const buyerName = sale.buyer?.name || "N/A";
       const singleItem = sale.items?.length === 1 ? sale.items[0] : null;
       const rateVal = singleItem ? Number(singleItem.rate || 0) : 0;
       const total = Number(sale.finalAmount);
       const paid = Number(sale.paidAmount || 0);
       return {
         ...sale,
-        buyerName: sale.party?.name || "",
+        buyerName,
         displayRate: rateVal,
         remaining: Math.max(0, total - paid)
       };
@@ -210,12 +212,8 @@ export default function SalesListClient({
             {
               key: "totalWeight",
               label: "Net Weight",
-              className: "px-4 py-3.5 text-right font-mono text-xs",
-              render: (row, val) => (
-                <>
-                  {Number(val).toLocaleString()} <span className="text-[10px] text-muted-foreground uppercase">KG</span>
-                </>
-              ),
+              className: "px-4 py-3.5 text-right font-semibold",
+              render: (row, val) => formatUnitDisplay(val, "KG", null, "en", null, settings),
             },
             {
               key: "displayRate",

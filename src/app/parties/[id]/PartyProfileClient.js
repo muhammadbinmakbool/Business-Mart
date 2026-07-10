@@ -8,8 +8,8 @@ import { format } from "date-fns";
 import { applyPartyPaymentAction } from "@/modules/parties/controllers/partyActions";
 import { useSettings } from "@/components/layout/SettingsContext";
 import { formatCurrency } from "@/lib/formatters/financialFormatter";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
-const fmt = (v) => Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 
 function SummaryCard({ label, value, icon: Icon, color = "primary", sub }) {
   const { decimalPlaces, currencySymbol } = useSettings();
@@ -318,14 +318,14 @@ function QuickPaymentForm({ party }) {
 
 
 export default function PartyProfileClient({ profile }) {
-  const { decimalPlaces, currencySymbol } = useSettings();
+  const { settings, decimalPlaces, currencySymbol } = useSettings();
   const { party, summary, timeline, detailedViews } = profile;
   const [activeTab, setActiveTab] = useState("overview");
 
   const salesCols = [
     { key: "saleNumber", label: "Invoice #", render: r => <Link href={`/sales/${r.id}?backUrl=/parties/${party.id}`} className="text-blue-600 dark:text-blue-400 hover:underline font-mono">{r.saleNumber}</Link> },
     { key: "entryDate", label: "Date", render: r => format(new Date(r.entryDate), "dd MMM yyyy") },
-    { key: "totalWeight", label: "Weight", align: "right", mono: true, render: r => `${fmt(r.totalWeight)} KG` },
+    { key: "totalWeight", label: "Weight", align: "right", mono: true, render: r => formatUnitDisplay(r.totalWeight, "KG", null, "en", null, settings) },
     { key: "finalAmount", label: "Amount", align: "right", mono: true, render: r => formatCurrency(r.finalAmount, "en", currencySymbol, decimalPlaces) },
     { key: "allocatedAmount", label: "Paid Amount", align: "right", mono: true, render: r => formatCurrency(r.allocatedAmount, "en", currencySymbol, decimalPlaces) },
     { key: "remainingAmount", label: "Remaining", align: "right", mono: true, render: r => formatCurrency(r.remainingAmount, "en", currencySymbol, decimalPlaces) },

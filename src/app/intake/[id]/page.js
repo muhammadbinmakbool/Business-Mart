@@ -16,6 +16,7 @@ import { IntakeWorkflowEngine } from "@/modules/intake/workflow/IntakeWorkflowEn
 import { getMergedDocumentConfig } from "@/print/config/documentConfig";
 import { formatCurrency } from "@/lib/formatters/financialFormatter";
 import { formatIntakeStatus, getIntakeStatusBadgeClass } from "@/lib/formatters/statusFormatter";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
 export default async function IntakeDetailsPage({ params: paramsPromise, searchParams: searchParamsPromise }) {
   const params = await paramsPromise;
@@ -145,7 +146,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                   quantityValueText = `${Number(intake.grossWeight)} ${label}${Number(intake.grossWeight) !== 1 ? (intake.unit === "PACK" ? 's' : 'es') : ''}`;
                   quantitySubText = `× ${conversionFactor} PIECE`;
                 } else {
-                  quantityValueText = `${Number(intake.grossWeight).toLocaleString()}`;
+                  quantityValueText = formatUnitDisplay(intake.grossWeight, intake.unit, intake.product, "en", null, generalSettings);
                   quantitySubText = getUnitLabel(intake.unit);
                 }
               }
@@ -183,9 +184,9 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                 }
               } else {
                 if (intake.unit === "BAG") {
-                  gValueText = `${Number(intake.baseQuantity).toLocaleString()} KG`;
+                  gValueText = formatUnitDisplay(intake.baseQuantity, "KG", null, "en", null, generalSettings);
                 } else {
-                  gValueText = `${Number(intake.grossWeight).toLocaleString()} ${getUnitLabel(intake.unit)}`;
+                  gValueText = formatUnitDisplay(intake.grossWeight, intake.unit, intake.product, "en", null, generalSettings);
                 }
                 gSubText = isFullySold ? "Final weighed quantity" : "Total gross weight";
               }
@@ -205,7 +206,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                 rColorClass = "text-amber-600 dark:text-amber-400";
                 rBgClass = "bg-amber-500/5 border border-amber-500/10";
               } else {
-                rValueText = `${Number(intake.remainingWeight || 0).toLocaleString()} ${getUnitLabel(intake.unit)}`;
+                rValueText = formatUnitDisplay(intake.remainingWeight || 0, intake.unit, intake.product, "en", null, generalSettings);
                 rSubText = isFullySold ? "Sold out" : "Remaining unsold quantity";
               }
 
@@ -257,13 +258,13 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                 {Number(intake.Bardana || 0) > 0 && (
                   <div className="bg-muted/40 p-4 rounded-xl flex justify-between items-center text-sm border border-muted-foreground/10">
                     <span className="font-semibold text-muted-foreground">Total Bardana Weight</span>
-                    <span className="font-bold">{Number(intake.Bardana || 0).toLocaleString()} KG</span>
+                    <span className="font-bold">{formatUnitDisplay(intake.Bardana || 0, "KG", null, "en", null, generalSettings)}</span>
                   </div>
                 )}
                 {Number(intake.Khot || 0) > 0 && (
                   <div className="bg-muted/40 p-4 rounded-xl flex justify-between items-center text-sm border border-muted-foreground/10">
                     <span className="font-semibold text-muted-foreground">Total Khot Refraction</span>
-                    <span className="font-bold">{Number(intake.Khot || 0).toLocaleString()} KG</span>
+                    <span className="font-bold">{formatUnitDisplay(intake.Khot || 0, "KG", null, "en", null, generalSettings)}</span>
                   </div>
                 )}
               </div>
@@ -274,7 +275,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                 <div className="space-y-0.5">
                   <div className="font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest text-[9px]">Sold Consumption Breakdown</div>
                   <div className="text-muted-foreground">
-                    Sold: <span className="font-bold text-amber-800 dark:text-amber-300">{(Number(intake.grossWeight) - Number(intake.remainingWeight)).toLocaleString()} {intake.unit}</span> 
+                    Sold: <span className="font-bold text-amber-800 dark:text-amber-300">{formatUnitDisplay(Number(intake.grossWeight) - Number(intake.remainingWeight), intake.unit, intake.product, "en", null, generalSettings)}</span> 
                     {" "}({(((Number(intake.grossWeight) - Number(intake.remainingWeight)) / Number(intake.grossWeight)) * 100).toFixed(1)}%)
                   </div>
                 </div>
@@ -291,6 +292,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                 intake={intake}
                 currencySymbol={currencySymbol}
                 decimalPlaces={decimalPlaces}
+                settings={generalSettings}
               />
             )}
 
@@ -334,7 +336,7 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
         <div className="space-y-6">
           <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Status Lifecycle</h2>
-            <StatusUpdateButtons intakeId={intake.id} currentStatus={intake.status} intake={intake} buyers={buyers} allowedActions={allowedActions} featureFlags={flags} />
+            <StatusUpdateButtons intakeId={intake.id} currentStatus={intake.status} intake={intake} buyers={buyers} allowedActions={allowedActions} featureFlags={flags} settings={generalSettings} />
           </div>
 
           {/* Weighment Summary Card */}
@@ -349,9 +351,9 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                   <span className="text-muted-foreground font-medium">Gross Weight</span>
                   <span className="font-bold font-mono">
                     {intake.unit === "BAG" ? (
-                      <>{Number(intake.baseQuantity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-muted-foreground">KG</span></>
+                      formatUnitDisplay(intake.baseQuantity, "KG", null, "en", null, generalSettings)
                     ) : (
-                      <>{Number(intake.grossWeight).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-muted-foreground">{getUnitLabel(intake.unit)}</span></>
+                      formatUnitDisplay(intake.grossWeight, intake.unit, intake.product, "en", null, generalSettings)
                     )}
                   </span>
                 </div>
@@ -359,14 +361,14 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                 <div className="flex justify-between items-center text-sm border-b pb-2">
                   <span className="text-muted-foreground font-medium">Bardana (Tare)</span>
                   <span className="font-bold font-mono text-amber-600">
-                    -{Number(intake.Bardana || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-muted-foreground">KG</span>
+                    -{formatUnitDisplay(intake.Bardana || 0, "KG", null, "en", null, generalSettings)}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-center text-sm border-b pb-2">
                   <span className="text-muted-foreground font-medium">Khot (Impurity)</span>
                   <span className="font-bold font-mono text-rose-600">
-                    -{Number(intake.Khot || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-muted-foreground">KG</span>
+                    -{formatUnitDisplay(intake.Khot || 0, "KG", null, "en", null, generalSettings)}
                   </span>
                 </div>
 
@@ -374,9 +376,9 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                   <span className="font-bold text-foreground">Net Weight</span>
                   <div className="bg-emerald-500/10 dark:bg-emerald-500/20 px-3 py-1 rounded-lg text-emerald-700 dark:text-emerald-400 font-extrabold font-mono text-base border border-emerald-500/25">
                     {intake.unit === "BAG" ? (
-                      <>{Number(intake.netWeight || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-semibold">KG</span></>
+                      formatUnitDisplay(intake.netWeight || 0, "KG", null, "en", null, generalSettings)
                     ) : (
-                      <>{Number(intake.netWeight || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-semibold">{getUnitLabel(intake.unit)}</span></>
+                      formatUnitDisplay(intake.netWeight || 0, intake.unit, intake.product, "en", null, generalSettings)
                     )}
                   </div>
                 </div>

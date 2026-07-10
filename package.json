@@ -17,6 +17,7 @@
     "prepare:sqlite": "node scripts/prepare-build.js sqlite",
     "dev:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/env-run.js DB_PROVIDER=mssql \"next dev\"",
     "dev:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite DATABASE_URL=file:./prisma/business_mart.db \"npx prisma db push --skip-generate && node prisma/seed.js && next dev\"",
+    "dev:sqlite:fast": "node scripts/env-run.js DB_PROVIDER=sqlite DATABASE_URL=file:./prisma/business_mart.db \"next dev\"",
     "build:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/env-run.js DB_PROVIDER=mssql \"next build\"",
     "build:sqlite": "npm run prepare:sqlite && npx prisma generate && node scripts/env-run.js DB_PROVIDER=sqlite DATABASE_URL=file:./prisma/business_mart.db \"next build\"",
     "electron:build:mssql": "npm run prepare:mssql && npx prisma generate && node scripts/cleanup-prisma-temp-files.js && node scripts/env-run.js DB_PROVIDER=mssql \"next build && node scripts/copy-standalone-assets.js && electron-builder\"",

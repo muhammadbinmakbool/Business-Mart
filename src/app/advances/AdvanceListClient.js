@@ -11,7 +11,11 @@ import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import { useHeaderAction } from "@/components/layout/HeaderActionContext";
 
 
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
+
 export default function AdvanceListClient({ advances = [], defaultPreset = "all" }) {
+  const { currencySymbol, decimalPlaces } = useSettings();
   const [searchQuery, setSearchQuery] = useState("");
   const [dateFilter, setDateFilter] = useState(() => getDefaultFilterState(defaultPreset));
   const { setHeaderAction } = useHeaderAction();
@@ -100,7 +104,7 @@ export default function AdvanceListClient({ advances = [], defaultPreset = "all"
             key: "amount",
             label: "Amount",
             className: "text-right font-bold text-primary",
-            render: (row, val) => `Rs. ${Number(val).toLocaleString()}`,
+            render: (row, val) => formatCurrency(val, "en", currencySymbol, decimalPlaces),
           },
           {
             key: "intakeNumber",

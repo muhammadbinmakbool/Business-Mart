@@ -34,9 +34,9 @@ export function mapIntakeToPrintModel(intake, printConfig) {
       category: "N/A"
     },
     
-    grossWeight: Number(intake.grossWeight || 0).toLocaleString(),
+    grossWeight: Number(intake.grossWeight || 0),
     unit: intake.unit || DEFAULT_WEIGHT_UNIT,
-    bagCount: intake.bagCount ? Number(intake.bagCount).toLocaleString() : null,
+    bagCount: intake.bagCount ? Number(intake.bagCount) : null,
     
     isSold,
     buyer: isSold && track ? {
@@ -46,11 +46,11 @@ export function mapIntakeToPrintModel(intake, printConfig) {
     
     soldDetails: isSold && track ? {
       product: intake.product,
-      netWeight: Number(track.quantity).toLocaleString(),
+      netWeight: Number(track.quantity),
       rate: formatCurrency(track.sellingRate, "en", currencySymbol, decimalPlaces),
       rateUnit: intake.rateUnit || DEFAULT_WEIGHT_UNIT,
-      bardanaWeight: Number(intake.Bardana || 0).toLocaleString(),
-      khotWeight: Number(intake.Khot || 0).toLocaleString(),
+      bardanaWeight: Number(intake.Bardana || 0),
+      khotWeight: Number(intake.Khot || 0),
       baseAmount: formatCurrency(track.quantity * track.sellingRate, "en", currencySymbol, decimalPlaces)
     } : null
   };
@@ -79,7 +79,7 @@ export function mapSaleToPrintModel(sale, printConfig) {
       id: item.id,
       productName: item.product?.name || "N/A",
       product: item.product,
-      weight: Number(item.weight).toLocaleString(),
+      weight: Number(item.weight),
       unit: item.unit === UNIT_IDS.MAUND ? "MND" : item.unit || DEFAULT_WEIGHT_UNIT,
       rate: formatCurrency(item.rate, "en", currencySymbol, decimalPlaces),
       rateUnit: item.rateUnit === UNIT_IDS.MAUND ? "MND" : item.rateUnit || DEFAULT_WEIGHT_UNIT,
@@ -98,7 +98,7 @@ export function mapSaleToPrintModel(sale, printConfig) {
     
     totals: {
       baseAmount: formatCurrency(sale.baseAmount, "en", currencySymbol, decimalPlaces),
-      totalWeight: Number(sale.totalWeight).toLocaleString(),
+      totalWeight: Number(sale.totalWeight),
       totalAdjustments: formatCurrency(sale.totalAdjustments, "en", currencySymbol, decimalPlaces),
       finalAmount: formatCurrency(sale.finalAmount, "en", currencySymbol, decimalPlaces),
       adjustmentsDirection: sale.totalAdjustments >= 0 ? "+" : ""
@@ -137,7 +137,7 @@ export function mapSettlementToPrintModel(invoice, intakeBreakdowns = [], summar
         productName: item.intake?.product?.name || "N/A",
         product: item.intake?.product,
         intakeNumber: item.intake?.intakeNumber || `INT-${item.intakeTransactionId}`,
-        weight: Number(item.weight).toLocaleString(),
+        weight: Number(item.weight),
         unit: item.intake?.unit || DEFAULT_WEIGHT_UNIT,
         rate: formatCurrency(item.rate, "en", currencySymbol, decimalPlaces),
         rateUnit: item.intake?.rateUnit || DEFAULT_WEIGHT_UNIT,

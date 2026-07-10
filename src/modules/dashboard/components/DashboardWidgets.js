@@ -29,6 +29,7 @@ import {
 } from "./DashboardCharts";
 import { useSettings } from "@/components/layout/SettingsContext";
 import { formatCurrency } from "@/lib/formatters/financialFormatter";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
 // --- HYDRATION-SAFE LOCAL TIME COMPONENT ---
 function ClientTime({ dateStr }) {
@@ -96,7 +97,7 @@ export function QuickActionsWidget() {
 
 // --- 2. SUMMARY CARDS WIDGET ---
 export function SummaryCardsWidget({ data }) {
-  const { decimalPlaces, currencySymbol } = useSettings();
+  const { settings, decimalPlaces, currencySymbol } = useSettings();
   const { finance, inventory, ledger, activity } = data;
 
   const renderDiff = (today, yesterday) => {
@@ -201,7 +202,7 @@ export function SummaryCardsWidget({ data }) {
         <div className="space-y-1.5">
           <div className="bg-white dark:bg-slate-900/40 p-2 rounded-lg border border-slate-100 dark:border-slate-900/50">
             <span className="text-[8.5px] font-bold text-slate-400 dark:text-slate-500 uppercase leading-none">Current Inventory</span>
-            <div className="text-base font-extrabold text-emerald-655 dark:text-emerald-400 font-mono mt-0.5">{inventory.totalStockQuantity.toLocaleString()} KG</div>
+            <div className="text-base font-extrabold text-emerald-655 dark:text-emerald-400 font-mono mt-0.5">{formatUnitDisplay(inventory.totalStockQuantity, "KG", null, "en", null, settings)}</div>
             <div className="text-[9px] text-slate-500 dark:text-slate-400 mt-0.5 font-bold">Top Category: <span className="text-slate-700 dark:text-slate-300 font-mono">{inventory.topCategory}</span></div>
           </div>
           <div className="bg-white dark:bg-slate-900/40 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-slate-900/50 flex items-center justify-between">
@@ -338,7 +339,7 @@ export function RecentActivityWidget({ data }) {
 
 // --- 4. PENDING ATTENTION ALERTS WIDGET ---
 export function PendingAttentionWidget({ data }) {
-  const { decimalPlaces, currencySymbol } = useSettings();
+  const { settings, decimalPlaces, currencySymbol } = useSettings();
   const { 
     pendingIntakes, 
     pendingSettlements, 
@@ -499,7 +500,7 @@ export function PendingAttentionWidget({ data }) {
                 pendingBilling.map(track => (
                   <div key={track.id} className="bg-slate-50 dark:bg-slate-950/40 border border-slate-200 dark:border-slate-900 p-2.5 rounded-lg flex items-center justify-between text-xs hover:border-slate-300 dark:hover:border-slate-800 transition-all">
                     <div className="min-w-0 mr-2">
-                      <div className="font-bold text-slate-700 dark:text-slate-200 truncate">{track.productName} ({track.quantity} KG)</div>
+                      <div className="font-bold text-slate-700 dark:text-slate-200 truncate">{track.productName} ({formatUnitDisplay(track.quantity, "KG", null, "en", null, settings)})</div>
                       <div className="text-[10px] text-slate-400 dark:text-slate-555 truncate">{track.buyerName}</div>
                     </div>
                     <Link href="/sales/create" className="text-[10px] font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-primary bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-1 rounded shrink-0 transition-colors">

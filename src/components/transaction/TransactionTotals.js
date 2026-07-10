@@ -6,6 +6,7 @@ import { Plus, Trash2, Tag, Percent, DollarSign, Scale, Archive, X } from "lucid
 import { round } from "@/lib/financial";
 import { useSettings } from "@/components/layout/SettingsContext";
 import { formatNumber } from "@/lib/formatters/financialFormatter";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
 export default function TransactionTotals({
   totals = { baseAmount: 0, totalWeight: 0, totalAdjustments: 0, finalAmount: 0, totalBagCount: 0 },
@@ -17,7 +18,7 @@ export default function TransactionTotals({
   notes = "",
   onChangeNotes
 }) {
-  const { decimalPlaces, currencySymbol } = useSettings();
+  const { settings, decimalPlaces, currencySymbol } = useSettings();
   const [showAdd, setShowAdd] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showNotes, setShowNotes] = useState(!!notes);
@@ -352,7 +353,7 @@ export default function TransactionTotals({
             <span>Total Quantity</span>
           </div>
           <div className="text-right font-mono font-semibold text-foreground">
-            {round(totals.totalWeight).toLocaleString()} KG
+            {formatUnitDisplay(totals.totalWeight, "KG", null, "en", null, settings)}
           </div>
 
           <div className="flex items-center gap-1 text-muted-foreground">
@@ -360,7 +361,7 @@ export default function TransactionTotals({
             <span>Derived Unit Count</span>
           </div>
           <div className="text-right font-mono font-semibold text-foreground">
-            {round(totals.totalBagCount, 1).toLocaleString()} bags
+            {formatUnitDisplay(totals.totalBagCount, "BAG", null, "en", null, settings)}
           </div>
 
           <div className="flex items-center gap-1 text-muted-foreground">

@@ -8,8 +8,9 @@ import { Clock, BadgeCheck, ShoppingBag, XCircle, X, Scale, User, DollarSign, Bo
 import { cn } from "@/lib/utils";
 import { calculateIntakeNetWeight, UNIT_IDS, getUnitLabel, convertFromBase } from "@/lib/units";
 import Modal from "@/components/ui/Modal";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
-export default function StatusUpdateButtons({ intakeId, currentStatus, intake, buyers = [], allowedActions = {}, featureFlags }) {
+export default function StatusUpdateButtons({ intakeId, currentStatus, intake, buyers = [], allowedActions = {}, featureFlags, settings }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -476,13 +477,9 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                     <span className="text-[10px] font-bold uppercase text-primary tracking-widest">Gross Quantity</span>
                     <div className="text-xl font-black text-primary">
                       {intake?.unit === "BAG" ? (
-                        <>
-                          {Number(grossWeightKg).toLocaleString()} <span className="text-xs font-normal uppercase">KG</span>
-                        </>
+                        formatUnitDisplay(grossWeightKg, "KG", null, "en", null, settings)
                       ) : (
-                        <>
-                          {Number(intake?.grossWeight).toLocaleString()} <span className="text-xs font-normal uppercase">{getUnitLabel(intake?.unit)}</span>
-                        </>
+                        formatUnitDisplay(intake?.grossWeight, intake?.unit, intake?.product, "en", null, settings)
                       )}
                     </div>
                   </div>
@@ -541,7 +538,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                         </label>
                         {isCurrentWeightRecorded && maxRemaining < 99999999 && (
                           <span className="text-[10px] font-semibold text-amber-600 font-mono">
-                            Max Available: {maxRemaining.toLocaleString()} {intake?.unit || "KG"}
+                            Max Available: {formatUnitDisplay(maxRemaining, intake?.unit, intake?.product, "en", null, settings)}
                           </span>
                         )}
                       </div>
@@ -661,7 +658,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                 </div>
                 <div className="text-xs text-muted-foreground bg-muted/30 p-2.5 rounded-lg flex justify-between font-mono">
                   <span>Computed Bardana:</span>
-                  <span className="font-semibold text-foreground">{bardanaKg.toFixed(2)} KG</span>
+                  <span className="font-semibold text-foreground">{formatUnitDisplay(bardanaKg, "KG", null, "en", null, settings)}</span>
                 </div>
               </div>
 
@@ -696,7 +693,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                 </div>
                 <div className="text-xs text-muted-foreground bg-muted/30 p-2.5 rounded-lg flex justify-between font-mono">
                   <span>Computed Khot:</span>
-                  <span className="font-semibold text-foreground">{khotKg.toFixed(2)} KG</span>
+                  <span className="font-semibold text-foreground">{formatUnitDisplay(khotKg, "KG", null, "en", null, settings)}</span>
                 </div>
               </div>
 
@@ -706,15 +703,9 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                   <span className="text-[10px] font-bold uppercase text-emerald-800 tracking-wider">Calculated Net Weight</span>
                   <div className="text-2xl font-black text-emerald-700 font-mono">
                     {grossWeightUnit === "BAG" ? (
-                      <>
-                        {netWeightKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <span className="text-xs font-normal uppercase ml-1 italic">{getUnitLabel(grossWeightUnit)}</span>
-                      </>
+                      formatUnitDisplay(netWeightKg, "KG", null, "en", null, settings)
                     ) : (
-                      <>
-                        {netWeight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <span className="text-xs font-normal uppercase ml-1 italic">{getUnitLabel(grossWeightUnit)}</span>
-                      </>
+                      formatUnitDisplay(netWeight, grossWeightUnit, intake?.product, "en", null, settings)
                     )}
                   </div>
                 </div>
@@ -809,7 +800,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
               <div>Buyer Party:</div>
               <div className="font-semibold text-foreground">{salesTrack?.buyer?.name || "N/A"}</div>
               <div>Weight:</div>
-              <div className="font-semibold text-foreground">{Number(salesTrack?.quantity || 0).toLocaleString()} {intake?.unit}</div>
+              <div className="font-semibold text-foreground">{formatUnitDisplay(salesTrack?.quantity || 0, intake?.unit, intake?.product, "en", null, settings)}</div>
               <div>Invoice ID / Status:</div>
               <div className="font-semibold text-rose-700 dark:text-rose-400">Billed & Finalized</div>
             </div>
@@ -843,7 +834,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
               <div>Supplier Invoice:</div>
               <div className="font-semibold text-foreground">{supplierInvoiceItem?.invoice?.invoiceNumber || "N/A"}</div>
               <div>Settled Weight:</div>
-              <div className="font-semibold text-foreground">{Number(supplierInvoiceItem?.weight || 0).toLocaleString()} KG</div>
+              <div className="font-semibold text-foreground">{formatUnitDisplay(supplierInvoiceItem?.weight || 0, "KG", null, "en", null, settings)}</div>
               <div>Settlement Status:</div>
               <div className="font-semibold text-rose-700 dark:text-rose-400">{supplierInvoiceItem?.invoice?.status || "COMPLETED"}</div>
             </div>

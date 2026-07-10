@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import { TrendingUp, ArrowUpRight, ArrowDownRight, Activity, Percent, Layers, ShieldCheck, ShieldAlert } from "lucide-react";
 import { useSettings } from "@/components/layout/SettingsContext";
 import { formatCurrency } from "@/lib/formatters/financialFormatter";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
 // --- 1. DAILY ACTIVITY CHART (CSS BARS) ---
 export function DailyActivityChart({ data = [] }) {
@@ -75,6 +76,7 @@ export function DailyActivityChart({ data = [] }) {
 
 // --- 2. PRODUCT MOVEMENT CHART (HORIZONTAL PROGRESS BARS) ---
 export function ProductMovementChart({ data = [] }) {
+  const { settings } = useSettings();
   const maxWeight = useMemo(() => {
     const weights = data.map(d => d.weight);
     return Math.max(...weights, 100);
@@ -95,7 +97,9 @@ export function ProductMovementChart({ data = [] }) {
               <div key={idx} className="space-y-1">
                 <div className="flex items-center justify-between text-xs font-semibold">
                   <span className="text-slate-700 dark:text-slate-300">{item.name}</span>
-                  <span className="text-slate-500 dark:text-slate-400 font-mono">{item.weight.toLocaleString()} KG</span>
+                  <span className="text-slate-500 dark:text-slate-400 font-mono">
+                    {formatUnitDisplay(item.weight, "KG", null, "en", null, settings)}
+                  </span>
                 </div>
                 <div className="h-2 w-full bg-slate-100 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/40 rounded-full overflow-hidden">
                   <div 

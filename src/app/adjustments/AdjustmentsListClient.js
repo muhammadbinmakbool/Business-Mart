@@ -5,6 +5,8 @@ import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Plus, Edit2, Sliders, Settings, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import DataTable from "@/components/ui/DataTable";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 import PaginationControls from "@/components/ui/PaginationControls";
 import DebouncedSearchInput from "@/components/DebouncedSearchInput";
 import Modal from "@/components/ui/Modal";
@@ -26,6 +28,7 @@ export default function AdjustmentsListClient({
   currentApplicableTo = "ALL",
   onRefresh
 }) {
+  const { currencySymbol, decimalPlaces } = useSettings();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -313,7 +316,7 @@ export default function AdjustmentsListClient({
               render: (row, val) => {
                 if (val === null || val === undefined) return <span className="text-muted-foreground font-normal">None</span>;
                 if (row.method === "PERCENTAGE") return `${val.toFixed(2)}%`;
-                return `Rs. ${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                return formatCurrency(val, "en", currencySymbol, decimalPlaces);
               }
             },
             {

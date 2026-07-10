@@ -28,6 +28,7 @@ import { normalizeQuantity, normalizeRate, getUnitsByCategory } from "@/lib/unit
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 import { getProductForPOS } from "@/modules/products/services/ProductInteractionService";
 import SearchableSelect from "@/components/ui/SearchableSelect";
+import { useSettings } from "@/components/layout/SettingsContext";
 
 // Components
 import TransactionHeader from "@/components/transaction/TransactionHeader";
@@ -43,6 +44,7 @@ export default function PosBillingClient({
   initialData = null,
   flags = null
 }) {
+  const { currencySymbol, decimalPlaces } = useSettings();
   const router = useRouter();
 
   // 1. Initial State Resolution (Hydration safe)
@@ -836,6 +838,8 @@ export default function PosBillingClient({
           focusedRowIndex={focusedRowIndex}
           setFocusedRowIndex={setFocusedRowIndex}
           unitRegistry={unitRegistry}
+          currencySymbol={currencySymbol}
+          decimalPlaces={decimalPlaces}
         />
       </div>
 

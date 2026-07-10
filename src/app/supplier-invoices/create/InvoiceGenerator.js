@@ -23,9 +23,10 @@ import { toast } from "sonner";
 import { UNIT_IDS, DEFAULT_WEIGHT_UNIT } from "@/lib/units";
 import { useSettings } from "@/components/layout/SettingsContext";
 import { formatCurrency, formatNumber } from "@/lib/formatters/financialFormatter";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
 export default function InvoiceGenerator({ suppliers, initialInvoice = null, adjustmentDefinitions = [], backUrl = "" }) {
-  const { decimalPlaces, currencySymbol } = useSettings();
+  const { settings, decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
   const [step, setStep] = useState(initialInvoice ? 2 : 1);
 
@@ -512,7 +513,7 @@ export default function InvoiceGenerator({ suppliers, initialInvoice = null, adj
                     </div>
                     <div className="text-right">
                       <div className="font-bold text-base font-mono">
-                        {Number(i.netWeight || i.grossWeight).toLocaleString()} {i.unit || "KG"}
+                        {formatUnitDisplay(Number(i.netWeight || i.grossWeight), i.unit || "KG", i.product, "en", null, settings)}
                       </div>
                       <div className="text-xs text-muted-foreground">{formatCurrency(i.rate, "en", currencySymbol, decimalPlaces)} / {i.rateUnit === UNIT_IDS.MAUND ? "Maund" : (i.rateUnit || "KG")}</div>
                     </div>

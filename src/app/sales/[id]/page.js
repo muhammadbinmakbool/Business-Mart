@@ -152,7 +152,7 @@ export default async function SaleDetailsPage({ params: paramsPromise, searchPar
             <div className="px-5 py-4 bg-muted/5 border-t flex justify-between items-center text-xs">
               <div>
                 <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Net Weight</span>
-                <span className="font-bold text-sm">{sale.totalWeight.toLocaleString()} KG</span>
+                <span className="font-bold text-sm">{formatUnitDisplay(sale.totalWeight, "KG", null, "en", null, printConfig)}</span>
               </div>
               <div className="text-right">
                 <span className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest block">Base Amount</span>

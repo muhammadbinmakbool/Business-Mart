@@ -6,8 +6,9 @@ import { format } from "date-fns";
 import { FileText, Scale } from "lucide-react";
 import { formatCurrency } from "@/lib/formatters/financialFormatter";
 import { getUnitLabel } from "@/lib/units";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
-export default function SalesBreakdown({ salesTracks = [], intake, currencySymbol = "Rs.", decimalPlaces = 2 }) {
+export default function SalesBreakdown({ salesTracks = [], intake, currencySymbol = "Rs.", decimalPlaces = 2, settings }) {
   const isWeightRecorded = !!(intake?.isWeightRecorded && Number(intake?.grossWeight || 0) > 0);
 
   const handleCompleteSale = (trackId) => {
@@ -64,13 +65,11 @@ export default function SalesBreakdown({ salesTracks = [], intake, currencySymbo
                       <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 italic">Pending Weighment</span>
                     ) : (
                       <>
-                        {Number(track.quantity).toLocaleString()} <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold italic">({getUnitLabel(intake.unit)} - Pending Weighment)</span>
+                        {formatUnitDisplay(track.quantity, intake.unit, intake.product, "en", null, settings)} <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold italic">(Pending Weighment)</span>
                       </>
                     )
                   ) : (
-                    <>
-                      {Number(track.quantity).toLocaleString()} <span className="text-xs font-normal uppercase italic">{getUnitLabel(intake.unit)}</span>
-                    </>
+                    formatUnitDisplay(track.quantity, intake.unit, intake.product, "en", null, settings)
                   )}
                 </div>
                 <div className="text-xs text-muted-foreground">

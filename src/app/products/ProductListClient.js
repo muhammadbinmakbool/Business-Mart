@@ -14,6 +14,9 @@ import { useHeaderAction } from "@/components/layout/HeaderActionContext";
 import StatusFilterTabs from "@/components/StatusFilterTabs";
 import { getUnitLabel } from "@/lib/units";
 import Modal from "@/components/ui/Modal";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 export default function ProductListClient({
   products = [],
@@ -26,6 +29,7 @@ export default function ProductListClient({
   currentSortField = "name",
   currentSortDirection = "asc"
 }) {
+  const { settings, decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -186,17 +190,7 @@ export default function ProductListClient({
               className: "px-6 py-4 text-right font-mono text-lg font-black text-primary",
               render: (row, val) => {
                 const displayQty = typeof row.displayStock === "number" ? row.displayStock : 0;
-                return (
-                  <>
-                    {displayQty.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
-                    <span className="text-[10px] text-muted-foreground font-normal uppercase ml-1">
-                      {row.primaryUnit}
-                    </span>
-                  </>
-                );
+                return formatUnitDisplay(displayQty, row.primaryUnit, row, "en", null, settings);
               },
             },
             {
@@ -208,7 +202,7 @@ export default function ProductListClient({
                 const unitLabel = getUnitLabel(row.buyingRateUnit || "KG");
                 return (
                   <>
-                    <span className="font-semibold text-foreground">Rs. {Number(val).toLocaleString()}</span>
+                    <span className="font-semibold text-foreground">{formatCurrency(val, "en", currencySymbol, decimalPlaces)}</span>
                     <span className="text-[10px] text-muted-foreground uppercase ml-1">/ {unitLabel}</span>
                   </>
                 );
@@ -223,7 +217,7 @@ export default function ProductListClient({
                 const unitLabel = getUnitLabel(row.sellingRateUnit || "KG");
                 return (
                   <>
-                    <span className="font-semibold text-foreground">Rs. {Number(val).toLocaleString()}</span>
+                    <span className="font-semibold text-foreground">{formatCurrency(val, "en", currencySymbol, decimalPlaces)}</span>
                     <span className="text-[10px] text-muted-foreground uppercase ml-1">/ {unitLabel}</span>
                   </>
                 );
@@ -304,7 +298,7 @@ export default function ProductListClient({
                   <div className="flex justify-between items-center py-0.5">
                     <span className="text-xs font-medium text-muted-foreground">Available Stock:</span>
                     <span className="font-mono font-bold text-primary text-sm">
-                      {typeof selectedProduct.displayStock === "number" ? selectedProduct.displayStock.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"} {selectedProduct.primaryUnit}
+                      {formatUnitDisplay(typeof selectedProduct.displayStock === "number" ? selectedProduct.displayStock : 0, selectedProduct.primaryUnit, selectedProduct, "en", null, settings)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-0.5">
@@ -315,7 +309,7 @@ export default function ProductListClient({
                     <div className="flex justify-between items-center py-0.5">
                       <span className="text-xs font-medium text-muted-foreground">Unit Conversion:</span>
                       <span className="text-xs font-semibold text-foreground">
-                        1 BAG = {Number(selectedProduct.unitConversion).toLocaleString()} KG
+                        1 BAG = {formatUnitDisplay(Number(selectedProduct.unitConversion), "KG", null, "en", null, settings)}
                       </span>
                     </div>
                   )}
@@ -330,7 +324,7 @@ export default function ProductListClient({
                     <span className="text-xs font-medium text-muted-foreground">Buying Rate:</span>
                     <span className="text-xs font-semibold text-foreground">
                       {selectedProduct.defaultBuyingRate !== null && selectedProduct.defaultBuyingRate !== undefined ? (
-                        <>Rs. {Number(selectedProduct.defaultBuyingRate).toLocaleString()} / {getUnitLabel(selectedProduct.buyingRateUnit || "KG")}</>
+                        <>{formatCurrency(selectedProduct.defaultBuyingRate, "en", currencySymbol, decimalPlaces)} / {getUnitLabel(selectedProduct.buyingRateUnit || "KG")}</>
                       ) : (
                         "-"
                       )}
@@ -340,7 +334,7 @@ export default function ProductListClient({
                     <span className="text-xs font-medium text-muted-foreground">Selling Rate:</span>
                     <span className="text-xs font-semibold text-foreground">
                       {selectedProduct.defaultSellingRate !== null && selectedProduct.defaultSellingRate !== undefined ? (
-                        <>Rs. {Number(selectedProduct.defaultSellingRate).toLocaleString()} / {getUnitLabel(selectedProduct.sellingRateUnit || "KG")}</>
+                        <>{formatCurrency(selectedProduct.defaultSellingRate, "en", currencySymbol, decimalPlaces)} / {getUnitLabel(selectedProduct.sellingRateUnit || "KG")}</>
                       ) : (
                         "-"
                       )}

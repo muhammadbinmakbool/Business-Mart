@@ -16,6 +16,9 @@ import Alert from "@/components/ui/Alert";
 import Modal from "@/components/ui/Modal";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import { getErrorPresentation } from "@/lib/errors/errorPresentation";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 import { useKeyboardFlow } from "@/hooks/useKeyboardFlow";
 import { fastEntryMemoryStore } from "@/lib/fastEntryMemoryStore";
 import { useFastEntryAssistant } from "@/modules/fast-entry-assistant/hooks/useFastEntryAssistant";
@@ -23,7 +26,7 @@ import InlineSuggestionBox from "@/modules/fast-entry-assistant/components/Inlin
 import { getProductForSale } from "@/modules/products/services/ProductInteractionService";
 
 export default function SaleForm({ buyers, products, initialData = null, adjustmentDefinitions = [], backUrl = "", flags = null }) {
-
+  const { settings, decimalPlaces, currencySymbol } = useSettings();
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorModal, setErrorModal] = useState({ isOpen: false, title: "", message: "", type: "error" });
@@ -874,13 +877,13 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                     <td className="px-4 py-2 text-right font-bold tabular-nums align-top">
                       {(() => {
                         const product = products.find(p => p.id === parseInt(item.productId));
-                        if (!product) return "0";
+                        if (!product) return formatCurrency(0, "en", currencySymbol, decimalPlaces);
                         try {
-                           const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product);
-                           const baseQuantity = normalizeQuantity(item.weight || 0, item.unit || "KG", product);
-                           return round(baseQuantity * normalizedRate).toLocaleString();
+                           const normalizedRate = normalizeRate(item.rate || 0, item.rateUnit || "KG", product, unitRegistry);
+                           const baseQuantity = normalizeQuantity(item.weight || 0, item.unit || "KG", product, unitRegistry);
+                           return formatCurrency(round(baseQuantity * normalizedRate), "en", currencySymbol, decimalPlaces);
                         } catch (e) {
-                           return "0";
+                           return formatCurrency(0, "en", currencySymbol, decimalPlaces);
                         }
                       })()}
                     </td>
@@ -980,7 +983,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                         "font-mono font-bold text-sm min-w-[70px] text-right",
                         adj.direction === "ADD" ? "text-emerald-600" : "text-rose-600"
                       )}>
-                        {adj.direction === "ADD" ? "+" : "-"} {amount.toLocaleString()}
+                        {adj.direction === "ADD" ? "+" : "-"} {formatCurrency(amount, "en", currencySymbol, decimalPlaces)}
                       </span>
                       <button
                         type="button"
@@ -1020,11 +1023,11 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
           <div className="space-y-4 font-medium">
             <div className="flex justify-between items-center text-sm">
               <span className="text-muted-foreground">Total Gross Quantity</span>
-              <span className="font-mono">{totals.totalWeight.toLocaleString()} KG</span>
+              <span className="font-mono">{formatUnitDisplay(totals.totalWeight, "KG", null, "en", null, settings)}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-muted-foreground">Base Amount</span>
-              <span className="text-lg">Rs. {totals.baseAmount.toLocaleString()}</span>
+              <span className="text-lg">{formatCurrency(totals.baseAmount, "en", currencySymbol, decimalPlaces)}</span>
             </div>
             <div className="flex justify-between items-center py-2 border-y border-primary/10">
               <span className="text-muted-foreground">Total Adjustments</span>
@@ -1032,7 +1035,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
                 "text-lg",
                 totals.totalAdjustments > 0 ? "text-emerald-600" : totals.totalAdjustments < 0 ? "text-rose-600" : ""
               )}>
-                {totals.totalAdjustments > 0 ? "+" : ""} {totals.totalAdjustments.toLocaleString()}
+                {totals.totalAdjustments > 0 ? "+" : ""} {formatCurrency(totals.totalAdjustments, "en", currencySymbol, decimalPlaces)}
               </span>
             </div>
             <div className="flex justify-between items-end pt-4">
@@ -1040,7 +1043,7 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
               <div className="text-right">
                 <div className="text-[10px] uppercase font-bold text-primary tracking-widest mb-1 opacity-60">Total Receivable</div>
                 <span className="text-4xl font-black text-primary tracking-tighter">
-                  Rs. {totals.finalAmount.toLocaleString()}
+                  {formatCurrency(totals.finalAmount, "en", currencySymbol, decimalPlaces)}
                 </span>
               </div>
             </div>
