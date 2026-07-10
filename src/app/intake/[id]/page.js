@@ -330,6 +330,53 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
             <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Status Lifecycle</h2>
             <StatusUpdateButtons intakeId={intake.id} currentStatus={intake.status} intake={intake} buyers={buyers} allowedActions={allowedActions} featureFlags={flags} />
           </div>
+
+          {/* Weighment Summary Card */}
+          {!!(intake.isWeightRecorded && Number(intake.grossWeight || 0) > 0) && (
+            <div className="rounded-xl border bg-card p-6 shadow-sm space-y-4">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                <Weight className="h-4 w-4 text-primary" />
+                Weighment Summary
+              </h2>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-sm border-b pb-2">
+                  <span className="text-muted-foreground font-medium">Gross Weight</span>
+                  <span className="font-bold font-mono">
+                    {intake.unit === "BAG" ? (
+                      <>{Number(intake.baseQuantity).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-muted-foreground">KG</span></>
+                    ) : (
+                      <>{Number(intake.grossWeight).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-muted-foreground">{getUnitLabel(intake.unit)}</span></>
+                    )}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-sm border-b pb-2">
+                  <span className="text-muted-foreground font-medium">Bardana (Tare)</span>
+                  <span className="font-bold font-mono text-amber-600">
+                    -{Number(intake.Bardana || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-muted-foreground">KG</span>
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-sm border-b pb-2">
+                  <span className="text-muted-foreground font-medium">Khot (Impurity)</span>
+                  <span className="font-bold font-mono text-rose-600">
+                    -{Number(intake.Khot || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-normal text-muted-foreground">KG</span>
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center text-sm pt-1">
+                  <span className="font-bold text-foreground">Net Weight</span>
+                  <div className="bg-emerald-500/10 dark:bg-emerald-500/20 px-3 py-1 rounded-lg text-emerald-700 dark:text-emerald-400 font-extrabold font-mono text-base border border-emerald-500/25">
+                    {intake.unit === "BAG" ? (
+                      <>{Number(intake.netWeight || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-semibold">KG</span></>
+                    ) : (
+                      <>{Number(intake.netWeight || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-xs font-semibold">{getUnitLabel(intake.unit)}</span></>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
