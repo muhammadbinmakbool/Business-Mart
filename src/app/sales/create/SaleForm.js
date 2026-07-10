@@ -658,6 +658,9 @@ export default function SaleForm({ buyers, products, initialData = null, adjustm
               draftSuggestion={draftSuggestion}
               onApply={handleApplyPrefill}
               buttonText="Use Draft"
+              settings={settings}
+              currencySymbol={currencySymbol}
+              decimalPlaces={decimalPlaces}
             />
           )}
         </div>

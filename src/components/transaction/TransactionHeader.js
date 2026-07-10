@@ -55,7 +55,10 @@ export default function TransactionHeader({
   saveLabel = "Save Bill",
   backUrl = "/sales",
   newPartySectionTitle = "New Buyer Quick Master Setup",
-  partyNameLabel = "Buyer Name"
+  partyNameLabel = "Buyer Name",
+  settings = null,
+  currencySymbol = "Rs.",
+  decimalPlaces = 2
 }) {
   return (
     <>
@@ -280,6 +283,9 @@ export default function TransactionHeader({
               onApply={handleApplyPrefill}
               isCompact={true}
               buttonText="Use Draft"
+              settings={settings}
+              currencySymbol={currencySymbol}
+              decimalPlaces={decimalPlaces}
             />
           )}
         </div>

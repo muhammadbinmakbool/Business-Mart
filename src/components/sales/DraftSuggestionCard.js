@@ -3,6 +3,8 @@
 import React from "react";
 import { ArrowRight, Lightbulb, Check, Lock, AlertCircle } from "lucide-react";
 import { showToast } from "@/components/ui/Toast";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
+import { formatCurrency } from "@/lib/formatters/financialFormatter";
 
 /**
  * Reusable, presentational UI component for rendering suggested draft invoices.
@@ -15,7 +17,10 @@ export default function DraftSuggestionCard({
   onToggleItemSelection = null,
   selectedItemIds = null,
   isCompact = false,
-  buttonText = "Apply Prefill"
+  buttonText = "Apply Prefill",
+  settings = null,
+  currencySymbol = "Rs.",
+  decimalPlaces = 2
 }) {
   if (!draftSuggestion || !draftSuggestion.items || draftSuggestion.items.length === 0) {
     return null;
@@ -147,9 +152,9 @@ export default function DraftSuggestionCard({
                     {isWeightPending ? (
                       <span className="text-rose-600 font-normal italic">Pending</span>
                     ) : (
-                      `${item.weight} ${item.unit}`
+                      formatUnitDisplay(Number(item.weight), item.unit, null, "en", null, settings)
                     )}
-                    {" "}@ Rs. {item.rate}
+                    {" "}@ {formatCurrency(item.rate, "en", currencySymbol, decimalPlaces)}
                   </span>
                 </div>
                 

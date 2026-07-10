@@ -21,8 +21,11 @@ import { sellIntakeAction } from "@/modules/intake/controllers/intakeActions";
 import SearchableSelect from "@/components/ui/SearchableSelect";
 import DraftSuggestionCard from "@/components/sales/DraftSuggestionCard";
 import { useHeaderAction } from "@/components/layout/HeaderActionContext";
+import { useSettings } from "@/components/layout/SettingsContext";
+import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
 export default function SalesWorkbenchClient({ buyers = [], products = [], flags = {} }) {
+  const { settings, currencySymbol, decimalPlaces } = useSettings();
   const router = useRouter();
   const salesMode = flags.salesMode || "HYBRID";
   const isDirectMode = salesMode === "DIRECT";
@@ -349,10 +352,10 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
                           <span className="text-rose-600 font-bold dark:text-rose-400">Weight Pending</span>
                         ) : (
                           <>
-                            <span>Gross: {intake.grossWeight} {intake.unit}</span>
+                            <span>Gross: {formatUnitDisplay(Number(intake.grossWeight), intake.unit, null, "en", null, settings)}</span>
                             <span>|</span>
                             <span className="text-amber-600 font-bold dark:text-amber-400">
-                              Remaining: {remaining} {intake.unit}
+                              Remaining: {formatUnitDisplay(remaining, intake.unit, null, "en", null, settings)}
                             </span>
                           </>
                         )}
@@ -428,6 +431,9 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
                       onToggleItemSelection={toggleItemSelection}
                       selectedItemIds={selectedSet}
                       buttonText="Convert"
+                      settings={settings}
+                      currencySymbol={currencySymbol}
+                      decimalPlaces={decimalPlaces}
                     />
                   </div>
                 );
@@ -492,7 +498,7 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
                         <div className="space-y-0.5">
                           {sale.items?.map((item, idx) => (
                             <div key={idx} className="font-semibold text-card-foreground">
-                              {item.product?.name} ({item.weight} {item.unit})
+                              {item.product?.name} ({formatUnitDisplay(Number(item.weight), item.unit, null, "en", null, settings)})
                             </div>
                           ))}
                         </div>
@@ -544,7 +550,14 @@ export default function SalesWorkbenchClient({ buyers = [], products = [], flags
               <div>Supplier: <span className="font-bold text-foreground">{selectedIntake.party?.name}</span></div>
               <div>
                 Available Weight: <span className="font-bold text-primary">
-                  {selectedIntake.remainingWeight !== null ? selectedIntake.remainingWeight : selectedIntake.grossWeight} {selectedIntake.unit}
+                  {formatUnitDisplay(
+                    selectedIntake.remainingWeight !== null ? Number(selectedIntake.remainingWeight) : Number(selectedIntake.grossWeight),
+                    selectedIntake.unit,
+                    null,
+                    "en",
+                    null,
+                    settings
+                  )}
                 </span>
               </div>
             </div>

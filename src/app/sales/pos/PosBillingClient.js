@@ -825,6 +825,9 @@ export default function PosBillingClient({
         loadingDraftSuggestion={loadingDraftSuggestion}
         draftSuggestion={draftSuggestion}
         handleApplyPrefill={handleApplyPrefill}
+        settings={settings}
+        currencySymbol={currencySymbol}
+        decimalPlaces={decimalPlaces}
       />
 
       {/* 3. Core POS Table Spreadsheet */}
