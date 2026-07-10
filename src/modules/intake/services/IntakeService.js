@@ -781,6 +781,16 @@ export class IntakeService {
       const isWeightRecordedNow = data.grossWeight && Number(data.grossWeight) > 0;
       const isWeightRecorded = isCurrentWeightRecorded || isWeightRecordedNow;
       
+      let portionGrossInIntakeUnit = 0;
+      let portionNetInIntakeUnit = 0;
+      if (isWeightRecordedNow) {
+        const portionGrossKg = normalizeQuantity(Number(data.grossWeight), data.grossWeightUnit || intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
+        portionGrossInIntakeUnit = convertFromBase(portionGrossKg, intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
+
+        const portionNetKg = normalizeQuantity(Number(netWeight), data.grossWeightUnit || intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
+        portionNetInIntakeUnit = convertFromBase(portionNetKg, intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
+      }
+      
       let grossWeightVal = Number(intake.grossWeight);
       let bagCountVal = intake.bagCount;
       let baseQuantity = Number(intake.baseQuantity);
@@ -801,136 +811,77 @@ export class IntakeService {
           throw new Error("Gross weight is required to complete weighment.");
         }
 
-        if (data.salesTrackId) {
-          // A. Complete weight for a SPECIFIC partial sales track
-          const targetTrack = existingTracks.find(t => t.id === parseInt(data.salesTrackId));
-          if (!targetTrack) {
-            throw new Error(`Sales track ${data.salesTrackId} not found`);
-          }
+        const targetTrack = data.salesTrackId
+          ? existingTracks.find(t => t.id === parseInt(data.salesTrackId))
+          : (existingTracks.find(t => Number(t.quantity) === 0) || existingTracks.find(t => t.notes && t.notes.includes("marked as SOLD")));
 
-          // Calculate net weight for this portion
-          const portionWeightDetails = calculateIntakeNetWeight({
-            grossWeight: Number(data.grossWeight),
-            unit: data.grossWeightUnit || intake.unit || DEFAULT_WEIGHT_UNIT,
-            bagCount: Number(data.bagCount) || 0,
-            bardanaGramPerBag: Number(data.Bardana) || 0,
-            khotRate: Number(data.Khot) || 0,
-            khotRateUnit: data.khotRateUnit || "KG",
-            product: intake.product,
-            unitRegistry
-          });
-
-          // Update the targeted sales track with portion details
-          const sellingRateVal = targetTrack.sellingRate ? Number(targetTrack.sellingRate) : rate;
-          const actualRate = convertRate(sellingRateVal, targetTrack.rateUnit || DEFAULT_WEIGHT_UNIT, intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
-          const rateForTotal = actualRate ? Number(actualRate) : 0;
-
-          await tx.salesTrack.update({
-            where: { id: targetTrack.id },
-            data: {
-              quantity: portionWeightDetails.netWeight,
-              netWeight: portionWeightDetails.netWeight,
-              baseAmount: portionWeightDetails.netWeight * rateForTotal,
-              notes: `Weight completed for this partial sale`
-            }
-          });
-
-          // Increment the intake transaction's cumulative weights/bags
-          const newIntakeGross = Number(intake.grossWeight || 0) + Number(data.grossWeight);
-          const newIntakeBags = (intake.bagCount || 0) + (data.bagCount ? Number(data.bagCount) : 0);
-          const newIntakeBaseQty = Number(intake.baseQuantity || 0) + portionWeightDetails.grossWeightKg;
-          const newIntakeBardana = Number(intake.Bardana || 0) + portionWeightDetails.bardanaKg;
-          const newIntakeKhot = Number(intake.Khot || 0) + portionWeightDetails.khotKg;
-          const newIntakeNet = Number(intake.netWeight || 0) + portionWeightDetails.netWeight;
-
-          // Check if there are other incomplete/in-progress tracks (quantity === 0)
-          const remainingIncompleteTracks = existingTracks.filter(t => t.id !== targetTrack.id && Number(t.quantity) === 0);
-          const hasRemainderTrack = existingTracks.some(t => t.notes && t.notes.includes("marked as SOLD")) || (targetTrack.notes && targetTrack.notes.includes("marked as SOLD"));
-          const newStatus = (remainingIncompleteTracks.length > 0 || !hasRemainderTrack) ? "PARTIAL" : "SOLD";
-
-          const updatedIntake = await tx.intakeTransaction.update({
-            where: { id: intakeId },
-            data: {
-              grossWeight: newIntakeGross,
-              unit: data.grossWeightUnit || intake.unit || DEFAULT_WEIGHT_UNIT,
-              bagCount: newIntakeBags,
-              baseQuantity: newIntakeBaseQty,
-              Bardana: newIntakeBardana,
-              Khot: newIntakeKhot,
-              netWeight: newIntakeNet,
-              isWeightRecorded: true,
-              status: newStatus,
-              weightCompletedAt: new Date(),
-              userId: ownership.userId,
-              businessId: ownership.businessId
-            }
-          });
-
-          await InventoryService.handleIntakeSold(intake.productId, tx);
-          return updatedIntake;
-        } else {
-          // B. Complete weight for the ENTIRE intake (remainder track flow)
-          // 1. Update intake details with weight info
-          const updatedIntake = await tx.intakeTransaction.update({
-            where: { id: intakeId },
-            data: {
-              grossWeight: grossWeightVal,
-              unit: data.grossWeightUnit || intake.unit || DEFAULT_WEIGHT_UNIT,
-              bagCount: bagCountVal,
-              baseQuantity: baseQuantity,
-              Bardana: Bardana,
-              Khot: Khot,
-              netWeight: netWeight,
-              isWeightRecorded: true,
-              weightCompletedAt: new Date(),
-              userId: ownership.userId,
-              businessId: ownership.businessId
-            }
-          });
-
-          // 2. Reconcile only the remainder track, keeping partial sales immutable
-          const remainderTrack = existingTracks.find(t => Number(t.quantity) === 0) || existingTracks.find(t => t.notes && t.notes.includes("marked as SOLD"));
-          const partialTracks = remainderTrack ? existingTracks.filter(t => t.id !== remainderTrack.id) : existingTracks;
-          const sumPartialQty = partialTracks.reduce((sum, t) => sum + Number(t.quantity), 0);
-
-          let newRemainingWeight = 0;
-          let newStatus = "SOLD";
-
-          if (remainderTrack) {
-            const remainderQty = Math.max(0, netWeight - sumPartialQty);
-            const actualRate = convertRate(remainderTrack.sellingRate, remainderTrack.rateUnit || DEFAULT_WEIGHT_UNIT, intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
-            const rateForTotal = actualRate ? Number(actualRate) : 0;
-
-            await tx.salesTrack.update({
-              where: { id: remainderTrack.id },
-              data: {
-                quantity: remainderQty,
-                netWeight: remainderQty,
-                baseAmount: remainderQty * rateForTotal,
-                notes: `Intake ${intake.intakeNumber} weight finalized/updated`
-              }
-            });
-            newRemainingWeight = 0;
-            newStatus = "SOLD";
-          } else {
-            newRemainingWeight = Math.max(0, netWeight - sumPartialQty);
-            newStatus = newRemainingWeight > 0 ? "PARTIAL" : "SOLD";
-          }
-
-          // Update finalized status and remaining weight
-          const finalIntake = await tx.intakeTransaction.update({
-            where: { id: intakeId },
-            data: {
-              status: newStatus,
-              remainingWeight: newRemainingWeight
-            }
-          });
-
-          // Delegate inventory update
-          await InventoryService.handleIntakeSold(intake.productId, tx);
-
-          return finalIntake;
+        if (!targetTrack) {
+          throw new Error("Target sales track not found for completion");
         }
+
+        // Calculate net weight for this portion
+        const portionWeightDetails = calculateIntakeNetWeight({
+          grossWeight: Number(data.grossWeight),
+          unit: data.grossWeightUnit || intake.unit || DEFAULT_WEIGHT_UNIT,
+          bagCount: Number(data.bagCount) || 0,
+          bardanaGramPerBag: Number(data.Bardana) || 0,
+          khotRate: Number(data.Khot) || 0,
+          khotRateUnit: data.khotRateUnit || "KG",
+          product: intake.product,
+          unitRegistry
+        });
+
+        // Update the targeted sales track with portion details
+        const sellingRateVal = targetTrack.sellingRate ? Number(targetTrack.sellingRate) : rate;
+        const actualRate = convertRate(sellingRateVal, targetTrack.rateUnit || DEFAULT_WEIGHT_UNIT, intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
+        const rateForTotal = actualRate ? Number(actualRate) : 0;
+
+        const portionNetInIntakeUnitForResume = convertFromBase(portionWeightDetails.netWeightKg, intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
+
+        await tx.salesTrack.update({
+          where: { id: targetTrack.id },
+          data: {
+            quantity: portionNetInIntakeUnitForResume,
+            netWeight: portionNetInIntakeUnitForResume,
+            baseAmount: portionNetInIntakeUnitForResume * rateForTotal,
+            notes: data.salesTrackId ? `Weight completed for this partial sale` : `Intake ${intake.intakeNumber} weight finalized/updated`
+          }
+        });
+
+        // Increment the intake transaction's cumulative weights/bags
+        const portionGrossInIntakeUnitForResume = convertFromBase(portionWeightDetails.grossWeightKg, intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
+        const newIntakeGross = Number(intake.grossWeight || 0) + portionGrossInIntakeUnitForResume;
+        const newIntakeBags = (intake.bagCount || 0) + (data.bagCount ? Number(data.bagCount) : 0);
+        const newIntakeBaseQty = Number(intake.baseQuantity || 0) + portionWeightDetails.grossWeightKg;
+        const newIntakeBardana = Number(intake.Bardana || 0) + portionWeightDetails.bardanaKg;
+        const newIntakeKhot = Number(intake.Khot || 0) + portionWeightDetails.khotKg;
+        const newIntakeNet = Number(intake.netWeight || 0) + portionNetInIntakeUnitForResume;
+
+        // Check if there are other incomplete/in-progress tracks (quantity === 0)
+        const remainingIncompleteTracks = existingTracks.filter(t => t.id !== targetTrack.id && Number(t.quantity) === 0);
+        const hasRemainderTrack = existingTracks.some(t => t.notes && t.notes.includes("marked as SOLD")) || (targetTrack.notes && targetTrack.notes.includes("marked as SOLD")) || (!data.salesTrackId && intake.status === "SOLD");
+        const newStatus = (remainingIncompleteTracks.length > 0 || !hasRemainderTrack) ? "PARTIAL" : "SOLD";
+
+        const updatedIntake = await tx.intakeTransaction.update({
+          where: { id: intakeId },
+          data: {
+            grossWeight: newIntakeGross,
+            unit: intake.unit || data.grossWeightUnit || DEFAULT_WEIGHT_UNIT,
+            bagCount: newIntakeBags,
+            baseQuantity: newIntakeBaseQty,
+            Bardana: newIntakeBardana,
+            Khot: newIntakeKhot,
+            netWeight: newIntakeNet,
+            isWeightRecorded: true,
+            status: newStatus,
+            weightCompletedAt: new Date(),
+            userId: ownership.userId,
+            businessId: ownership.businessId
+          }
+        });
+
+        await InventoryService.handleIntakeSold(intake.productId, tx);
+        return updatedIntake;
       }
 
       // FIRST TIME SELLING WORKFLOW (FROM PENDING)
@@ -977,9 +928,10 @@ export class IntakeService {
       // Calculate average rate
       let averageRate = rate;
       if (isWeightRecorded) {
+        const portionQtyForAverage = isWeightRecordedNow ? portionNetInIntakeUnit : (isWeightRecorded ? netWeight : 0);
         const allTracks = [
           ...existingTracks.map(t => ({ quantity: Number(t.quantity || 0), rate: Number(t.buyingRate || 0) })),
-          { quantity: netWeight, rate: rate }
+          { quantity: portionQtyForAverage, rate: rate }
         ];
         const totalQty = allTracks.reduce((sum, t) => sum + t.quantity, 0);
         const totalValue = allTracks.reduce((sum, t) => sum + (t.quantity * t.rate), 0);
@@ -994,16 +946,16 @@ export class IntakeService {
           remainingWeight: newRemainingWeight,
           Bardana: isWeightRecorded ? (Number(intake.Bardana || 0) + Bardana) : 0,
           Khot: isWeightRecorded ? (Number(intake.Khot || 0) + Khot) : 0,
-          netWeight: isWeightRecorded ? (Number(intake.netWeight || 0) + netWeight) : 0,
+          netWeight: isWeightRecorded ? (Number(intake.netWeight || 0) + (isWeightRecordedNow ? portionNetInIntakeUnit : netWeight)) : 0,
           rate: averageRate,
           rateUnit: rateUnit,
           sellingCompletedAt: new Date(),
           userId: ownership.userId,
           businessId: ownership.businessId,
           ...(isWeightRecordedNow ? {
-            grossWeight: grossWeightVal,
-            baseQuantity: baseQuantity,
-            bagCount: bagCountVal,
+            grossWeight: isCurrentWeightRecorded ? (Number(intake.grossWeight || 0) + portionGrossInIntakeUnit) : portionGrossInIntakeUnit,
+            baseQuantity: isCurrentWeightRecorded ? (Number(intake.baseQuantity || 0) + baseQuantity) : baseQuantity,
+            bagCount: isCurrentWeightRecorded ? ((intake.bagCount || 0) + (bagCountVal || 0)) : bagCountVal,
             isWeightRecorded: true,
             weightCompletedAt: new Date()
           } : {})
@@ -1013,7 +965,7 @@ export class IntakeService {
       // 2.5 Delegate inventory update
       await InventoryService.handleIntakeSold(intake.productId, tx);
 
-      const trackQty = isWeightRecorded ? netWeight : soldQty;
+      const trackQty = isWeightRecorded ? (isWeightRecordedNow ? portionNetInIntakeUnit : netWeight) : soldQty;
       const trackBaseAmount = trackQty * convertRate(rate, rateUnit, intake.unit || DEFAULT_WEIGHT_UNIT, intake.product, unitRegistry);
 
       const trackData = {
@@ -1025,7 +977,7 @@ export class IntakeService {
         buyingRate: rate,
         sellingRate: rate,
         rateUnit: rateUnit,
-        netWeight: isWeightRecorded ? netWeight : (isPartial ? soldQty : 0),
+        netWeight: isWeightRecorded ? trackQty : (isPartial ? soldQty : 0),
         baseAmount: trackBaseAmount,
         notes: isPartial 
           ? `Intake ${intake.intakeNumber} partial sale marked as PARTIAL`

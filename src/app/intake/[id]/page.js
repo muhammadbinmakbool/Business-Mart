@@ -151,20 +151,26 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
               }
 
               const arrivalMeta = intake.arrivalMeta ? (typeof intake.arrivalMeta === 'string' ? JSON.parse(intake.arrivalMeta) : intake.arrivalMeta) : null;
+              
+              // Determine if this was a delayed weighment intake (Scenario 2)
+              const isDelayedWeighment = !intake.isWeightRecorded || (intake.weightCompletedAt && new Date(intake.weightCompletedAt).getTime() - new Date(intake.arrivalCompletedAt || intake.createdAt).getTime() > 10000);
               const isFullySold = intake.status === "SOLD" || intake.status === "CLEARED";
+              
+              // Conditionally render arrival metadata fields only for delayed weighment that is not fully sold yet
+              const showArrivalMeta = isDelayedWeighment && !isFullySold;
 
-              const qTitle = isFullySold ? "Quantity" : "Arrival Packaging";
-              const qValueText = (!isFullySold && arrivalMeta?.containerCount) 
+              const qTitle = showArrivalMeta ? "Arrival Packaging" : "Quantity";
+              const qValueText = (showArrivalMeta && arrivalMeta?.containerCount) 
                 ? `${arrivalMeta.containerCount} ${arrivalMeta.containerType || 'Bag'}${Number(arrivalMeta.containerCount) !== 1 ? 's' : ''}`
                 : quantityValueText;
-              const qSubText = (!isFullySold && arrivalMeta?.containerCount)
+              const qSubText = (showArrivalMeta && arrivalMeta?.containerCount)
                 ? "Declared count upon arrival"
                 : quantitySubText;
 
-              const gTitle = isFullySold ? "Gross Quantity" : "Arrival Transport";
+              const gTitle = showArrivalMeta ? "Arrival Transport" : "Gross Quantity";
               let gValueText = "";
               let gSubText = "";
-              if (!isFullySold) {
+              if (showArrivalMeta) {
                 if (arrivalMeta?.transportType) {
                   gValueText = `${arrivalMeta.transportType}${arrivalMeta.transportIdentifier ? ` (${arrivalMeta.transportIdentifier})` : ''}`;
                 } else {
@@ -181,26 +187,26 @@ export default async function IntakeDetailsPage({ params: paramsPromise, searchP
                 } else {
                   gValueText = `${Number(intake.grossWeight).toLocaleString()} ${getUnitLabel(intake.unit)}`;
                 }
-                gSubText = "Final weighed quantity";
+                gSubText = isFullySold ? "Final weighed quantity" : "Total gross weight";
               }
 
-              const rTitle = isFullySold 
-                ? "Remaining Quantity" 
-                : (intake.status === "PENDING" ? "Weighment Status" : "Remaining Weight");
+              const rTitle = showArrivalMeta 
+                ? (intake.status === "PENDING" ? "Weighment Status" : "Remaining Weight")
+                : "Remaining Quantity";
               
               let rValueText = "";
               let rSubText = "";
               let rColorClass = "text-purple-700 dark:text-purple-400";
               let rBgClass = "bg-purple-500/5 border border-purple-500/10";
               
-              if (!isFullySold && intake.status === "PENDING") {
+              if (showArrivalMeta && intake.status === "PENDING") {
                 rValueText = "Pending";
                 rSubText = "Weighment has not occurred";
                 rColorClass = "text-amber-600 dark:text-amber-400";
                 rBgClass = "bg-amber-500/5 border border-amber-500/10";
               } else {
                 rValueText = `${Number(intake.remainingWeight || 0).toLocaleString()} ${getUnitLabel(intake.unit)}`;
-                rSubText = "Remaining unsold quantity";
+                rSubText = isFullySold ? "Sold out" : "Remaining unsold quantity";
               }
 
               return (

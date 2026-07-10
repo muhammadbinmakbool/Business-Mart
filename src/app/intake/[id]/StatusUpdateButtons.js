@@ -708,7 +708,7 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
                     {intake?.unit === "BAG" ? (
                       <>
                         {netWeightKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        <span className="text-xs font-normal uppercase ml-1 italic">KG</span>
+                        <span className="text-xs font-normal uppercase ml-1 italic">{getUnitLabel(intake?.unit)}</span>
                       </>
                     ) : (
                       <>
