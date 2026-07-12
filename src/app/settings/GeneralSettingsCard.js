@@ -7,7 +7,7 @@ import { useSettings } from "@/components/layout/SettingsContext";
 import { getGeneralSettingsAction, saveGeneralSettingsAction, uploadLogoAction } from "@/modules/settings/controllers/settingsActions";
 
 export default function GeneralSettingsCard() {
-  const { updateSettings } = useSettings();
+  const { settings: globalSettings, updateSettings } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -32,21 +32,20 @@ export default function GeneralSettingsCard() {
   const [logoPreview, setLogoPreview] = useState("");
 
   useEffect(() => {
-    async function loadSettings() {
-      const res = await getGeneralSettingsAction();
-      if (res.success) {
-        setSettings(res.settings);
-        setInitialSettings(res.settings);
-        if (res.settings.logoPath) {
-          setLogoPreview(res.settings.logoPath);
-        }
-      } else {
-        toast.error("Failed to load general settings.");
-      }
-      setMounted(true);
-    }
-    loadSettings();
+    setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (globalSettings && !isEditing) {
+      setSettings(globalSettings);
+      setInitialSettings(globalSettings);
+      if (globalSettings.logoPath) {
+        setLogoPreview(globalSettings.logoPath);
+      } else {
+        setLogoPreview("");
+      }
+    }
+  }, [globalSettings, isEditing]);
 
   const handleLogoChange = (e) => {
     const file = e.target.files?.[0];

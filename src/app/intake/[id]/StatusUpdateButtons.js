@@ -268,8 +268,13 @@ export default function StatusUpdateButtons({ intakeId, currentStatus, intake, b
 
   async function handleSellSubmit(e) {
     e.preventDefault();
-    const isWeightRequired = (intake?.status === "SOLD" || intake?.status === "PARTIAL") && (!isPartialSale || completingSalesTrackId !== null);
-    if (isWeightRequired && !isCurrentWeightRecorded && (!grossWeightInput || Number(grossWeightInput) <= 0)) {
+    // Weight is only mandatory when completing a specific pending weighment (a salesTrackId target
+    // was provided), OR when selling in full (non-partial) on an already SOLD/PARTIAL intake that
+    // has no recorded weight yet. A new partial sale that intentionally defers weighment ("Save &
+    // Complete Later") must be allowed through without a gross weight.
+    const isCompletingWeighment = completingSalesTrackId !== null ||
+      ((intake?.status === "SOLD" || intake?.status === "PARTIAL") && !isPartialSale);
+    if (isCompletingWeighment && !isCurrentWeightRecorded && (!grossWeightInput || Number(grossWeightInput) <= 0)) {
       showToast.error("Please enter a valid gross weight to complete weighment.");
       return;
     }

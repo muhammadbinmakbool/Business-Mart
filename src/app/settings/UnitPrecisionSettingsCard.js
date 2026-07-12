@@ -8,7 +8,7 @@ import { getGeneralSettingsAction, saveGeneralSettingsAction } from "@/modules/s
 import { formatUnitDisplay } from "@/lib/formatters/unitFormatter";
 
 export default function UnitPrecisionSettingsCard() {
-  const { updateSettings } = useSettings();
+  const { settings: globalSettings, updateSettings } = useSettings();
   const [mounted, setMounted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [initialSettings, setInitialSettings] = useState(null);
@@ -18,19 +18,16 @@ export default function UnitPrecisionSettingsCard() {
   const [unitLabelFormat, setUnitLabelFormat] = useState("short");
 
   useEffect(() => {
-    async function loadSettings() {
-      const res = await getGeneralSettingsAction();
-      if (res.success) {
-        setInitialSettings(res.settings);
-        setUnitDisplayPrecision(res.settings.unitDisplayPrecision !== undefined ? Number(res.settings.unitDisplayPrecision) : 2);
-        setUnitLabelFormat(res.settings.unitLabelFormat || "short");
-      } else {
-        toast.error("Failed to load unit display settings.");
-      }
-      setMounted(true);
-    }
-    loadSettings();
+    setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (globalSettings) {
+      setInitialSettings(globalSettings);
+      setUnitDisplayPrecision(globalSettings.unitDisplayPrecision !== undefined ? Number(globalSettings.unitDisplayPrecision) : 2);
+      setUnitLabelFormat(globalSettings.unitLabelFormat || "short");
+    }
+  }, [globalSettings]);
 
   const handleCancel = () => {
     if (initialSettings) {

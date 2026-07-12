@@ -324,6 +324,7 @@ export async function saveGeneralSettingsAction(settings) {
       create: { key: "general_settings", value: settingsValue }
     });
 
+    revalidatePath("/", "layout");
     revalidatePath("/settings");
     return { success: true };
   } catch (error) {

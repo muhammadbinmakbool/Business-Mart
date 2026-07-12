@@ -768,13 +768,15 @@ export class IntakeService {
         throw new Error("Cannot sell a cancelled intake");
       }
       const remainingAmt = intake.remainingWeight !== null ? Number(intake.remainingWeight) : Number(intake.grossWeight || 0);
+      // isCurrentWeightRecorded: the intake already has a confirmed gross weight on record.
+      // Do NOT include remainingAmt > 0 here — after a full partial sale, remaining is 0
+      // but the weight is still recorded and must be accumulated, not overwritten.
       const isCurrentWeightRecorded = !!(
         intake.isWeightRecorded &&
-        Number(intake.grossWeight || 0) > 0 &&
-        remainingAmt > 0
+        Number(intake.grossWeight || 0) > 0
       );
 
-      if (intake.status === "SOLD" && isCurrentWeightRecorded) {
+      if (intake.status === "SOLD" && isCurrentWeightRecorded && remainingAmt <= 0) {
         throw new Error("This intake is already fully sold");
       }
 
@@ -892,7 +894,17 @@ export class IntakeService {
       let newStatus = "SOLD";
 
       if (isWeightRecorded) {
-        soldQty = isPartial ? Number(data.soldQuantity) : defaultSellWeight;
+        if (isPartial) {
+          // When weight is being entered RIGHT NOW (no prior gross weight on the intake),
+          // the entered portion's net weight IS the sold quantity — data.soldQuantity is absent.
+          if (isWeightRecordedNow && !(Number(data.soldQuantity) > 0)) {
+            soldQty = portionNetInIntakeUnit;
+          } else {
+            soldQty = Number(data.soldQuantity);
+          }
+        } else {
+          soldQty = defaultSellWeight;
+        }
 
         if (isNaN(soldQty) || soldQty <= 0) {
           throw new Error("Sold quantity must be greater than zero");
@@ -953,9 +965,10 @@ export class IntakeService {
           userId: ownership.userId,
           businessId: ownership.businessId,
           ...(isWeightRecordedNow ? {
-            grossWeight: isCurrentWeightRecorded ? (Number(intake.grossWeight || 0) + portionGrossInIntakeUnit) : portionGrossInIntakeUnit,
-            baseQuantity: isCurrentWeightRecorded ? (Number(intake.baseQuantity || 0) + baseQuantity) : baseQuantity,
-            bagCount: isCurrentWeightRecorded ? ((intake.bagCount || 0) + (bagCountVal || 0)) : bagCountVal,
+            // Always accumulate onto existing recorded weight; never overwrite.
+            grossWeight: Number(intake.grossWeight || 0) + portionGrossInIntakeUnit,
+            baseQuantity: Number(intake.baseQuantity || 0) + baseQuantity,
+            bagCount: (intake.bagCount || 0) + (bagCountVal || 0),
             isWeightRecorded: true,
             weightCompletedAt: new Date()
           } : {})

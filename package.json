@@ -1,6 +1,6 @@
 {
   "name": "business-mart",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "private": true,
   "main": "electron/main.prod.js",
   "scripts": {
